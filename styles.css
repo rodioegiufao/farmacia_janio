@@ -1,0 +1,903 @@
+/* 🛑 CORREÇÃO DA TELA MINÚSCULA */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%; /* Garante 100% da altura da viewport */
+    overflow: hidden; /* Remove barras de rolagem desnecessárias */
+    background-color: #000000;
+}
+
+
+#meuCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+    
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ---------------------------------------------------- */
+/* Estilos do Cubo de Navegação (NavCube) */
+/* ---------------------------------------------------- */
+
+#myNavCubeCanvas {
+    position: fixed; /* Fixa o elemento na tela, independente da rolagem */
+    width: 150px; /* Define um tamanho para o cubo */
+    height: 150px;
+    bottom: 50px; /* 20px de distância da borda inferior */
+    right: 20px; /* 20px de distância da borda direita */
+    /* Z-index alto para ficar acima de todos os elementos, incluindo a toolbar */
+    z-index: 200000; 
+}
+
+/* ---------------------------------------------------- */
+/* Estilos da Árvore de Estrutura (TreeView) */
+/* ---------------------------------------------------- */
+
+#treeViewContainer {
+    position: fixed;
+    top: 80px; /* Abaixo da toolbar */
+    left: 20px; /* Alinhado com a toolbar */
+    width: 320px; /* Largura padrão um pouco maior */
+    max-width: 90vw; /* Garante que fique bom em telas pequenas */
+    height: calc(100% - 100px); /* Altura do resto da tela */
+    background-color: rgba(0, 0, 0, 0.9); /* Fundo quase preto sólido */
+    color: #f0f0f0; /* Texto claro */
+    padding: 5px;
+    overflow-y: auto; /* Adiciona scroll se o conteúdo for grande */
+    z-index: 100000;
+    border-radius: 5px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    display: none; /* Inicia ESCONDIDO */
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+}
+
+/* 🛑 FORÇA A REMOÇÃO DE TODOS OS MARCADORES DE LISTA (PONTOS) */
+#treeViewContainer ul,
+#treeViewContainer li {
+    list-style: none !important; 
+}
+
+/* Estilo da Lista Principal (xeokit-tree-view) */
+#treeViewContainer .xeokit-tree-view {
+    padding: 0;
+    margin: 0;
+}
+
+/* Esconde as checkboxes no TreeView */
+#treeViewContainer .xeokit-tree-view input[type="checkbox"] {
+    display: none;
+}
+
+/* Estilo de cada Item/Nó da Árvore */
+#treeViewContainer .xeokit-tree-view-item {
+    cursor: pointer;
+    line-height: 1.4;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05); /* Linha divisória sutil */
+    user-select: none;
+    display: flex; /* Para alinhar o conteúdo */
+    align-items: center;
+    padding-left: 5px;
+}
+
+/* Efeito de HOVER/Mouse sobre o item */
+#treeViewContainer .xeokit-tree-view-item:hover {
+    background-color: rgba(255, 255, 255, 0.1); /* Fundo claro ao passar o mouse */
+    color: #007bff; /* Texto azul para destaque */
+}
+
+/* Estilo para nós com filhos */
+#treeViewContainer .xeokit-tree-view-with-children {
+    font-weight: bold;
+}
+
+/* ESTILOS DOS ÍCONES DE EXPANSÃO */
+#treeViewContainer .xeokit-tree-view-item-toggle {
+    display: inline-block;
+    width: 15px; /* Largura para o ícone */
+    height: 15px;
+    text-align: center;
+    
+    /* Move o texto original (+/-) para fora da área visível */
+    text-indent: -9999px !important; 
+    
+    font-size: 1px;
+    line-height: 1;
+    margin-right: 5px;
+    
+    color: transparent !important;
+    background-color: transparent !important;
+    
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+/* Substitui o conteúdo visível por setas Unicode */
+#treeViewContainer .xeokit-tree-view-item-toggle::before {
+    content: '▶'; /* Seta para a direita (colapsado) */
+    
+    /* Reposiciona a seta na área central do 15px x 15px */
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    font-size: 14px !important; /* Tamanho da fonte visível para a seta */
+    color: #4CAF50 !important; /* Cor verde para os toggles */
+    text-indent: 0 !important; /* Garante que a seta NÃO saia da tela */
+}
+
+/* Altera a seta quando o item está expandido */
+#treeViewContainer .xeokit-tree-view-item-expanded > .xeokit-tree-view-item-toggle::before {
+    content: '▼'; /* Seta para baixo (expandido) */
+}
+
+/* Estilo para o texto do item */
+#treeViewContainer .xeokit-tree-view-item-title {
+    flex-grow: 1;
+    margin-right: 5px;
+}
+
+/* Estilo para sub-listas (padding para identação) */
+#treeViewContainer .xeokit-tree-view-children {
+    padding: 0;
+    margin: 0;
+    padding-left: 15px; 
+}
+
+/* ---------------------------------------------------- */
+/* Estilos da Barra de Ferramentas e Botões */
+/* ---------------------------------------------------- */
+
+#toolbar {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 100001; /* Garante que fique acima de tudo */
+    display: flex;
+    gap: 10px;
+}
+
+#mobileToolbarToggle {
+    display: none;
+}
+
+.tool-button {
+    /* Ajustado para centralizar ícone e texto */
+    display: flex;
+    flex-direction: column; /* Coloca o ícone acima do texto */
+    align-items: center;
+    justify-content: center;
+    
+    min-width: 80px; /* Garante largura mínima para todos */
+    padding: 8px 10px;
+    background-color: rgba(51, 51, 51, 0.8);
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.2s;
+    font-size: 0.8em; /* Fonte menor para o texto */
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+.tool-button .tool-icon {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 6px;
+}
+
+.tool-button:hover {
+    background-color: rgba(80, 80, 80, 0.9);
+}
+
+.tool-button.active {
+    background-color: #007bff; /* Azul para o ativo */
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+    
+.search-bar {
+    position: fixed;
+    top: 110px;
+    left: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 12px;
+    background: rgba(33, 33, 33, 0.85);
+    border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(6px);
+    z-index: 100001;
+    max-width: 520px;
+}
+
+.search-bar[hidden] {
+    display: none !important;
+}
+
+.search-bar input {
+    flex: 1 1 200px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.6);
+    color: #f1f1f1;
+}
+
+.search-bar button {
+    flex: 0 0 auto;
+    padding: 9px 14px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #2d8cff, #007bff);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(0, 123, 255, 0.35);
+}
+
+.search-bar button:hover {
+    background: linear-gradient(135deg, #3e97ff, #0a86ff);
+}
+
+.search-feedback {
+    flex-basis: 100%;
+    font-size: 0.9em;
+    color: #c8e1ff;
+    min-height: 1.2em;
+}
+
+.search-feedback[data-state="error"] {
+    color: #ffb3b3;
+}
+
+.search-feedback[data-state="success"] {
+    color: #c2fbd7;
+}
+
+/* ---------------------------------------------------- */
+/* Controle de alternância de modo (Desktop x Mobile) */
+/* ---------------------------------------------------- */
+
+#modeSwitcher {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 100002;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 8px 12px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.mode-button {
+    border: none;
+    padding: 10px 12px;
+    background: #2e2e2e;
+    color: #f0f0f0;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.mode-button:hover {
+    background: #444;
+}
+
+.mode-button.active {
+    background: #007bff;
+    box-shadow: 0 0 6px rgba(0, 123, 255, 0.6);
+}
+
+/* ---------------------------------------------------- */
+/* Estilos do Painel de Propriedades (propertyPanel) */
+/* ---------------------------------------------------- */
+
+#propertyPanel {
+    /* Aparência mais próxima do menu de contexto do navegador */
+    background: #202020 !important; /* Cinza bem escuro (fundo do menu nativo) */
+    color: #f0f0f0 !important; /* Texto claro */
+    border-radius: 4px !important;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.7) !important; /* Sombra mais forte */
+    padding: 15px;
+}
+
+#propertyPanel h3 {
+    font-size: 16px;
+    border-bottom: 1px solid #4CAF50;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+    color: #f0f0f0; /* Cor do título mais suave */
+}
+
+/* Estilo para as strong tags dentro do painel */
+#propertyPanel strong {
+    color: #4CAF50; /* Cor verde para destacar chaves importantes */
+}
+
+/* Estilo da Tabela de Propriedades */
+#propertyPanel table {
+    border-collapse: collapse; /* Remove espaçamento entre células */
+    width: 100%;
+}
+
+#propertyPanel td {
+    padding: 2px 0;
+    /* Linhas pontilhadas/espaços de valor */
+}
+
+/* Linha divisória dos Psets */
+#propertyPanel > div {
+    border-top: 1px solid #333 !important; /* Divisor mais escuro e sutil */
+    padding-top: 8px !important;
+    margin-top: 12px !important;
+}
+
+/* ---------------------------------------------------- */
+/* MELHORIA: Estilos do Menu de Contexto (ContextMenu) do xeokit */
+/* ---------------------------------------------------- */
+
+/* 1. Container Principal (Visual Nativo Escuro) */
+.xeokit-context-menu {
+    background: #333 !important; 
+    border: 1px solid #444 !important; 
+    border-radius: 4px !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6) !important;
+    z-index: 300000 !important; 
+    
+    /* 🛑 REGRAS PRINCIPAIS PARA REMOVER PONTOS DE LISTA */
+    list-style: none !important;
+    padding: 5px 0 !important; /* Padding vertical no container principal */
+    margin: 0 !important;
+}
+
+/* 2. Item Individual do Menu */
+.xeokit-context-menu-item {
+    padding: 8px 20px 8px 15px !important; 
+    color: #f0f0f0 !important; 
+    cursor: pointer !important;
+    font-family: Arial, sans-serif !important;
+    font-size: 14px !important;
+    transition: background-color 0.1s;
+    
+    /* 🛑 GARANTE A REMOÇÃO DOS PONTOS DE LISTA no item */
+    list-style: none !important;
+}
+
+/* 3. Efeito de hover no item */
+.xeokit-context-menu-item:hover {
+    background-color: #007bff !important; 
+    color: white !important;
+}
+
+/* 4. Estilo para Itens Desabilitados */
+.xeokit-context-menu-item.disabled {
+    color: #888 !important;
+    cursor: default !important;
+    background-color: transparent !important;
+}
+
+/* 5. 🛑 NOVO/REFORÇADO: Estilo para a SEÇÃO (Aplica a barra divisória) */
+.xeokit-context-menu-section {
+    
+    /* Garante a remoção de qualquer marcador de lista */
+    list-style: none !important;
+    
+    /* Aplica a barra divisória */
+    border-top: 1px solid #555 !important;
+    
+    /* Espaçamento para a barra ficar visível e separada */
+    margin: 5px 0 0 0 !important; /* Margem apenas acima da barra */
+    padding: 5px 0 0 0 !important; /* Padding apenas acima da barra */
+}
+
+/* 6. O primeiro bloco de itens não precisa de barra divisória */
+.xeokit-context-menu-section:first-child {
+    border-top: none !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+#closePropertyPanel:hover {
+    color: #ff6b6b !important;
+    transform: scale(1.1);
+}
+
+/* ---------------------------------------------------- */
+/* Painel de ajustes de Scalable Ambient Obscurance */
+/* ---------------------------------------------------- */
+
+#helpPanel {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    width: 320px;
+    max-width: calc(100% - 40px);
+    background: rgba(0, 0, 0, 0.9);
+    color: #f7f7f7;
+    padding: 16px;
+    border-radius: 10px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+    z-index: 300000;
+    font-family: Arial, sans-serif;
+    backdrop-filter: blur(2px);
+}
+
+.help-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.help-panel-title {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.help-panel-subtitle {
+    color: #cfd8dc;
+    font-size: 12px;
+}
+
+#closeHelpPanel {
+    background: transparent;
+    border: none;
+    color: #f0f0f0;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+#closeHelpPanel:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #ff6b6b;
+}
+
+.help-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+    font-size: 13px;
+}
+
+.help-section h4 {
+    margin: 0;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #cfd8dc;
+}
+
+.help-list {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 6px;
+}
+
+.help-list li {
+    line-height: 1.4;
+}
+
+.help-list kbd {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 12px;
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+.help-note {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: #cfd8dc;
+}
+
+/* ---------------------------------------------------- */
+/* Painel de ajuste de origem/rotação dos modelos XKT */
+/* ---------------------------------------------------- */
+
+#transformPanel {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    width: 340px;
+    max-width: calc(100% - 40px);
+    background: rgba(0, 0, 0, 0.9);
+    color: #f7f7f7;
+    padding: 14px;
+    border-radius: 10px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+    z-index: 300000;
+    font-family: Arial, sans-serif;
+    backdrop-filter: blur(2px);
+}
+
+.transform-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.transform-panel-title {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.transform-panel-subtitle {
+    color: #cfd8dc;
+    font-size: 12px;
+}
+
+#transformPanel[hidden] {
+    display: none;
+}
+
+#closeTransformPanel {
+    background: transparent;
+    border: none;
+    color: #f0f0f0;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+#closeTransformPanel:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #ff6b6b;
+}
+
+.transform-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+#transformModelSelect {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #1d1d1d;
+    color: #f7f7f7;
+    margin-bottom: 10px;
+}
+
+.transform-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.transform-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.transform-field input {
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #1d1d1d;
+    color: #f7f7f7;
+}
+
+.transform-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-bottom: 8px;
+}
+
+.transform-actions button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    background-color: #007bff;
+    color: #fff;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.transform-actions button:last-child {
+    background-color: #444;
+}
+
+.transform-actions button:hover {
+    transform: translateY(-1px);
+    background-color: #0a84ff;
+}
+
+.transform-actions button:last-child:hover {
+    background-color: #5a5a5a;
+}
+
+.transform-hint {
+    margin: 0;
+    font-size: 12px;
+    color: #cfd8dc;
+    line-height: 1.4;
+}
+
+.transform-hint {
+    margin: 0;
+    font-size: 12px;
+    color: #cfd8dc;
+    line-height: 1.4;
+}
+
+#creditNote {
+    position: fixed;
+    bottom: 90px;
+    left: 20px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #f0f0f0;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);    z-index: 100002;
+    backdrop-filter: blur(2px);
+}
+
+/* ---------------------------------------------------- */
+/* Painel de verificação de colisões entre modelos XKT  */
+/* ---------------------------------------------------- */
+
+#collisionPanel {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    width: 360px;
+    max-width: calc(100% - 40px);
+    background: rgba(0, 0, 0, 0.92);
+    color: #f7f7f7;
+    padding: 14px;
+    border-radius: 10px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+    z-index: 300000;
+    font-family: Arial, sans-serif;
+    backdrop-filter: blur(2px);
+}
+
+#collisionPanel[hidden] {
+    display: none;
+}
+
+.collision-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.collision-panel-title {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.collision-panel-subtitle {
+    color: #cfd8dc;
+    font-size: 12px;
+}
+
+#closeCollisionPanel {
+    background: transparent;
+    border: none;
+    color: #f0f0f0;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+#closeCollisionPanel:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #ff6b6b;
+}
+
+.collision-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+#collisionModelA,
+#collisionModelB,
+#collisionRadius {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #1d1d1d;
+    color: #f7f7f7;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+}
+
+.collision-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+#runCollisionCheck {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    background-color: #00a86b;
+    color: #fff;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+#runCollisionCheck:hover {
+    background-color: #00c47a;
+    transform: translateY(-1px);
+}
+
+#downloadCollisionPdf {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    background-color: #1f2937;
+    color: #fff;
+    transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+    width: 100%;
+}
+
+#downloadCollisionPdf:not(:disabled):hover {
+    background-color: #111827;
+    transform: translateY(-1px);
+}
+
+#downloadCollisionPdf:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+.collision-summary {
+    font-size: 12px;
+    color: #cfd8dc;
+    margin: 0 0 10px 0;
+}
+
+.collision-results {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 260px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.collision-result-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.collision-result-title {
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.collision-result-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.collision-focus-btn {
+    padding: 6px 10px;
+    background: #0a84ff;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.collision-focus-btn:hover {
+    background: #1b95ff;
+    transform: translateY(-1px);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Anotações                                                                */
+/* -------------------------------------------------------------------------- */
+
+.annotation-marker {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #0057ff;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 8px rgba(0, 87, 255, 0.45);
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    z-index: 150000;
+}
+
+.annotation-label {
+    position: absolute;
+    z-index: 150000;
+    background: rgba(0, 0, 0, 0.8);
+    color: #ffffff;
+    padding: 8px 10px;
+    border-radius: 6px;
+    max-width: 240px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(4px);
+}
+
+.annotation-title {
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+
+.annotation-desc {
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+

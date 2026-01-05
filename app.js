@@ -173,15 +173,15 @@ const loadedModels = new Map();
 const originalTransforms = new Map();
 const DEFAULT_MODEL_TRANSFORMS = {
     //IFC_ILUX: { position: [-14.08, 0, 0] },
-    IFC_EST: { position: [2.2, 0.1, 2.6] },
+    IFC_EST: { position: [2.22, 0.1, 2.61] },
     //IFC_LOG_TEF: { position: [-14.08, 0, 0] },
     //IFC_ECX: { position: [-14.08, 0, 0] },
-    IFC_SAN: { position: [14, 0, 0] },
+    IFC_SAN: { position: [14.09, 0, 0] },
     //IFC_INC: { position: [-1, 0, -14.1] },
     //IFC_HID: { position: [-1, 0, -14.1] },
-    IFC_PLU: { position: [14, 0, 0] },
+    IFC_PLU: { position: [14.09, 0, 0] },
     //IFC_GLP: { position: [13.03, 0, -14.05] },
-    //IFC_ARQ: { position: [13.03, 0, -14.05], rotation: [0, 90, 0]  },
+    IFC_ARQ: { position: [14.09, 0, 0]},
     //IFC_EST_SUB: { position: [-41.57, 0.4, 15.5], rotation: [0, 90, 0]  },
     //IFC_CLI_DUT: { position: [13, 0, 0], rotation: [0, 90, 0]  },
     //IFC_EXA: { position: [13.03, 0, -14.05] },
@@ -2160,6 +2160,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

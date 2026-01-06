@@ -793,9 +793,9 @@ const POLICLINICA_MODEL_TRANSFORMS = {
     IFC_ELE_T_220: { position: [-78, 0, 40] },
     IFC_PLU: { position: [-78, 0, 40] },
     IFC_HID: { position: [-78, 0, 40] , rotation: [0, -45, 0] },
-    IFC_ELE_S_220: { position: [-78, 0, 40] },
+    IFC_ELE_S_220: { position: [-78, 0, 40], rotation: [0, -45, 0]  },
     IFC_ITM: { position: [-78, 0, 40] },
-    IFC_ELE_A_220: { position: [-78, 0, 40] },
+    IFC_ELE_A_220: { position: [-78, 0, 40] , rotation: [0, -45, 0] },
     IFC_SAN: { position: [-78, 0, 40] },
 };
 
@@ -2298,6 +2298,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

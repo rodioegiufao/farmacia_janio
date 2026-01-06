@@ -723,6 +723,28 @@ const FARMACIA_MODELS = [
     { id: "IFC_ALI", src: "assets/modelo-21.xkt" },
 ];
 
+const defaultModels = [
+    { id: "IFC_LOG_TEF", src: "lacen/meu_modelo.xkt" },
+    { id: "IFC_ELE", src: "lacen/modelo-02.xkt" },
+    { id: "IFC_SPDA", src: "lacen/modelo-03.xkt" },
+    { id: "IFC_ECX", src: "lacen/modelo-04.xkt" },
+    { id: "IFC_ILUX", src: "lacen/modelo-05.xkt" },
+    { id: "IFC_EST", src: "lacen/modelo-06.xkt" },
+    { id: "IFC_SAN", src: "lacen/modelo-07.xkt" },
+    { id: "IFC_INC", src: "lacen/modelo-08.xkt" },
+    { id: "IFC_HID", src: "lacen/modelo-09.xkt" },
+    { id: "IFC_PLU", src: "lacen/modelo-10.xkt" },
+    { id: "IFC_GLP", src: "lacen/modelo-11.xkt" },
+    //{ id: "IFC_ARQ", src: "lacen/modelo-12.xkt" },
+    { id: "IFC_EST_SUB", src: "lacen/modelo-13.xkt" },
+    { id: "IFC_CLI_DUT", src: "lacen/modelo-14.xkt" },
+    { id: "IFC_EXA", src: "lacen/modelo-15.xkt" },
+    { id: "IFC_CLI", src: "lacen/modelo-16.xkt" },
+    { id: "IFC_EST_CT", src: "lacen/modelo-17.xkt" },
+    { id: "IFC_ALI_220", src: "lacen/modelo-18.xkt" },
+    { id: "IFC_ALI_380", src: "lacen/modelo-19.xkt" },
+];
+
 const IPER_MODEL_TRANSFORMS = {
     IFC_EST: { position: [-8.789, 0.4, 22.48] },
     IFC_SPDA: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },
@@ -752,6 +774,26 @@ const FARMACIA_MODEL_TRANSFORMS = {
     IFC_ARQ: { position: [14.09, 0, 0] },
 };
 
+const DEFAULT_MODEL_TRANSFORMS = {
+    IFC_ILUX: { position: [-14.08, 0, 0] },
+    IFC_EST: { position: [-62.3, 0.4, 35.2] },
+    IFC_LOG_TEF: { position: [-14.08, 0, 0] },
+    IFC_ECX: { position: [-14.08, 0, 0] },
+    IFC_SAN: { position: [-1, 0, -14.1] },
+    IFC_INC: { position: [-1, 0, -14.1] },
+    IFC_HID: { position: [-1, 0, -14.1] },
+    IFC_PLU: { position: [13.03, 0, -14.05] },
+    IFC_GLP: { position: [13.03, 0, -14.05] },
+    //IFC_ARQ: { position: [13.03, 0, -14.05], rotation: [0, 90, 0]  },
+    IFC_EST_SUB: { position: [-41.57, 0.4, 15.5], rotation: [0, 90, 0] },
+    IFC_CLI_DUT: { position: [13, 0, 0], rotation: [0, 90, 0] },
+    IFC_EXA: { position: [13.03, 0, -14.05] },
+    IFC_CLI: { position: [-0.5, 0, -14.05] },
+    IFC_EST_CT: { position: [-54, 0, -5.3] },
+    IFC_ALI_220: { position: [-14.08, 0, 0] },
+    IFC_ALI_380: { position: [-14.08, 0, 0] },
+};
+
 function loadModelGroup(models, transforms) {
     currentModels = models;
     currentModelTransforms = transforms;
@@ -765,6 +807,7 @@ function loadModelGroup(models, transforms) {
 const modelSelectionOverlay = document.getElementById("modelSelection");
 const selectIperModelsButton = document.getElementById("selectIperModels");
 const selectFarmaciaModelsButton = document.getElementById("selectFarmaciaModels");
+const selectLacenModelsButton = document.getElementById("selectLacenModels");
 
 function handleModelSelection(models, transforms) {
     if (modelSelectionOverlay) {
@@ -782,6 +825,12 @@ if (selectIperModelsButton) {
 if (selectFarmaciaModelsButton) {
     selectFarmaciaModelsButton.addEventListener("click", () => {
         handleModelSelection(FARMACIA_MODELS, FARMACIA_MODEL_TRANSFORMS);
+    });
+}
+
+if (selectLacenModelsButton) {
+    selectLacenModelsButton.addEventListener("click", () => {
+        handleModelSelection(defaultModels, DEFAULT_MODEL_TRANSFORMS);
     });
 }
 
@@ -2217,6 +2266,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

@@ -690,25 +690,25 @@ async function loadDefaultModel({ id, src }) {
 }
 
 const IPER_MODELS = [
-    { id: "IFC_LOG_TEF", src: "assets/modelo-02.xkt" },
-    { id: "IFC_ELE", src: "assets/modelo-01.xkt" },
-    { id: "IFC_SPDA", src: "assets/modelo-19.xkt" },
-    { id: "IFC_EST", src: "assets/modelo-05.xkt" },
-    { id: "IFC_SAN", src: "assets/modelo-08.xkt" },
-    { id: "IFC_INC", src: "assets/modelo-09.xkt" },
-    { id: "IFC_HID", src: "assets/modelo-03.xkt" },
-    { id: "IFC_PLU", src: "assets/modelo-07.xkt" },
-    { id: "IFC_CLI", src: "assets/modelo-18.xkt" },
-    { id: "IFC_ALI", src: "assets/modelo-04.xkt" },
-    { id: "IFC_EST_SQD", src: "assets/modelo-10.xkt" },
-    { id: "IFC_EST_SUB", src: "assets/modelo-11.xkt" },
-    { id: "IFC_EST_CT", src: "assets/modelo-12.xkt" },
-    { id: "IFC_EST_MR", src: "assets/modelo-13.xkt" },
-    { id: "IFC_EST_MRC", src: "assets/modelo-14.xkt" },
-    { id: "IFC_FOT", src: "assets/modelo-15.xkt" },
-    { id: "IFC_EMT_ESC", src: "assets/modelo-16.xkt" },
-    { id: "IFC_EMT_COB", src: "assets/modelo-17.xkt" },
-    { id: "IFC_SUB", src: "assets/modelo-20.xkt" },
+    { id: "IFC_LOG_TEF", src: "iper/modelo-02.xkt" },
+    { id: "IFC_ELE", src: "iper/modelo-01.xkt" },
+    { id: "IFC_SPDA", src: "iper/modelo-19.xkt" },
+    { id: "IFC_EST", src: "iper/modelo-05.xkt" },
+    { id: "IFC_SAN", src: "iper/modelo-08.xkt" },
+    { id: "IFC_INC", src: "iper/modelo-09.xkt" },
+    { id: "IFC_HID", src: "iper/modelo-03.xkt" },
+    { id: "IFC_PLU", src: "iper/modelo-07.xkt" },
+    { id: "IFC_CLI", src: "iper/modelo-18.xkt" },
+    { id: "IFC_ALI", src: "iper/modelo-04.xkt" },
+    { id: "IFC_EST_SQD", src: "iper/modelo-10.xkt" },
+    { id: "IFC_EST_SUB", src: "iper/modelo-11.xkt" },
+    { id: "IFC_EST_CT", src: "iper/modelo-12.xkt" },
+    { id: "IFC_EST_MR", src: "iper/modelo-13.xkt" },
+    { id: "IFC_EST_MRC", src: "iper/modelo-14.xkt" },
+    { id: "IFC_FOT", src: "iper/modelo-15.xkt" },
+    { id: "IFC_EMT_ESC", src: "iper/modelo-16.xkt" },
+    { id: "IFC_EMT_COB", src: "iper/modelo-17.xkt" },
+    { id: "IFC_SUB", src: "iper/modelo-20.xkt" },
 ];
 
 const FARMACIA_MODELS = [
@@ -2267,6 +2267,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

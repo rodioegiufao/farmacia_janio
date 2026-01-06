@@ -5,6 +5,18 @@ html, body {
     overflow: hidden;
 }
 
+.model-selection-card {
+    padding: 24px 20px;
+}
+
+.model-selection-actions {
+    flex-direction: column;
+}
+
+.model-selection-actions button {
+    width: 100%;
+}
+
 #toolbar {
     top: 20px;
     right: 20px;

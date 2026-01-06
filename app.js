@@ -728,6 +728,7 @@ const FARMACIA_MODELS = [
 const POLICLINICA_MODELS = [
     { id: "IFC_EST_PP", src: "policlinica/modelo-01.xkt" },
     { id: "IFC_ELE_T", src: "policlinica/modelo-02.xkt" },
+    { id: "IFC_PLU", src: "policlinica/modelo-03.xkt" },
 ];
 
 const defaultModels = [
@@ -2286,4 +2287,5 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 

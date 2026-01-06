@@ -709,6 +709,7 @@ const IPER_MODELS = [
     { id: "IFC_EMT_ESC", src: "iper/modelo-16.xkt" },
     { id: "IFC_EMT_COB", src: "iper/modelo-17.xkt" },
     { id: "IFC_SUB", src: "iper/modelo-20.xkt" },
+    { id: "IFC_ILUX", src: "iper/modelo-21.xkt" },
 ];
 
 const FARMACIA_MODELS = [
@@ -2267,6 +2268,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

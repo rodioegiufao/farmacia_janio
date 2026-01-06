@@ -12,12 +12,22 @@
 <body>
     <div id="modelSelection" class="model-selection" role="dialog" aria-modal="true" aria-labelledby="modelSelectionTitle">
         <div class="model-selection-card">
-            <h1 id="modelSelectionTitle">Selecione o conjunto de modelos</h1>
+            <h1 id="modelSelectionTitle">Selecione o Projeto</h1>
             <p>Escolha qual grupo de arquivos XKT deseja carregar.</p>
             <div class="model-selection-actions">
-                <button id="selectIperModels" type="button">IPER</button>
-                <button id="selectFarmaciaModels" type="button">Farmácia do Jânio</button>
-                <button id="selectLacenModels" type="button">LACEN</button>
+                <div class="model-selection-group">
+                    <span class="model-selection-group-title">Público</span>
+                    <div class="model-selection-buttons">
+                        <button id="selectIperModels" type="button">IPER</button>
+                        <button id="selectLacenModels" type="button">LACEN</button>
+                    </div>
+                </div>
+                <div class="model-selection-group">
+                    <span class="model-selection-group-title">Privado</span>
+                    <div class="model-selection-buttons">
+                        <button id="selectFarmaciaModels" type="button">Farmácia do Jânio</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -319,5 +329,6 @@
     </script>
 </body>
 </html>
+
 
 

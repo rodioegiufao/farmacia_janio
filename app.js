@@ -169,27 +169,10 @@ const xktLoader = new XKTLoaderPlugin(viewer);
 let modelsLoadedCount = 0;
 let expectedModels = 0;
 let defaultModelChecksDone = 0;
+let currentModels = [];
 const loadedModels = new Map();
 const originalTransforms = new Map();
-const DEFAULT_MODEL_TRANSFORMS = {
-    //IFC_ILUX: { position: [-14.08, 0, 0] },
-    IFC_EST: { position: [2.22, 0.1, 2.61] },
-    //IFC_LOG_TEF: { position: [-14.08, 0, 0] },
-    //IFC_ECX: { position: [-14.08, 0, 0] },
-    IFC_SAN: { position: [14.09, 0, 0] },
-    //IFC_INC: { position: [-1, 0, -14.1] },
-    //IFC_HID: { position: [-1, 0, -14.1] },
-    IFC_PLU: { position: [14.09, 0, 0] },
-    //IFC_GLP: { position: [13.03, 0, -14.05] },
-    IFC_ARQ: { position: [14.09, 0, 0]},
-    //IFC_EST_SUB: { position: [-41.57, 0.4, 15.5], rotation: [0, 90, 0]  },
-    //IFC_CLI_DUT: { position: [13, 0, 0], rotation: [0, 90, 0]  },
-    //IFC_EXA: { position: [13.03, 0, -14.05] },
-    //IFC_CLI: { position: [-0.5, 0, -14.05] },
-    //IFC_EST_CT: { position: [-54, 0, -5.3] },
-    //IFC_ALI_220: { position: [-14.08, 0, 0] },
-    //IFC_ALI_380: { position: [-14.08, 0, 0] },
-};
+let currentModelTransforms = {};
 
 const helpPanel = document.getElementById("helpPanel");
 const helpPanelToggleButton = document.getElementById("btnHelp");
@@ -648,7 +631,7 @@ function finalizeInitialSetup() {
 }
 
 function maybeFinalizeInitialization() {
-    if (defaultModelChecksDone === defaultModels.length && modelsLoadedCount >= expectedModels) {
+    if (defaultModelChecksDone === currentModels.length && modelsLoadedCount >= expectedModels) {
         finalizeInitialSetup();
     }
 }
@@ -678,7 +661,7 @@ async function loadDefaultModel({ id, src }) {
         });
 
         model.on("loaded", () => {
-            const transform = DEFAULT_MODEL_TRANSFORMS[id];
+            const transform = currentModelTransforms[id];
 
             if (transform?.position) {
                 model.position = [...transform.position];
@@ -706,27 +689,101 @@ async function loadDefaultModel({ id, src }) {
     }
 }
 
-const defaultModels = [
+const IPER_MODELS = [
+    { id: "IFC_LOG_TEF", src: "assets/modelo-02.xkt" },
+    { id: "IFC_ELE", src: "assets/modelo-01.xkt" },
+    { id: "IFC_SPDA", src: "assets/modelo-19.xkt" },
+    { id: "IFC_EST", src: "assets/modelo-05.xkt" },
+    { id: "IFC_SAN", src: "assets/modelo-08.xkt" },
+    { id: "IFC_INC", src: "assets/modelo-09.xkt" },
+    { id: "IFC_HID", src: "assets/modelo-03.xkt" },
+    { id: "IFC_PLU", src: "assets/modelo-07.xkt" },
+    { id: "IFC_CLI", src: "assets/modelo-18.xkt" },
+    { id: "IFC_ALI", src: "assets/modelo-04.xkt" },
+    { id: "IFC_EST_SQD", src: "assets/modelo-10.xkt" },
+    { id: "IFC_EST_SUB", src: "assets/modelo-11.xkt" },
+    { id: "IFC_EST_CT", src: "assets/modelo-12.xkt" },
+    { id: "IFC_EST_MR", src: "assets/modelo-13.xkt" },
+    { id: "IFC_EST_MRC", src: "assets/modelo-14.xkt" },
+    { id: "IFC_FOT", src: "assets/modelo-15.xkt" },
+    { id: "IFC_EMT_ESC", src: "assets/modelo-16.xkt" },
+    { id: "IFC_EMT_COB", src: "assets/modelo-17.xkt" },
+    { id: "IFC_SUB", src: "assets/modelo-20.xkt" },
+];
+
+const FARMACIA_MODELS = [
     { id: "IFC_LOG_TEF", src: "assets/modelo-25.xkt" },
     { id: "IFC_ELE", src: "assets/modelo-24.xkt" },
-    //{ id: "IFC_SPDA", src: "assets/modelo-03.xkt" },
-    //{ id: "IFC_ECX", src: "assets/modelo-04.xkt" },
     { id: "IFC_ILUX", src: "assets/modelo-22.xkt" },
     { id: "IFC_EST", src: "assets/modelo-26.xkt" },
     { id: "IFC_SAN", src: "assets/modelo-28.xkt" },
-    //{ id: "IFC_INC", src: "assets/modelo-08.xkt" },
-    //{ id: "IFC_HID", src: "assets/modelo-09.xkt" },
     { id: "IFC_PLU", src: "assets/modelo-27.xkt" },
-    //{ id: "IFC_GLP", src: "assets/modelo-11.xkt" },
     { id: "IFC_ARQ", src: "assets/modelo-29.xkt" },
-    //{ id: "IFC_EST_SUB", src: "assets/modelo-13.xkt" },
-    //{ id: "IFC_CLI_DUT", src: "assets/modelo-14.xkt" },
-    //{ id: "IFC_EXA", src: "assets/modelo-15.xkt" },
-    //{ id: "IFC_CLI", src: "assets/modelo-16.xkt" },
     { id: "IFC_FOT", src: "assets/modelo-23.xkt" },
     { id: "IFC_ALI", src: "assets/modelo-21.xkt" },
 ];
-defaultModels.forEach(loadDefaultModel);
+
+const IPER_MODEL_TRANSFORMS = {
+    IFC_EST: { position: [-8.789, 0.4, 22.48] },
+    IFC_SPDA: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },
+    IFC_LOG_TEF: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
+    IFC_ELE: { position: [0.16, 0, -0.19] },
+    IFC_SAN: { position: [0.2, 0, 13.9], rotation: [0, 90, 0] },
+    IFC_SUB: { position: [2.3, 0, 2.54], rotation: [0, 95.863, 0] },
+    IFC_INC: { position: [0.15, 0, -0.15], rotation: [0, 90, 0] },
+    IFC_HID: { position: [0.2, 0, 13.9], rotation: [0, 90, 0] },
+    IFC_PLU: { position: [0.2, 0, 13.9], rotation: [0, 90, 0] },
+    IFC_FOT: { position: [0, 0, 14], rotation: [0, 90, 0] },
+    IFC_CLI: { position: [0.16, 0, 13.9], rotation: [0, 90, 0] },
+    IFC_ALI: { position: [0.15, 0, -0.17] },
+    IFC_EST_SQD: { position: [18.1, 0, -13.92] },
+    IFC_EST_SUB: { position: [27.66, 0, -22.35], rotation: [0, -84, 0] },
+    IFC_EST_CT: { position: [-14.4, 0, -16.27], rotation: [0, 90, 0] },
+    IFC_EST_MR: { position: [35.25, 0.4, 20.2], rotation: [0, 90, 0] },
+    IFC_EST_MRC: { position: [-22.95, -0.65, 28.88] },
+    IFC_EMT_ESC: { position: [0.14, 0.35, -0.15], rotation: [0, 90, 0] },
+    IFC_EMT_COB: { position: [0.14, 0, -0.15], rotation: [0, 90, 0] },
+};
+
+const FARMACIA_MODEL_TRANSFORMS = {
+    IFC_EST: { position: [2.22, 0.1, 2.61] },
+    IFC_SAN: { position: [14.09, 0, 0] },
+    IFC_PLU: { position: [14.09, 0, 0] },
+    IFC_ARQ: { position: [14.09, 0, 0] },
+};
+
+function loadModelGroup(models, transforms) {
+    currentModels = models;
+    currentModelTransforms = transforms;
+    modelsLoadedCount = 0;
+    expectedModels = 0;
+    defaultModelChecksDone = 0;
+
+    currentModels.forEach(loadDefaultModel);
+}
+
+const modelSelectionOverlay = document.getElementById("modelSelection");
+const selectIperModelsButton = document.getElementById("selectIperModels");
+const selectFarmaciaModelsButton = document.getElementById("selectFarmaciaModels");
+
+function handleModelSelection(models, transforms) {
+    if (modelSelectionOverlay) {
+        modelSelectionOverlay.hidden = true;
+    }
+    loadModelGroup(models, transforms);
+}
+
+if (selectIperModelsButton) {
+    selectIperModelsButton.addEventListener("click", () => {
+        handleModelSelection(IPER_MODELS, IPER_MODEL_TRANSFORMS);
+    });
+}
+
+if (selectFarmaciaModelsButton) {
+    selectFarmaciaModelsButton.addEventListener("click", () => {
+        handleModelSelection(FARMACIA_MODELS, FARMACIA_MODEL_TRANSFORMS);
+    });
+}
 
 if (transformModelSelect) {
     transformModelSelect.addEventListener("change", (event) => syncTransformInputs(event.target.value));
@@ -2160,6 +2217,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

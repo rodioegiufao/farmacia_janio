@@ -727,10 +727,13 @@ const FARMACIA_MODELS = [
 
 const POLICLINICA_MODELS = [
     { id: "IFC_EST_PP", src: "policlinica/modelo-01.xkt" },
-    { id: "IFC_ELE_T", src: "policlinica/modelo-02.xkt" },
+    { id: "IFC_ELE_T_220", src: "policlinica/modelo-02.xkt" },
     { id: "IFC_PLU", src: "policlinica/modelo-03.xkt" },
     { id: "IFC_HID", src: "policlinica/modelo-04.xkt" },
     { id: "IFC_SAN", src: "policlinica/modelo-05.xkt" },
+    { id: "IFC_ELE_S_220", src: "policlinica/modelo-06.xkt" },
+    { id: "IFC_ITM", src: "policlinica/modelo-07.xkt" },
+    { id: "IFC_ELE_A_220", src: "policlinica/modelo-06.xkt" },
 ];
 
 const defaultModels = [
@@ -787,9 +790,12 @@ const FARMACIA_MODEL_TRANSFORMS = {
 
 const POLICLINICA_MODEL_TRANSFORMS = {
     IFC_EST_PP: { position: [-80, 0.4, 50] },
-    IFC_ELE_T: { position: [-78, 0, 40] },
+    IFC_ELE_T_220: { position: [-78, 0, 40] },
     IFC_PLU: { position: [-78, 0, 40] },
     IFC_HID: { position: [-78, 0, 40] , rotation: [0, -45, 0] },
+    IFC_ELE_S_220: { position: [-78, 0, 40] },
+    IFC_ITM: { position: [-78, 0, 40] },
+    IFC_ELE_A_220: { position: [-78, 0, 40] },
     IFC_SAN: { position: [-78, 0, 40] },
 };
 
@@ -2292,6 +2298,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

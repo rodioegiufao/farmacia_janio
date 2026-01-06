@@ -10,6 +10,16 @@
     <script type="module" src="https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@latest/dist/xeokit-sdk.min.es.js"></script>
 </head>
 <body>
+    <div id="modelSelection" class="model-selection" role="dialog" aria-modal="true" aria-labelledby="modelSelectionTitle">
+        <div class="model-selection-card">
+            <h1 id="modelSelectionTitle">Selecione o conjunto de modelos</h1>
+            <p>Escolha qual grupo de arquivos XKT deseja carregar.</p>
+            <div class="model-selection-actions">
+                <button id="selectIperModels" type="button">IPER</button>
+                <button id="selectFarmaciaModels" type="button">Farmácia do Jânio</button>
+            </div>
+        </div>
+    </div>
     <canvas id="meuCanvas"></canvas>
 
     <canvas id="myNavCubeCanvas"></canvas>
@@ -308,3 +318,4 @@
     </script>
 </body>
 </html>
+

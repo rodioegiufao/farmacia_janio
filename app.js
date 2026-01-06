@@ -733,7 +733,8 @@ const POLICLINICA_MODELS = [
     { id: "IFC_SAN", src: "policlinica/modelo-05.xkt" },
     { id: "IFC_ELE_S_220", src: "policlinica/modelo-06.xkt" },
     { id: "IFC_ITM", src: "policlinica/modelo-07.xkt" },
-    { id: "IFC_ELE_A_220", src: "policlinica/modelo-06.xkt" },
+    { id: "IFC_ELE_A_220", src: "policlinica/modelo-08.xkt" },
+    { id: "IFC_LOG", src: "policlinica/modelo-09.xkt" },,
 ];
 
 const defaultModels = [
@@ -795,8 +796,9 @@ const POLICLINICA_MODEL_TRANSFORMS = {
     IFC_HID: { position: [-78, 0, 40] , rotation: [0, -45, 0] },
     IFC_ELE_S_220: { position: [-78, 0, 40], rotation: [0, -45, 0]  },
     IFC_ITM: { position: [-78, 0, 40] },
-    IFC_ELE_A_220: { position: [-78, 0, 40] , rotation: [0, -45, 0] },
+    IFC_ELE_A_220: { position: [-78, 0, 40]},
     IFC_SAN: { position: [-78, 0, 40] },
+    IFC_LOG: { position: [-78, 0, 40] },
 };
 
 const DEFAULT_MODEL_TRANSFORMS = {
@@ -2298,6 +2300,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

@@ -725,6 +725,10 @@ const FARMACIA_MODELS = [
     { id: "IFC_CLI", src: "drogaria/modelo-10.xkt" },
 ];
 
+const POLICLINICA_MODELS = [
+    { id: "IFC_EST_PP", src: "policlinica/modelo-01.xkt" },
+];
+
 const defaultModels = [
     { id: "IFC_LOG_TEF", src: "lacen/modelo-01.xkt" },
     { id: "IFC_ELE", src: "lacen/modelo-02.xkt" },
@@ -777,6 +781,8 @@ const FARMACIA_MODEL_TRANSFORMS = {
     IFC_ARQ: { position: [14.09, 0, 0] },
 };
 
+const POLICLINICA_MODEL_TRANSFORMS = {};
+
 const DEFAULT_MODEL_TRANSFORMS = {
     IFC_ILUX: { position: [-14.08, 0, 0] },
     IFC_EST: { position: [-62.3, 0.4, 35.2] },
@@ -809,6 +815,7 @@ function loadModelGroup(models, transforms) {
 
 const modelSelectionOverlay = document.getElementById("modelSelection");
 const selectIperModelsButton = document.getElementById("selectIperModels");
+const selectPoliclinicaModelsButton = document.getElementById("selectPoliclinicaModels");
 const selectFarmaciaModelsButton = document.getElementById("selectFarmaciaModels");
 const selectLacenModelsButton = document.getElementById("selectLacenModels");
 
@@ -822,6 +829,12 @@ function handleModelSelection(models, transforms) {
 if (selectIperModelsButton) {
     selectIperModelsButton.addEventListener("click", () => {
         handleModelSelection(IPER_MODELS, IPER_MODEL_TRANSFORMS);
+    });
+}
+
+if (selectPoliclinicaModelsButton) {
+    selectPoliclinicaModelsButton.addEventListener("click", () => {
+        handleModelSelection(POLICLINICA_MODELS, POLICLINICA_MODEL_TRANSFORMS);
     });
 }
 
@@ -2269,6 +2282,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

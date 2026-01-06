@@ -786,6 +786,7 @@ const FARMACIA_MODEL_TRANSFORMS = {
 const POLICLINICA_MODEL_TRANSFORMS = {
     IFC_EST_PP: { position: [-80, 0.4, 50] },
     IFC_ELE_T: { position: [-78, 0, 39.95] },
+    IFC_PLU: { position: [-78, 0, 40.048] },
 };
 
 const DEFAULT_MODEL_TRANSFORMS = {
@@ -2287,5 +2288,6 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 

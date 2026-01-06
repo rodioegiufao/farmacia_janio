@@ -712,15 +712,16 @@ const IPER_MODELS = [
 ];
 
 const FARMACIA_MODELS = [
-    { id: "IFC_LOG_TEF", src: "assets/modelo-25.xkt" },
-    { id: "IFC_ELE", src: "assets/modelo-24.xkt" },
-    { id: "IFC_ILUX", src: "assets/modelo-22.xkt" },
-    { id: "IFC_EST", src: "assets/modelo-26.xkt" },
-    { id: "IFC_SAN", src: "assets/modelo-28.xkt" },
-    { id: "IFC_PLU", src: "assets/modelo-27.xkt" },
-    { id: "IFC_ARQ", src: "assets/modelo-29.xkt" },
-    { id: "IFC_FOT", src: "assets/modelo-23.xkt" },
-    { id: "IFC_ALI", src: "assets/modelo-21.xkt" },
+    { id: "IFC_LOG_TEF", src: "drogaria/modelo-05.xkt" },
+    { id: "IFC_ELE", src: "drogaria/modelo-04.xkt" },
+    { id: "IFC_ILUX", src: "drogaria/modelo-02.xkt" },
+    { id: "IFC_EST", src: "drogaria/modelo-06.xkt" },
+    { id: "IFC_SAN", src: "drogaria/modelo-08.xkt" },
+    { id: "IFC_PLU", src: "drogaria/modelo-07.xkt" },
+    { id: "IFC_ARQ", src: "drogaria/modelo-09.xkt" },
+    { id: "IFC_FOT", src: "drogaria/modelo-03.xkt" },
+    { id: "IFC_ALI", src: "drogaria/modelo-01.xkt" },
+    { id: "IFC_CLI", src: "drogaria/modelo-10.xkt" },
 ];
 
 const defaultModels = [
@@ -2266,6 +2267,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

@@ -724,7 +724,7 @@ const FARMACIA_MODELS = [
 ];
 
 const defaultModels = [
-    { id: "IFC_LOG_TEF", src: "lacen/meu_modelo.xkt" },
+    { id: "IFC_LOG_TEF", src: "lacen/modelo-01.xkt" },
     { id: "IFC_ELE", src: "lacen/modelo-02.xkt" },
     { id: "IFC_SPDA", src: "lacen/modelo-03.xkt" },
     { id: "IFC_ECX", src: "lacen/modelo-04.xkt" },
@@ -2266,6 +2266,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

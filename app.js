@@ -736,6 +736,7 @@ const POLICLINICA_MODELS = [
     { id: "IFC_ELE_A_220", src: "policlinica/modelo-08.xkt" },
     { id: "IFC_LOG", src: "policlinica/modelo-09.xkt" },
     { id: "IFC_TEF", src: "policlinica/modelo-10.xkt" },
+    { id: "IFC_ALI_220", src: "policlinica/modelo-11.xkt" },
 ];
 
 const defaultModels = [
@@ -2302,6 +2303,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

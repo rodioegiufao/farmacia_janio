@@ -737,6 +737,7 @@ const POLICLINICA_MODELS = [
     { id: "IFC_LOG", src: "policlinica/modelo-09.xkt" },
     { id: "IFC_TEF", src: "policlinica/modelo-10.xkt" },
     { id: "IFC_ALI_220", src: "policlinica/modelo-11.xkt" },
+    { id: "IFC_ALI_380", src: "policlinica/modelo-12.xkt" },
 ];
 
 const defaultModels = [
@@ -803,6 +804,7 @@ const POLICLINICA_MODEL_TRANSFORMS = {
     IFC_LOG: { position: [-78, 0, 40] },
     IFC_TEF: { position: [-78, 0, 40] },
     IFC_ALI_220: { position: [-78, 0, 40] },
+    IFC_ALI_380: { position: [-78, 0, 40] },
 };
 
 const DEFAULT_MODEL_TRANSFORMS = {
@@ -2304,6 +2306,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

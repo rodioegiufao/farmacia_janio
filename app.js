@@ -719,7 +719,7 @@ const FARMACIA_MODELS = [
     { id: "IFC_EST", src: "drogaria/modelo-06.xkt" },
     { id: "IFC_SAN", src: "drogaria/modelo-08.xkt" },
     { id: "IFC_PLU", src: "drogaria/modelo-07.xkt" },
-    { id: "IFC_ARQ", src: "drogaria/modelo-09.xkt" },
+    //{ id: "IFC_ARQ", src: "drogaria/modelo-09.xkt" },
     { id: "IFC_FOT", src: "drogaria/modelo-03.xkt" },
     { id: "IFC_ALI", src: "drogaria/modelo-01.xkt" },
     { id: "IFC_CLI", src: "drogaria/modelo-10.xkt" },
@@ -2308,6 +2308,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

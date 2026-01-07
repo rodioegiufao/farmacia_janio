@@ -723,6 +723,7 @@ const FARMACIA_MODELS = [
     { id: "IFC_FOT", src: "drogaria/modelo-03.xkt" },
     { id: "IFC_ALI", src: "drogaria/modelo-01.xkt" },
     { id: "IFC_CLI", src: "drogaria/modelo-10.xkt" },
+    { id: "IFC_HID", src: "drogaria/modelo-11.xkt" },
 ];
 
 const POLICLINICA_MODELS = [
@@ -791,6 +792,7 @@ const FARMACIA_MODEL_TRANSFORMS = {
     IFC_SAN: { position: [14.09, 0, 0] },
     IFC_PLU: { position: [14.09, 0, 0] },
     IFC_ARQ: { position: [14.09, 0, 0] },
+    IFC_HID: { position: [14.09, 0, 0] },
 };
 
 const POLICLINICA_MODEL_TRANSFORMS = {
@@ -2308,6 +2310,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

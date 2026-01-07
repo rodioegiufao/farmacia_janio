@@ -802,6 +802,7 @@ const POLICLINICA_MODEL_TRANSFORMS = {
     IFC_SAN: { position: [-78, 0, 40] },
     IFC_LOG: { position: [-78, 0, 40] },
     IFC_TEF: { position: [-78, 0, 40] },
+    IFC_ALI_220: { position: [-78, 0, 40] },
 };
 
 const DEFAULT_MODEL_TRANSFORMS = {
@@ -2303,6 +2304,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

@@ -794,6 +794,7 @@ const FARMACIA_MODEL_TRANSFORMS = {
     IFC_ARQ: { position: [14.09, 0, 0] },
     IFC_HID: { position: [14.09, 0, 0] },
     IFC_ELE: { position: [14.09, 0, 0] },
+    IFC_LOG_TEF: { position: [14.09, 0, 0] },
 };
 
 const POLICLINICA_MODEL_TRANSFORMS = {
@@ -2311,6 +2312,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

@@ -793,6 +793,7 @@ const FARMACIA_MODEL_TRANSFORMS = {
     IFC_SAN: { position: [14.09, 0, 0] },
     //IFC_INC: { position: [14.09, 0, 0] },
     //IFC_PLU: { position: [14.09, 0, 0] },
+    IFC_ALI: { position: [14.09, 0, 0] },
     IFC_FOT: { position: [14.09, 0, 0] },
     IFC_ARQ: { position: [14.09, 0, 0] },
     IFC_HID: { position: [14.09, 0, 0] },
@@ -2315,6 +2316,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

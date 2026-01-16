@@ -767,7 +767,7 @@ const defaultModels = [
 
 const IPER_MODEL_TRANSFORMS = {
     IFC_EST: { position: [-8.789, 0.4, 22.48] },
-    IFC_SPDA: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },
+    IFC_SPDA: { position: [0.15, 0, 0], rotation: [0, 90, 0] },
     IFC_LOG_TEF: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
     IFC_ELE: { position: [0.16, 0, -0.19] },
     IFC_SAN: { position: [0.2, 0, 13.9], rotation: [0, 90, 0] },
@@ -2316,6 +2316,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

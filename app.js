@@ -31,6 +31,8 @@ let lastPickedEntity = null; // NOVO: Variável para rastrear a entidade selecio
 let lastSelectedEntity = null; // NOVO: Guarda a entidade selecionada pelo duplo clique
 let lastCollisionResults = [];
 let lastCollisionModelId = null;
+const ACCESS_PASSWORD = "ribeiro2026";
+const ACCESS_STORAGE_KEY = "farmacia_access_granted";
 
 // -----------------------------------------------------------------------------
 // 1. Configuração do Viewer e Redimensionamento (100% da tela)
@@ -118,6 +120,49 @@ function setupHelpPanel() {
         }
     });
 }
+function setupAccessGate() {
+    if (!accessGate || !accessForm || !accessInput) {
+        return;
+    }
+
+    if (sessionStorage.getItem(ACCESS_STORAGE_KEY) === "true") {
+        accessGate.hidden = true;
+        return;
+    }
+
+    accessGate.hidden = false;
+    accessInput.focus();
+
+    accessInput.addEventListener("input", () => {
+        setAccessMessage("");
+    });
+
+    accessForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+
+        const password = accessInput.value.trim();
+
+        if (password === ACCESS_PASSWORD) {
+            sessionStorage.setItem(ACCESS_STORAGE_KEY, "true");
+            accessGate.hidden = true;
+            accessInput.value = "";
+            return;
+        }
+
+        setAccessMessage("Senha incorreta. Tente novamente.", true);
+        accessInput.focus();
+        accessInput.select();
+    });
+}
+
+function setAccessMessage(message, isError = false) {
+    if (!accessMessage) {
+        return;
+    }
+
+    accessMessage.textContent = message;
+    accessMessage.style.color = isError ? "#ff9b9b" : "#b4f5c2";
+}
 function setupTransformPanelControls() {
     if (!transformPanel || !transformPanelToggleButton || !closeTransformPanelButton) {
         return;
@@ -174,9 +219,14 @@ const loadedModels = new Map();
 const originalTransforms = new Map();
 let currentModelTransforms = {};
 
+const accessGate = document.getElementById("accessGate");
+const accessForm = document.getElementById("accessGateForm");
+const accessInput = document.getElementById("accessGatePassword");
+const accessMessage = document.getElementById("accessGateMessage");
 const helpPanel = document.getElementById("helpPanel");
 const helpPanelToggleButton = document.getElementById("btnHelp");
 const closeHelpPanelButton = document.getElementById("closeHelpPanel");
+const treeViewContainer = document.getElementById("treeViewContainer");
 const treeViewContainer = document.getElementById("treeViewContainer");
 const transformPanel = document.getElementById("transformPanel");
 const transformPanelToggleButton = document.getElementById("btnTransformPanel");
@@ -203,6 +253,7 @@ const searchButton = document.getElementById("btnSearchId");
 const searchToggleButton = document.getElementById("btnSearchToggle");
 const searchFeedback = document.getElementById("searchFeedback");
 
+setupAccessGate();
 setupHelpPanel();
 setupTransformPanelControls();
 setupCollisionPanelControls();
@@ -2355,6 +2406,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

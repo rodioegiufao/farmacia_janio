@@ -861,40 +861,66 @@ const PROJECT_CONFIGS = {
     farmacia: { models: FARMACIA_MODELS, transforms: FARMACIA_MODEL_TRANSFORMS },
 };
 
-function handleModelSelection(models, transforms) {
+const PROJECT_ROUTES = {
+    iper: "/iper",
+    lacen: "/lacen",
+    policlinica: "/policlinica",
+    farmacia: "/farmacia",
+};
+
+function updateProjectUrl(projectKey, { replace = false } = {}) {
+    const route = PROJECT_ROUTES[projectKey];
+    if (!route || !window?.history?.pushState) {
+        return;
+    }
+
+    if (window.location.pathname === route) {
+        return;
+    }
+
+    if (replace) {
+        window.history.replaceState({}, "", route);
+        return;
+    }
+
+    window.history.pushState({}, "", route);
+}
+
+function handleModelSelection(models, transforms, projectKey, { replaceUrl = false } = {}) {
     if (modelSelectionOverlay) {
         modelSelectionOverlay.hidden = true;
     }
     loadModelGroup(models, transforms);
+    updateProjectUrl(projectKey, { replace: replaceUrl });
 }
 
 if (selectIperModelsButton) {
     selectIperModelsButton.addEventListener("click", () => {
-        handleModelSelection(IPER_MODELS, IPER_MODEL_TRANSFORMS);
+        handleModelSelection(IPER_MODELS, IPER_MODEL_TRANSFORMS, "iper");
     });
 }
 
 if (selectPoliclinicaModelsButton) {
     selectPoliclinicaModelsButton.addEventListener("click", () => {
-        handleModelSelection(POLICLINICA_MODELS, POLICLINICA_MODEL_TRANSFORMS);
+        handleModelSelection(POLICLINICA_MODELS, POLICLINICA_MODEL_TRANSFORMS, "policlinica");
     });
 }
 
 if (selectFarmaciaModelsButton) {
     selectFarmaciaModelsButton.addEventListener("click", () => {
-        handleModelSelection(FARMACIA_MODELS, FARMACIA_MODEL_TRANSFORMS);
+        handleModelSelection(FARMACIA_MODELS, FARMACIA_MODEL_TRANSFORMS, "farmacia");
     });
 }
 
 if (selectLacenModelsButton) {
     selectLacenModelsButton.addEventListener("click", () => {
-        handleModelSelection(defaultModels, DEFAULT_MODEL_TRANSFORMS);
+        handleModelSelection(defaultModels, DEFAULT_MODEL_TRANSFORMS, "lacen");
     });
 }
 
 if (projectFromDataset && PROJECT_CONFIGS[projectFromDataset]) {
     const { models, transforms } = PROJECT_CONFIGS[projectFromDataset];
-    handleModelSelection(models, transforms);
+    handleModelSelection(models, transforms, projectFromDataset, { replaceUrl: true });
 }
 
 if (transformModelSelect) {
@@ -2329,6 +2355,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

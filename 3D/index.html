@@ -271,10 +271,10 @@
         function applyMode(mode) {
             if (mode !== 'mobile' && mode !== 'desktop') {
                 mode = 'desktop';
-            }            let stylesheet = 'styles.css';
+            }            let stylesheet = '".   /styles.css"';
 
             if (mode === 'mobile') {
-                stylesheet = 'styles-mobile.css';
+                stylesheet = '".   /styles.css"';
             }
             if (modeStylesheet.getAttribute('href') !== stylesheet) {
                 modeStylesheet.setAttribute('href', stylesheet);
@@ -342,6 +342,7 @@
     </script>
 </body>
 </html>
+
 
 
 

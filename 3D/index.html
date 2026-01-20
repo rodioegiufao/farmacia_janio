@@ -244,7 +244,7 @@
     <script type="module" src="/3D/app.js"> </script>
     <script>
         const modeStylesheet = document.getElementById('modeStylesheet');
-        const modeButtons = document.querySelectorAll('#modeSwitcher [modo de dados]');
+        const modeButtons = document.querySelectorAll('#modeSwitcher [data-mode]');
         const toolbar = document.getElementById('toolbar');
         const mobileToolbarToggle = document.getElementById('mobileToolbarToggle');
 
@@ -253,91 +253,92 @@
             closed: '☰ Mais ferramentas'
         };
 
-        função atualizarLabelsMóveis(isOpen) {
+        function updateMobileLabels(isOpen) {
             const label = isOpen ? MOBILE_LABELS.open : MOBILE_LABELS.closed;
             toolbar.dataset.label = label;
-            mobileToolbarToggle.textContent = rótulo;
+            mobileToolbarToggle.textContent = label;
             mobileToolbarToggle.setAttribute('aria-label', label);
             mobileToolbarToggle.setAttribute('title', label);
         }
 
-        função toggleMobileToolbar(forceOpen) {
+        function toggleMobileToolbar(forceOpen) {
             const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !toolbar.classList.contains('open');
-            toolbar.classList.toggle('abrir', shouldOpen);
+            toolbar.classList.toggle('open', shouldOpen);
             toolbar.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
             mobileToolbarToggle.setAttribute('aria-pressed', shouldOpen ? 'true' : 'false');
-            atualizarRótulosMóveis(deveAbrir);
+            updateMobileLabels(shouldOpen);
         }
-        função aplicarModo(modo) {
-            se (modo !== 'mobile' && modo !== 'desktop') {
-                modo = 'desktop';
-            } let stylesheet = '/3D/styles.css';
 
-            se (modo === 'móvel') {
+        function applyMode(mode) {
+            if (mode !== 'mobile' && mode !== 'desktop') {
+                mode = 'desktop';
+            }
+            let stylesheet = '/3D/styles.css';
+
+            if (mode === 'mobile') {
                 stylesheet = '/3D/styles-mobile.css';
             }
             if (modeStylesheet.getAttribute('href') !== stylesheet) {
                 modeStylesheet.setAttribute('href', stylesheet);
             }
             modeButtons.forEach((button) => {
-                botão.classList.toggle('ativo', botão.dataset.mode === modo);
+                button.classList.toggle('active', button.dataset.mode === mode);
             });
 
-            document.body.dataset.mode = modo;
+            document.body.dataset.mode = mode;
 
             const isMobileMode = mode === 'mobile';
             mobileToolbarToggle.hidden = !isMobileMode;
-            alternar barra de ferramentas móvel(false);
-
+            toggleMobileToolbar(false);
 
             localStorage.setItem('preferredMode', mode);
         }
 
         modeButtons.forEach((button) => {
-            botão.addEventListener('click', () => applyMode(button.dataset.mode));
+            button.addEventListener('click', () => applyMode(button.dataset.mode));
         });
 
         mobileToolbarToggle.addEventListener('click', () => toggleMobileToolbar());
 
         toolbar.addEventListener('click', (event) => {
-            se (document.body.dataset.mode !== 'mobile') {
-                retornar;
+            if (document.body.dataset.mode !== 'mobile') {
+                return;
             }
 
             const clickedButton = event.target.closest('.tool-button');
             const isOpen = toolbar.classList.contains('open');
             const isHeaderClick = !clickedButton && event.target === toolbar;
 
-            se (!isOpen && !clickedButton) {
-                evento.prevenirPadrão();
-                evento.pararPropagação();
-                alternar barra de ferramentas móvel(verdadeiro);
-                retornar;
+            if (!isOpen && !clickedButton) {
+                event.preventDefault();
+                event.stopPropagation();
+                toggleMobileToolbar(true);
+                return;
             }
-            se (!isOpen && clickedButton) {
-                alternar barra de ferramentas móvel(verdadeiro);
-                retornar;
+            if (!isOpen && clickedButton) {
+                toggleMobileToolbar(true);
+                return;
             }
 
-            se (isOpen && isHeaderClick) {
-                evento.prevenirPadrão();
-                alternar barra de ferramentas móvel(false);
+            if (isOpen && isHeaderClick) {
+                event.preventDefault();
+                toggleMobileToolbar(false);
             }
         });
-        
+
         document.addEventListener('click', (event) => {
-            se (document.body.dataset.mode !== 'mobile') {
-                retornar;
+            if (document.body.dataset.mode !== 'mobile') {
+                return;
             }
             const isToolbarClick = toolbar.contains(event.target);
             const isToggleClick = mobileToolbarToggle.contains(event.target);
 
             if (toolbar.classList.contains('open') && !isToolbarClick && !isToggleClick) {
-                alternar barra de ferramentas móvel(false);
+                toggleMobileToolbar(false);
             }
         });
 
-        atualizarRótulosMóveis(falso);
+        updateMobileLabels(false);
         applyMode(localStorage.getItem('preferredMode') || 'desktop');
     </script>
 </body>

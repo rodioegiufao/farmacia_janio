@@ -19,7 +19,7 @@
                 <input id="accessGatePassword" type="password" autocomplete="current-password" required />
                 <button type="submit">Entrar</button>
                 <span id="accessGateMessage" class="access-gate-message" aria-live="polite"></span>
-            </form>
+            </formulário>
         </div>
     </div>
     <div id="modelSelection" class="model-selection" role="dialog" aria-modal="true" aria-labelledby="modelSelectionTitle">
@@ -44,12 +44,12 @@
             </div>
         </div>
     </div>
-    <canvas id="meuCanvas"></canvas>
+    <canvas id="myCanvas"></canvas>
 
     <canvas id="myNavCubeCanvas"></canvas>
 
     <div id="toolbar" aria-expanded="false">
-        <button
+        <botão
             id="btnAngle"
             class="tool-button"
             onclick="setMeasurementMode('angle', this)"
@@ -59,7 +59,7 @@
             Ângulo
         </button>
 
-        <button 
+        <botão 
             id="btnDistance" 
             class="tool-button" 
             onclick="setMeasurementMode('distance', this)" 
@@ -69,7 +69,7 @@
             Distância
         </button>
      
-        <button 
+        <botão 
              id="btnToggleTree"
             class="tool-button"
             onclick="toggleTreeView()"
@@ -79,7 +79,7 @@
             Pavimentos
         </button>
 
-        <button
+        <botão
             id="btnSectionPlane"
             class="tool-button"
             onclick="toggleSectionPlane(this)"
@@ -88,7 +88,7 @@
             <span style="font-size: 1.2em;">🔪</span>
             Corte
         </button>
-        <button
+        <botão
             id="btnTransformPanel"
             class="tool-button"
             title="Ajustar origem e rotação do modelo"
@@ -96,7 +96,7 @@
             <span style="font-size: 1.2em;">🧭</span>
             Origem/Rotação
         </button>
-        <button
+        <botão
             id="btnCollisionPanel"
             class="tool-button"
             title="Detectar colisões entre modelos"
@@ -104,17 +104,17 @@
             <span style="font-size: 1.2em;">🧊</span>
             Colisões
         </button>
-        <button
+        <botão
             id="btnSearchToggle"
             class="tool-button"
             title="Mostrar/Esconder busca por ID"
             aria-pressed="false"
         >
             <span style="font-size: 1.2em;">🔍</span>
-            Buscar
+            Procurar
         </button>
-        <button
-            id="btnHelp"
+        <botão
+            id="btnAjuda"
             class="tool-button"
             title="Ajuda e atalhos de teclado"
         >
@@ -152,7 +152,7 @@
                 <li><kbd>6</kbd> — Vista de baixo</li>
                 <li><kbd>Q</kbd> — Girar para a esquerda</li>
                 <li><kbd>E</kbd> — Girar para a direita</li>
-                <li><kbd>W</kbd> — Aumentar zoom</li>
+                <li><kbd>W</kbd> — Aumentar o zoom</li>
                 <li><kbd>S</kbd> — Diminuir zoom</li>
                 <li><kbd>Z</kbd> — Descer</li>
                 <li><kbd>X</kbd> — Subir</li>
@@ -233,7 +233,7 @@
 
         <p class="transform-hint">A translação muda a origem do modelo; a rotação é aplicada em torno dessa origem.</p>
     </div>
-    <div id="modeSwitcher" aria-label="Alternar modo de visualização">
+    <div id="modeSwitcher" aria-label="Alternar modo de exibição">
         <button type="button" class="mode-button active" data-mode="desktop">Versão Computador</button>
         <button type="button" class="mode-button" data-mode="mobile">Versão Celular</button>
     </div>
@@ -244,7 +244,7 @@
     <script type="module" src="./app.js"> </script>
     <script>
         const modeStylesheet = document.getElementById('modeStylesheet');
-        const modeButtons = document.querySelectorAll('#modeSwitcher [data-mode]');
+        const modeButtons = document.querySelectorAll('#modeSwitcher [modo de dados]');
         const toolbar = document.getElementById('toolbar');
         const mobileToolbarToggle = document.getElementById('mobileToolbarToggle');
 
@@ -253,101 +253,92 @@
             closed: '☰ Mais ferramentas'
         };
 
-        function updateMobileLabels(isOpen) {
+        função atualizarLabelsMóveis(isOpen) {
             const label = isOpen ? MOBILE_LABELS.open : MOBILE_LABELS.closed;
             toolbar.dataset.label = label;
-            mobileToolbarToggle.textContent = label;
+            mobileToolbarToggle.textContent = rótulo;
             mobileToolbarToggle.setAttribute('aria-label', label);
             mobileToolbarToggle.setAttribute('title', label);
         }
 
-        function toggleMobileToolbar(forceOpen) {
+        função toggleMobileToolbar(forceOpen) {
             const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !toolbar.classList.contains('open');
-            toolbar.classList.toggle('open', shouldOpen);
+            toolbar.classList.toggle('abrir', shouldOpen);
             toolbar.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
             mobileToolbarToggle.setAttribute('aria-pressed', shouldOpen ? 'true' : 'false');
-            updateMobileLabels(shouldOpen);
+            atualizarRótulosMóveis(deveAbrir);
         }
-        function applyMode(mode) {
-            if (mode !== 'mobile' && mode !== 'desktop') {
-                mode = 'desktop';
-            }            let stylesheet = '".   /styles.css"';
+        função aplicarModo(modo) {
+            se (modo !== 'mobile' && modo !== 'desktop') {
+                modo = 'desktop';
+            } let stylesheet = './styles.css';
 
-            if (mode === 'mobile') {
-                stylesheet = '".   /styles.css"';
+            se (modo === 'móvel') {
+                stylesheet = './styles-mobile.css';
             }
             if (modeStylesheet.getAttribute('href') !== stylesheet) {
                 modeStylesheet.setAttribute('href', stylesheet);
             }
             modeButtons.forEach((button) => {
-                button.classList.toggle('active', button.dataset.mode === mode);
+                botão.classList.toggle('ativo', botão.dataset.mode === modo);
             });
 
-            document.body.dataset.mode = mode;
+            document.body.dataset.mode = modo;
 
             const isMobileMode = mode === 'mobile';
             mobileToolbarToggle.hidden = !isMobileMode;
-            toggleMobileToolbar(false);
+            alternar barra de ferramentas móvel(false);
 
 
             localStorage.setItem('preferredMode', mode);
         }
 
         modeButtons.forEach((button) => {
-            button.addEventListener('click', () => applyMode(button.dataset.mode));
+            botão.addEventListener('click', () => applyMode(button.dataset.mode));
         });
 
         mobileToolbarToggle.addEventListener('click', () => toggleMobileToolbar());
 
         toolbar.addEventListener('click', (event) => {
-            if (document.body.dataset.mode !== 'mobile') {
-                return;
+            se (document.body.dataset.mode !== 'mobile') {
+                retornar;
             }
 
             const clickedButton = event.target.closest('.tool-button');
             const isOpen = toolbar.classList.contains('open');
             const isHeaderClick = !clickedButton && event.target === toolbar;
 
-            if (!isOpen && !clickedButton) {
-                event.preventDefault();
-                event.stopPropagation();
-                toggleMobileToolbar(true);
-                return;
+            se (!isOpen && !clickedButton) {
+                evento.prevenirPadrão();
+                evento.pararPropagação();
+                alternar barra de ferramentas móvel(verdadeiro);
+                retornar;
             }
-            if (!isOpen && clickedButton) {
-                toggleMobileToolbar(true);
-                return;
+            se (!isOpen && clickedButton) {
+                alternar barra de ferramentas móvel(verdadeiro);
+                retornar;
             }
 
-            if (isOpen && isHeaderClick) {
-                event.preventDefault();
-                toggleMobileToolbar(false);
+            se (isOpen && isHeaderClick) {
+                evento.prevenirPadrão();
+                alternar barra de ferramentas móvel(false);
             }
         });
         
         document.addEventListener('click', (event) => {
-            if (document.body.dataset.mode !== 'mobile') {
-                return;
+            se (document.body.dataset.mode !== 'mobile') {
+                retornar;
             }
             const isToolbarClick = toolbar.contains(event.target);
             const isToggleClick = mobileToolbarToggle.contains(event.target);
 
             if (toolbar.classList.contains('open') && !isToolbarClick && !isToggleClick) {
-                toggleMobileToolbar(false);
+                alternar barra de ferramentas móvel(false);
             }
         });
 
-        updateMobileLabels(false);
+        atualizarRótulosMóveis(falso);
         applyMode(localStorage.getItem('preferredMode') || 'desktop');
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-

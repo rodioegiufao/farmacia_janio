@@ -19,6 +19,84 @@ html, body {
     backdrop-filter: blur(2px);
 }
 
+.access-gate {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.78);
+    z-index: 350000;
+    backdrop-filter: blur(3px);
+}
+
+.access-gate-card {
+    background: rgba(18, 18, 18, 0.95);
+    color: #f5f5f5;
+    padding: 32px 28px;
+    border-radius: 12px;
+    width: min(360px, 90vw);
+    text-align: center;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+    font-family: Arial, sans-serif;
+}
+
+.access-gate-card h1 {
+    margin: 0 0 12px;
+    font-size: 1.35rem;
+}
+
+.access-gate-card p {
+    margin: 0 0 20px;
+    color: #d0d0d0;
+}
+
+.access-gate-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.access-gate-label {
+    font-size: 0.9rem;
+    text-align: left;
+    color: #f0f0f0;
+}
+
+.access-gate-form input {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background: #101010;
+    color: #f5f5f5;
+}
+
+.access-gate-form button {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: none;
+    background: #22a06b;
+    color: #fff;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.access-gate-form button:hover {
+    background: #2ac47f;
+    transform: translateY(-1px);
+}
+
+.access-gate-message {
+    min-height: 18px;
+    font-size: 0.85rem;
+    color: #ff9b9b;
+}
+
+.access-gate[hidden] {
+    display: none;
+}
+
 .model-selection-card {
     background: rgba(20, 20, 20, 0.95);
     color: #f5f5f5;
@@ -979,6 +1057,7 @@ html, body {
     font-size: 14px;
     line-height: 1.45;
 }
+
 
 
 

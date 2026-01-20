@@ -239,7 +239,6 @@ const helpPanel = document.getElementById("helpPanel");
 const helpPanelToggleButton = document.getElementById("btnHelp");
 const closeHelpPanelButton = document.getElementById("closeHelpPanel");
 const treeViewContainer = document.getElementById("treeViewContainer");
-const treeViewContainer = document.getElementById("treeViewContainer");
 const transformPanel = document.getElementById("transformPanel");
 const transformPanelToggleButton = document.getElementById("btnTransformPanel");
 const closeTransformPanelButton = document.getElementById("closeTransformPanel");
@@ -2418,6 +2417,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

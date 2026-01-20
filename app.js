@@ -125,12 +125,20 @@ function setupAccessGate() {
         return;
     }
 
+    const modelSelectionOverlay = document.getElementById("modelSelection");
+
     if (sessionStorage.getItem(ACCESS_STORAGE_KEY) === "true") {
         accessGate.hidden = true;
+        if (modelSelectionOverlay) {
+            modelSelectionOverlay.hidden = false;
+        }
         return;
     }
 
     accessGate.hidden = false;
+    if (modelSelectionOverlay) {
+        modelSelectionOverlay.hidden = true;
+    }
     accessInput.focus();
 
     accessInput.addEventListener("input", () => {
@@ -146,6 +154,10 @@ function setupAccessGate() {
             sessionStorage.setItem(ACCESS_STORAGE_KEY, "true");
             accessGate.hidden = true;
             accessInput.value = "";
+            setAccessMessage("");
+            if (modelSelectionOverlay) {
+                modelSelectionOverlay.hidden = false;
+            }
             return;
         }
 
@@ -2406,6 +2418,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

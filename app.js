@@ -852,6 +852,14 @@ const selectIperModelsButton = document.getElementById("selectIperModels");
 const selectPoliclinicaModelsButton = document.getElementById("selectPoliclinicaModels");
 const selectFarmaciaModelsButton = document.getElementById("selectFarmaciaModels");
 const selectLacenModelsButton = document.getElementById("selectLacenModels");
+const projectFromDataset = document.body?.dataset?.project;
+
+const PROJECT_CONFIGS = {
+    iper: { models: IPER_MODELS, transforms: IPER_MODEL_TRANSFORMS },
+    lacen: { models: defaultModels, transforms: DEFAULT_MODEL_TRANSFORMS },
+    policlinica: { models: POLICLINICA_MODELS, transforms: POLICLINICA_MODEL_TRANSFORMS },
+    farmacia: { models: FARMACIA_MODELS, transforms: FARMACIA_MODEL_TRANSFORMS },
+};
 
 function handleModelSelection(models, transforms) {
     if (modelSelectionOverlay) {
@@ -882,6 +890,11 @@ if (selectLacenModelsButton) {
     selectLacenModelsButton.addEventListener("click", () => {
         handleModelSelection(defaultModels, DEFAULT_MODEL_TRANSFORMS);
     });
+}
+
+if (projectFromDataset && PROJECT_CONFIGS[projectFromDataset]) {
+    const { models, transforms } = PROJECT_CONFIGS[projectFromDataset];
+    handleModelSelection(models, transforms);
 }
 
 if (transformModelSelect) {
@@ -2316,6 +2329,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
+
 
 
 

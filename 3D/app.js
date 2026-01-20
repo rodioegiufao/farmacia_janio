@@ -755,7 +755,7 @@ const IPER_MODELS = [
     { id: "IFC_LOG_TEF", src: "/3D/iper/modelo-02.xkt" },
     { id: "IFC_ELE", src: "/3D/iper/modelo-01.xkt" },
     { id: "IFC_SPDA", src: "/3D/iper/modelo-19.xkt" },
-    { id: "IFC_EST", src: "iper/modelo-05.xkt" },
+    { id: "IFC_EST", src: "/3D/iper/modelo-05.xkt" },
     { id: "IFC_SAN", src: "/3D/iper/modelo-08.xkt" },
     { id: "IFC_INC", src: "/3D/iper/modelo-09.xkt" },
     { id: "IFC_HID", src: "/3D/iper/modelo-03.xkt" },

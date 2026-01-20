@@ -19,7 +19,7 @@
                 <input id="accessGatePassword" type="password" autocomplete="current-password" required />
                 <button type="submit">Entrar</button>
                 <span id="accessGateMessage" class="access-gate-message" aria-live="polite"></span>
-            </formulário>
+            </form>
         </div>
     </div>
     <div id="modelSelection" class="model-selection" role="dialog" aria-modal="true" aria-labelledby="modelSelectionTitle">
@@ -49,7 +49,7 @@
     <canvas id="myNavCubeCanvas"></canvas>
 
     <div id="toolbar" aria-expanded="false">
-        <botão
+        <button
             id="btnAngle"
             class="tool-button"
             onclick="setMeasurementMode('angle', this)"
@@ -59,7 +59,7 @@
             Ângulo
         </button>
 
-        <botão 
+        <button
             id="btnDistance" 
             class="tool-button" 
             onclick="setMeasurementMode('distance', this)" 
@@ -69,7 +69,7 @@
             Distância
         </button>
      
-        <botão 
+        <button
              id="btnToggleTree"
             class="tool-button"
             onclick="toggleTreeView()"
@@ -79,7 +79,7 @@
             Pavimentos
         </button>
 
-        <botão
+        <button
             id="btnSectionPlane"
             class="tool-button"
             onclick="toggleSectionPlane(this)"
@@ -88,7 +88,7 @@
             <span style="font-size: 1.2em;">🔪</span>
             Corte
         </button>
-        <botão
+        <button
             id="btnTransformPanel"
             class="tool-button"
             title="Ajustar origem e rotação do modelo"
@@ -96,7 +96,7 @@
             <span style="font-size: 1.2em;">🧭</span>
             Origem/Rotação
         </button>
-        <botão
+        <button
             id="btnCollisionPanel"
             class="tool-button"
             title="Detectar colisões entre modelos"
@@ -104,7 +104,7 @@
             <span style="font-size: 1.2em;">🧊</span>
             Colisões
         </button>
-        <botão
+        <button
             id="btnSearchToggle"
             class="tool-button"
             title="Mostrar/Esconder busca por ID"
@@ -113,7 +113,7 @@
             <span style="font-size: 1.2em;">🔍</span>
             Procurar
         </button>
-        <botão
+        <button
             id="btnAjuda"
             class="tool-button"
             title="Ajuda e atalhos de teclado"

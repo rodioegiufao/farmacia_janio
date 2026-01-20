@@ -5,19 +5,19 @@ body[data-mode="mobile"] {
     overflow: hidden;
 }
 
-body[data-mode="mobile"].model-selection-card {
+body[data-mode="mobile"] .model-selection-card {
     padding: 24px 20px;
 }
 
-body[data-mode="mobile"].model-selection-actions {
+body[data-mode="mobile"] .model-selection-actions {
     flex-direction: column;
 }
 
-body[data-mode="mobile"].model-selection-actions button {
+body[data-mode="mobile"] .model-selection-actions button {
     width: 100%;
 }
 
-body[data-mode="mobile"]#toolbar {
+body[data-mode="mobile"] #toolbar {
     top: 20px;
     right: 20px;
     left: auto;
@@ -34,24 +34,24 @@ body[data-mode="mobile"]#toolbar {
     cursor: pointer;
 }
 
-body[data-mode="mobile"]#toolbar .tool-button {
+body[data-mode="mobile"] #toolbar .tool-button {
     min-width: unset;
     width: 100%;
     padding: 8px 10px;
     font-size: 0.78em;
 }
 
-body[data-mode="mobile"]#toolbar .tool-button span:first-child {
+body[data-mode="mobile"] #toolbar .tool-button span:first-child {
     font-size: 1em !important;
     margin-bottom: 4px;
 }
 
-body[data-mode="mobile"]#myNavCubeCanvas {
+body[data-mode="mobile"] #myNavCubeCanvas {
     bottom: 50px;
     right: 20px;
 }
 
-body[data-mode="mobile"]#searchBar {
+body[data-mode="mobile"] #searchBar {
     left: 20px;
     right: 20px;
     top: auto;
@@ -63,7 +63,7 @@ body[data-mode="mobile"]#searchBar {
 }
 
 body[data-mode="mobile"]#searchBar input,
-body[data-mode="mobile"]#searchBar button {
+body[data-mode="mobile"] #searchBar button {
     width: 100%;
 }
 
@@ -71,7 +71,7 @@ body[data-mode="mobile"] #searchBar .search-feedback {
     text-align: left;
 }
 
-body[data-mode="mobile"]#treeViewContainer {
+body[data-mode="mobile"] #treeViewContainer {
     top: 20px;
     left: 20px;
     right: auto;
@@ -80,14 +80,14 @@ body[data-mode="mobile"]#treeViewContainer {
     height: calc(100% - 60px);
 }
 
-body[data-mode="mobile"]#modeSwitcher {
+body[data-mode="mobile"] #modeSwitcher {
     bottom: 20px;
     flex-wrap: wrap;
     justify-content: center;
     width: calc(100% - 40px);
 }
 
-body[data-mode="mobile"].mode-button {
+body[data-mode="mobile"] .mode-button {
     flex: 1 1 180px;
     text-align: center;
 }

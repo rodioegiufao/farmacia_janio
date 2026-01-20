@@ -3,14 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador BIM - Policlínica</title>
+    <title>Visualizador BIM com Medição de Ângulo e Distância</title>
     
-    <link id="modeStylesheet" rel="stylesheet" href="styles.css">
+    <link id="modeStylesheet" rel="stylesheet" href="../styles.css">
     
     <script type="module" src="https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@latest/dist/xeokit-sdk.min.es.js"></script>
 </head>
-<body data-project="policlinica">
-    <div id="modelSelection" class="model-selection" role="dialog" aria-modal="true" aria-labelledby="modelSelectionTitle" hidden>
+<body>
+    <div id="accessGate" class="access-gate" role="dialog" aria-modal="true" aria-labelledby="accessGateTitle" aria-describedby="accessGateDescription" hidden>
+        <div class="access-gate-card">
+            <h1 id="accessGateTitle">Acesso protegido</h1>
+            <p id="accessGateDescription">Digite a senha para continuar.</p>
+            <form id="accessGateForm" class="access-gate-form">
+                <label class="access-gate-label" for="accessGatePassword">Senha</label>
+                <input id="accessGatePassword" type="password" autocomplete="current-password" required />
+                <button type="submit">Entrar</button>
+                <span id="accessGateMessage" class="access-gate-message" aria-live="polite"></span>
+            </form>
+        </div>
+    </div>
+    <div id="modelSelection" class="model-selection" role="dialog" aria-modal="true" aria-labelledby="modelSelectionTitle">
         <div class="model-selection-card">
             <h1 id="modelSelectionTitle">Selecione o Projeto</h1>
             <p>Escolha qual projeto deseja carregar.</p>
@@ -229,7 +241,7 @@
         Responsável pelo programa: Rodrigo Damasceno Nascimento
     </div>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="app.js"></script>
+    <script type="module" src="../app.js"></script>
     <script>
         const modeStylesheet = document.getElementById('modeStylesheet');
         const modeButtons = document.querySelectorAll('#modeSwitcher [data-mode]');
@@ -330,3 +342,9 @@
     </script>
 </body>
 </html>
+
+
+
+
+
+

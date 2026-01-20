@@ -924,10 +924,10 @@ const PROJECT_CONFIGS = {
 };
 
 const PROJECT_ROUTES = {
-    iper: "/iper",
-    lacen: "/lacen",
-    policlinica: "/policlinica",
-    farmacia: "/farmacia",
+    iper: "/3D/iper",
+    lacen: "/3D/lacen",
+    policlinica: "/3D/policlinica",
+    farmacia: "/3D/farmacia",
 };
 
 function updateProjectUrl(projectKey, { replace = false } = {}) {

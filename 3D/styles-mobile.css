@@ -1,23 +1,23 @@
 @import url('./styles.css');
 
 /* Ajustes específicos para a versão mobile */
-html, body {
+body[data-mode="mobile"] {
     overflow: hidden;
 }
 
-.model-selection-card {
+body[data-mode="mobile"].model-selection-card {
     padding: 24px 20px;
 }
 
-.model-selection-actions {
+body[data-mode="mobile"].model-selection-actions {
     flex-direction: column;
 }
 
-.model-selection-actions button {
+body[data-mode="mobile"].model-selection-actions button {
     width: 100%;
 }
 
-#toolbar {
+body[data-mode="mobile"]#toolbar {
     top: 20px;
     right: 20px;
     left: auto;
@@ -34,24 +34,24 @@ html, body {
     cursor: pointer;
 }
 
-#toolbar .tool-button {
+body[data-mode="mobile"]#toolbar .tool-button {
     min-width: unset;
     width: 100%;
     padding: 8px 10px;
     font-size: 0.78em;
 }
 
-#toolbar .tool-button span:first-child {
+body[data-mode="mobile"]#toolbar .tool-button span:first-child {
     font-size: 1em !important;
     margin-bottom: 4px;
 }
 
-#myNavCubeCanvas {
+body[data-mode="mobile"]#myNavCubeCanvas {
     bottom: 50px;
     right: 20px;
 }
 
-#searchBar {
+body[data-mode="mobile"]#searchBar {
     left: 20px;
     right: 20px;
     top: auto;
@@ -62,16 +62,16 @@ html, body {
     gap: 10px;
 }
 
-#searchBar input,
-#searchBar button {
+body[data-mode="mobile"]#searchBar input,
+body[data-mode="mobile"]#searchBar button {
     width: 100%;
 }
 
-#searchBar .search-feedback {
+body[data-mode="mobile"] #searchBar .search-feedback {
     text-align: left;
 }
 
-#treeViewContainer {
+body[data-mode="mobile"]#treeViewContainer {
     top: 20px;
     left: 20px;
     right: auto;
@@ -80,44 +80,44 @@ html, body {
     height: calc(100% - 60px);
 }
 
-#modeSwitcher {
+body[data-mode="mobile"]#modeSwitcher {
     bottom: 20px;
     flex-wrap: wrap;
     justify-content: center;
     width: calc(100% - 40px);
 }
 
-.mode-button {
+body[data-mode="mobile"].mode-button {
     flex: 1 1 180px;
     text-align: center;
 }
 
-[data-mode="mobile"] #toolbar.open {
+body[data-mode="mobile"] #toolbar.open {
     cursor: auto;
     top: 72px;
 }
 
-[data-mode="mobile"] #toolbar {
+body[data-mode="mobile"] #toolbar {
     display: flex;
 }
 
-[data-mode="mobile"] #toolbar:not(.open) {
+body[data-mode="mobile"] #toolbar:not(.open) {
     padding: 0;
     width: auto;
     background: transparent;
     box-shadow: none;
 }
 
-[data-mode="mobile"] #toolbar:not(.open) .tool-button {
+body[data-mode="mobile"] #toolbar:not(.open) .tool-button {
     display: none;
 }
 
-[data-mode="mobile"] #toolbar:not(.open) .tool-button.active {
+body[data-mode="mobile"] #toolbar:not(.open) .tool-button.active {
     display: flex;
 }
 
 
-#mobileToolbarToggle {
+body[data-mode="mobile"] #mobileToolbarToggle {
     position: fixed;
     top: 20px;
     right: 20px;
@@ -135,12 +135,12 @@ html, body {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
-#mobileToolbarToggle:hover,
-#mobileToolbarToggle[aria-pressed="true"] {
+body[data-mode="mobile"] #mobileToolbarToggle:hover,
+body[data-mode="mobile"] #mobileToolbarToggle[aria-pressed="true"] {
     background-color: rgba(0, 123, 255, 0.9);
 }
 
-#helpPanel {
+body[data-mode="mobile"] #helpPanel {
     top: 20px;
     right: 20px;
     left: 20px;
@@ -148,7 +148,7 @@ html, body {
     max-width: none;
 }
 
-#transformPanel {
+body[data-mode="mobile"] #transformPanel {
     top: auto;
     bottom: 20px;
     right: 20px;
@@ -157,7 +157,7 @@ html, body {
     max-width: none;
 }
 
-#creditNote {
+body[data-mode="mobile"] #creditNote {
     position: fixed;
     bottom: 90px;
     left: 20px;

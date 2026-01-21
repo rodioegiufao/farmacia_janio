@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisador de Carimbos PDF</title>
+    <link rel="stylesheet" href="carimbo/styles/main.css">
+    <link rel="icon" href="../images/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" href="../images/favicon-32x32.png" sizes="32x32">
+    <link rel="icon" type="image/png" href="../images/favicon-16x16.png" sizes="16x16">
+    <!-- Usar versão compatível do PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>📄 Analisador de Carimbos em PDFs</h1>
+                <p>Esta ferramenta verifica a presença de palavras-chave em arquivos PDF e gera um relatório.</p>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-section">
+                    <h3>Configurações</h3>
+                    
+                    <!-- Upload de PDFs -->
+                    <div class="form-group">
+                        <label>Selecione os arquivos PDF</label>
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <div class="upload-icon">📎</div>
+                            <p>Arraste e solte arquivos aqui</p>
+                            <p class="upload-subtext">Limite: 200MB por arquivo • PDF</p>
+                            <button type="button" class="browse-button" onclick="document.getElementById('pdfUpload').click()">
+                                Procurar arquivos
+                            </button>
+                            <input type="file" id="pdfUpload" accept=".pdf" multiple class="hidden">
+                        </div>
+                        <div id="fileList" class="file-list"></div>
+                    </div>
+            
+                    <!-- BOTÃO INICIAR ANÁLISE MOVIDO PARA CIMA -->
+                    <div class="form-group">
+                        <button type="button" id="analyzeButton" class="analyze-button">
+                            Iniciar Análise
+                        </button>
+                    </div>
+            
+                    <!-- Palavras-chave -->
+                    <div class="form-group">
+                        <h4>Palavras-chave</h4>
+                        
+                        <div class="info-box">
+                            <div class="info-header">
+                                <span class="info-icon">🔍</span>
+                                <strong>Engenheiros e CREAs serão SEMPRE pesquisados:</strong>
+                            </div>
+                            <div class="expand-section">
+                                <button type="button" class="expand-btn" onclick="toggleExpand('engenheiros')">
+                                    Ver engenheiros e CREAs fixos
+                                </button>
+                                <div id="engenheiros" class="expand-content">
+                                    <!-- Preenchido via JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+            
+                        <div class="info-box">
+                            <div class="info-header">
+                                <span class="info-icon">🗂️</span>
+                                <strong>Mapeamento de códigos de projeto:</strong>
+                            </div>
+                            <div class="expand-section">
+                                <button type="button" class="expand-btn" onclick="toggleExpand('projetos')">
+                                    Ver mapeamento de projetos
+                                </button>
+                                <div id="projetos" class="expand-content">
+                                    <!-- Preenchido via JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+            
+                        <label>Palavras-chave adicionais do projeto (uma por linha)</label>
+                        <textarea id="keywordsInput" rows="6" class="text-area" placeholder="Insira uma palavra-chave por linha..."></textarea>
+                    </div>
+            
+                    <!-- Opções -->
+                    <div class="form-group">
+                        <h4>Opções</h4>
+                        <div class="options-list">
+                            <label class="option-item">
+                                <input type="checkbox" id="checkFilename" checked>
+                                <span class="checkmark"></span>
+                                Verificar nome do arquivo no conteúdo
+                            </label>
+                            <label class="option-item">
+                                <input type="checkbox" id="checkSheetNumber" checked>
+                                <span class="checkmark"></span>
+                                Verificar número da prancha no conteúdo
+                            </label>
+                            <label class="option-item">
+                                <input type="checkbox" id="checkProjeto" checked>
+                                <span class="checkmark"></span>
+                                Verificar descrição do projeto no conteúdo
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="content">
+                <!-- Tabs -->
+                <div class="tabs">
+                    <button type="button" class="tab-btn active" data-tab="analisador">Analisador de PDF</button>
+                    <button type="button" class="tab-btn" data-tab="tutorial">Tutorial em Vídeo</button>
+                </div>
+
+                <!-- Conteúdo das Tabs -->
+                <!-- Conteúdo das Tabs -->
+                <div class="tab-content">
+                    <!-- Tab Analisador -->
+                    <div id="analisador" class="tab-pane active" style="display: block; opacity: 1;">
+                        <div class="welcome-card">
+                            <div class="welcome-icon">👈</div>
+                            <div class="welcome-content">
+                                <h3>Use a barra lateral para configurar e iniciar a análise.</h3>
+                                
+                                <div class="instructions">
+                                    <h4>Como usar:</h4>
+                                    <ol>
+                                        <li>Selecione os arquivos PDF que deseja analisar</li>
+                                        <li>Insira palavras-chave adicionais do projeto (opcional)</li>
+                                        <li>Ajuste as opções conforme necessário</li>
+                                        <li>Clique em "Iniciar Análise"</li>
+                                    </ol>
+                                </div>
+
+                                <div class="important-info">
+                                    <h4>⚠️ Importante:</h4>
+                                    <ul>
+                                        <li><strong>Engenheiros e CREAs serão SEMPRE pesquisados</strong> automaticamente</li>
+                                        <li>As palavras-chave adicionais são para complementar a busca</li>
+                                        <li>Os engenheiros pré-configurados não podem ser desativados</li>
+                                        <li>A verificação de assinatura é feita pelo nome do arquivo (presença de "assinado")</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Área de Resultados (inicialmente oculta) -->
+                        <!-- Área de Resultados (inicialmente oculta) -->
+                        <div id="resultsArea" class="hidden">
+                            <!-- BOTÃO DE DOWNLOAD NO TOPO -->
+                            <div class="download-section">
+                                <button type="button" id="downloadButton" class="download-btn" onclick="window.pdfAnalyzerApp.baixarExcel()">
+                                    📥 Baixar Resultados em Excel
+                                </button>
+                            </div>
+                        
+                            <!-- Resultados da Análise -->
+                            <div class="results-card">
+                                <h3>Resultados da Análise</h3>
+                                <div class="table-container">
+                                    <table id="resultsTable" class="results-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Prancha</th>
+                                                <th>Código Projeto</th>
+                                                <th>Descrição Projeto</th>
+                                                <th>Palavras-chave</th>
+                                                <th>Nome</th>
+                                                <th>Prancha</th>
+                                                <th>Assinado</th>
+                                                <th>Projeto</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="resultsBody">
+                                            <!-- Preenchido via JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        
+                            <!-- Estatísticas -->
+                            <div class="stats-card">
+                                <h3>Estatísticas</h3>
+                                <div class="stats-grid">
+                                    <div class="stat-item">
+                                        <div class="stat-value" id="totalFiles">0</div>
+                                        <div class="stat-label">Total de Arquivos</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-value" id="filesWithName">0</div>
+                                        <div class="stat-label">Nome Encontrado</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-value" id="filesWithSheet">0</div>
+                                        <div class="stat-label">Prancha Encontrada</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-value" id="filesSigned">0</div>
+                                        <div class="stat-label">Arquivos Assinados</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-value" id="projectsFound">0</div>
+                                        <div class="stat-label">Projetos Encontrados</div>
+                                    </div>
+                                </div>
+                            </div>
+                        
+                            <!-- Engenheiros Encontrados -->
+                            <div class="results-card">
+                                <h3>Engenheiros Encontrados</h3>
+                                <div id="engineersFound" class="found-items">
+                                    <!-- Preenchido via JavaScript -->
+                                </div>
+                            </div>
+                        
+                            <!-- Detalhamento dos Projetos -->
+                            <div class="results-card">
+                                <h3>Detalhamento dos Projetos</h3>
+                                <div id="projectsDetails" class="found-items">
+                                    <!-- Preenchido via JavaScript -->
+                                </div>
+                            </div>
+                        
+                            <!-- REMOVER A SEÇÃO DE DOWNLOAD DO FINAL -->
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div id="progressArea" class="hidden">
+                            <div class="progress-card">
+                                <h3>Processando PDFs...</h3>
+                                <div class="progress-container">
+                                    <div class="progress-bar">
+                                        <div id="progressFill" class="progress-fill"></div>
+                                    </div>
+                                    <div id="progressText" class="progress-text">0%</div>
+                                </div>
+                                <div id="fileProgress" class="file-progress">Processando: -</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab Tutorial -->
+                    <div id="tutorial" class="tab-pane" style="display: none; opacity: 0;">
+                        <div class="tutorial-card">
+                            <h3>📹 Tutorial em Vídeo</h3>
+                            <p>Assista ao vídeo abaixo para aprender como usar o analisador de PDF:</p>
+                            
+                            <div class="video-container">
+                                <iframe width="100%" height="400" src="https://www.youtube.com/embed/GB6hvQPODCw" 
+                                        frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                        allowfullscreen></iframe>
+                            </div>
+
+                            <div class="tutorial-content">
+                                <h4>Pontos abordados no tutorial:</h4>
+                                <ul>
+                                    <li>Como preparar seus arquivos PDF para análise</li>
+                                    <li>Como usar palavras-chave adicionais do projeto</li>
+                                    <li>Interpretação dos resultados</li>
+                                    <li>Como usar o relatório em Excel gerado</li>
+                                    <li>Entendendo a busca automática por engenheiros e CREAs</li>
+                                    <li>Entendendo o mapeamento automático de códigos de projeto</li>
+                                </ul>
+
+                                <h4>Engenheiros e CREAs configurados (busca automática):</h4>
+                                <div class="table-container">
+                                    <table class="info-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Engenheiro</th>
+                                                <th>CREA(s)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="engineersTable">
+                                            <!-- Preenchido via JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <h4>Mapeamento de códigos de projeto:</h4>
+                                <div class="table-container">
+                                    <table class="info-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Código</th>
+                                                <th>Descrição</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="projectsTable">
+                                            <!-- Preenchido via JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="important-info">
+                                    <h4>⚠️ Importante:</h4>
+                                    <p>Estes engenheiros e CREAs são <strong>sempre pesquisados</strong> automaticamente, 
+                                    independentemente das palavras-chave adicionais inseridas.</p>
+                                    
+                                    <h5>Sobre a verificação de assinatura:</h5>
+                                    <p>A verificação de assinatura é feita pelo nome do arquivo. 
+                                    Arquivos que contêm "assinado" no nome (como "PRJ-FOT-IPER-04-05_assinado.pdf") 
+                                    serão marcados como assinados na coluna "Arquivo assinado".</p>
+                                    
+                                    <h5>Sobre o mapeamento de projetos:</h5>
+                                    <p>O código do projeto é extraído automaticamente do nome do arquivo (ex: "ECX" de "PRJ-ECX-IPER-02-07")
+                                    e mapeado para a descrição correspondente. Em seguida, verifica-se se essa descrição está presente no conteúdo do PDF.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Desenvolvido por Rodrigo Damasceno | © 2025 - Todos os direitos reservados</p>
+        </footer>
+    <!-- ORDEM CORRETA DE CARREGAMENTO -->
+    <script src="carimbo/js/config.js"></script>
+    <script src="carimbo/js/pdf-processor.js"></script>
+    <script src="carimbo/js/excel-generator.js"></script>
+    <script src="carimbo/js/app.js"></script>
+    
+    <!-- Script de inicialização -->
+    <script>
+        // Configurar PDF.js
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+
+        // Inicializar quando o DOM estiver pronto
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Inicializando aplicação...');
+            window.pdfAnalyzerApp = new PDFAnalyzerApp();
+            console.log('✅ Aplicação carregada com sucesso');
+        });
+    </script>
+</body>
+</html>
+
+
+

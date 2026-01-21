@@ -1,0 +1,895 @@
+/* Reset e Variáveis */
+:root {
+    --primary-dark: #1a365d;
+    --primary-medium: #2d3748;
+    --primary-light: #4a5568;
+    --accent-blue: #3182ce;
+    --accent-light: #63b3ed;
+    --text-light: #e2e8f0;
+    --text-lighter: #f7fafc;
+    --bg-dark: #0f1419;
+    --bg-card: #1e293b;
+    --border-color: #334155;
+    --success: #48bb78;
+    --warning: #ed8936;
+    --error: #f56565;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: linear-gradient(135deg, var(--bg-dark) 0%, var(--primary-dark) 100%);
+    color: var(--text-light);
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.header {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--accent-blue) 100%);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.header-content h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--text-lighter);
+}
+
+.header-content p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    color: var(--text-light);
+}
+
+/* Layout Principal */
+.main-layout {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 2rem;
+    flex: 1;
+}
+
+/* Sidebar */
+.sidebar .form-group:has(.analyze-button) {
+    margin-top: 1rem;
+    margin-bottom: 2rem;
+    border-top: 2px solid var(--border-color);
+    padding-top: 1.5rem;
+}
+
+.sidebar .analyze-button {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent-blue) 0%, #2c5aa0 100%);
+    color: white;
+    border: none;
+    padding: 1rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 0;
+    box-shadow: 0 4px 15px rgba(49, 130, 206, 0.3);
+}
+
+.sidebar .analyze-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(49, 130, 206, 0.4);
+}
+
+.sidebar .analyze-button:active {
+    transform: translateY(0);
+}
+
+/* Melhorar a aparência da área de upload */
+.file-upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    background: rgba(255,255,255,0.05);
+    margin-bottom: 1rem;
+}
+
+.file-upload-area:hover {
+    border-color: var(--accent-blue);
+    background: rgba(255,255,255,0.08);
+}
+
+/* Upload Area */
+.file-upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    background: rgba(255,255,255,0.05);
+}
+
+.file-upload-area:hover {
+    border-color: var(--accent-blue);
+    background: rgba(255,255,255,0.08);
+}
+
+.file-upload-area.dragover {
+    border-color: var(--accent-light);
+    background: rgba(49, 130, 206, 0.1);
+}
+
+.upload-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.file-upload-area p {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.upload-subtext {
+    font-size: 0.9rem;
+    opacity: 0.7;
+    margin-bottom: 1rem !important;
+}
+
+.browse-button {
+    background: var(--accent-blue);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.3s ease;
+}
+
+.browse-button:hover {
+    background: var(--accent-light);
+}
+
+/* File List */
+.file-list {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: rgba(0,0,0,0.2);
+}
+
+/* Barra de rolagem personalizada para file-list */
+.file-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.file-list::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+}
+
+.file-list::-webkit-scrollbar-thumb {
+    background: var(--accent-blue);
+    border-radius: 4px;
+}
+
+.file-list::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-light);
+}
+
+
+.file-item {
+    background: rgba(255,255,255,0.05);
+    padding: 0.75rem;
+    margin: 2px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.3s ease;
+}
+
+.file-item:hover {
+    background: rgba(255,255,255,0.08);
+}
+
+.file-item:not(:last-child) {
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.file-list:after,
+.text-area:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: linear-gradient(to top, var(--bg-card) 0%, transparent 100%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.file-list.scrollable:after,
+.text-area.scrollable:after {
+    opacity: 1;
+}
+
+/* Form Elements */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-lighter);
+}
+
+.text-area {
+    width: 100%;
+    padding: 0.75rem;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-light);
+    resize: vertical;
+    font-family: inherit;
+    min-height: 120px;
+    max-height: 300px;
+    overflow-y: auto !important; /* Forçar scroll */
+}
+
+/* Barra de rolagem personalizada para textarea */
+.text-area::-webkit-scrollbar {
+    width: 8px;
+}
+
+.text-area::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    margin: 2px;
+}
+
+.text-area::-webkit-scrollbar-thumb {
+    background: var(--accent-blue);
+    border-radius: 4px;
+}
+
+.text-area::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-light);
+}
+
+/* Remover o estilo padrão do scroll do textarea no Firefox */
+.text-area {
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-blue) rgba(255,255,255,0.1);
+}
+
+/* Estilo para quando o textarea está em foco */
+.text-area:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    background: rgba(255,255,255,0.15);
+    box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.1);
+}
+
+/* Info Boxes */
+.info-box {
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid var(--accent-blue);
+}
+
+.info-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.info-icon {
+    margin-right: 0.5rem;
+    font-size: 1.2rem;
+}
+
+.expand-btn {
+    background: none;
+    border: none;
+    color: var(--accent-light);
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: 0.9rem;
+    padding: 0;
+}
+
+.expand-content {
+    display: none;
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background: rgba(0,0,0,0.3);
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.expand-content.show {
+    display: block;
+}
+
+/* Options */
+.options-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.option-item {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background 0.3s ease;
+}
+
+.option-item:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.option-item input {
+    margin-right: 0.75rem;
+}
+
+/* Buttons */
+.analyze-button {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent-blue) 0%, #2c5aa0 100%);
+    color: white;
+    border: none;
+    padding: 1rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+}
+
+.analyze-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(49, 130, 206, 0.4);
+}
+
+.analyze-button:active {
+    transform: translateY(0);
+}
+
+/* Content Area */
+.content {
+    background: var(--bg-card);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+/* Tabs */
+.tabs {
+    display: flex;
+    background: var(--primary-medium);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 1rem 2rem;
+    background: none;
+    border: none;
+    color: var(--text-light);
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+}
+
+.tab-btn.active {
+    color: var(--accent-light);
+    border-bottom-color: var(--accent-light);
+    background: rgba(255,255,255,0.05);
+}
+
+.tab-btn:hover:not(.active) {
+    background: rgba(255,255,255,0.02);
+}
+
+.tab-pane {
+    display: none;
+    padding: 2rem;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+/* Welcome Card */
+.welcome-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    border-radius: 8px;
+    padding: 2rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+}
+
+.welcome-icon {
+    font-size: 3rem;
+}
+
+.welcome-content h3 {
+    color: var(--text-lighter);
+    margin-bottom: 1.5rem;
+}
+
+.instructions, .important-info {
+    margin-bottom: 1.5rem;
+}
+
+.instructions h4, .important-info h4 {
+    color: var(--accent-light);
+    margin-bottom: 0.5rem;
+}
+
+.instructions ol, .important-info ul {
+    padding-left: 1.5rem;
+}
+
+.instructions li, .important-info li {
+    margin-bottom: 0.5rem;
+}
+
+.important-info {
+    background: rgba(237, 137, 54, 0.1);
+    border-left: 4px solid var(--warning);
+    padding: 1rem;
+    border-radius: 4px;
+}
+
+/* Results Cards */
+.results-card .table-container {
+    max-height: 400px; /* Altura máxima da tabela */
+    overflow-y: auto;
+    margin: 1rem 0;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+/* Cabeçalho fixo */
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0,0,0,0.2);
+    margin: 0;
+}
+
+/* Cabeçalho fixo durante o scroll */
+.results-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.results-table th {
+    background: var(--primary-medium);
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-lighter);
+    border-bottom: 2px solid var(--border-color);
+    position: sticky;
+    top: 0;
+}
+
+.results-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.results-table tr:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+/* Tables */
+.table-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: var(--accent-blue);
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-light);
+}
+
+/* Indicador de que há mais conteúdo */
+.table-container:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: linear-gradient(to top, var(--bg-card) 0%, transparent 100%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.table-container.scrollable:after {
+    opacity: 1;
+}
+
+.results-table, .info-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0,0,0,0.2);
+}
+
+.results-table th, .info-table th {
+    background: var(--primary-medium);
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-lighter);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.results-table td, .info-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.results-table tr:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+/* Stats */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1.5rem;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    border-left: 4px solid var(--accent-blue);
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent-light);
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    opacity: 0.8;
+}
+
+/* Found Items */
+.found-items {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.found-item {
+    background: rgba(255,255,255,0.05);
+    padding: 1rem;
+    border-radius: 6px;
+    border-left: 4px solid var(--success);
+}
+
+/* Estilo para o botão de download no topo */
+.download-section {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: rgba(72, 187, 120, 0.1);
+    border-radius: 12px;
+    border: 2px dashed var(--success);
+}
+
+.download-btn {
+    background: linear-gradient(135deg, var(--success) 0%, #38a169 100%);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
+}
+
+.download-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
+}
+
+.download-btn:active {
+    transform: translateY(0);
+}
+
+/* Progress */
+.progress-card {
+    text-align: center;
+    padding: 2rem;
+}
+
+.progress-container {
+    margin: 2rem 0;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-light));
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    margin-top: 0.5rem;
+    font-weight: 600;
+    color: var(--accent-light);
+}
+
+.file-progress {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+/* Footer */
+.footer {
+    text-align: center;
+    margin-top: 3rem;
+    padding: 2rem;
+    color: var(--text-light);
+    opacity: 0.7;
+    border-top: 1px solid var(--border-color);
+}
+
+/* Utilities */
+.hidden {
+    display: none !important;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .main-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .sidebar {
+        position: static;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+    
+    .header-content h1 {
+        font-size: 2rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .welcome-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .tabs {
+        flex-direction: column;
+    }
+    
+    .tab-btn {
+        padding: 0.75rem;
+    }
+}
+
+/* Adicione ao final do styles/main.css */
+
+/* Cores para as células da tabela */
+.success {
+    color: var(--success) !important;
+    font-weight: 600;
+}
+
+.error {
+    color: var(--error) !important;
+    font-weight: 600;
+}
+
+/* Melhorar a aparência das células da tabela */
+.results-table td.success {
+    background: rgba(72, 187, 120, 0.1);
+}
+
+.results-table td.error {
+    background: rgba(245, 101, 101, 0.1);
+}
+
+/* Adicione ao styles/main.css */
+
+/* Correção para as abas */
+/* CORREÇÃO DAS ABAS - Substituir as regras conflitantes */
+.tab-content {
+    position: relative;
+    min-height: 400px;
+}
+
+.tab-pane {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 2rem;
+}
+
+.tab-pane.active {
+    display: block;
+    opacity: 1;
+    position: relative;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Garantir que o conteúdo seja visível */
+.tab-pane.active * {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Correção específica para o conteúdo dentro das abas */
+.tab-pane .welcome-card,
+.tab-pane .tutorial-card,
+.tab-pane .results-card,
+.tab-pane .stats-card {
+    opacity: 1;
+    visibility: visible;
+}
+/* Melhorar a aparência dos botões de aba */
+.tab-btn {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: var(--accent-light);
+}
+
+/* Estilos para conteúdo expandível */
+/* Melhorar o conteúdo expansível com scroll */
+.expand-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    background: rgba(0,0,0,0.3);
+    border-radius: 4px;
+    margin-top: 0.5rem;
+}
+
+.expand-content.show {
+    max-height: 300px; /* Altura máxima com scroll */
+    overflow-y: auto;
+}
+
+/* Estilo da barra de rolagem personalizada */
+.expand-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.expand-content::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+}
+
+.expand-content::-webkit-scrollbar-thumb {
+    background: var(--accent-blue);
+    border-radius: 4px;
+}
+
+.expand-content::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-light);
+}
+
+/* Aumentar a altura máxima para o mapeamento de projetos que tem mais itens */
+#projetos.expand-content {
+    max-height: 400px; /* Mais alto para projetos */
+}
+
+/* Estilo dos itens dentro do conteúdo expansível */
+.engineer-item, .project-item {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.engineer-item:last-child, .project-item:last-child {
+    border-bottom: none;
+}
+
+.engineer-item strong, .project-item strong {
+    color: var(--accent-light);
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+
+
+

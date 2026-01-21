@@ -1,7 +1,8 @@
 :root {
     --primary: #9fd3e8;
     --secondary: #fbe6aa;
-    --background: #0f1419;
+    --background: #1f2527;
+    --page-background: linear-gradient(135deg, #0f1419 0%, #1a365d 100%);
     --foreground: #ffffff;
     --foreground-light: #e5e5e5;
     --foreground-dark: #090a0b;
@@ -17,7 +18,7 @@
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background-color: var(--background);
+    background: var(--page-background);
     color: var(--foreground);
     line-height: 1.6;
     margin: 0;
@@ -739,6 +740,7 @@ body {
 /* ===== VARIÁVEIS PARA TEMA CLARO ===== */
 [data-theme="light"] {
     --background: #f8f9fa;
+    --page-background: #ffffff;
     --foreground: #2c3e50;
     --foreground-light: #5a6c7d;
     --foreground-dark: #1a252f;

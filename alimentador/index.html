@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dimensionamento Elétrico</title>
+    <link rel="icon" href="./images/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" href="./images/favicon-32x32.png" sizes="32x32">
+    <link rel="icon" type="image/png" href="./images/favicon-16x16.png" sizes="16x16">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #162B4E;
+            --secondary-color: #2c3e50;
+            --accent-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+        
+        .card {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: none;
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: bold;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+        
+        .tab-content {
+            padding: 20px 0;
+        }
+        
+        .nav-tabs .nav-link.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        
+        .nav-tabs .nav-link {
+            color: var(--primary-color);
+        }
+        
+        .metric-card {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .metric-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: var(--primary-color);">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-bolt me-2"></i>Dimensionamento Elétrico
+            </a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Tabs Navigation -->
+        <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="calc-tab" data-bs-toggle="tab" data-bs-target="#calc" type="button" role="tab">
+                    <i class="fas fa-calculator me-2"></i>Cálculo
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="view-tab" data-bs-toggle="tab" data-bs-target="#view" type="button" role="tab">
+                    <i class="fas fa-chart-bar me-2"></i>Visualização
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab">
+                    <i class="fas fa-database me-2"></i>Dados Salvos
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="mainTabsContent">
+            
+            <!-- Tab 1: Cálculo -->
+            <div class="tab-pane fade show active" id="calc" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-calculator me-2"></i>Cálculo de Quadro de Cargas
+                    </div>
+                    <div class="card-body">
+                        <form id="form-calculo">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="nome-quadro" class="form-label">Nome do Quadro:</label>
+                                        <input type="text" class="form-control" id="nome-quadro" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="distancia" class="form-label">Distância do QGBT até o Quadro (m):</label>
+                                        <input type="number" class="form-control" id="distancia" min="0.1" step="0.1" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="fp" class="form-label">Fator de Potência:</label>
+                                        <select class="form-select" id="fp" required>
+                                            <option value="0.92">0.92</option>
+                                            <option value="0.8">0.8</option>
+                                            <option value="0.75">0.75</option>
+                                            <option value="0.7">0.7</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="fd" class="form-label">Fator de Demanda:</label>
+                                        <select class="form-select" id="fd" required>
+                                            <option value="1.0">1.0</option>
+                                            <option value="0.9">0.9</option>
+                                            <option value="0.8">0.8</option>
+                                            <option value="0.7">0.7</option>
+                                            <option value="0.6">0.6</option>
+                                            <option value="0.5">0.5</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="tensao" class="form-label">Tensão de Linha (V):</label>
+                                        <select class="form-select" id="tensao" required>
+                                            <option value="220">220V</option>
+                                            <option value="380">380V</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="potencia-r" class="form-label">Potência - R (W):</label>
+                                        <input type="number" class="form-control" id="potencia-r" min="0" step="0.01" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="potencia-s" class="form-label">Potência - S (W):</label>
+                                        <input type="number" class="form-control" id="potencia-s" min="0" step="0.01" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="potencia-t" class="form-label">Potência - T (W):</label>
+                                        <input type="number" class="form-control" id="potencia-t" min="0" step="0.01" required>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Calcular e Salvar
+                            </button>
+                            <!-- botão novo -->
+                            <button type="button" class="btn btn-secondary ms-2" id="limpar-campos">
+                                <i class="fas fa-eraser me-2"></i>Limpar Campos
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Resultado do Cálculo -->
+                <div class="card d-none" id="resultado-card">
+                    <div class="card-header">
+                        <i class="fas fa-results me-2"></i>Resultado do Dimensionamento
+                    </div>
+                    <div class="card-body">
+                        <div id="resultado-detailed"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Visualização -->
+            <div class="tab-pane fade" id="view" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-chart-bar me-2"></i>Visualização de Resultados
+                    </div>
+                    <div class="card-body">
+                        <div id="no-data-alert" class="alert alert-warning d-none">
+                            Nenhum dado encontrado. Realize cálculos primeiro.
+                        </div>
+                        
+                        <div id="data-content" class="d-none">
+                            <!-- Tabs para gráficos -->
+                            <ul class="nav nav-tabs mb-4" id="graphTabs" role="tablist">
+                                <li class="nav-item">
+                                    <a class="nav-link active" id="power-tab" data-bs-toggle="tab" href="#power-graph">Potência vs Demanda</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" id="current-tab" data-bs-toggle="tab" href="#current-graph">Corrente e Queda</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" id="substation-tab" data-bs-toggle="tab" href="#substation-graph">Subestação</a>
+                                </li>
+                            </ul>
+                            
+                            <div class="tab-content">
+                                <!-- Gráfico Potência vs Demanda -->
+                                <div class="tab-pane fade show active" id="power-graph">
+                                    <canvas id="powerChart" height="300"></canvas>
+                                </div>
+                                
+                                <!-- Gráfico Corrente e Queda -->
+                                <div class="tab-pane fade" id="current-graph">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h5>Corrente por Fase</h5>
+                                            <canvas id="currentChart" height="250"></canvas>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h5>Queda de Tensão por Circuito</h5>
+                                            <canvas id="voltageDropChart" height="250"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Gráfico Subestação -->
+                                <div class="tab-pane fade" id="substation-graph">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <canvas id="substationChart" height="300"></canvas>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="metric-card mb-3">
+                                                <div class="metric-value" id="total-power">0 W</div>
+                                                <div class="metric-label">Potência Total</div>
+                                            </div>
+                                            <div class="metric-card mb-3">
+                                                <div class="metric-value" id="total-demand">0 VA</div>
+                                                <div class="metric-label">Demanda Total</div>
+                                            </div>
+                                            <div class="metric-card mb-3">
+                                                <div class="metric-value" id="avg-current">0 A</div>
+                                                <div class="metric-label">Corrente Média</div>
+                                            </div>
+                                            <div class="metric-card">
+                                                <div class="metric-value" id="recommended-sub">- kVA</div>
+                                                <div class="metric-label">Subestação Recomendada</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Dados Salvos -->
+            <div class="tab-pane fade" id="data" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-database me-2"></i>Dados Salvos
+                    </div>
+                    <div class="card-body">
+                        <div id="no-saved-data" class="alert alert-info d-none">
+                            Nenhum dado salvo ainda. Realize cálculos na aba 'Cálculo'.
+                        </div>
+                        
+                        <div id="saved-data-content" class="d-none">
+                            <div class="table-responsive">
+                                <table class="table table-striped" id="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>N°</th>
+                                            <th>DESCRIÇÃO</th>
+                                            <th>ATIVA-R</th>
+                                            <th>ATIVA-S</th>
+                                            <th>ATIVA-T</th>
+                                            <th>DEM-R</th>
+                                            <th>DEM-S</th>
+                                            <th>DEM-T</th>
+                                            <th>R (A)</th>
+                                            <th>S (A)</th>
+                                            <th>T (A)</th>
+                                            <th>FP</th>
+                                            <th>FD</th>
+                                            <th>TENSÃO FASE</th>
+                                            <th>TENSÃO LINHA</th>
+                                            <th>POT. TOTAL</th>
+                                            <th>DEM. TOTAL</th>
+                                            <th>COR. MÉDIA</th>
+                                            <th>DIST.</th>
+                                            <th>QUEDA %</th>
+                                            <th>FA</th>
+                                            <th>NE</th>
+                                            <th>TE</th>
+                                            <th>DISJUNTOR</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="data-table-body">
+                                        <!-- Dados serão inseridos via JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <button id="export-excel" class="btn btn-success">
+                                    <i class="fas fa-file-excel me-2"></i>Baixar como Excel
+                                </button>
+                                
+                                <div class="mt-3">
+                                    <h5>Gerenciamento de Dados</h5>
+                                    <select id="quadro-select" class="form-select d-inline-block w-auto">
+                                        <option value="">Selecione um quadro para excluir</option>
+                                    </select>
+                                    <button id="delete-selected" class="btn btn-danger ms-2">
+                                        <i class="fas fa-trash me-2"></i>Excluir Quadro
+                                    </button>
+                                    <button id="delete-all" class="btn btn-danger ms-2">
+                                        <i class="fas fa-trash-alt me-2"></i>Excluir Todos
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação -->
+    <div class="modal fade" id="confirmModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirmação</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="confirmModalBody">
+                    <!-- Conteúdo dinâmico -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="confirmAction">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="alimentador/js/app.js"></script>
+    <script src="alimentador/js/calculos.js"></script>
+    <script src="alimentador/js/graficos.js"></script>
+</body>
+
+</html>
+

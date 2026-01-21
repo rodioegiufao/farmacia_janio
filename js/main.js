@@ -101,20 +101,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // ========== EFEITO DE SCROLL NO HEADER ==========
-    const header = document.querySelector('.site-header');
-    if (header) {
-        window.addEventListener('scroll', function() {
-            if (window.scrollY > 100) {
-                header.style.background = 'rgba(31, 37, 39, 0.95)';
-                header.style.backdropFilter = 'blur(10px)';
-            } else {
-                header.style.background = 'var(--background)';
-                header.style.backdropFilter = 'none';
-            }
-        });
-    }
-
     // ========== ADICIONAIS ==========
     window.addEventListener('load', function() { document.body.classList.add('loaded'); });
 

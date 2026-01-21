@@ -12,105 +12,164 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        :root {
-            --primary-color: #162B4E;
-            --secondary-color: #2c3e50;
-            --accent-color: #3498db;
-            --success-color: #27ae60;
-            --warning-color: #f39c12;
-            --danger-color: #e74c3c;
+         :root {
+            --primary-dark: #1a365d;
+            --primary-medium: #2d3748;
+            --primary-light: #4a5568;
+            --accent-blue: #3182ce;
+            --accent-light: #63b3ed;
+            --text-light: #e2e8f0;
+            --text-lighter: #f7fafc;
+            --bg-dark: #0f1419;
+            --bg-card: #1e293b;
+            --border-color: #334155;
+            --success: #48bb78;
+            --warning: #ed8936;
+            --error: #f56565;
         }
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--primary-dark) 100%);
+            color: var(--text-light);
+            min-height: 100vh;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--accent-blue) 100%);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
         
         .navbar-brand {
             font-weight: bold;
             font-size: 1.5rem;
+            color: var(--text-lighter);
+        }
+
+        .navbar-dark .navbar-brand:hover,
+        .navbar-dark .navbar-brand:focus {
+            color: var(--text-lighter);
         }
         
         .card {
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            border: none;
+            background: var(--bg-card);
+            color: var(--text-light);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
             margin-bottom: 20px;
         }
         
         .card-header {
-            background-color: var(--primary-color);
-            color: white;
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--accent-blue) 100%);
+            color: var(--text-lighter);
             font-weight: bold;
+            border-bottom: 1px solid var(--border-color);
         }
         
         .btn-primary {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
+            background-color: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+            box-shadow: 0 4px 12px rgba(49, 130, 206, 0.35);
         }
         
         .btn-primary:hover {
-            background-color: var(--secondary-color);
-            border-color: var(--secondary-color);
+            background-color: var(--accent-light);
+            border-color: var(--accent-light);
+            color: white;
         }
         
         .tab-content {
             padding: 20px 0;
         }
         
+        .nav-tabs {
+            border-bottom: 1px solid var(--border-color);
+        }
+
         .nav-tabs .nav-link.active {
-            background-color: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
+            background-color: var(--accent-blue);
+            color: var(--text-lighter);
+            border-color: var(--accent-blue);
         }
         
         .nav-tabs .nav-link {
-            color: var(--primary-color);
+            color: var(--text-light);
+            border-color: transparent;
+        }
+
+        .nav-tabs .nav-link:hover {
+            border-color: var(--border-color);
+            color: var(--text-lighter);
         }
         
         .metric-card {
             text-align: center;
             padding: 15px;
             border-radius: 8px;
-            background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: var(--bg-card);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border-color);
         }
         
         .metric-value {
             font-size: 1.8rem;
             font-weight: bold;
-            color: var(--primary-color);
+            color: var(--accent-light);
         }
         
         .metric-label {
             font-size: 0.9rem;
-            color: #6c757d;
+            color: rgba(226, 232, 240, 0.7);
+        }
+
+        .form-control,
+        .form-select {
+            background-color: rgba(15, 20, 25, 0.7);
+            border: 1px solid var(--border-color);
+            color: var(--text-light);
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            background-color: rgba(15, 20, 25, 0.85);
+            border-color: var(--accent-blue);
+            color: var(--text-lighter);
+            box-shadow: 0 0 0 0.2rem rgba(49, 130, 206, 0.25);
+        }
+
+        .form-label,
+        .form-check-label,
+        .input-group-text {
+            color: var(--text-light);
         }
         
         table {
             width: 100%;
             border-collapse: collapse;
+            color: var(--text-light);
         }
         
         th {
-            background-color: var(--primary-color);
-            color: white;
+            background-color: var(--primary-dark);
+            color: var(--text-lighter);
             padding: 12px;
             text-align: left;
         }
         
         td {
             padding: 10px;
-            border-bottom: 1px solid #dee2e6;
+            border-bottom: 1px solid var(--border-color);
         }
         
         tr:hover {
-            background-color: #f8f9fa;
+            background-color: rgba(49, 130, 206, 0.1);
         }
     </style>
 </head>
 <body>
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: var(--primary-color);">
+    <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
             <a class="navbar-brand" href="#">
                 <i class="fas fa-bolt me-2"></i>Dimensionamento Elétrico

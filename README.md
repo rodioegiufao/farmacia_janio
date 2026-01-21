@@ -1,2 +1,3 @@
-# farmacia_janio
-BIM da Farmácia do Jânio
+# Site para portifólio
+
+Site referente ao portifólio do engenheiro eletricista Rodrigo Damasceno Nascimento

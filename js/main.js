@@ -115,42 +115,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ========== PLASMA NO LOGO ==========
-    const siteTitle = document.querySelector('.site-title');
-    const brandTitle = document.querySelector('.brand-title');
-    if (siteTitle && brandTitle) {
-        const ensureLightningOverlay = () => {
-            if (document.querySelector('.lightning-overlay')) return;
-            const overlay = document.createElement('div');
-            overlay.className = 'lightning-overlay';
-            overlay.innerHTML = `
-                <span class="lightning-bolt" aria-hidden="true"></span>
-                <span class="lightning-bolt" aria-hidden="true"></span>
-                <span class="lightning-bolt" aria-hidden="true"></span>
-            `;
-            document.body.appendChild(overlay);
-        };
-        
-        const togglePlasma = () => {
-            const isActive = siteTitle.classList.toggle('is-plasma');
-            siteTitle.dataset.plasma = isActive ? 'on' : 'off';
-            ensureLightningOverlay();
-            document.body.classList.toggle('has-lightning', isActive);
-        };
-
-        brandTitle.addEventListener('click', function(event) {
-            event.preventDefault();
-            togglePlasma();
-        });
-
-        brandTitle.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                togglePlasma();
-            }
-        });
-    }    
-
     // ========== ADICIONAIS ==========
     window.addEventListener('load', function() { document.body.classList.add('loaded'); });
 

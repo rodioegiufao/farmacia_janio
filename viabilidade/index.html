@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Documentos Técnicos em Word</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.1/dist/pizzip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.42.4/build/docxtemplater.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-file-word"></i>
+                <div>
+                    <h1>Gerador de Documentos Técnicos</h1>
+                    <p class="subtitle">Gere documentos Word prontos para edição com um clique</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <aside class="sidebar">
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-file-word"></i> Documentos Word</h3>
+                    <ul id="template-list">
+                        <li><i class="fas fa-check-circle"></i> Memorial Descritivo (.docx)</li>
+                        <li><i class="fas fa-check-circle"></i> Procuração (.docx)</li>
+                        <li><i class="fas fa-check-circle"></i> Termo de Responsabilidade (.docx)</li>
+                        <li><i class="fas fa-check-circle"></i> Carta de Viabilidade (.docx)</li>
+                        <li><i class="fas fa-check-circle"></i> Termo de Não Geração (.docx)</li>
+                    </ul>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-lightbulb"></i> Dica Importante</h3>
+                    <div class="tip">
+                        <p><strong>Formatação Word:</strong> Os documentos gerados mantêm toda a formatação original dos templates, incluindo:</p>
+                        <ul>
+                            <li>Estilos de fonte e parágrafo</li>
+                            <li>Tabelas e formatação</li>
+                            <li>Marcadores e numeração</li>
+                            <li>Cabeçalhos e rodapés</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-download"></i> Templates</h3>
+                    <p>Os templates Word originais devem estar na pasta <code>/templates/</code></p>
+                    <div class="template-status" id="template-status">
+                        <p><i class="fas fa-sync fa-spin"></i> Verificando templates...</p>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="content">
+                <form id="document-form">
+                    
+                    <section class="form-section">
+                        <h2><i class="fas fa-pencil-alt"></i> Dados do Projeto</h2>
+                        
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="potencia">
+                                    <i class="fas fa-bolt"></i> POTÊNCIA DA SUBESTAÇÃO EM KVA *
+                                </label>
+                                <input type="text" id="potencia" placeholder="Ex: 225" required>
+                                <small>Valor que substituirá [XXXX] nos documentos</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="art">
+                                    <i class="fas fa-file-signature"></i> ART *
+                                </label>
+                                <input type="text" id="art" placeholder="Ex: AM20240488640" required>
+                                <small>Substituirá [YYYY] nos documentos</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="tensao">
+                                    <i class="fas fa-plug"></i> TENSÃO GERAL *
+                                </label>
+                                <select id="tensao" required>
+                                    <option value="" disabled selected>Selecione a Tensão Geral</option>
+                                    <option value="380/220V">380/220V</option>
+                                    <option value="220/127V">220/127V</option>
+                                    <option value="380/220V e 220/127V">380/220V e 220/127V</option>
+                                </select>
+                                <small>Substituirá [DDDD] nos documentos</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="ramal_tamanho">
+                                    <i class="fas fa-ruler"></i> Tamanho do ramal de entrada (m) *
+                                </label>
+                                <input type="text" id="ramal_tamanho" placeholder="Ex: 150" required>
+                                <small>Substituirá [EEEE] nos documentos</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="ramal_cabo">
+                                    <i class="fas fa-cable-car"></i> Cabo do ramal de entrada MT (mm²)*
+                                </label>
+                                <input type="text" id="ramal_cabo" placeholder="Ex: 35mm²" required>
+                                <small>Substituirá [FFFF] nos documentos</small>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="form-section">
+                        <h2><i class="fas fa-bolt"></i> Informações da Subestação</h2>
+                        
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="quantidade_trafos">
+                                    <i class="fas fa-cubes"></i> Quantidade de Transformadores: *
+                                </label>
+                                <select id="quantidade_trafos" required>
+                                    <option value="1">1 Transformador</option>
+                                    <option value="2">2 Transformadores</option>
+                                </select>
+                                <small>Define se os campos do Trafo 2 serão exibidos.</small>
+                            </div>
+            
+                            <div class="form-group">
+                                <label for="tipo_trafo">
+                                    <i class="fas fa-oil-can"></i> Tipo de Transformador: *
+                                </label>
+                                <select id="tipo_trafo" required>
+                                    <option value="ÓLEO">ÓLEO</option>
+                                    <option value="SECO">SECO</option>
+                                </select>
+                                <small>Substituirá [TIPO_TRAFO] (novo placeholder).</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="potencia_trafo_1">
+                                    <i class="fas fa-industry"></i> Potência do Trafo 1 (kVA): *
+                                </label>
+                                <select id="potencia_trafo_1" required>
+                                     <option value="" disabled selected>Selecione a Potência (kVA)</option>
+                                </select>
+                                <small>Substituirá [PTF1].</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="tensao_trafo_1">
+                                    <i class="fas fa-plug"></i> Tensão do Trafo 1: *
+                                </label>
+                                <select id="tensao_trafo_1" required>
+                                    <option value="" disabled selected>Selecione a Tensão</option>
+                                    <option value="220/127V">220/127V</option>
+                                    <option value="380V/220V">380V/220V</option>
+                                </select>
+                                <small>Substituirá [TTF1].</small>
+                            </div>
+                        </div>
+                        
+                        <div id="trafo_2_fields" class="form-grid" style="display: none; margin-top: 25px; border-top: 1px dashed #ddd; padding-top: 25px;">
+                            <div class="form-group">
+                                <label for="potencia_trafo_2">
+                                    <i class="fas fa-industry"></i> Potência do Trafo 2 (kVA):
+                                </label>
+                                <select id="potencia_trafo_2">
+                                     <option value="" disabled selected>Selecione a Potência (kVA)</option>
+                                </select>
+                                <small>Substituirá [PTF2].</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="tensao_trafo_2">
+                                    <i class="fas fa-plug"></i> Tensão do Trafo 2:
+                                </label>
+                                <select id="tensao_trafo_2">
+                                    <option value="" disabled selected>Selecione a Tensão</option>
+                                    <option value="220/127V">220/127V</option>
+                                    <option value="380V/220V">380V/220V</option>
+                                </select>
+                                <small>Substituirá [TTF2].</small>
+                            </div>
+                        </div>
+                        
+                    </section>
+                    <section class="form-section">
+                        <h2><i class="fas fa-info-circle"></i> Informações Gerais</h2>
+                        
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="nome_projeto">
+                                    <i class="fas fa-project-diagram"></i> Nome do projeto *
+                                </label>
+                                <input type="text" id="nome_projeto" placeholder="Ex: Construção de Escola" required>
+                                <small>Substituirá [GGGG] nos documentos</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="concessionaria">
+                                    <i class="fas fa-building"></i> Concessionária de Energia *
+                                </label>
+                                <input type="text" id="concessionaria" placeholder="Ex: RORAIMA ENERGIA" value="RORAIMA ENERGIA" required>
+                                <small>Substituirá [LLLL] nos documentos</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="numero_uc">
+                                    <i class="fas fa-hashtag"></i> Número da UC *
+                                </label>
+                                <input type="text" id="numero_uc" placeholder="Ex: UCXXXXXXX ou S/N°" required>
+                                <small>Substituirá [VVVV] nos documentos</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="demanda">
+                                    <i class="fas fa-chart-line"></i> Demanda do Projeto (kVA): *
+                                </label>
+                                <input type="text" id="demanda" placeholder="Ex: 1500" required>
+                                <small>Substituirá [ZXZX] nos documentos</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="carga_instalada">
+                                    <i class="fas fa-fan"></i> Carga Instalada (kW): *
+                                </label>
+                                <input type="text" id="carga_instalada" placeholder="Ex: 850" required>
+                                <small>Substituirá [ZXXZ] (placeholder solicitado).</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="tipo_pessoa_juridica">
+                                    <i class="fas fa-gavel"></i> Tipo de Pessoa Jurídica *
+                                </label>
+                                <select id="tipo_pessoa_juridica" required>
+                                    <option value="" disabled selected>Selecione o Tipo Jurídico</option>
+                                    <option value="Pessoa jurídica de direito público">Pessoa jurídica de direito público</option>
+                                    <option value="Pessoa jurídica de direito privado">Pessoa jurídica de direito privado</option>
+                                </select>
+                                <small>Substituirá [PJDP] nos documentos</small>
+                            </div>
+                            <div class="form-group"></div> </div>
+                    </section>
+                    
+                    <section class="form-section">
+                        <h2><i class="fas fa-map-marker-alt"></i> Localização</h2>
+                        
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="endereco_empreendimento">
+                                    <i class="fas fa-map-pin"></i> ENDEREÇO DO EMPREENDIMENTO *
+                                </label>
+                                <input type="text" id="endereco_empreendimento" 
+                                       placeholder="Ex: Rua Coronel Pinto, nº 664, Centro, Boa Vista - RR" 
+                                       required>
+                                <small>Substituirá [XXXY] nos documentos</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="localizacao_projeto">
+                                    <i class="fas fa-globe-americas"></i> Coordenadas Geográficas *
+                                </label>
+                                <input type="text" id="localizacao_projeto" 
+                                       placeholder="Ex: 2°50'29.1'N 60°42'27.4'W" 
+                                       required>
+                                <small>Substituirá [HHHH] nos documentos</small>
+                            </div>
+                        </div>
+                    </section>
+                    
+                    <section class="form-section">
+                        <h2><i class="fas fa-calendar-alt"></i> Datas da Obra</h2>
+                        
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label for="data_inicio">
+                                    <i class="fas fa-play-circle"></i> Início da Obra *
+                                </label>
+                                <input type="date" id="data_inicio" required>
+                                <small>Substituirá [DTIN] nos documentos</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="data_fim">
+                                    <i class="fas fa-flag-checkered"></i> Fim da Obra *
+                                </label>
+                                <input type="date" id="data_fim" required>
+                                <small>Substituirá [DTFI] nos documentos</small>
+                            </div>
+                        </div>
+                    </section>
+                    
+                    <section class="form-section">
+                        <h2><i class="fas fa-users"></i> Seleção de Profissionais e Clientes</h2>
+                        
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label for="engenheiro">
+                                    <i class="fas fa-user-tie"></i> Engenheiro Responsável *
+                                </label>
+                                <select id="engenheiro" required>
+                                    <option value="">Selecione um engenheiro</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="cliente">
+                                    <i class="fas fa-building"></i> Cliente *
+                                </label>
+                                <select id="cliente" required>
+                                    <option value="">Selecione um cliente</option>
+                                </select>
+                            </div>
+                        </div>
+                    </section>
+                    
+                    <section class="form-section">
+                        <h2><i class="fas fa-file-contract"></i> Opções de Geração</h2>
+                        
+                        <div class="options-grid">
+                            <div class="option-item">
+                                <input type="checkbox" id="gerar_memorial" checked>
+                                <label for="gerar_memorial">
+                                    <i class="fas fa-file-alt"></i> Memorial Descritivo
+                                </label>
+                            </div>
+                            
+                            <div class="option-item">
+                                <input type="checkbox" id="gerar_procuracao" checked>
+                                <label for="gerar_procuracao">
+                                    <i class="fas fa-file-signature"></i> Procuração
+                                </label>
+                            </div>
+                            
+                            <div class="option-item">
+                                <input type="checkbox" id="gerar_termo" checked>
+                                <label for="gerar_termo">
+                                    <i class="fas fa-file-contract"></i> Termo de Responsabilidade
+                                </label>
+                            </div>
+                            
+                            <div class="option-item">
+                                <input type="checkbox" id="gerar_carta" checked>
+                                <label for="gerar_carta">
+                                    <i class="fas fa-envelope"></i> Carta de Viabilidade
+                                </label>
+                            </div>
+                            
+                            <div class="option-item">
+                                <input type="checkbox" id="gerar_termo_nao_geracao" checked>
+                                <label for="gerar_termo_nao_geracao">
+                                    <i class="fas fa-ban"></i> Termo de Não Geração
+                                </label>
+                            </div>
+                        </div>
+                    </section>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn-generate" id="generate-btn">
+                            <i class="fas fa-file-word"></i> Gerar Documentos Word
+                        </button>
+                        <button type="button" id="reset-btn" class="btn-reset">
+                            <i class="fas fa-redo"></i> Limpar Formulário
+                        </button>
+                        <div class="loading hidden" id="loading">
+                            <i class="fas fa-spinner fa-spin"></i> Processando documentos...
+                        </div>
+                    </div>
+                </form>
+                
+                <div id="results-section" class="hidden">
+                    <section class="results-section">
+                        <h2><i class="fas fa-download"></i> Documentos Word Gerados</h2>
+                        
+                        <div class="success-message" id="success-message">
+                            <i class="fas fa-check-circle"></i>
+                            <div>
+                                <p><strong>Sucesso!</strong> Documentos gerados com formatação Word completa.</p>
+                                <p class="success-detail">Os arquivos estão prontos para download e edição no Microsoft Word.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="documents-grid" id="documents-container">
+                            </div>
+                        
+                        <div class="download-options">
+                            <h3><i class="fas fa-file-archive"></i> Download em Lote</h3>
+                            <p>Baixe todos os documentos de uma vez em um arquivo ZIP organizado.</p>
+                            <button id="download-all-btn" class="btn-download-all">
+                                <i class="fas fa-file-archive"></i> Baixar Todos (.ZIP)
+                            </button>
+                            <button id="download-individual-btn" class="btn-download-individual">
+                                <i class="fas fa-folder-open"></i> Abrir Pasta de Downloads
+                            </button>
+                        </div>
+                        
+                        <div class="data-summary">
+                            <h3><i class="fas fa-clipboard-check"></i> Dados Utilizados</h3>
+                            <div class="summary-content">
+                                <div id="data-summary-content">
+                                    </div>
+                                <button id="copy-data-btn" class="btn-copy">
+                                    <i class="fas fa-copy"></i> Copiar Dados
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+        
+        <footer class="footer">
+            <p><i class="fas fa-copyright"></i> Sistema de Geração de Documentos Word - Versão 2.0</p>
+            <p class="footer-info">Documentos gerados com formatação completa do Microsoft Word</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

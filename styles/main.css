@@ -1,7 +1,7 @@
 :root {
     --primary: #9fd3e8;
     --secondary: #fbe6aa;
-    --background: linear-gradient(135deg, #0f1419 0%, #1a365d 100%);
+    --background: #0f1419;
     --foreground: #ffffff;
     --foreground-light: #e5e5e5;
     --foreground-dark: #090a0b;

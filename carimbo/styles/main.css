@@ -15,6 +15,22 @@
     --error: #f56565;
 }
 
+[data-theme="light"] {
+    --primary-dark: #e6eef9;
+    --primary-medium: #2c5aa0;
+    --primary-light: #4b75c9;
+    --accent-blue: #357abd;
+    --accent-light: #63b3ed;
+    --text-light: #2c3e50;
+    --text-lighter: #1a252f;
+    --bg-dark: #f8f9fa;
+    --bg-card: #ffffff;
+    --border-color: #dee2e6;
+    --success: #2f9e44;
+    --warning: #ed8936;
+    --error: #f56565;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -27,6 +43,114 @@ body {
     color: var(--text-light);
     min-height: 100vh;
     line-height: 1.6;
+}
+
+/* ===== SELETOR DE TEMA ===== */
+.theme-selector {
+    background: var(--bg-dark);
+    color: var(--text-light);
+    padding: 0;
+    font-size: 14px;
+    position: relative;
+    z-index: 1000;
+    border-bottom: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.theme-selector-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 50px;
+}
+
+.theme-logo {
+    font-weight: 600;
+    color: var(--text-light);
+    font-size: 16px;
+}
+
+.theme-switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 30px;
+}
+
+.theme-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.theme-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(145deg, #667eea, #764ba2);
+    transition: all 0.4s ease;
+    border-radius: 34px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.theme-slider:before {
+    content: "";
+    position: absolute;
+    height: 24px;
+    width: 24px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    transition: all 0.4s ease;
+    border-radius: 50%;
+    z-index: 2;
+}
+
+.theme-switch input:checked + .theme-slider {
+    background: linear-gradient(145deg, #ff9a9e, #fad0c4);
+}
+
+.theme-switch input:checked + .theme-slider:before {
+    transform: translateX(30px);
+    background: #f8f9fa;
+}
+
+.theme-icon {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    transition: all 0.4s ease;
+    z-index: 1;
+}
+
+.theme-icon.sun {
+    left: 8px;
+    opacity: 0;
+}
+
+.theme-icon.moon {
+    right: 8px;
+    opacity: 1;
+}
+
+.theme-switch input:checked + .theme-slider .theme-icon.sun {
+    opacity: 1;
+}
+
+.theme-switch input:checked + .theme-slider .theme-icon.moon {
+    opacity: 0;
+}
+
+.theme-switch:hover .theme-slider {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
 .container {

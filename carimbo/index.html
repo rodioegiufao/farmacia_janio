@@ -13,6 +13,21 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
+    <!-- Tema Selector -->
+    <div id="theme-selector" class="theme-selector">
+        <div class="theme-selector-content">
+            <div class="theme-logo">Analisador de Carimbos</div>
+            <div class="theme-controls">
+                <label class="theme-switch">
+                    <input type="checkbox" id="theme-toggle">
+                    <span class="theme-slider">
+                        <span class="theme-icon sun">☀️</span>
+                        <span class="theme-icon moon">🌙</span>
+                    </span>
+                </label>
+            </div>
+        </div>
+    </div>
     <div class="container">
         <!-- Header -->
         <header class="header">
@@ -338,15 +353,32 @@
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
 
+        function initThemeSelector() {
+            const themeToggle = document.getElementById('theme-toggle');
+            const html = document.documentElement;
+
+            if (!themeToggle) {
+                return;
+            }
+
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            html.setAttribute('data-theme', savedTheme);
+            themeToggle.checked = savedTheme === 'light';
+
+            themeToggle.addEventListener('change', function() {
+                const theme = this.checked ? 'light' : 'dark';
+                html.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+            });
+        }
+
         // Inicializar quando o DOM estiver pronto
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 Inicializando aplicação...');
+            initThemeSelector();
             window.pdfAnalyzerApp = new PDFAnalyzerApp();
             console.log('✅ Aplicação carregada com sucesso');
         });
     </script>
 </body>
 </html>
-
-
-

@@ -27,7 +27,7 @@ body {
 
 /* Admin Bar */
 .admin-bar {
-    background: #1d2327;
+    background: var(--page-background);
     color: #f0f0f1;
     padding: 0;
     font-size: 14px;
@@ -62,7 +62,7 @@ body {
 
 /* Header */
 .site-header {
-    background: var(--background);
+    background: var(--page-background);
     padding: 2rem 0;
     text-align: center;
     display: flex;
@@ -333,7 +333,7 @@ body {
 
 /* Footer */
 .site-footer {
-    background: var(--background);
+    background: var(--page-background);
     padding: 2rem 0;
     text-align: center;
     margin-top: 4rem;
@@ -752,7 +752,7 @@ body {
 
 /* ===== SELETOR DE TEMA ===== */
 .theme-selector {
-    background: var(--background);
+    background: var(--page-background);
     color: var(--foreground);
     padding: 0;
     font-size: 14px;
@@ -863,7 +863,7 @@ body {
 
 /* ===== AJUSTES PARA TEMA CLARO ===== */
 [data-theme="light"] .site-header {
-    background: var(--background);
+    background: var(--page-background);
 }
 
 [data-theme="light"] .main-menu a {
@@ -972,7 +972,7 @@ body {
 }
 
 [data-theme="light"] .site-footer {
-    background: var(--background);
+    background: var(--page-background);
     border-top: 1px solid var(--border);
 }
 

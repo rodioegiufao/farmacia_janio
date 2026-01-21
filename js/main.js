@@ -115,6 +115,28 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // ========== PLASMA NO LOGO ==========
+    const siteTitle = document.querySelector('.site-title');
+    const brandTitle = document.querySelector('.brand-title');
+    if (siteTitle && brandTitle) {
+        const togglePlasma = () => {
+            const isActive = siteTitle.classList.toggle('is-plasma');
+            siteTitle.dataset.plasma = isActive ? 'on' : 'off';
+        };
+
+        brandTitle.addEventListener('click', function(event) {
+            event.preventDefault();
+            togglePlasma();
+        });
+
+        brandTitle.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                togglePlasma();
+            }
+        });
+    }    
+
     // ========== ADICIONAIS ==========
     window.addEventListener('load', function() { document.body.classList.add('loaded'); });
 

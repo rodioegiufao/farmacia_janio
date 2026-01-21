@@ -937,3 +937,23 @@ function formatDateToDMY(date) {
     const d = new Date(date);
     return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
 }
+
+function initThemeSelector() {
+    const themeToggle = document.getElementById('theme-toggle');
+    if (!themeToggle) {
+        return;
+    }
+
+    const html = document.documentElement;
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    html.setAttribute('data-theme', savedTheme);
+    themeToggle.checked = savedTheme === 'light';
+
+    themeToggle.addEventListener('change', function() {
+        const theme = this.checked ? 'light' : 'dark';
+        html.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+    });
+}
+
+initThemeSelector();

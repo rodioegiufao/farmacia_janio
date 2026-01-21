@@ -134,11 +134,11 @@ const MESES_PT_BR = {
 
 // Templates disponíveis
 const TEMPLATES = {
-    "memorial": "templates/memorial-descritivo.docx",
-    "procuração": "templates/procuração.docx",
-    "termo_responsabilidade": "templates/termo-responsabilidade.docx",
-    "carta_viabilidade": "templates/carta-viabilidade.docx",
-    "termo_nao_geração": "templates/termo-nao-geração.docx"
+    "memorial": "viabilidade/templates/memorial-descritivo.docx",
+    "procuração": "viabilidade/templates/procuração.docx",
+    "termo_responsabilidade": "viabilidade/templates/termo-responsabilidade.docx",
+    "carta_viabilidade": "viabilidade/templates/carta-viabilidade.docx",
+    "termo_nao_geração": "viabilidade/templates/termo-nao-geração.docx"
 };
 
 // Variáveis globais

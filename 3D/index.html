@@ -30,18 +30,20 @@
             <p>Escolha qual projeto deseja carregar.</p>
             <div class="model-selection-actions">
                 <div class="model-selection-group">
-                    <span class="model-selection-group-title">Público</span>
-                    <div class="model-selection-buttons">
-                        <button id="selectIperModels" type="button">IPER</button>
-                        <button id="selectLacenModels" type="button">LACEN</button>
-                        <button id="selectPoliclinicaModels" type="button">Policlínica</button>
-                    </div>
+                    <label class="model-selection-group-title" for="selectPublicProject">Público</label>
+                    <select id="selectPublicProject" class="model-selection-select">
+                        <option value="" selected disabled>Selecione um projeto</option>
+                        <option value="iper">IPER</option>
+                        <option value="lacen">LACEN</option>
+                        <option value="policlinica">Policlínica</option>
+                    </select>
                 </div>
                 <div class="model-selection-group">
-                    <span class="model-selection-group-title">Privado</span>
-                    <div class="model-selection-buttons">
-                        <button id="selectFarmaciaModels" type="button">Farmácia do Jânio</button>
-                    </div>
+                    <label class="model-selection-group-title" for="selectPrivateProject">Privado</label>
+                    <select id="selectPrivateProject" class="model-selection-select">
+                        <option value="" selected disabled>Selecione um projeto</option>
+                        <option value="farmacia">Farmácia do Jânio</option>
+                    </select>
                 </div>
             </div>
         </div>

@@ -914,6 +914,8 @@ const selectIperModelsButton = document.getElementById("selectIperModels");
 const selectPoliclinicaModelsButton = document.getElementById("selectPoliclinicaModels");
 const selectFarmaciaModelsButton = document.getElementById("selectFarmaciaModels");
 const selectLacenModelsButton = document.getElementById("selectLacenModels");
+const selectPublicProject = document.getElementById("selectPublicProject");
+const selectPrivateProject = document.getElementById("selectPrivateProject");
 const projectFromDataset = document.body?.dataset?.project;
 
 const PROJECT_CONFIGS = {
@@ -956,6 +958,16 @@ function handleModelSelection(models, transforms, projectKey, { replaceUrl = fal
     updateProjectUrl(projectKey, { replace: replaceUrl });
 }
 
+function handleProjectSelectChange(event) {
+    const projectKey = event.target.value;
+    if (!projectKey || !PROJECT_CONFIGS[projectKey]) {
+        return;
+    }
+
+    const { models, transforms } = PROJECT_CONFIGS[projectKey];
+    handleModelSelection(models, transforms, projectKey);
+}
+
 if (selectIperModelsButton) {
     selectIperModelsButton.addEventListener("click", () => {
         handleModelSelection(IPER_MODELS, IPER_MODEL_TRANSFORMS, "iper");
@@ -978,6 +990,14 @@ if (selectLacenModelsButton) {
     selectLacenModelsButton.addEventListener("click", () => {
         handleModelSelection(defaultModels, DEFAULT_MODEL_TRANSFORMS, "lacen");
     });
+}
+
+if (selectPublicProject) {
+    selectPublicProject.addEventListener("change", handleProjectSelectChange);
+}
+
+if (selectPrivateProject) {
+    selectPrivateProject.addEventListener("change", handleProjectSelectChange);
 }
 
 if (projectFromDataset && PROJECT_CONFIGS[projectFromDataset]) {

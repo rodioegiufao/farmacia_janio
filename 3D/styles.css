@@ -58,9 +58,9 @@ html, body {
 }
 
 .access-gate-label {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     text-align: left;
-    color: #f0f0f0;
+    color: var(--foreground);
 }
 
 .access-gate-form input {

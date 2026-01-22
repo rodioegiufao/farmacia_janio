@@ -153,7 +153,7 @@ html, body {
     padding: 12px 16px;
     border-radius: 8px;
     border: 1px solid var(--border);
-    background: var(--page-background-solid);
+    background: #0f1419;
     color: var(--foreground);
     font-weight: 600;
     font-size: 0.9rem;
@@ -161,7 +161,7 @@ html, body {
 }
 
 .model-selection-select option {
-    background-color: var(--page-background-solid);
+    background-color: #0f1419;
     color: var(--foreground);
 }
 

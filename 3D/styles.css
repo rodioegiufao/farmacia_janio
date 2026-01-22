@@ -87,19 +87,50 @@ html, body {
 }
 
 .access-gate-toggle {
-    padding: 8px 10px;
-    border-radius: 8px;
+    width: 42px;
+    height: 40px;
+    border-radius: 10px;
     border: 1px solid var(--border);
     background: #0f1419;
     color: var(--foreground);
-    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 .access-gate-toggle[aria-pressed="true"] {
     background: var(--primary);
     color: #fff;
+}
+
+.access-gate-toggle:focus-visible {
+    outline: 2px solid #1a8cff;
+    outline-offset: 2px;
+}
+
+.access-gate-icon {
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+}
+
+.access-gate-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.access-gate-icon--visible {
+    display: none;
+}
+
+.access-gate-toggle.is-visible .access-gate-icon--visible {
+    display: inline-flex;
+}
+
+.access-gate-toggle.is-visible .access-gate-icon--hidden {
+    display: none;
 }
 
 .access-gate-form button {

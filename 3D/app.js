@@ -150,8 +150,9 @@ function setupAccessGate() {
         accessToggleButton.addEventListener("click", () => {
             const isVisible = accessInput.type === "text";
             accessInput.type = isVisible ? "password" : "text";
-            accessToggleButton.textContent = isVisible ? "Mostrar" : "Ocultar";
+            accessToggleButton.classList.toggle("is-visible", !isVisible);
             accessToggleButton.setAttribute("aria-pressed", (!isVisible).toString());
+            accessToggleButton.setAttribute("aria-label", !isVisible ? "Ocultar senha" : "Mostrar senha");
             accessInput.focus();
         });
     }

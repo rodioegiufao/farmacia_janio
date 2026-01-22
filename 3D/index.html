@@ -19,7 +19,12 @@
             <p id="accessGateDescription">Digite a senha para continuar.</p>
             <form id="accessGateForm" class="access-gate-form">
                 <label class="access-gate-label" for="accessGatePassword">Senha</label>
-                <input id="accessGatePassword" type="password" autocomplete="current-password" required />
+                <div class="access-gate-input-row">
+                    <input id="accessGatePassword" type="password" autocomplete="current-password" required />
+                    <button type="button" id="accessGateToggle" class="access-gate-toggle" aria-pressed="false">
+                        Mostrar
+                    </button>
+                </div>
                 <button type="submit">Entrar</button>
                 <span id="accessGateMessage" class="access-gate-message" aria-live="polite"></span>
             </form>

@@ -126,6 +126,7 @@ function setupAccessGate() {
     }
 
     const modelSelectionOverlay = document.getElementById("modelSelection");
+    const accessToggleButton = document.getElementById("accessGateToggle");
 
     if (sessionStorage.getItem(ACCESS_STORAGE_KEY) === "true") {
         accessGate.hidden = true;
@@ -144,6 +145,16 @@ function setupAccessGate() {
     accessInput.addEventListener("input", () => {
         setAccessMessage("");
     });
+
+    if (accessToggleButton) {
+        accessToggleButton.addEventListener("click", () => {
+            const isVisible = accessInput.type === "text";
+            accessInput.type = isVisible ? "password" : "text";
+            accessToggleButton.textContent = isVisible ? "Mostrar" : "Ocultar";
+            accessToggleButton.setAttribute("aria-pressed", (!isVisible).toString());
+            accessInput.focus();
+        });
+    }
 
     accessForm.addEventListener("submit", (event) => {
         event.preventDefault();

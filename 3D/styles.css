@@ -31,24 +31,26 @@ html, body {
 }
 
 .access-gate-card {
-    background: rgba(18, 18, 18, 0.95);
-    color: #f5f5f5;
-    padding: 32px 28px;
+    background: var(--page-background);
+    color: var(--foreground);
+    padding: 24px 22px;
     border-radius: 12px;
-    width: min(360px, 90vw);
+    width: min(320px, 90vw);
     text-align: center;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
-    font-family: Arial, sans-serif;
+    box-shadow: 0 12px 30px rgba(15, 20, 25, 0.35);
+    border: 1px solid var(--primary);
+    font-family: inherit;
 }
 
 .access-gate-card h1 {
     margin: 0 0 12px;
-    font-size: 1.35rem;
+    font-size: 1.1rem;
 }
 
 .access-gate-card p {
     margin: 0 0 20px;
-    color: #d0d0d0;
+    color: var(--foreground-light);
+    font-size: 0.95rem;
 }
 
 .access-gate-form {
@@ -63,12 +65,41 @@ html, body {
     color: var(--foreground);
 }
 
+.access-gate-input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .access-gate-form input {
-    padding: 10px 12px;
+    flex: 1;
+    padding: 8px 10px;
     border-radius: 8px;
-    border: 1px solid #333;
-    background: #101010;
-    color: #f5f5f5;
+    border: 1px solid var(--border);
+    background: #0f1419;
+    color: var(--foreground);
+    font-size: 0.9rem;
+}
+
+.access-gate-form input:focus {
+    outline: 2px solid #1a8cff;
+    outline-offset: 2px;
+}
+
+.access-gate-toggle {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #0f1419;
+    color: var(--foreground);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.access-gate-toggle[aria-pressed="true"] {
+    background: var(--primary);
+    color: #fff;
 }
 
 .access-gate-form button {

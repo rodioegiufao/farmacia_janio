@@ -1874,7 +1874,7 @@ function setupModelIsolateController() {
     treeView = new TreeViewPlugin(viewer, {
         containerElement: treeViewContainer,
         hierarchy: "containment",
-        autoExpandDepth: 2
+        autoExpandDepth: 0
     });
 
     setupTreeViewFilter();

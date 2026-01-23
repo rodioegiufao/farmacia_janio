@@ -701,11 +701,6 @@ function setupSearchDrag() {
         return;
     }
 
-    const dragHandle = searchBar.querySelector(".search-bar__handle");
-    if (!dragHandle) {
-        return;
-    }
-
     const storageKey = `searchBarPosition:${window.location.pathname}`;
     const storedPosition = window.localStorage?.getItem(storageKey);
 
@@ -757,6 +752,7 @@ function setupSearchDrag() {
         }
 
         dragging = false;
+        searchBar.classList.remove("is-dragging");
         window.removeEventListener("pointermove", handlePointerMove);
         window.removeEventListener("pointerup", stopDrag);
         window.removeEventListener("pointercancel", stopDrag);
@@ -768,11 +764,16 @@ function setupSearchDrag() {
         );
     };
 
-    dragHandle.addEventListener("pointerdown", (event) => {
+    searchBar.addEventListener("pointerdown", (event) => {
         if (event.button !== 0) {
             return;
         }
 
+        if (event.target.closest("input, button, textarea, select")) {
+            return;
+        }
+
+        event.preventDefault();
         const rect = searchBar.getBoundingClientRect();
         dragging = true;
         startX = event.clientX;
@@ -780,7 +781,8 @@ function setupSearchDrag() {
         startLeft = rect.left;
         startTop = rect.top;
 
-        dragHandle.setPointerCapture?.(event.pointerId);
+        searchBar.classList.add("is-dragging");
+        searchBar.setPointerCapture?.(event.pointerId);
         window.addEventListener("pointermove", handlePointerMove);
         window.addEventListener("pointerup", stopDrag);
         window.addEventListener("pointercancel", stopDrag);

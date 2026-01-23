@@ -308,6 +308,27 @@ html, body {
     display: none; /* Inicia ESCONDIDO */
     font-family: Arial, sans-serif;
     font-size: 14px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(10, 10, 10, 0.95) rgba(0, 0, 0, 0.45);
+}
+
+#treeViewContainer::-webkit-scrollbar {
+    width: 10px;
+}
+
+#treeViewContainer::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: 999px;
+}
+
+#treeViewContainer::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #0b0b0b, #1f1f1f);
+    border-radius: 999px;
+    border: 2px solid rgba(0, 0, 0, 0.45);
+}
+
+#treeViewContainer::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #050505, #141414);
 }
 
 /* 🛑 FORÇA A REMOÇÃO DE TODOS OS MARCADORES DE LISTA (PONTOS) */

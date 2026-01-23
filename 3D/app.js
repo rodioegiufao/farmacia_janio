@@ -696,7 +696,12 @@ function setupSearchControls() {
     });
 }
 
-function setupDraggablePanel({ panel, storageKey, ignoreSelectors = "" }) {
+function setupDraggablePanel({
+    panel,
+    storageKey,
+    ignoreSelectors = "",
+    handleSelector = ""
+}) {
     if (!panel) {
         return;
     }
@@ -766,6 +771,10 @@ function setupDraggablePanel({ panel, storageKey, ignoreSelectors = "" }) {
 
     panel.addEventListener("pointerdown", (event) => {
         if (event.button !== 0) {
+            return;
+        }
+
+        if (handleSelector && !event.target.closest(handleSelector)) {
             return;
         }
 
@@ -2355,37 +2364,45 @@ function showMaterialProperties(entity) {
         return;
     }
 
-    let propriedades = `<strong style='color:#4CAF50;'>ID:</strong> ${metaObject.id}<br>`;
-    propriedades += `<strong style='color:#4CAF50;'>Tipo:</strong> ${metaObject.type || "N/A"}<br>`;
-    if (metaObject.name) propriedades += `<strong style='color:#4CAF50;'>Nome:</strong> ${metaObject.name}<br><br>`;
+    let propriedades = `<div class="property-panel-meta">`;
+    propriedades += `<div><span class="property-label">ID:</span> ${metaObject.id}</div>`;
+    propriedades += `<div><span class="property-label">Tipo:</span> ${metaObject.type || "N/A"}</div>`;
+    if (metaObject.name) {
+        propriedades += `<div><span class="property-label">Nome:</span> ${metaObject.name}</div>`;
+    }
 
     const aabb = viewer.scene.getAABB(entity.id);
     if (aabb) {
         const centerX = ((aabb[0] + aabb[3]) / 2).toFixed(3);
         const centerY = ((aabb[1] + aabb[4]) / 2).toFixed(3);
         const centerZ = ((aabb[2] + aabb[5]) / 2).toFixed(3);
-        propriedades += `<strong style='color:#4CAF50;'>Coordenadas (centro):</strong><br>`;
-        propriedades += `<span style='color:#fff;'>X: ${centerX} &nbsp; Y: ${centerY} &nbsp; Z: ${centerZ}</span><br><br>`;
+        propriedades += `
+            <div class="property-panel-coordinates">
+                <div class="property-label">Coordenadas (centro):</div>
+                <div class="property-panel-coordinates-values">X: ${centerX} &nbsp; Y: ${centerY} &nbsp; Z: ${centerZ}</div>
+            </div>
+        `;
     }
+    propriedades += `</div>`;
 
     // --- Varre todos os conjuntos de propriedades IFC ---
     if (metaObject.propertySets && metaObject.propertySets.length > 0) {
         for (const pset of metaObject.propertySets) {
-            propriedades += `<div style="margin-top:10px;border-top:1px solid #444;padding-top:5px;">`;
-            propriedades += `<strong style='color:#4CAF50;'>${pset.name}</strong><br>`;
+            propriedades += `<div class="property-panel-section">`;
+            propriedades += `<div class="property-panel-section-title">${pset.name}</div>`;
             if (pset.properties && pset.properties.length > 0) {
-                propriedades += "<table style='width:100%;font-size:12px;margin-top:5px;'>";
+                propriedades += "<table class='property-panel-table'>";
                 for (const prop of pset.properties) {
                     const key = prop.name || prop.id;
                     const val = prop.value !== undefined ? prop.value : "(vazio)";
-                    propriedades += `<tr><td style='width:40%;color:#ccc;'>${key}</td><td style='color:#fff;'>${val}</td></tr>`;
+                    propriedades += `<tr><td class="property-panel-key">${key}</td><td class="property-panel-value">${val}</td></tr>`;
                 }
                 propriedades += "</table>";
             }
             propriedades += `</div>`;
         }
     } else {
-        propriedades += `<i style='color:gray;'>Nenhum conjunto de propriedades encontrado.</i>`;
+        propriedades += `<div class="property-panel-empty">Nenhum conjunto de propriedades encontrado.</div>`;
     }
 
     // --- Cria ou atualiza o painel flutuante ---
@@ -2393,47 +2410,37 @@ function showMaterialProperties(entity) {
     if (!painel) {
         painel = document.createElement("div");
         painel.id = "propertyPanel";
-        painel.style.position = "fixed";
-        painel.style.right = "20px";
-        painel.style.top = "80px";
-        painel.style.width = "350px";
-        painel.style.maxHeight = "65vh";
-        painel.style.overflowY = "auto";
-        // Esses estilos podem ser sobrescritos via styles.css
-        painel.style.background = "rgba(0,0,0,0.9)";
-        painel.style.color = "white";
-        painel.style.padding = "15px";
-        painel.style.borderRadius = "10px";
-        painel.style.zIndex = 300000;
-        painel.style.fontFamily = "Arial, sans-serif";
-        painel.style.fontSize = "13px";
-        painel.style.boxShadow = "0 4px 10px rgba(0,0,0,0.4)";
+        painel.classList.add("property-panel");
         document.body.appendChild(painel);
     }
 
     // 🟢 Adiciona botão X para fechar
     painel.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <h3 style='margin:0;'>Propriedades IFC</h3>
+        <div class="property-panel-header">
+            <div class="property-panel-title">
+                <h3>Propriedades IFC</h3>
+                <span class="property-panel-subtitle">Metadados do objeto selecionado</span>
+            </div>
             <button id="closePropertyPanel"
-                style="
-                    background:transparent;
-                    border:none;
-                    color:#f44336;
-                    font-size:18px;
-                    font-weight:bold;
-                    cursor:pointer;
-                    line-height:1;
-                "
+                class="property-panel-close"
                 title="Fechar painel">
                 ✖
             </button>
         </div>
-        ${propriedades}
+        <div class="property-panel-body">
+            ${propriedades}
+        </div>
     `;
 
     // 🟢 Evento do botão X
     document.getElementById("closePropertyPanel").onclick = closePropertyPanel;
+
+    setupDraggablePanel({
+        panel: painel,
+        storageKey: `propertyPanelPosition:${window.location.pathname}`,
+        ignoreSelectors: "button, a, input, textarea, select, table, td, th",
+        handleSelector: ".property-panel-header"
+    });
 }
 
 // Cria o menu de contexto

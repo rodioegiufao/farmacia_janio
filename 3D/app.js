@@ -273,6 +273,7 @@ const collisionResultsList = document.getElementById("collisionResults");
 const searchBar = document.getElementById("searchBar");
 const searchInput = document.getElementById("searchIdInput");
 const searchButton = document.getElementById("btnSearchId");
+const closeSearchBarButton = document.getElementById("closeSearchBar");
 const searchToggleButton = document.getElementById("btnSearchToggle");
 const searchFeedback = document.getElementById("searchFeedback");
 
@@ -658,6 +659,8 @@ function setupSearchControls() {
     if (searchToggleButton && searchBar) {
         searchToggleButton.addEventListener("click", () => toggleSearchBar());
     }
+
+    closeSearchBarButton?.addEventListener("click", () => toggleSearchBar(false));
 
     document.addEventListener("keydown", (event) => {
         if (event.key === "Escape" && searchBar && !searchBar.hidden) {

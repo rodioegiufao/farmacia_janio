@@ -501,7 +501,7 @@ html, body {
     color: #f1f1f1;
 }
 
-.search-bar button {
+.search-bar .search-action {
     flex: 0 0 auto;
     padding: 9px 14px;
     border: none;
@@ -513,8 +513,24 @@ html, body {
     box-shadow: 0 3px 10px rgba(0, 123, 255, 0.35);
 }
 
-.search-bar button:hover {
+.search-bar .search-action:hover {
     background: linear-gradient(135deg, #3e97ff, #0a86ff);
+}
+
+.search-bar .search-close-button {
+    background: transparent;
+    border: none;
+    color: #f0f0f0;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.search-bar .search-close-button:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #ff6b6b;
 }
 
 .search-feedback {

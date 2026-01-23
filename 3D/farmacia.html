@@ -114,10 +114,18 @@
         </button>
     </div>
     <div id="searchBar" class="search-bar" aria-label="Buscar peça por ID" hidden>
-        <label class="sr-only" for="searchIdInput">ID da peça</label>
-        <input id="searchIdInput" type="text" placeholder="Buscar peça pelo ID" aria-label="ID da peça" />
-        <button id="btnSearchId" type="button" class="search-action">Buscar</button>
-        <button id="closeSearchBar" type="button" class="search-close-button" aria-label="Fechar busca">✕</button>
+        <div class="search-panel-header">
+            <div>
+                <div class="search-panel-title">Buscar peça</div>
+                <div class="search-panel-subtitle">Encontre elementos pelo ID</div>
+            </div>
+            <button id="closeSearchBar" type="button" class="search-close-button" aria-label="Fechar busca">✕</button>
+        </div>
+        <div class="search-panel-controls">
+            <label class="sr-only" for="searchIdInput">ID da peça</label>
+            <input id="searchIdInput" type="text" placeholder="Buscar peça pelo ID" aria-label="ID da peça" />
+            <button id="btnSearchId" type="button" class="search-action">Buscar</button>
+        </div>
         <span id="searchFeedback" class="search-feedback" aria-live="polite"></span>
     </div>
     <button id="mobileToolbarToggle" type="button" aria-label="Mostrar todas as ferramentas" title="Mostrar todas as ferramentas" hidden>

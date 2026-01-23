@@ -817,6 +817,10 @@ const POLICLINICA_MODELS = [
     { id: "IFC_IRRI", src: "/3D/policlinica/modelo-13.xkt" },
 ];
 
+const CANAA_MODELS = [  
+    { id: "IFC_ELE", src: "/3D/esc_canaa/modelo-01.xkt" }, 
+  ];
+
 const defaultModels = [
     { id: "IFC_LOG_TEF", src: "/3D/lacen/modelo-01.xkt" },
     { id: "IFC_ELE", src: "/3D/lacen/modelo-02.xkt" },
@@ -891,6 +895,8 @@ const POLICLINICA_MODEL_TRANSFORMS = {
     IFC_IRRI: { position: [-78, 0, 40], rotation: [0, -45, 0] },
 };
 
+const CANAA_MODEL_TRANSFORMS = {};
+
 const DEFAULT_MODEL_TRANSFORMS = {
     IFC_ILUX: { position: [-14.08, 0, 0] },
     IFC_EST: { position: [-62.3, 0.4, 35.2] },
@@ -926,6 +932,7 @@ const selectIperModelsButton = document.getElementById("selectIperModels");
 const selectPoliclinicaModelsButton = document.getElementById("selectPoliclinicaModels");
 const selectFarmaciaModelsButton = document.getElementById("selectFarmaciaModels");
 const selectLacenModelsButton = document.getElementById("selectLacenModels");
+const selectCanaaModelsButton = document.getElementById("selectCanaaModels");
 const selectPublicProject = document.getElementById("selectPublicProject");
 const selectPrivateProject = document.getElementById("selectPrivateProject");
 const projectFromDataset = document.body?.dataset?.project;
@@ -935,6 +942,7 @@ const PROJECT_CONFIGS = {
     lacen: { models: defaultModels, transforms: DEFAULT_MODEL_TRANSFORMS },
     policlinica: { models: POLICLINICA_MODELS, transforms: POLICLINICA_MODEL_TRANSFORMS },
     farmacia: { models: FARMACIA_MODELS, transforms: FARMACIA_MODEL_TRANSFORMS },
+    esc_canaa: { models: CANAA_MODELS, transforms: CANAA_MODEL_TRANSFORMS },
 };
 
 const PROJECT_ROUTES = {
@@ -942,6 +950,7 @@ const PROJECT_ROUTES = {
     lacen: "/3D/lacen",
     policlinica: "/3D/policlinica",
     farmacia: "/3D/farmacia",
+    esc_canaa: "/3D/esc_canaa",
 };
 
 function updateProjectUrl(projectKey, { replace = false } = {}) {
@@ -1001,6 +1010,12 @@ if (selectFarmaciaModelsButton) {
 if (selectLacenModelsButton) {
     selectLacenModelsButton.addEventListener("click", () => {
         handleModelSelection(defaultModels, DEFAULT_MODEL_TRANSFORMS, "lacen");
+    });
+}
+
+if (selectCanaaModelsButton) {
+    selectCanaaModelsButton.addEventListener("click", () => {
+        handleModelSelection(CANAA_MODELS, CANAA_MODEL_TRANSFORMS, "esc_canaa");
     });
 }
 

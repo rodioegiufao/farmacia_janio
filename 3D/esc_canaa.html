@@ -3,66 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador BIM com Medição de Ângulo e Distância</title>
+    <title>Visualizador BIM - Escola Canaã</title>
     <link rel="icon" href="/images/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
     <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
-    <link rel="stylesheet" href="/styles/main.css">
     <link id="modeStylesheet" rel="stylesheet" href="/3D/styles.css">
     
     <script type="module" src="https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@latest/dist/xeokit-sdk.min.es.js"></script>
 </head>
-<body>
-    <div id="accessGate" class="access-gate" role="dialog" aria-modal="true" aria-labelledby="accessGateTitle" aria-describedby="accessGateDescription" hidden>
-        <div class="access-gate-card">
-            <h1 id="accessGateTitle">Acesso protegido</h1>
-            <p id="accessGateDescription">Digite a senha para continuar.</p>
-            <form id="accessGateForm" class="access-gate-form">
-                <label class="access-gate-label" for="accessGatePassword">Senha</label>
-                <div class="access-gate-input-row">
-                    <input id="accessGatePassword" type="password" autocomplete="current-password" required />
-                    <button type="button" id="accessGateToggle" class="access-gate-toggle" aria-pressed="false" aria-label="Mostrar senha">
-                        <span class="access-gate-icon access-gate-icon--hidden" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" focusable="false">
-                                <path d="M3 3l18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                <path d="M10.5 10.75a2.5 2.5 0 0 0 2.75 2.75" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                <path d="M6.5 6.75C4.2 8.3 2.6 10.6 2 12c1.5 3.5 5.1 6 10 6 1.7 0 3.3-.3 4.6-.9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                <path d="M9.7 5.2c.8-.2 1.7-.2 2.3-.2 4.9 0 8.5 2.5 10 7-.5 1.1-1.3 2.3-2.4 3.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                            </svg>
-                        </span>
-                        <span class="access-gate-icon access-gate-icon--visible" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" focusable="false">
-                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"></circle>
-                            </svg>
-                        </span>
-                    </button>
-                </div>
-                <button type="submit">Entrar</button>
-                <span id="accessGateMessage" class="access-gate-message" aria-live="polite"></span>
-            </form>
-        </div>
-    </div>
-    <div id="modelSelection" class="model-selection" role="dialog" aria-modal="true" aria-labelledby="modelSelectionTitle">
+<body data-project="esc_canaa">
+    <div id="modelSelection" class="model-selection" role="dialog" aria-modal="true" aria-labelledby="modelSelectionTitle" hidden>
         <div class="model-selection-card">
             <h1 id="modelSelectionTitle">Selecione o Projeto</h1>
             <p>Escolha qual projeto deseja carregar.</p>
             <div class="model-selection-actions">
                 <div class="model-selection-group">
-                    <select id="selectPublicProject" class="model-selection-select">
-                        <option value="" selected disabled>Selecione um projeto</option>
-                        <option value="iper">IPER</option>
-                        <option value="lacen">LACEN</option>
-                        <option value="policlinica">Policlínica</option>
-                        <option value="esc_canaa">Escola Canaã</option>
-                    </select>
+                    <span class="model-selection-group-title">Público</span>
+                    <div class="model-selection-buttons">
+                        <button id="selectIperModels" type="button">IPER</button>
+                        <button id="selectLacenModels" type="button">LACEN</button>
+                        <button id="selectPoliclinicaModels" type="button">Policlínica</button>
+                        <button id="selectCanaaModels" type="button">Escola Canaã</button>
+                    </div>
                 </div>
                 <div class="model-selection-group">
-                    <label class="model-selection-group-title" for="selectPrivateProject">Privado</label>
-                    <select id="selectPrivateProject" class="model-selection-select">
-                        <option value="" selected disabled>Selecione um projeto</option>
-                        <option value="farmacia">Farmácia do Jânio</option>
-                    </select>
+                    <span class="model-selection-group-title">Privado</span>
+                    <div class="model-selection-buttons">
+                        <button id="selectFarmaciaModels" type="button">Farmácia do Jânio</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -82,7 +50,7 @@
             Ângulo
         </button>
 
-        <button
+        <button 
             id="btnDistance" 
             class="tool-button" 
             onclick="setMeasurementMode('distance', this)" 
@@ -92,7 +60,7 @@
             Distância
         </button>
      
-        <button
+        <button 
              id="btnToggleTree"
             class="tool-button"
             onclick="toggleTreeView()"
@@ -134,10 +102,10 @@
             aria-pressed="false"
         >
             <span style="font-size: 1.2em;">🔍</span>
-            Procurar
+            Buscar
         </button>
         <button
-            id="btnAjuda"
+            id="btnHelp"
             class="tool-button"
             title="Ajuda e atalhos de teclado"
         >
@@ -175,7 +143,7 @@
                 <li><kbd>6</kbd> — Vista de baixo</li>
                 <li><kbd>Q</kbd> — Girar para a esquerda</li>
                 <li><kbd>E</kbd> — Girar para a direita</li>
-                <li><kbd>W</kbd> — Aumentar o zoom</li>
+                <li><kbd>W</kbd> — Aumentar zoom</li>
                 <li><kbd>S</kbd> — Diminuir zoom</li>
                 <li><kbd>Z</kbd> — Descer</li>
                 <li><kbd>X</kbd> — Subir</li>
@@ -256,7 +224,7 @@
 
         <p class="transform-hint">A translação muda a origem do modelo; a rotação é aplicada em torno dessa origem.</p>
     </div>
-    <div id="modeSwitcher" aria-label="Alternar modo de exibição">
+    <div id="modeSwitcher" aria-label="Alternar modo de visualização">
         <button type="button" class="mode-button active" data-mode="desktop">Versão Computador</button>
         <button type="button" class="mode-button" data-mode="mobile">Versão Celular</button>
     </div>
@@ -264,7 +232,7 @@
         Responsável pelo programa: Rodrigo Damasceno Nascimento
     </div>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="/3D/app.js"> </script>
+    <script type="module" src="/3D/app.js"></script>
     <script>
         const modeStylesheet = document.getElementById('modeStylesheet');
         const modeButtons = document.querySelectorAll('#modeSwitcher [data-mode]');
@@ -328,41 +296,16 @@
                 return;
             }
 
-            const clickedButton = event.target.closest('.tool-button');
-            const isOpen = toolbar.classList.contains('open');
-            const isHeaderClick = !clickedButton && event.target === toolbar;
-
-            if (!isOpen && !clickedButton) {
-                event.preventDefault();
-                event.stopPropagation();
-                toggleMobileToolbar(true);
-                return;
-            }
-            if (!isOpen && clickedButton) {
-                toggleMobileToolbar(true);
+            const button = event.target.closest('.tool-button');
+            if (!button) {
                 return;
             }
 
-            if (isOpen && isHeaderClick) {
-                event.preventDefault();
-                toggleMobileToolbar(false);
-            }
+            toggleMobileToolbar(false);
         });
 
-        document.addEventListener('click', (event) => {
-            if (document.body.dataset.mode !== 'mobile') {
-                return;
-            }
-            const isToolbarClick = toolbar.contains(event.target);
-            const isToggleClick = mobileToolbarToggle.contains(event.target);
-
-            if (toolbar.classList.contains('open') && !isToolbarClick && !isToggleClick) {
-                toggleMobileToolbar(false);
-            }
-        });
-
-        updateMobileLabels(false);
-        applyMode(localStorage.getItem('preferredMode') || 'desktop');
+        const storedMode = localStorage.getItem('preferredMode');
+        applyMode(storedMode || 'desktop');
     </script>
 </body>
 </html>

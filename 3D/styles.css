@@ -953,14 +953,14 @@ html, body {
     right: 20px;
     width: 360px;
     max-width: calc(100% - 40px);
-    background: rgba(0, 0, 0, 0.92);
+    background: rgba(33, 33, 33, 0.85);
     color: #f7f7f7;
     padding: 14px;
-    border-radius: 10px;
-    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+    border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
     z-index: 300000;
     font-family: Arial, sans-serif;
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(6px);
 }
 
 #collisionPanel[hidden] {

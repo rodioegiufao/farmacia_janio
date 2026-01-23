@@ -1173,17 +1173,16 @@ function setMeasurementMode(mode, clickedButton) {
     } else if (mode === 'distance') {
         distanceMeasurementsMouseControl.activate();
     }
-    
+
     if (clickedButton) {
-         clickedButton.classList.add('active');
+        clickedButton.classList.add('active');
     }
 
-    angleMeasurementsMouseControl.reset(); 
-    distanceMeasurementsMouseControl.reset(); 
-    
+    angleMeasurementsMouseControl.reset();
+    distanceMeasurementsMouseControl.reset();
 
     // Garante que o modo de seleção seja desativado ao iniciar uma medição
-    clearSelection();
+    clearSelection(false);
 }
 
 window.setMeasurementMode = setMeasurementMode;
@@ -1994,17 +1993,19 @@ function setupTreeViewFilter() {
 /**
  * Alterna a visibilidade do contêiner do TreeView e reseta a visibilidade do modelo se estiver fechando.
  */
-function toggleTreeView() {
+function toggleTreeView(button) {
     if (!treeViewContainer) {
         return;
     }
 
     if (treeViewContainer.style.display === 'block') {
         treeViewContainer.style.display = 'none';
+        button?.classList.remove('active');
         // Ação de "Mostrar Tudo" ao fechar o painel
         resetModelVisibility(); 
     } else {
         treeViewContainer.style.display = 'block';
+        button?.classList.add('active');
     }
 }
 

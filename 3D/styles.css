@@ -297,13 +297,14 @@ html, body {
     width: 320px; /* Largura padrão um pouco maior */
     max-width: 90vw; /* Garante que fique bom em telas pequenas */
     height: calc(100% - 300px); /* Altura do resto da tela */
-    background-color: rgba(0, 0, 0, 0.9); /* Fundo quase preto sólido */
+    background-color: rgba(33, 33, 33, 0.85); /* Fundo fosco como a busca */
     color: #f0f0f0; /* Texto claro */
     padding: 5px;
     overflow-y: auto; /* Adiciona scroll se o conteúdo for grande */
     z-index: 100000;
-    border-radius: 5px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(6px);
     display: none; /* Inicia ESCONDIDO */
     font-family: Arial, sans-serif;
     font-size: 14px;
@@ -700,14 +701,14 @@ html, body {
     right: 20px;
     width: 320px;
     max-width: calc(100% - 40px);
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(33, 33, 33, 0.85);
     color: #f7f7f7;
     padding: 16px;
-    border-radius: 10px;
-    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+    border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
     z-index: 300000;
     font-family: Arial, sans-serif;
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(6px);
 }
 
 .help-panel-header {
@@ -796,14 +797,14 @@ html, body {
     right: 20px;
     width: 340px;
     max-width: calc(100% - 40px);
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(33, 33, 33, 0.85);
     color: #f7f7f7;
     padding: 14px;
-    border-radius: 10px;
-    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+    border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
     z-index: 300000;
     font-family: Arial, sans-serif;
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(6px);
 }
 
 .transform-panel-header {

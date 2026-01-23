@@ -11,7 +11,7 @@
     { "source": "/3D/iper", "destination": "/3D/iper.html" },
     { "source": "/3D/lacen", "destination": "/3D/lacen.html" },
     { "source": "/3D/policlinica", "destination": "/3D/policlinica.html" },
-    { "source": "/3D/farmacia", "destination": "/3D/farmacia.html" }
+    { "source": "/3D/farmacia", "destination": "/3D/farmacia.html" },
     { "source": "/3D/esc_canaa", "destination": "/3D/esc_canaa.html" }
   ]
 }

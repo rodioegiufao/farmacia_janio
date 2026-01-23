@@ -531,6 +531,14 @@ html, body {
     color: #c2fbd7;
 }
 
+.draggable-panel {
+    cursor: grab;
+}
+
+.draggable-panel.is-dragging {
+    cursor: grabbing;
+}
+
 /* ---------------------------------------------------- */
 /* Controle de alternância de modo (Desktop x Mobile) */
 /* ---------------------------------------------------- */

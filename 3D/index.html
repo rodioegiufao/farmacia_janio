@@ -155,7 +155,16 @@
     <button id="mobileToolbarToggle" type="button" aria-label="Mostrar todas as ferramentas" title="Mostrar todas as ferramentas" hidden>
         ☰ Mais ferramentas
     </button>
-    <div id="treeViewContainer"></div>
+    <div id="treeViewContainer">
+        <div class="tree-view-header">
+            <div>
+                <div class="tree-view-title">Pavimentos</div>
+                <div class="tree-view-subtitle">Selecione o pavimento para isolar</div>
+            </div>
+            <button id="closeTreeView" type="button" aria-label="Fechar painel">✕</button>
+        </div>
+        <div id="treeViewContent" class="tree-view-content"></div>
+    </div>
     <div id="helpPanel" hidden>
         <div class="help-panel-header">
             <div>

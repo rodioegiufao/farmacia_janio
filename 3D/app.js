@@ -251,6 +251,9 @@ const helpPanel = document.getElementById("helpPanel");
 const helpPanelToggleButton = document.getElementById("btnHelp");
 const closeHelpPanelButton = document.getElementById("closeHelpPanel");
 const treeViewContainer = document.getElementById("treeViewContainer");
+const treeViewContent = document.getElementById("treeViewContent");
+const closeTreeViewButton = document.getElementById("closeTreeView");
+const toggleTreeViewButton = document.getElementById("btnToggleTree");
 const transformPanel = document.getElementById("transformPanel");
 const transformPanelToggleButton = document.getElementById("btnTransformPanel");
 const closeTransformPanelButton = document.getElementById("closeTransformPanel");
@@ -2011,7 +2014,7 @@ function setupModelIsolateController() {
     }
 
     treeView = new TreeViewPlugin(viewer, {
-        containerElement: treeViewContainer,
+        containerElement: treeViewContent ?? treeViewContainer,
         hierarchy: "containment",
         autoExpandDepth: 0
     });
@@ -2051,7 +2054,7 @@ function setupModelIsolateController() {
 }
 
 function setupTreeViewFilter() {
-    const container = treeViewContainer;
+    const container = treeViewContent ?? treeViewContainer;
 
     if (!container) {
         return;
@@ -2152,6 +2155,10 @@ function toggleTreeView(button) {
 // EXPOR AO ESCOPO GLOBAL para ser chamado pelo 'onclick' do HTML
 window.toggleTreeView = toggleTreeView;
 window.resetModelVisibility = resetModelVisibility;
+
+closeTreeViewButton?.addEventListener("click", () => {
+    toggleTreeView(toggleTreeViewButton);
+});
 
 // -----------------------------------------------------------------------------
 // 7. Plano de Corte (Section Plane) - VERSÃO ESTÁVEL (MANTIDO)

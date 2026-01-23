@@ -281,6 +281,7 @@ setupHelpPanel();
 setupTransformPanelControls();
 setupCollisionPanelControls();
 setupSearchControls();
+setupSearchDrag();
 /**
  * Reseta a visibilidade de todos os objetos e remove qualquer destaque ou raio-x.
  */
@@ -692,6 +693,97 @@ function setupSearchControls() {
             event.preventDefault();
             runSearch();
         }
+    });
+}
+
+function setupSearchDrag() {
+    if (!searchBar) {
+        return;
+    }
+
+    const dragHandle = searchBar.querySelector(".search-bar__handle");
+    if (!dragHandle) {
+        return;
+    }
+
+    const storageKey = `searchBarPosition:${window.location.pathname}`;
+    const storedPosition = window.localStorage?.getItem(storageKey);
+
+    if (storedPosition) {
+        try {
+            const { left, top } = JSON.parse(storedPosition);
+            if (Number.isFinite(left) && Number.isFinite(top)) {
+                searchBar.style.left = `${left}px`;
+                searchBar.style.top = `${top}px`;
+                searchBar.style.right = "auto";
+                searchBar.style.bottom = "auto";
+            }
+        } catch (error) {
+            console.warn("Não foi possível restaurar a posição da busca.", error);
+        }
+    }
+
+    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+    let dragging = false;
+
+    const handlePointerMove = (event) => {
+        if (!dragging) {
+            return;
+        }
+
+        const deltaX = event.clientX - startX;
+        const deltaY = event.clientY - startY;
+        const rect = searchBar.getBoundingClientRect();
+        const maxLeft = window.innerWidth - rect.width - 8;
+        const maxTop = window.innerHeight - rect.height - 8;
+
+        const nextLeft = clamp(startLeft + deltaX, 8, Math.max(8, maxLeft));
+        const nextTop = clamp(startTop + deltaY, 8, Math.max(8, maxTop));
+
+        searchBar.style.left = `${nextLeft}px`;
+        searchBar.style.top = `${nextTop}px`;
+        searchBar.style.right = "auto";
+        searchBar.style.bottom = "auto";
+    };
+
+    const stopDrag = () => {
+        if (!dragging) {
+            return;
+        }
+
+        dragging = false;
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", stopDrag);
+        window.removeEventListener("pointercancel", stopDrag);
+
+        const rect = searchBar.getBoundingClientRect();
+        window.localStorage?.setItem(
+            storageKey,
+            JSON.stringify({ left: rect.left, top: rect.top })
+        );
+    };
+
+    dragHandle.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) {
+            return;
+        }
+
+        const rect = searchBar.getBoundingClientRect();
+        dragging = true;
+        startX = event.clientX;
+        startY = event.clientY;
+        startLeft = rect.left;
+        startTop = rect.top;
+
+        dragHandle.setPointerCapture?.(event.pointerId);
+        window.addEventListener("pointermove", handlePointerMove);
+        window.addEventListener("pointerup", stopDrag);
+        window.addEventListener("pointercancel", stopDrag);
     });
 }
 

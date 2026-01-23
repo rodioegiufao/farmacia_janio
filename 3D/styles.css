@@ -296,7 +296,7 @@ html, body {
     left: 20px; /* Alinhado com a toolbar */
     width: 320px; /* Largura padrão um pouco maior */
     max-width: 90vw; /* Garante que fique bom em telas pequenas */
-    height: calc(100% - 100px); /* Altura do resto da tela */
+    height: calc(100% - 300px); /* Altura do resto da tela */
     background-color: rgba(0, 0, 0, 0.9); /* Fundo quase preto sólido */
     color: #f0f0f0; /* Texto claro */
     padding: 5px;

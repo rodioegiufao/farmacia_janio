@@ -444,11 +444,10 @@ html, body {
     gap: 10px;
     transform: translateX(-50%);
     padding: 10px 16px;
-    background: rgba(20, 20, 20, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(51, 51, 51, 0.8);
+    border: none;
     border-radius: 999px;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
 #mobileToolbarToggle {

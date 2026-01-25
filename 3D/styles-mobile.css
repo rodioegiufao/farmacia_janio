@@ -99,6 +99,27 @@ body[data-mode="mobile"] #toolbar.open {
     top: 72px;
     max-height: 120px;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(20, 20, 20, 0.9) rgba(0, 0, 0, 0.35);
+}
+
+body[data-mode="mobile"] #toolbar.open::-webkit-scrollbar {
+    width: 10px;
+}
+
+body[data-mode="mobile"] #toolbar.open::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 999px;
+}
+
+body[data-mode="mobile"] #toolbar.open::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #111, #2a2a2a);
+    border-radius: 999px;
+    border: 2px solid rgba(0, 0, 0, 0.35);
+}
+
+body[data-mode="mobile"] #toolbar.open::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #0b0b0b, #1f1f1f);
 }
 
 body[data-mode="mobile"] #toolbar {

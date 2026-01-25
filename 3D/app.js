@@ -44,7 +44,7 @@ const viewer = new Viewer({
     transparent: false, 
     saoEnabled: true,
     edgesEnabled: true,
-    backgroundColor: [0.8, 0.8, 0.8],
+    backgroundColor: [0.11, 0.13, 0.15],
     
     // CONFIGURAÇÃO DE LOCALIZAÇÃO (NavCube em Português)
     localeService: new LocaleService({

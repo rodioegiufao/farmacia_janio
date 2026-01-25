@@ -97,6 +97,8 @@ body[data-mode="mobile"] .mode-button {
 body[data-mode="mobile"] #toolbar.open {
     cursor: auto;
     top: 72px;
+    max-height: 120px;
+    overflow-y: auto;
 }
 
 body[data-mode="mobile"] #toolbar {
@@ -161,8 +163,9 @@ body[data-mode="mobile"] #transformPanel {
 
 body[data-mode="mobile"] #creditNote {
     position: fixed;
-    bottom: 90px;
+    top: 20px;
     left: 20px;
+    bottom: auto;
     padding: 8px 12px;
     background: rgba(0, 0, 0, 0.7);
     color: #f0f0f0;

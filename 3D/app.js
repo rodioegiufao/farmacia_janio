@@ -651,6 +651,11 @@ function focusObjectById(objectId, { animate = true, xrayOthers = true } = {}) {
     }
 
     requestRenderFrame();
+
+    if (entity && document.getElementById("propertyPanel")) {
+        showMaterialProperties(entity);
+    }
+
     return true;
 }
 
@@ -1305,6 +1310,10 @@ function selectEntity(entity) {
     clearSelection(false);
     entity.selected = true;
     lastSelectedEntity = entity;
+
+    if (document.getElementById("propertyPanel")) {
+        showMaterialProperties(entity);
+    }
 }
 function setMeasurementMode(mode, clickedButton) {
     angleMeasurementsMouseControl.deactivate();

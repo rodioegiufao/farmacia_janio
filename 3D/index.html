@@ -161,7 +161,8 @@
         <span id="searchFeedback" class="search-feedback" aria-live="polite"></span>
     </div>
     <button id="mobileToolbarToggle" type="button" aria-label="Mostrar todas as ferramentas" title="Mostrar todas as ferramentas" hidden>
-        ☰ Mais ferramentas
+        <span class="tool-toggle-icon" aria-hidden="true">🧰</span>
+        <span class="tool-toggle-text">Mais ferramentas</span>
     </button>
     <div id="treeViewContainer">
         <div class="tree-view-header">
@@ -288,16 +289,19 @@
         const modeButtons = document.querySelectorAll('#modeSwitcher [data-mode]');
         const toolbar = document.getElementById('toolbar');
         const mobileToolbarToggle = document.getElementById('mobileToolbarToggle');
+        const mobileToolbarToggleText = mobileToolbarToggle.querySelector('.tool-toggle-text');
 
         const MOBILE_LABELS = {
-            open: '⬆ Minimizar ferramentas',
-            closed: '☰ Mais ferramentas'
+            open: 'Minimizar ferramentas',
+            closed: 'Mais ferramentas'
         };
 
         function updateMobileLabels(isOpen) {
             const label = isOpen ? MOBILE_LABELS.open : MOBILE_LABELS.closed;
             toolbar.dataset.label = label;
-            mobileToolbarToggle.textContent = label;
+            if (mobileToolbarToggleText) {
+                mobileToolbarToggleText.textContent = label;
+            }
             mobileToolbarToggle.setAttribute('aria-label', label);
             mobileToolbarToggle.setAttribute('title', label);
         }

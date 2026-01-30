@@ -448,7 +448,6 @@ html, body {
     border: none;
     border-radius: 999px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-    box-sizing: content-box;
 }
 
 #mobileToolbarToggle {
@@ -475,7 +474,6 @@ html, body {
     font-size: 0; /* Esconde texto, deixando só o ícone */
     font-weight: bold;
     line-height: 1.2;
-    box-sizing: content-box;
 }
 
 #toolbar .tool-button .tool-icon {

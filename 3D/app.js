@@ -967,7 +967,8 @@ const POLICLINICA_MODELS = [
 
 const CANAA_MODELS = [  
     { id: "IFC_ELE", src: "/3D/esc_canaa/modelo-01.xkt" }, 
-    { id: "IFC_ILUX", src: "/3D/esc_canaa/modelo-02.xkt" }, 
+    { id: "IFC_ILUX", src: "/3D/esc_canaa/modelo-02.xkt" },
+    { id: "IFC_LOG", src: "/3D/esc_canaa/modelo-03.xkt" },  
   ];
 
 const defaultModels = [

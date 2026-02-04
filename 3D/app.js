@@ -970,7 +970,8 @@ const CANAA_MODELS = [
     { id: "IFC_ILUX", src: "/3D/esc_canaa/modelo-02.xkt" },
     { id: "IFC_LOG", src: "/3D/esc_canaa/modelo-03.xkt" },
     { id: "IFC_ALI", src: "/3D/esc_canaa/modelo-04.xkt" },
-    { id: "IFC_INC", src: "/3D/esc_canaa/modelo-05.xkt" },    
+    { id: "IFC_INC", src: "/3D/esc_canaa/modelo-05.xkt" },
+    { id: "IFC_EST_PP", src: "/3D/esc_canaa/modelo-06.xkt" },    
   ];
 
 const defaultModels = [
@@ -1047,7 +1048,9 @@ const POLICLINICA_MODEL_TRANSFORMS = {
     IFC_IRRI: { position: [-78, 0, 40], rotation: [0, -45, 0] },
 };
 
-const CANAA_MODEL_TRANSFORMS = {};
+const CANAA_MODEL_TRANSFORMS = {
+    IFC_EST_PP: { position: [48.212, 0.15, 36.8995], rotation: [0, 180, 0] },
+};
 
 const DEFAULT_MODEL_TRANSFORMS = {
     IFC_ILUX: { position: [-14.08, 0, 0] },

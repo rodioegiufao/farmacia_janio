@@ -1849,6 +1849,60 @@ function normalizeQuantityByIfcType(prop, numericValue) {
         .replace(/[̀-ͯ]/g, "")
         .toLowerCase();
 
+    const explicitLinearMaterials = new Set([
+        "ferro maleavel classe 10 - tubo de aco galvanizado - 65 mm - 2.1/2\"",
+        "ferro maleavel classe 10 - tubo de aco galvanizado - 25 mm - 1\"",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 4 mm² - verde-amarelo",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 4 mm² - azul claro",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 2.5 mm² - amarelo",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 2.5 mm² - verde-amarelo",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 2.5 mm² - azul claro",
+        "cabeamento estruturado - metalico - utp-cat.6 - 4",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 4 mm² - vermelho",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 4 mm² - branco",
+        "cabeamento estruturado - metalico - utp-5e - 24awg - 4",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 4 mm² - preto",
+        "- sinapi - metros - eletroduto flexivel corrugado, pvc, dn 25 mm - 3/4\" - , para circuitos terminais, instalado em forro",
+        "cabo - epr - 2.5mm",
+        "perfilados perfurados - galvanizados a fogo - 38x38mm",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 2.5 mm² - preto",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 2.5 mm² - vermelho",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 2.5 mm² - branco",
+        "- composicao propria - metros - cabo isolado pp 3 x 1,5 mm2",
+        "eletroduto pvc flexivel - eletroduto pesado - 1.1/2\" - piso",
+        "eletroduto pvc flexivel - eletroduto leve - 3/4\" - forro",
+        "eletrocalha furada tipo u pre-galv. quen - eletrocalha perfurada tipo u - 50x50mm chapa 18",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 16 mm² - verde-amarelo",
+        "- sinapi - metros - eletroduto flexivel corrugado, pvc, dn 25 mm - 3/4\" - , para circuitos terminais, instalado em parede",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 25 mm² - azul claro",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 25 mm² - branco",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 25 mm² - preto",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 25 mm² - vermelho",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 10 mm² - azul claro",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 10 mm² - branco",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 10 mm² - preto",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 10 mm² - verde-amarelo",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 10 mm² - vermelho",
+        "eletroduto pvc flexivel - eletroduto pesado - 4\" - piso",
+        "eletroduto metalico rigido leve - eletroduto galvanizado, vara 3,0m - 3/4\"",
+        "eletrocalha furada tipo u pre-galv. quen - eletrocalha perfurada tipo u - 200x100mm chapa 18",
+        "eletrocalha furada tipo u pre-galv. quen - eletrocalha perfurada tipo u - 300x100mm chapa 18",
+        "eletrocalha furada tipo u pre-galv. quen - eletrocalha perfurada tipo u - 100x100mm chapa 18",
+        "- sinapi - metros - eletroduto flexivel corrugado, pvc, dn 32 mm - 1\" - , para circuitos terminais, instalado em forro",
+        "- composicao propria - metros - eletroduto flexivel corrugado, 3/4\", instalado no piso",
+        "eletroduto pvc flexivel - eletroduto leve - 3/4\" - parede",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 6 mm² - azul claro",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 6 mm² - branco",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 6 mm² - verde-amarelo",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 6 mm² - vermelho",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 16 mm² - azul claro",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 16 mm² - branco",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 16 mm² - preto",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 16 mm² - vermelho",
+        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 6 mm² - preto",
+        "- sinapi - metros - eletroduto flexivel corrugado, pvc, dn 32 mm - 1\" - , para circuitos terminais, instalado em parede"
+    ]);
+
     const compactName = normalizedName.replace(/[^a-z0-9]/g, "");
 
     const linearMaterialKeywords = [
@@ -1871,7 +1925,9 @@ function normalizeQuantityByIfcType(prop, numericValue) {
     const isStructuredCableCategory = linearMaterialCompactKeywords
         .some((keyword) => compactName.includes(keyword));
 
-    if (isIfcLengthMeasure(prop?.value) || isLinearMaterial || isStructuredCableCategory) {
+    const isExplicitLinearMaterial = explicitLinearMaterials.has(normalizedName);
+
+    if (isIfcLengthMeasure(prop?.value) || isLinearMaterial || isStructuredCableCategory || isExplicitLinearMaterial) {
         return {
             quantity: numericValue / 1000,
             unitLabel: "metro(s)"

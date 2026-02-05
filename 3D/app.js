@@ -1762,6 +1762,43 @@ function extractNumericPropertyValue(value) {
     return null;
 }
 
+function isIfcLengthMeasure(value) {
+    if (!value) {
+        return false;
+    }
+
+    if (typeof value === "string") {
+        return value.toUpperCase().includes("IFCLENGTHMEASURE");
+    }
+
+    if (typeof value === "object") {
+        const typeCandidates = [value.type, value.valueType, value.dataType, value.constructor?.name];
+        return typeCandidates.some((candidate) =>
+            typeof candidate === "string" && candidate.toUpperCase().includes("IFCLENGTHMEASURE")
+        );
+    }
+
+    return false;
+}
+
+function normalizeQuantityByIfcType(prop, numericValue) {
+    if (numericValue === null) {
+        return { quantity: null, unitLabel: "item(ns)" };
+    }
+
+    if (isIfcLengthMeasure(prop?.value)) {
+        return {
+            quantity: numericValue / 1000,
+            unitLabel: "metro(s)"
+        };
+    }
+
+    return {
+        quantity: numericValue,
+        unitLabel: "item(ns)"
+    };
+}
+
 function formatMaterialQuantity(quantity) {
     if (!Number.isFinite(quantity)) {
         return "0";
@@ -1803,21 +1840,25 @@ function collectQuantitativeMaterials() {
                 }
 
                 const numericValue = extractNumericPropertyValue(prop?.value);
-                if (numericValue === null) {
+                const normalized = normalizeQuantityByIfcType(prop, numericValue);
+
+                if (normalized.quantity === null) {
                     continue;
                 }
 
-                if (numericValue <= 0) {
+                if (normalized.quantity <= 0) {
                     continue;
                 }
 
-                totals.set(name, (totals.get(name) || 0) + numericValue);
+                const aggregationKey = `${name}__${normalized.unitLabel}`;
+                const current = totals.get(aggregationKey) || { name, quantity: 0, unitLabel: normalized.unitLabel };
+                current.quantity += normalized.quantity;
+                totals.set(aggregationKey, current);
             }
         }
     }
 
-    return Array.from(totals.entries())
-        .map(([name, quantity]) => ({ name, quantity }))
+    return Array.from(totals.values())
         .sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name, "pt-BR"));
 }
 
@@ -1833,7 +1874,9 @@ function renderMaterialsResults(items) {
     }
 
     const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-    materialsSummary.textContent = `${items.length} material(is) consolidado(s) • Total: ${formatMaterialQuantity(totalItems)} item(ns)`;
+    const allInMeters = items.length > 0 && items.every((item) => item.unitLabel === "metro(s)");
+    const totalUnit = allInMeters ? "metro(s)" : "item(ns)";
+    materialsSummary.textContent = `${items.length} material(is) consolidado(s) • Total: ${formatMaterialQuantity(totalItems)} ${totalUnit}`;
 
     materialsResultsList.innerHTML = "";
 
@@ -1842,7 +1885,7 @@ function renderMaterialsResults(items) {
         li.className = "materials-result-item";
         li.innerHTML = `
             <span class="materials-result-name">${item.name}</span>
-            <span class="materials-result-quantity">${formatMaterialQuantity(item.quantity)} item(ns)</span>
+            <span class="materials-result-quantity">${formatMaterialQuantity(item.quantity)} ${item.unitLabel}</span>
         `;
         materialsResultsList.appendChild(li);
     });

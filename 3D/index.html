@@ -208,11 +208,11 @@
         const ACCESS_PASSWORD = "ribeiro2026";
 
         const PUBLIC_PROJECTS = [
-            { label: "Escola Canaã", href: "/3D/esc_canaa.html" },
             { label: "Farmácia do Jânio", href: "/3D/farmacia.html" }
         ];
 
         const PRIVATE_PROJECTS = [
+            { label: "Escola Canaã", href: "/3D/esc_canaa.html" },
             { label: "IPER", href: "/3D/iper.html" },
             { label: "LACEN", href: "/3D/lacen.html" },
             { label: "Policlínica", href: "/3D/policlinica.html" }
@@ -223,6 +223,7 @@
         const inputSenha = document.getElementById("accessPassword");
         const botaoDesbloquear = document.getElementById("unlockAccess");
         const mensagemAcesso = document.getElementById("accessMessage");
+        const accessPanel = document.getElementById("accessPanel");
         const projectSection = document.getElementById("projectSection");
         const btnPublico = document.getElementById("btnPublico");
         const btnPrivado = document.getElementById("btnPrivado");
@@ -264,6 +265,7 @@
         }
 
         function updateAccessState() {
+            accessPanel.classList.toggle("hidden", accessUnlocked);
             projectSection.classList.toggle("hidden", !accessUnlocked);
             renderSelectOptions();
             updateProjectTypeButtons();
@@ -278,7 +280,6 @@
                 updateAccessState();
                 return;
             }
-            setAccessMessage("Senha incorreta. Tente novamente.", true);
             setAccessMessage("Senha incorreta. Tente novamente.", true);
             inputSenha.focus();
             inputSenha.select();

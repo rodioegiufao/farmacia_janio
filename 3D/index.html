@@ -17,11 +17,12 @@
             --accent: #2563eb;
             --accent-hover: #1d4ed8;
             --border: #cbd5e1;
+            --success: #166534;
+            --error: #b91c1c;
+            --panel: #f8fafc;
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
@@ -35,7 +36,7 @@
         }
 
         .selector-card {
-            width: min(100%, 560px);
+            width: min(100%, 720px);
             background: var(--card);
             border-radius: 16px;
             border: 1px solid var(--border);
@@ -43,28 +44,38 @@
             padding: 28px;
         }
 
-        h1 {
-            margin: 0 0 8px;
-            font-size: 1.8rem;
-        }
+        h1 { margin: 0 0 8px; font-size: 1.8rem; }
 
-        p {
+        .subtitle {
             margin: 0 0 20px;
             color: var(--muted);
             line-height: 1.4;
         }
 
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 700;
-        }
+        .grid { display: grid; gap: 16px; }
 
-        .controls {
+        .access-panel {
             display: grid;
-            gap: 12px;
+            gap: 10px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
         }
 
+        .access-panel h2,
+        .section h2 {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .inline-controls {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+        }
+
+        input,
         select,
         button {
             width: 100%;
@@ -72,6 +83,7 @@
             font-size: 1rem;
         }
 
+        input,
         select {
             border: 1px solid var(--border);
             padding: 12px;
@@ -80,7 +92,7 @@
 
         button {
             border: 0;
-            padding: 13px;
+            padding: 12px;
             cursor: pointer;
             color: #fff;
             font-weight: 700;
@@ -88,18 +100,40 @@
             transition: background 0.2s ease;
         }
 
-        button:hover {
-            background: var(--accent-hover);
+        button:hover { background: var(--accent-hover); }
+
+        .message { margin: 0; min-height: 20px; font-size: 0.9rem; }
+
+        .message.success { color: var(--success); }
+        .message.error { color: var(--error); }
+
+        .section {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            background: #fff;
         }
 
-        .quick-links {
-            margin-top: 20px;
+        .section.private.locked {
+            opacity: 0.55;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .section-label {
+            margin: 6px 0 0;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .project-links {
+            margin-top: 12px;
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
         }
 
-        .quick-links a {
+        .project-links a {
             text-decoration: none;
             padding: 8px 12px;
             border-radius: 999px;
@@ -107,40 +141,148 @@
             color: var(--text);
             font-size: 0.9rem;
         }
+
+        .section.private.locked .project-links a {
+            background: #e2e8f0;
+            color: #64748b;
+        }
     </style>
 </head>
 <body>
     <main class="selector-card" aria-labelledby="tituloPagina">
         <h1 id="tituloPagina">Visualizador 3D</h1>
-        <p>No índice da pasta <strong>/3D</strong> você apenas escolhe para qual HTML deseja ir.</p>
+        <p class="subtitle">Acesse os projetos públicos diretamente. Para projetos privados, informe a senha de acesso.</p>
 
-        <div class="controls">
-            <label for="pagina3d">Escolha o projeto</label>
-            <select id="pagina3d" aria-label="Escolher página HTML do projeto 3D">
-                <option value="" selected disabled>Selecione um projeto</option>
-                <option value="iper.html">IPER</option>
-                <option value="lacen.html">LACEN</option>
-                <option value="policlinica.html">Policlínica</option>
-                <option value="esc_canaa.html">Escola Canaã</option>
-                <option value="farmacia.html">Farmácia do Jânio</option>
-            </select>
-            <button id="irProjeto" type="button">Abrir projeto</button>
+        <div class="grid">
+            <section class="access-panel" aria-labelledby="tituloAcesso">
+                <h2 id="tituloAcesso">Desbloquear projetos privados</h2>
+                <div class="inline-controls">
+                    <input id="accessPassword" type="password" placeholder="Digite a senha" autocomplete="current-password" />
+                    <button id="unlockPrivate" type="button">Desbloquear</button>
+                </div>
+                <p id="accessMessage" class="message" aria-live="polite"></p>
+            </section>
+
+            <section class="section" aria-labelledby="tituloEscolha">
+                <h2 id="tituloEscolha">Acesso rápido</h2>
+                <p class="section-label">Os links agora usam o caminho completo da pasta <strong>/3D</strong>.</p>
+                <div style="display: grid; gap: 12px; margin-top: 10px;">
+                    <select id="pagina3d" aria-label="Escolher página HTML do projeto 3D">
+                        <option value="" selected disabled>Selecione um projeto</option>
+                    </select>
+                    <button id="irProjeto" type="button">Abrir projeto</button>
+                </div>
+            </section>
+
+            <section class="section public" aria-labelledby="tituloPublico">
+                <h2 id="tituloPublico">Projetos públicos</h2>
+                <div class="project-links" id="publicLinks"></div>
+            </section>
+
+            <section class="section private locked" id="privateSection" aria-labelledby="tituloPrivado">
+                <h2 id="tituloPrivado">Projetos privados</h2>
+                <p class="section-label" id="privateHint">Bloqueado. Informe a senha para liberar os links privados.</p>
+                <div class="project-links" id="privateLinks"></div>
+            </section>
         </div>
-
-        <nav class="quick-links" aria-label="Acessos rápidos">
-            <a href="iper.html">IPER</a>
-            <a href="lacen.html">LACEN</a>
-            <a href="policlinica.html">Policlínica</a>
-            <a href="esc_canaa.html">Escola Canaã</a>
-            <a href="farmacia.html">Farmácia do Jânio</a>
-        </nav>
     </main>
 
     <script>
-        const selectProjeto = document.getElementById('pagina3d');
-        const botaoIr = document.getElementById('irProjeto');
+        const ACCESS_PASSWORD = "ribeiro2026";
 
-        botaoIr.addEventListener('click', () => {
+        const PUBLIC_PROJECTS = [
+            { label: "Escola Canaã", href: "/3D/esc_canaa.html" },
+            { label: "Farmácia do Jânio", href: "/3D/farmacia.html" }
+        ];
+
+        const PRIVATE_PROJECTS = [
+            { label: "IPER", href: "/3D/iper.html" },
+            { label: "LACEN", href: "/3D/lacen.html" },
+            { label: "Policlínica", href: "/3D/policlinica.html" }
+        ];
+
+        const selectProjeto = document.getElementById("pagina3d");
+        const botaoIr = document.getElementById("irProjeto");
+        const inputSenha = document.getElementById("accessPassword");
+        const botaoDesbloquear = document.getElementById("unlockPrivate");
+        const mensagemAcesso = document.getElementById("accessMessage");
+        const privateSection = document.getElementById("privateSection");
+        const privateHint = document.getElementById("privateHint");
+        const publicLinks = document.getElementById("publicLinks");
+        const privateLinks = document.getElementById("privateLinks");
+
+        let privateUnlocked = false;
+
+        function renderLinks() {
+            publicLinks.innerHTML = PUBLIC_PROJECTS.map((project) => `<a href="${project.href}">${project.label}</a>`).join("");
+            privateLinks.innerHTML = PRIVATE_PROJECTS.map((project) => `<a href="${project.href}">${project.label}</a>`).join("");
+        }
+
+        function renderSelectOptions() {
+            const privateOptions = privateUnlocked ? PRIVATE_PROJECTS : [];
+            const allProjects = [
+                ...PUBLIC_PROJECTS.map((project) => ({ ...project, group: "Público" })),
+                ...privateOptions.map((project) => ({ ...project, group: "Privado" }))
+            ];
+
+            selectProjeto.innerHTML = '<option value="" selected disabled>Selecione um projeto</option>';
+
+            const grouped = allProjects.reduce((acc, project) => {
+                if (!acc[project.group]) {
+                    acc[project.group] = [];
+                }
+                acc[project.group].push(project);
+                return acc;
+            }, {});
+
+            Object.entries(grouped).forEach(([groupName, items]) => {
+                const group = document.createElement("optgroup");
+                group.label = groupName;
+                items.forEach((project) => {
+                    const option = document.createElement("option");
+                    option.value = project.href;
+                    option.textContent = project.label;
+                    group.appendChild(option);
+                });
+                selectProjeto.appendChild(group);
+            });
+        }
+
+        function setAccessMessage(text, isError = false) {
+            mensagemAcesso.textContent = text;
+            mensagemAcesso.className = `message ${text ? (isError ? "error" : "success") : ""}`;
+        }
+
+        function updatePrivateState() {
+            privateSection.classList.toggle("locked", !privateUnlocked);
+            privateHint.textContent = privateUnlocked
+                ? "Acesso liberado. Você já pode abrir os projetos privados."
+                : "Bloqueado. Informe a senha para liberar os links privados.";
+            renderSelectOptions();
+        }
+
+        botaoDesbloquear.addEventListener("click", () => {
+            const password = inputSenha.value.trim();
+            if (password === ACCESS_PASSWORD) {
+                privateUnlocked = true;
+                inputSenha.value = "";
+                setAccessMessage("Projetos privados liberados.");
+                updatePrivateState();
+                return;
+            }
+            setAccessMessage("Senha incorreta. Tente novamente.", true);
+            inputSenha.focus();
+            inputSenha.select();
+        });
+
+        inputSenha.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                botaoDesbloquear.click();
+            }
+        });
+
+        botaoIr.addEventListener("click", () => {
             if (!selectProjeto.value) {
                 selectProjeto.focus();
                 return;
@@ -148,9 +290,13 @@
             window.location.href = selectProjeto.value;
         });
 
-        selectProjeto.addEventListener('change', () => {
-            botaoIr.textContent = `Abrir ${selectProjeto.options[selectProjeto.selectedIndex].text}`;
+        selectProjeto.addEventListener("change", () => {
+            const selectedLabel = selectProjeto.options[selectProjeto.selectedIndex].text;
+            botaoIr.textContent = `Abrir ${selectedLabel}`;
         });
+
+        renderLinks();
+        updatePrivateState();
     </script>
 </body>
 </html>

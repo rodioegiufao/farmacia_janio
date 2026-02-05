@@ -273,6 +273,12 @@ const runCollisionCheckButton = document.getElementById("runCollisionCheck");
 const downloadCollisionPdfButton = document.getElementById("downloadCollisionPdf");
 const collisionSummary = document.getElementById("collisionSummary");
 const collisionResultsList = document.getElementById("collisionResults");
+const materialsPanel = document.getElementById("materialsPanel");
+const materialsPanelToggleButton = document.getElementById("btnMaterialsPanel");
+const closeMaterialsPanelButton = document.getElementById("closeMaterialsPanel");
+const generateMaterialsButton = document.getElementById("generateMaterialsList");
+const materialsSummary = document.getElementById("materialsSummary");
+const materialsResultsList = document.getElementById("materialsResults");
 const searchBar = document.getElementById("searchBar");
 const searchInput = document.getElementById("searchIdInput");
 const searchButton = document.getElementById("btnSearchId");
@@ -284,6 +290,7 @@ setupAccessGate();
 setupHelpPanel();
 setupTransformPanelControls();
 setupCollisionPanelControls();
+setupMaterialsPanelControls();
 setupSearchControls();
 setupDraggablePanels();
 /**
@@ -515,6 +522,31 @@ function setupCollisionPanelControls() {
     updateCollisionDownloadButton();
 }
 
+function setupMaterialsPanelControls() {
+    if (!materialsPanel || !materialsSummary || !materialsResultsList) {
+        return;
+    }
+
+    const togglePanel = (forceState) => {
+        const shouldOpen = typeof forceState === "boolean" ? forceState : materialsPanel.hidden;
+        materialsPanel.hidden = !shouldOpen;
+        materialsPanelToggleButton?.classList.toggle("active", shouldOpen);
+    };
+
+    materialsPanelToggleButton?.addEventListener("click", () => togglePanel());
+    closeMaterialsPanelButton?.addEventListener("click", () => togglePanel(false));
+
+    document.addEventListener("click", (event) => {
+        if (!materialsPanel.hidden && !materialsPanel.contains(event.target) && !materialsPanelToggleButton?.contains(event.target)) {
+            togglePanel(false);
+        }
+    });
+
+    generateMaterialsButton?.addEventListener("click", () => {
+        generateAndRenderMaterialsList();
+    });
+}
+
 function hidePanelElement(panelElement, toggleButton) {
     if (!panelElement) {
         return;
@@ -540,6 +572,10 @@ function hideCollisionPanel() {
     hidePanelElement(collisionPanel, collisionPanelToggleButton);
 }
 
+function hideMaterialsPanel() {
+    hidePanelElement(materialsPanel, materialsPanelToggleButton);
+}
+
 function hideTreeViewPanel() {
     if (!treeViewContainer || treeViewContainer.style.display === "none") {
         return;
@@ -553,6 +589,7 @@ function closePanelsOnEscape() {
     hideHelpPanel();
     hideTransformPanel();
     hideCollisionPanel();
+    hideMaterialsPanel();
     hideTreeViewPanel();
     closeSearchBar();
 }
@@ -1692,6 +1729,130 @@ function buildIfcPropertiesLines(doc, objectId, maxWidth) {
     return lines;
 }
 
+function isFiniteNumber(value) {
+    return typeof value === "number" && Number.isFinite(value);
+}
+
+function extractNumericPropertyValue(value) {
+    if (isFiniteNumber(value)) {
+        return value;
+    }
+
+    if (typeof value === "string") {
+        const normalized = value.replace(",", ".").trim();
+        const parsed = Number.parseFloat(normalized);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    if (value && typeof value === "object") {
+        const candidates = [value.value, value.amount, value.nominalValue, value.rawValue];
+        for (const candidate of candidates) {
+            if (isFiniteNumber(candidate)) {
+                return candidate;
+            }
+            if (typeof candidate === "string") {
+                const parsed = Number.parseFloat(candidate.replace(",", ".").trim());
+                if (Number.isFinite(parsed)) {
+                    return parsed;
+                }
+            }
+        }
+    }
+
+    return null;
+}
+
+function formatMaterialQuantity(quantity) {
+    if (!Number.isFinite(quantity)) {
+        return "0";
+    }
+
+    if (Math.abs(quantity - Math.round(quantity)) < 1e-9) {
+        return String(Math.round(quantity));
+    }
+
+    return quantity.toFixed(2).replace(/\.00$/, "");
+}
+
+function collectQuantitativeMaterials() {
+    const totals = new Map();
+    const allMetaObjects = viewer.metaScene?.metaObjects || {};
+
+    for (const metaObject of Object.values(allMetaObjects)) {
+        const propertySets = metaObject?.propertySets;
+        if (!Array.isArray(propertySets)) {
+            continue;
+        }
+
+        for (const pset of propertySets) {
+            if (!Array.isArray(pset?.properties)) {
+                continue;
+            }
+
+            const normalizedSetName = (pset.name || "").toLowerCase();
+            const isAssociatedItemsSet = normalizedSetName.includes("itens_associados") || normalizedSetName.includes("itens associados");
+
+            if (!isAssociatedItemsSet) {
+                continue;
+            }
+
+            for (const prop of pset.properties) {
+                const name = (prop?.name || prop?.id || "").trim();
+                if (!name) {
+                    continue;
+                }
+
+                const numericValue = extractNumericPropertyValue(prop?.value);
+                if (numericValue === null) {
+                    continue;
+                }
+
+                if (numericValue <= 0) {
+                    continue;
+                }
+
+                totals.set(name, (totals.get(name) || 0) + numericValue);
+            }
+        }
+    }
+
+    return Array.from(totals.entries())
+        .map(([name, quantity]) => ({ name, quantity }))
+        .sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name, "pt-BR"));
+}
+
+function renderMaterialsResults(items) {
+    if (!materialsSummary || !materialsResultsList) {
+        return;
+    }
+
+    if (!items.length) {
+        materialsSummary.textContent = "Nenhuma propriedade quantitativa encontrada nos modelos carregados.";
+        materialsResultsList.innerHTML = "";
+        return;
+    }
+
+    const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+    materialsSummary.textContent = `${items.length} material(is) consolidado(s) • Total: ${formatMaterialQuantity(totalItems)} item(ns)`;
+
+    materialsResultsList.innerHTML = "";
+
+    items.forEach((item) => {
+        const li = document.createElement("li");
+        li.className = "materials-result-item";
+        li.innerHTML = `
+            <span class="materials-result-name">${item.name}</span>
+            <span class="materials-result-quantity">${formatMaterialQuantity(item.quantity)} item(ns)</span>
+        `;
+        materialsResultsList.appendChild(li);
+    });
+}
+
+function generateAndRenderMaterialsList() {
+    const items = collectQuantitativeMaterials();
+    renderMaterialsResults(items);
+}
+
 function getCollisionPosition(objectId) {
     const aabb = viewer.scene.getAABB(objectId);
 
@@ -1950,6 +2111,15 @@ document.addEventListener("keydown", (event) => {
 
     if (key === "m") {
         showAllEntities();
+        return;
+    }
+
+    if (key === "l") {
+        if (materialsPanel) {
+            materialsPanel.hidden = false;
+            materialsPanelToggleButton?.classList.add("active");
+            generateAndRenderMaterialsList();
+        }
         return;
     }
 
@@ -2627,45 +2797,3 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchend', endTouch, { passive: false });
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 })();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

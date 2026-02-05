@@ -1394,7 +1394,142 @@ html, body {
     line-height: 1.45;
 }
 
+/* ---------------------------------------------------- */
+/* Painel de lista geral de materiais IFC               */
+/* ---------------------------------------------------- */
 
+#materialsPanel {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    width: 380px;
+    max-width: calc(100% - 40px);
+    background: rgba(33, 33, 33, 0.88);
+    color: #f7f7f7;
+    padding: 14px;
+    border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    z-index: 300000;
+    font-family: Arial, sans-serif;
+    backdrop-filter: blur(6px);
+}
 
+#materialsPanel[hidden] {
+    display: none;
+}
 
+.materials-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
 
+.materials-panel-title {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.materials-panel-subtitle {
+    color: #cfd8dc;
+    font-size: 12px;
+}
+
+#closeMaterialsPanel {
+    background: transparent;
+    border: none;
+    color: #f0f0f0;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+#closeMaterialsPanel:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #ff6b6b;
+}
+
+.materials-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+}
+
+#generateMaterialsList {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    background-color: #00a86b;
+    color: #fff;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+#generateMaterialsList:hover {
+    background-color: #00c47a;
+    transform: translateY(-1px);
+}
+
+.materials-summary {
+    font-size: 12px;
+    color: #cfd8dc;
+    margin: 0 0 10px 0;
+}
+
+.materials-results {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 320px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(20, 20, 20, 0.9) rgba(0, 0, 0, 0.35);
+}
+
+.materials-results::-webkit-scrollbar {
+    width: 10px;
+}
+
+.materials-results::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 999px;
+}
+
+.materials-results::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #111, #2a2a2a);
+    border-radius: 999px;
+    border: 2px solid rgba(0, 0, 0, 0.35);
+}
+
+.materials-results::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #0b0b0b, #1f1f1f);
+}
+
+.materials-result-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.materials-result-name {
+    font-size: 13px;
+    color: #f3f4f6;
+}
+
+.materials-result-quantity {
+    font-size: 13px;
+    font-weight: 700;
+    color: #a7f3d0;
+    white-space: nowrap;
+}

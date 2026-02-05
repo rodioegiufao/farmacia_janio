@@ -1733,12 +1733,39 @@ function isFiniteNumber(value) {
     return typeof value === "number" && Number.isFinite(value);
 }
 
+function parseIfcMeasureLiteral(value) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const normalized = value.trim();
+    const match = normalized.match(/^([A-Z0-9_]+)\s*\(([-+]?\d+(?:[.,]\d+)?)\)$/i);
+    if (!match) {
+        return null;
+    }
+
+    const parsedValue = Number.parseFloat(match[2].replace(",", "."));
+    if (!Number.isFinite(parsedValue)) {
+        return null;
+    }
+
+    return {
+        type: match[1].toUpperCase(),
+        value: parsedValue
+    };
+}
+
 function extractNumericPropertyValue(value) {
     if (isFiniteNumber(value)) {
         return value;
     }
 
     if (typeof value === "string") {
+        const parsedMeasure = parseIfcMeasureLiteral(value);
+        if (parsedMeasure) {
+            return parsedMeasure.value;
+        }
+
         const normalized = value.replace(",", ".").trim();
         const parsed = Number.parseFloat(normalized);
         return Number.isFinite(parsed) ? parsed : null;
@@ -1751,6 +1778,11 @@ function extractNumericPropertyValue(value) {
                 return candidate;
             }
             if (typeof candidate === "string") {
+                const parsedMeasure = parseIfcMeasureLiteral(candidate);
+                if (parsedMeasure) {
+                    return parsedMeasure.value;
+                }
+
                 const parsed = Number.parseFloat(candidate.replace(",", ".").trim());
                 if (Number.isFinite(parsed)) {
                     return parsed;
@@ -1768,10 +1800,21 @@ function isIfcLengthMeasure(value) {
     }
 
     if (typeof value === "string") {
-        return value.toUpperCase().includes("IFCLENGTHMEASURE");
+        const parsedMeasure = parseIfcMeasureLiteral(value);
+        return parsedMeasure ? parsedMeasure.type === "IFCLENGTHMEASURE" : value.toUpperCase().includes("IFCLENGTHMEASURE");
     }
 
     if (typeof value === "object") {
+        const nestedValues = [value.value, value.amount, value.nominalValue, value.rawValue];
+        for (const nestedValue of nestedValues) {
+            if (typeof nestedValue === "string") {
+                const parsedMeasure = parseIfcMeasureLiteral(nestedValue);
+                if (parsedMeasure?.type === "IFCLENGTHMEASURE") {
+                    return true;
+                }
+            }
+        }
+
         const typeCandidates = [value.type, value.valueType, value.dataType, value.constructor?.name];
         return typeCandidates.some((candidate) =>
             typeof candidate === "string" && candidate.toUpperCase().includes("IFCLENGTHMEASURE")

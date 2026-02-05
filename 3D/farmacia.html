@@ -105,6 +105,14 @@
             Buscar
         </button>
         <button
+            id="btnMaterialsPanel"
+            class="tool-button"
+            title="Gerar lista geral de materiais"
+        >
+            <span style="font-size: 1.2em;">📋</span>
+            Materiais
+        </button>
+        <button
             id="btnHelp"
             class="tool-button"
             title="Ajuda e atalhos de teclado"
@@ -176,6 +184,7 @@
             <h4>Para objetos selecionados</h4>
             <ul class="help-list">
                 <li><kbd>P</kbd> — Propriedades do material</li>
+                <li><kbd>L</kbd> — Lista geral de materiais</li>
                 <li><kbd>I</kbd> — Isolar</li>
                 <li><kbd>O</kbd> — Ocultar</li>
             </ul>
@@ -201,6 +210,22 @@
 
         <p id="collisionSummary" class="collision-summary">Carregue um modelo para iniciar a análise.</p>
         <ul id="collisionResults" class="collision-results" aria-live="polite"></ul>
+    </div>
+    <div id="materialsPanel" hidden>
+        <div class="materials-panel-header">
+            <div>
+                <div class="materials-panel-title">Lista geral de materiais</div>
+                <div class="materials-panel-subtitle">Consolidação automática das propriedades quantitativas IFC</div>
+            </div>
+            <button id="closeMaterialsPanel" type="button" aria-label="Fechar painel">✕</button>
+        </div>
+
+        <div class="materials-actions">
+            <button type="button" id="generateMaterialsList">Gerar lista</button>
+        </div>
+
+        <p id="materialsSummary" class="materials-summary">Clique em "Gerar lista" para consolidar os materiais dos modelos carregados.</p>
+        <ul id="materialsResults" class="materials-results" aria-live="polite"></ul>
     </div>
     <div id="transformPanel" hidden>
         <div class="transform-panel-header">
@@ -364,5 +389,4 @@
         applyMode(localStorage.getItem('preferredMode') || 'desktop');
     </script>
 </body>
-
 </html>

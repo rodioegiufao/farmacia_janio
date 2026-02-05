@@ -1905,17 +1905,7 @@ function normalizeQuantityByIfcType(prop, numericValue) {
 
     const compactName = normalizedName.replace(/[^a-z0-9]/g, "");
 
-    const linearMaterialKeywords = [
-        "cabo",
-        "cabos",
-        "eletrocalha",
-        "eletrocalhas",
-        "eletroduto",
-        "eletrodutos",
-        "perfilado",
-        "perfilados",
-        "utp"
-    ];
+    //const linearMaterialKeywords = ["cabo","cabos","eletrocalha","eletrocalhas","eletroduto","eletrodutos","perfilado","perfilados","utp"];
 
     const linearMaterialCompactKeywords = ["cat6", "cat5e", "categoria6", "categoria5e"];
 

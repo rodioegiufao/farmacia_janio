@@ -114,16 +114,37 @@
             background: #fff;
         }
 
-        .section.private.locked {
-            opacity: 0.55;
-            pointer-events: none;
-            user-select: none;
+        .hidden {
+            display: none;
         }
 
-        .section-label {
+        .section-label,
+        .helper-text {
             margin: 6px 0 0;
             color: var(--muted);
             font-size: 0.9rem;
+        }
+
+        .project-type-controls {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .project-type-btn {
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--text);
+            border-radius: 10px;
+            padding: 10px;
+            font-weight: 700;
+        }
+
+        .project-type-btn.active {
+            background: #dbeafe;
+            border-color: var(--accent);
+            color: var(--accent);
         }
 
         .project-links {
@@ -142,47 +163,43 @@
             font-size: 0.9rem;
         }
 
-        .section.private.locked .project-links a {
-            background: #e2e8f0;
-            color: #64748b;
+        @media (max-width: 560px) {
+            .project-type-controls {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <main class="selector-card" aria-labelledby="tituloPagina">
         <h1 id="tituloPagina">Visualizador 3D</h1>
-        <p class="subtitle">Acesse os projetos públicos diretamente. Para projetos privados, informe a senha de acesso.</p>
+        <p class="subtitle">Informe a senha para liberar o acesso à seleção de projetos.</p>
 
         <div class="grid">
             <section class="access-panel" aria-labelledby="tituloAcesso">
-                <h2 id="tituloAcesso">Desbloquear projetos privados</h2>
+                <h2 id="tituloAcesso">Acesso inicial</h2>
                 <div class="inline-controls">
                     <input id="accessPassword" type="password" placeholder="Digite a senha" autocomplete="current-password" />
-                    <button id="unlockPrivate" type="button">Desbloquear</button>
+                    <button id="unlockAccess" type="button">Entrar</button>
                 </div>
                 <p id="accessMessage" class="message" aria-live="polite"></p>
             </section>
 
-            <section class="section" aria-labelledby="tituloEscolha">
-                <h2 id="tituloEscolha">Acesso rápido</h2>
-                <p class="section-label">Os links agora usam o caminho completo da pasta <strong>/3D</strong>.</p>
-                <div style="display: grid; gap: 12px; margin-top: 10px;">
+            <section class="section hidden" id="projectSection" aria-labelledby="tituloEscolha">
+                <h2 id="tituloEscolha">Escolha o tipo de projeto</h2>
+                <p class="helper-text">Depois de liberar o acesso, escolha entre projetos públicos e privados.</p>
+
+                <div class="project-type-controls" role="group" aria-label="Tipo de projeto">
+                    <button class="project-type-btn active" id="btnPublico" type="button">Projetos públicos</button>
+                    <button class="project-type-btn" id="btnPrivado" type="button">Projetos privados</button>
+                </div>
+
+                <div style="display: grid; gap: 12px; margin-top: 12px;">
                     <select id="pagina3d" aria-label="Escolher página HTML do projeto 3D">
                         <option value="" selected disabled>Selecione um projeto</option>
                     </select>
                     <button id="irProjeto" type="button">Abrir projeto</button>
                 </div>
-            </section>
-
-            <section class="section public" aria-labelledby="tituloPublico">
-                <h2 id="tituloPublico">Projetos públicos</h2>
-                <div class="project-links" id="publicLinks"></div>
-            </section>
-
-            <section class="section private locked" id="privateSection" aria-labelledby="tituloPrivado">
-                <h2 id="tituloPrivado">Projetos privados</h2>
-                <p class="section-label" id="privateHint">Bloqueado. Informe a senha para liberar os links privados.</p>
-                <div class="project-links" id="privateLinks"></div>
             </section>
         </div>
     </main>
@@ -204,48 +221,36 @@
         const selectProjeto = document.getElementById("pagina3d");
         const botaoIr = document.getElementById("irProjeto");
         const inputSenha = document.getElementById("accessPassword");
-        const botaoDesbloquear = document.getElementById("unlockPrivate");
+        const botaoDesbloquear = document.getElementById("unlockAccess");
         const mensagemAcesso = document.getElementById("accessMessage");
-        const privateSection = document.getElementById("privateSection");
-        const privateHint = document.getElementById("privateHint");
-        const publicLinks = document.getElementById("publicLinks");
-        const privateLinks = document.getElementById("privateLinks");
+        const projectSection = document.getElementById("projectSection");
+        const btnPublico = document.getElementById("btnPublico");
+        const btnPrivado = document.getElementById("btnPrivado");
 
-        let privateUnlocked = false;
+        let accessUnlocked = false;
+        let selectedType = "public";
 
-        function renderLinks() {
-            publicLinks.innerHTML = PUBLIC_PROJECTS.map((project) => `<a href="${project.href}">${project.label}</a>`).join("");
-            privateLinks.innerHTML = PRIVATE_PROJECTS.map((project) => `<a href="${project.href}">${project.label}</a>`).join("");
+        function getSelectedProjects() {
+            return selectedType === "private" ? PRIVATE_PROJECTS : PUBLIC_PROJECTS;
         }
 
         function renderSelectOptions() {
-            const privateOptions = privateUnlocked ? PRIVATE_PROJECTS : [];
-            const allProjects = [
-                ...PUBLIC_PROJECTS.map((project) => ({ ...project, group: "Público" })),
-                ...privateOptions.map((project) => ({ ...project, group: "Privado" }))
-            ];
+            const selectedProjects = getSelectedProjects();
+            const groupName = selectedType === "private" ? "Privado" : "Público";
 
             selectProjeto.innerHTML = '<option value="" selected disabled>Selecione um projeto</option>';
+            const group = document.createElement("optgroup");
+            group.label = groupName;
 
-            const grouped = allProjects.reduce((acc, project) => {
-                if (!acc[project.group]) {
-                    acc[project.group] = [];
-                }
-                acc[project.group].push(project);
-                return acc;
-            }, {});
-
-            Object.entries(grouped).forEach(([groupName, items]) => {
-                const group = document.createElement("optgroup");
-                group.label = groupName;
-                items.forEach((project) => {
-                    const option = document.createElement("option");
-                    option.value = project.href;
-                    option.textContent = project.label;
-                    group.appendChild(option);
-                });
-                selectProjeto.appendChild(group);
+            selectedProjects.forEach((project) => {
+                const option = document.createElement("option");
+                option.value = project.href;
+                option.textContent = project.label;
+                group.appendChild(option);
             });
+
+            selectProjeto.appendChild(group);
+            botaoIr.textContent = "Abrir projeto";
         }
 
         function setAccessMessage(text, isError = false) {
@@ -253,26 +258,42 @@
             mensagemAcesso.className = `message ${text ? (isError ? "error" : "success") : ""}`;
         }
 
-        function updatePrivateState() {
-            privateSection.classList.toggle("locked", !privateUnlocked);
-            privateHint.textContent = privateUnlocked
-                ? "Acesso liberado. Você já pode abrir os projetos privados."
-                : "Bloqueado. Informe a senha para liberar os links privados.";
+        function updateProjectTypeButtons() {
+            btnPublico.classList.toggle("active", selectedType === "public");
+            btnPrivado.classList.toggle("active", selectedType === "private");
+        }
+
+        function updateAccessState() {
+            projectSection.classList.toggle("hidden", !accessUnlocked);
             renderSelectOptions();
+            updateProjectTypeButtons();
         }
 
         botaoDesbloquear.addEventListener("click", () => {
             const password = inputSenha.value.trim();
             if (password === ACCESS_PASSWORD) {
-                privateUnlocked = true;
+                accessUnlocked = true;
                 inputSenha.value = "";
-                setAccessMessage("Projetos privados liberados.");
-                updatePrivateState();
+                setAccessMessage("Acesso liberado. Agora escolha o tipo de projeto.");
+                updateAccessState();
                 return;
             }
             setAccessMessage("Senha incorreta. Tente novamente.", true);
+            setAccessMessage("Senha incorreta. Tente novamente.", true);
             inputSenha.focus();
             inputSenha.select();
+});
+
+        btnPublico.addEventListener("click", () => {
+            selectedType = "public";
+            updateProjectTypeButtons();
+            renderSelectOptions();
+        });
+
+        btnPrivado.addEventListener("click", () => {
+            selectedType = "private";
+            updateProjectTypeButtons();
+            renderSelectOptions();
         });
 
         inputSenha.addEventListener("keydown", (event) => {
@@ -295,8 +316,7 @@
             botaoIr.textContent = `Abrir ${selectedLabel}`;
         });
 
-        renderLinks();
-        updatePrivateState();
+        updateAccessState();
     </script>
 </body>
 </html>

@@ -239,6 +239,7 @@ let modelsLoadedCount = 0;
 let expectedModels = 0;
 let defaultModelChecksDone = 0;
 let currentModels = [];
+let lastMaterialsResults = [];
 const loadedModels = new Map();
 const originalTransforms = new Map();
 let currentModelTransforms = {};
@@ -277,6 +278,7 @@ const materialsPanel = document.getElementById("materialsPanel");
 const materialsPanelToggleButton = document.getElementById("btnMaterialsPanel");
 const closeMaterialsPanelButton = document.getElementById("closeMaterialsPanel");
 const generateMaterialsButton = document.getElementById("generateMaterialsList");
+const downloadMaterialsExcelButton = document.getElementById("downloadMaterialsExcel");
 const materialsSummary = document.getElementById("materialsSummary");
 const materialsResultsList = document.getElementById("materialsResults");
 const searchBar = document.getElementById("searchBar");
@@ -545,6 +547,19 @@ function setupMaterialsPanelControls() {
     generateMaterialsButton?.addEventListener("click", () => {
         generateAndRenderMaterialsList();
     });
+    downloadMaterialsExcelButton?.addEventListener("click", () => {
+        downloadMaterialsAsExcel(lastMaterialsResults);
+    });
+
+    updateMaterialsDownloadButton();
+}
+
+function updateMaterialsDownloadButton() {
+    if (!downloadMaterialsExcelButton) {
+        return;
+    }
+
+    downloadMaterialsExcelButton.disabled = !lastMaterialsResults.length;
 }
 
 function hidePanelElement(panelElement, toggleButton) {
@@ -1831,13 +1846,32 @@ function normalizeQuantityByIfcType(prop, numericValue) {
 
     const normalizedName = (prop?.name || prop?.id || "")
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[̀-ͯ]/g, "")
         .toLowerCase();
 
-    const isLinearMaterial =  ["cabo", "cabos", "eletrocalha", "eletrocalhas", "eletroduto", "eletrodutos", "perfilado", "perfilados","UTP","Cat"]
+    const compactName = normalizedName.replace(/[^a-z0-9]/g, "");
+
+    const linearMaterialKeywords = [
+        "cabo",
+        "cabos",
+        "eletrocalha",
+        "eletrocalhas",
+        "eletroduto",
+        "eletrodutos",
+        "perfilado",
+        "perfilados",
+        "utp"
+    ];
+
+    const linearMaterialCompactKeywords = ["cat6", "cat5e", "categoria6", "categoria5e"];
+
+    const isLinearMaterial = linearMaterialKeywords
         .some((keyword) => normalizedName.includes(keyword));
 
-    if (isIfcLengthMeasure(prop?.value) || isLinearMaterial) {
+    const isStructuredCableCategory = linearMaterialCompactKeywords
+        .some((keyword) => compactName.includes(keyword));
+
+    if (isIfcLengthMeasure(prop?.value) || isLinearMaterial || isStructuredCableCategory) {
         return {
             quantity: numericValue / 1000,
             unitLabel: "metro(s)"
@@ -1919,6 +1953,8 @@ function renderMaterialsResults(items) {
     }
 
     if (!items.length) {
+        lastMaterialsResults = [];
+        updateMaterialsDownloadButton();
         materialsSummary.textContent = "Nenhuma propriedade quantitativa encontrada nos modelos carregados.";
         materialsResultsList.innerHTML = "";
         return;
@@ -1928,6 +1964,8 @@ function renderMaterialsResults(items) {
     const allInMeters = items.length > 0 && items.every((item) => item.unitLabel === "metro(s)");
     const totalUnit = allInMeters ? "metro(s)" : "item(ns)";
     materialsSummary.textContent = `${items.length} material(is) consolidado(s) • Total: ${formatMaterialQuantity(totalItems)} ${totalUnit}`;
+    lastMaterialsResults = items;
+    updateMaterialsDownloadButton()
 
     materialsResultsList.innerHTML = "";
 
@@ -1945,6 +1983,61 @@ function renderMaterialsResults(items) {
 function generateAndRenderMaterialsList() {
     const items = collectQuantitativeMaterials();
     renderMaterialsResults(items);
+}
+
+function sanitizeSpreadsheetCell(value) {
+    const text = String(value ?? "");
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+}
+
+function downloadMaterialsAsExcel(items) {
+    if (!Array.isArray(items) || !items.length) {
+        return;
+    }
+
+    const rows = items.map((item) => `
+        <Row>
+            <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(item.name)}</Data></Cell>
+            <Cell><Data ss:Type="Number">${Number.isFinite(item.quantity) ? item.quantity : 0}</Data></Cell>
+            <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(item.unitLabel)}</Data></Cell>
+        </Row>
+    `).join("");
+
+    const spreadsheetXml = `<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+    <Worksheet ss:Name="Materiais">
+        <Table>
+            <Row>
+                <Cell><Data ss:Type="String">Descrição</Data></Cell>
+                <Cell><Data ss:Type="String">Quantidade</Data></Cell>
+                <Cell><Data ss:Type="String">Unidade</Data></Cell>
+            </Row>
+            ${rows}
+        </Table>
+    </Worksheet>
+</Workbook>`;
+
+    const blob = new Blob([spreadsheetXml], { type: "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const now = new Date();
+    const dateStamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+    link.href = url;
+    link.download = `lista_materiais_${dateStamp}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
 }
 
 function getCollisionPosition(objectId) {

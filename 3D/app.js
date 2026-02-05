@@ -1834,7 +1834,7 @@ function normalizeQuantityByIfcType(prop, numericValue) {
         .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase();
 
-    const isLinearMaterial =  ["cabo", "cabos", "eletrocalha", "eletrocalhas", "eletroduto", "eletrodutos", "perfilado", "perfilados"]
+    const isLinearMaterial =  ["cabo", "cabos", "eletrocalha", "eletrocalhas", "eletroduto", "eletrodutos", "perfilado", "perfilados","UTP","Cat"]
         .some((keyword) => normalizedName.includes(keyword));
 
     if (isIfcLengthMeasure(prop?.value) || isLinearMaterial) {

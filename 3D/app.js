@@ -1900,7 +1900,8 @@ function normalizeQuantityByIfcType(prop, numericValue) {
         "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 16 mm² - preto",
         "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 16 mm² - vermelho",
         "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 6 mm² - preto",
-        "- sinapi - metros - eletroduto flexivel corrugado, pvc, dn 32 mm - 1\" - , para circuitos terminais, instalado em parede"
+        "- sinapi - metros - eletroduto flexivel corrugado, pvc, dn 32 mm - 1\" - , para circuitos terminais, instalado em parede",
+        "cabeamento estruturado - optico - CFOI-MM-COR - 1"
     ]);
 
     const compactName = normalizedName.replace(/[^a-z0-9]/g, "");

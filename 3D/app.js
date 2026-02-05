@@ -1834,7 +1834,7 @@ function normalizeQuantityByIfcType(prop, numericValue) {
         .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase();
 
-    const isLinearMaterial = ["Isol. XLPE - 0,6/1kV","Galvanizados à fogo", "Eletroduto pesado","Isol.PVC - 450/750V (ref. Pirastic Ecoplus BWF Flexível)","Eletroduto leve", "Eletrocalha perfurada tipo U", "UTP-5e","UTP-CAT.6","CFOI-MM-COR","Eletrocalha perfurada tipo U"]
+    const isLinearMaterial =  ["cabo", "cabos", "eletrocalha", "eletrocalhas", "eletroduto", "eletrodutos", "perfilado", "perfilados"]
         .some((keyword) => normalizedName.includes(keyword));
 
     if (isIfcLengthMeasure(prop?.value) || isLinearMaterial) {

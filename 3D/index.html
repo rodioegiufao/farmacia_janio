@@ -1,400 +1,156 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador BIM com Medição de Ângulo e Distância</title>
-    <link rel="icon" href="/images/favicon.ico" sizes="any">
-    <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
-    <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
-    <link rel="stylesheet" href="/styles/main.css">
-    <link id="modeStylesheet" rel="stylesheet" href="/3D/styles.css">
-    
-    <script type="module" src="https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@latest/dist/xeokit-sdk.min.es.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D | Escolha do Projeto</title>
+    <link rel="icon" href="/images/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16" />
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #0f172a;
+            --card: #ffffff;
+            --text: #0f172a;
+            --muted: #475569;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --border: #cbd5e1;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            font-family: Arial, sans-serif;
+            background: radial-gradient(circle at top, #1e293b, var(--bg));
+            color: var(--text);
+        }
+
+        .selector-card {
+            width: min(100%, 560px);
+            background: var(--card);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 35px rgba(0, 0, 0, 0.25);
+            padding: 28px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 1.8rem;
+        }
+
+        p {
+            margin: 0 0 20px;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .controls {
+            display: grid;
+            gap: 12px;
+        }
+
+        select,
+        button {
+            width: 100%;
+            border-radius: 10px;
+            font-size: 1rem;
+        }
+
+        select {
+            border: 1px solid var(--border);
+            padding: 12px;
+            background: #fff;
+        }
+
+        button {
+            border: 0;
+            padding: 13px;
+            cursor: pointer;
+            color: #fff;
+            font-weight: 700;
+            background: var(--accent);
+            transition: background 0.2s ease;
+        }
+
+        button:hover {
+            background: var(--accent-hover);
+        }
+
+        .quick-links {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .quick-links a {
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 0.9rem;
+        }
+    </style>
 </head>
 <body>
-    <div id="accessGate" class="access-gate" role="dialog" aria-modal="true" aria-labelledby="accessGateTitle" aria-describedby="accessGateDescription" hidden>
-        <div class="access-gate-card">
-            <h1 id="accessGateTitle">Acesso protegido</h1>
-            <p id="accessGateDescription">Digite a senha para continuar.</p>
-            <form id="accessGateForm" class="access-gate-form">
-                <label class="access-gate-label" for="accessGatePassword">Senha</label>
-                <div class="access-gate-input-row">
-                    <input id="accessGatePassword" type="password" autocomplete="current-password" required />
-                    <button type="button" id="accessGateToggle" class="access-gate-toggle" aria-pressed="false" aria-label="Mostrar senha">
-                        <span class="access-gate-icon access-gate-icon--hidden" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" focusable="false">
-                                <path d="M3 3l18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                <path d="M10.5 10.75a2.5 2.5 0 0 0 2.75 2.75" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                <path d="M6.5 6.75C4.2 8.3 2.6 10.6 2 12c1.5 3.5 5.1 6 10 6 1.7 0 3.3-.3 4.6-.9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                <path d="M9.7 5.2c.8-.2 1.7-.2 2.3-.2 4.9 0 8.5 2.5 10 7-.5 1.1-1.3 2.3-2.4 3.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                            </svg>
-                        </span>
-                        <span class="access-gate-icon access-gate-icon--visible" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" focusable="false">
-                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"></circle>
-                            </svg>
-                        </span>
-                    </button>
-                </div>
-                <button type="submit">Entrar</button>
-                <span id="accessGateMessage" class="access-gate-message" aria-live="polite"></span>
-            </form>
-        </div>
-    </div>
-    <div id="modelSelection" class="model-selection" role="dialog" aria-modal="true" aria-labelledby="modelSelectionTitle">
-        <div class="model-selection-card">
-            <h1 id="modelSelectionTitle">Selecione o Projeto</h1>
-            <p>Escolha qual projeto deseja carregar.</p>
-            <div class="model-selection-actions">
-                <div class="model-selection-group">
-                    <select id="selectPublicProject" class="model-selection-select">
-                        <option value="" selected disabled>Selecione um projeto</option>
-                        <option value="iper">IPER</option>
-                        <option value="lacen">LACEN</option>
-                        <option value="policlinica">Policlínica</option>
-                        <option value="esc_canaa">Escola Canaã</option>
-                    </select>
-                </div>
-                <div class="model-selection-group">
-                    <label class="model-selection-group-title" for="selectPrivateProject">Privado</label>
-                    <select id="selectPrivateProject" class="model-selection-select">
-                        <option value="" selected disabled>Selecione um projeto</option>
-                        <option value="farmacia">Farmácia do Jânio</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-    </div>
-    <canvas id="meuCanvas"></canvas>
+    <main class="selector-card" aria-labelledby="tituloPagina">
+        <h1 id="tituloPagina">Visualizador 3D</h1>
+        <p>No índice da pasta <strong>/3D</strong> você apenas escolhe para qual HTML deseja ir.</p>
 
-    <canvas id="myNavCubeCanvas"></canvas>
-
-    <div id="toolbar" aria-expanded="false">
-        <button
-            id="btnAngle"
-            class="tool-button"
-            onclick="setMeasurementMode('angle', this)"
-            title="Medir Ângulo (Transferidor)"
-    >
-            <span style="font-size: 1.2em;">📐</span>
-            Ângulo
-        </button>
-
-        <button
-            id="btnDistance" 
-            class="tool-button" 
-            onclick="setMeasurementMode('distance', this)" 
-            title="Medir Distância (Régua)"
-        >
-            <span style="font-size: 1.2em;">📏</span>
-            Distância
-        </button>
-     
-        <button
-            id="btnToggleTree"
-            class="tool-button"
-            onclick="toggleTreeView(this)"
-            title="Mostrar/Esconder Pavimentos"
-        >
-            <span style="font-size: 1.2em;">🏢</span>
-            Pavimentos
-        </button>
-
-        <button
-            id="btnSectionPlane"
-            class="tool-button"
-            onclick="toggleSectionPlane(this)"
-            title="Plano de Corte (Horizontal)"
-        >
-            <span style="font-size: 1.2em;">🔪</span>
-            Corte
-        </button>
-        <button
-            id="btnTransformPanel"
-            class="tool-button"
-            title="Ajustar origem e rotação do modelo"
-        >
-            <span style="font-size: 1.2em;">🧭</span>
-            Origem/Rotação
-        </button>
-        <button
-            id="btnCollisionPanel"
-            class="tool-button"
-            title="Detectar colisões entre modelos"
-        >
-            <span style="font-size: 1.2em;">🧊</span>
-            Colisões
-        </button>
-        <button
-            id="btnSearchToggle"
-            class="tool-button"
-            title="Mostrar/Esconder busca por ID"
-            aria-pressed="false"
-        >
-            <span style="font-size: 1.2em;">🔍</span>
-            Procurar
-        </button>
-        <button
-            id="btnAjuda"
-            class="tool-button"
-            title="Ajuda e atalhos de teclado"
-        >
-            <span style="font-size: 1.2em;">❔</span>
-            Ajuda
-        </button>
-    </div>
-    <div id="searchBar" class="search-bar" aria-label="Buscar peça por ID" hidden>
-        <div class="search-panel-header">
-            <div>
-                <div class="search-panel-title">Buscar peça</div>
-                <div class="search-panel-subtitle">Encontre elementos pelo ID</div>
-            </div>
-            <button id="closeSearchBar" type="button" class="search-close-button" aria-label="Fechar busca">✕</button>
-        </div>
-        <div class="search-panel-controls">
-            <label class="sr-only" for="searchIdInput">ID da peça</label>
-            <input id="searchIdInput" type="text" placeholder="Buscar peça pelo ID" aria-label="ID da peça" />
-            <button id="btnSearchId" type="button" class="search-action">Buscar</button>
-        </div>
-        <span id="searchFeedback" class="search-feedback" aria-live="polite"></span>
-    </div>
-    <button id="mobileToolbarToggle" type="button" aria-label="Mostrar todas as ferramentas" title="Mostrar todas as ferramentas" hidden>
-        <img class="tool-toggle-icon" src="/3D/img/ferramentas-fechada.png" alt="" aria-hidden="true" />
-        <span class="tool-toggle-text">Mais ferramentas</span>
-    </button>
-    <div id="treeViewContainer">
-        <div class="tree-view-header">
-            <div>
-                <div class="tree-view-title">Pavimentos</div>
-                <div class="tree-view-subtitle">Selecione o pavimento para isolar</div>
-            </div>
-            <button id="closeTreeView" type="button" aria-label="Fechar painel">✕</button>
-        </div>
-        <div id="treeViewContent" class="tree-view-content"></div>
-    </div>
-    <div id="helpPanel" hidden>
-        <div class="help-panel-header">
-            <div>
-                <div class="help-panel-title">Ajuda</div>
-                <div class="help-panel-subtitle">Atalhos de teclado e dicas rápidas</div>
-            </div>
-            <button id="closeHelpPanel" type="button" aria-label="Fechar painel de ajuda">✕</button>
+        <div class="controls">
+            <label for="pagina3d">Escolha o projeto</label>
+            <select id="pagina3d" aria-label="Escolher página HTML do projeto 3D">
+                <option value="" selected disabled>Selecione um projeto</option>
+                <option value="iper.html">IPER</option>
+                <option value="lacen.html">LACEN</option>
+                <option value="policlinica.html">Policlínica</option>
+                <option value="esc_canaa.html">Escola Canaã</option>
+                <option value="farmacia.html">Farmácia do Jânio</option>
+            </select>
+            <button id="irProjeto" type="button">Abrir projeto</button>
         </div>
 
-        <div class="help-section">
-            <h4>Atalhos gerais</h4>
-            <ol class="help-list">
-                <li><kbd>1</kbd> — Vista da direita</li>
-                <li><kbd>2</kbd> — Vista da frente</li>
-                <li><kbd>3</kbd> — Vista da esquerda</li>
-                <li><kbd>4</kbd> — Vista de trás</li>
-                <li><kbd>5</kbd> — Vista do topo</li>
-                <li><kbd>6</kbd> — Vista de baixo</li>
-                <li><kbd>Q</kbd> — Girar para a esquerda</li>
-                <li><kbd>E</kbd> — Girar para a direita</li>
-                <li><kbd>W</kbd> — Aumentar o zoom</li>
-                <li><kbd>S</kbd> — Diminuir zoom</li>
-                <li><kbd>Z</kbd> — Descer</li>
-                <li><kbd>X</kbd> — Subir</li>
-                <li><kbd>M</kbd> — Mostrar todos</li>
-                <li><kbd>R</kbd> — Redefinir modo raio X</li>
-                <li><kbd>Esc</kbd> — Sair</li>
-            </ol>
-        </div>
+        <nav class="quick-links" aria-label="Acessos rápidos">
+            <a href="iper.html">IPER</a>
+            <a href="lacen.html">LACEN</a>
+            <a href="policlinica.html">Policlínica</a>
+            <a href="esc_canaa.html">Escola Canaã</a>
+            <a href="farmacia.html">Farmácia do Jânio</a>
+        </nav>
+    </main>
 
-        <div class="help-section">
-            <h4>Para objetos selecionados</h4>
-            <ul class="help-list">
-                <li><kbd>P</kbd> — Propriedades do material</li>
-                <li><kbd>I</kbd> — Isolar</li>
-                <li><kbd>O</kbd> — Ocultar</li>
-            </ul>
-            <p class="help-note">Para selecionar um objeto, clique duas vezes.</p>
-        </div>
-    </div>
-    <div id="collisionPanel" hidden>
-        <div class="collision-panel-header">
-            <div>
-                <div class="collision-panel-title">Verificar colisões</div>
-                <div class="collision-panel-subtitle">Encontre objetos em conflito dentro de um único modelo XKT</div>
-            </div>
-            <button id="closeCollisionPanel" type="button" aria-label="Fechar painel">✕</button>
-        </div>
-
-        <label class="collision-label" for="collisionModelA">Modelo</label>
-        <select id="collisionModelA" aria-label="Modelo para analisar"></select>
-
-        <div class="collision-actions">
-            <button type="button" id="runCollisionCheck">Procurar colisões</button>
-            <button type="button" id="downloadCollisionPdf" disabled>Baixar PDF das colisões</button>
-        </div>
-
-        <p id="collisionSummary" class="collision-summary">Carregue um modelo para iniciar a análise.</p>
-        <ul id="collisionResults" class="collision-results" aria-live="polite"></ul>
-    </div>
-    <div id="transformPanel" hidden>
-        <div class="transform-panel-header">
-            <div>
-                <div class="transform-panel-title">Origem & Rotação</div>
-                <div class="transform-panel-subtitle">Reposicione um modelo XKT fora da origem</div>
-            </div>
-            <button id="closeTransformPanel" type="button" aria-label="Fechar painel">✕</button>
-        </div>
-
-        <label class="transform-label" for="transformModelSelect">Modelo</label>
-        <select id="transformModelSelect" aria-label="Escolha o modelo para ajustar"></select>
-
-        <div class="transform-grid">
-            <label class="transform-field">
-                Deslocamento X (m)
-                <input type="number" id="offsetX" step="0.1" value="0" />
-            </label>
-            <label class="transform-field">
-                Deslocamento Y (m)
-                <input type="number" id="offsetY" step="0.1" value="0" />
-            </label>
-            <label class="transform-field">
-                Deslocamento Z (m)
-                <input type="number" id="offsetZ" step="0.1" value="0" />
-            </label>
-        </div>
-
-        <div class="transform-grid">
-            <label class="transform-field">
-                Rotação Y (°)
-                <input type="number" id="rotationY" step="1" value="0" />
-            </label>
-        </div>
-
-        <div class="transform-actions">
-            <button type="button" id="applyTransformButton">Aplicar</button>
-            <button type="button" id="resetTransformButton">Restaurar origem</button>
-        </div>
-
-        <p class="transform-hint">A translação muda a origem do modelo; a rotação é aplicada em torno dessa origem.</p>
-    </div>
-    <div id="modeSwitcher" aria-label="Alternar modo de exibição">
-        <button type="button" class="mode-button active" data-mode="desktop">Versão Computador</button>
-        <button type="button" class="mode-button" data-mode="mobile">Versão Celular</button>
-    </div>
-    <div id="creditNote" role="note" aria-label="Responsável pelo programa">
-        Responsável: Eng. Msc. Rodrigo Damasceno Nascimento
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="/3D/app.js"> </script>
     <script>
-        const modeStylesheet = document.getElementById('modeStylesheet');
-        const modeButtons = document.querySelectorAll('#modeSwitcher [data-mode]');
-        const toolbar = document.getElementById('toolbar');
-        const mobileToolbarToggle = document.getElementById('mobileToolbarToggle');
-        const mobileToolbarToggleText = mobileToolbarToggle.querySelector('.tool-toggle-text');
-        const mobileToolbarToggleIcon = mobileToolbarToggle.querySelector('.tool-toggle-icon');
+        const selectProjeto = document.getElementById('pagina3d');
+        const botaoIr = document.getElementById('irProjeto');
 
-        const MOBILE_LABELS = {
-            open: 'Minimizar ferramentas',
-            closed: 'Mais ferramentas'
-        };
-
-        const MOBILE_ICONS = {
-            open: '/3D/img/ferramentas-aberta.png',
-            closed: '/3D/img/ferramentas-fechada.png'
-        };
-
-        function updateMobileLabels(isOpen) {
-            const label = isOpen ? MOBILE_LABELS.open : MOBILE_LABELS.closed;
-            const icon = isOpen ? MOBILE_ICONS.open : MOBILE_ICONS.closed;
-            toolbar.dataset.label = label;
-            if (mobileToolbarToggleText) {
-                mobileToolbarToggleText.textContent = label;
+        botaoIr.addEventListener('click', () => {
+            if (!selectProjeto.value) {
+                selectProjeto.focus();
+                return;
             }
-            if (mobileToolbarToggleIcon) {
-                mobileToolbarToggleIcon.src = icon;
-            }
-            mobileToolbarToggle.setAttribute('aria-label', label);
-            mobileToolbarToggle.setAttribute('title', label);
-        }
-
-        function toggleMobileToolbar(forceOpen) {
-            const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !toolbar.classList.contains('open');
-            toolbar.classList.toggle('open', shouldOpen);
-            toolbar.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
-            mobileToolbarToggle.setAttribute('aria-pressed', shouldOpen ? 'true' : 'false');
-            updateMobileLabels(shouldOpen);
-        }
-
-        function applyMode(mode) {
-            if (mode !== 'mobile' && mode !== 'desktop') {
-                mode = 'desktop';
-            }
-            let stylesheet = '/3D/styles.css';
-
-            if (mode === 'mobile') {
-                stylesheet = '/3D/styles-mobile.css';
-            }
-            if (modeStylesheet.getAttribute('href') !== stylesheet) {
-                modeStylesheet.setAttribute('href', stylesheet);
-            }
-            modeButtons.forEach((button) => {
-                button.classList.toggle('active', button.dataset.mode === mode);
-            });
-
-            document.body.dataset.mode = mode;
-
-            const isMobileMode = mode === 'mobile';
-            mobileToolbarToggle.hidden = !isMobileMode;
-            toggleMobileToolbar(false);
-
-            localStorage.setItem('preferredMode', mode);
-        }
-
-        modeButtons.forEach((button) => {
-            button.addEventListener('click', () => applyMode(button.dataset.mode));
+            window.location.href = selectProjeto.value;
         });
 
-        mobileToolbarToggle.addEventListener('click', () => toggleMobileToolbar());
-
-        toolbar.addEventListener('click', (event) => {
-            if (document.body.dataset.mode !== 'mobile') {
-                return;
-            }
-
-            const clickedButton = event.target.closest('.tool-button');
-            const isOpen = toolbar.classList.contains('open');
-            const isHeaderClick = !clickedButton && event.target === toolbar;
-
-            if (!isOpen && !clickedButton) {
-                event.preventDefault();
-                event.stopPropagation();
-                toggleMobileToolbar(true);
-                return;
-            }
-            if (!isOpen && clickedButton) {
-                toggleMobileToolbar(true);
-                return;
-            }
-
-            if (isOpen && isHeaderClick) {
-                event.preventDefault();
-                toggleMobileToolbar(false);
-            }
+        selectProjeto.addEventListener('change', () => {
+            botaoIr.textContent = `Abrir ${selectProjeto.options[selectProjeto.selectedIndex].text}`;
         });
-
-        document.addEventListener('click', (event) => {
-            if (document.body.dataset.mode !== 'mobile') {
-                return;
-            }
-            const isToolbarClick = toolbar.contains(event.target);
-            const isToggleClick = mobileToolbarToggle.contains(event.target);
-
-            if (toolbar.classList.contains('open') && !isToolbarClick && !isToggleClick) {
-                toggleMobileToolbar(false);
-            }
-        });
-
-        updateMobileLabels(false);
-        applyMode(localStorage.getItem('preferredMode') || 'desktop');
     </script>
 </body>
 </html>

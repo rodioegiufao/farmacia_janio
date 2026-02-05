@@ -1829,7 +1829,15 @@ function normalizeQuantityByIfcType(prop, numericValue) {
         return { quantity: null, unitLabel: "item(ns)" };
     }
 
-    if (isIfcLengthMeasure(prop?.value)) {
+    const normalizedName = (prop?.name || prop?.id || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+
+    const isLinearMaterial = ["cabo", "cabos", "eletrocalha", "eletrocalhas", "eletroduto", "eletrodutos", "perfilado", "perfilados"]
+        .some((keyword) => normalizedName.includes(keyword));
+
+    if (isIfcLengthMeasure(prop?.value) || isLinearMaterial) {
         return {
             quantity: numericValue / 1000,
             unitLabel: "metro(s)"

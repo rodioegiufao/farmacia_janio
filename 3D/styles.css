@@ -1520,6 +1520,25 @@ html, body {
     display: flex;
     justify-content: space-between;
     gap: 10px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.materials-result-item:hover {
+    border-color: rgba(16, 185, 129, 0.45);
+    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.12);
+    transform: translateY(-1px);
+}
+
+.materials-result-item:focus-visible {
+    outline: 2px solid rgba(16, 185, 129, 0.75);
+    outline-offset: 2px;
+}
+
+.materials-result-item.is-active {
+    border-color: rgba(16, 185, 129, 0.85);
+    background: rgba(16, 185, 129, 0.12);
+    box-shadow: 0 8px 22px rgba(16, 185, 129, 0.18);
 }
 
 .materials-result-name {

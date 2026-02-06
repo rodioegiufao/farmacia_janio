@@ -240,6 +240,7 @@ let expectedModels = 0;
 let defaultModelChecksDone = 0;
 let currentModels = [];
 let lastMaterialsResults = [];
+let activeMaterialFilter = null;
 const loadedModels = new Map();
 const originalTransforms = new Map();
 let currentModelTransforms = {};
@@ -2017,6 +2018,117 @@ function formatMaterialQuantity(quantity) {
     return quantity.toFixed(2).replace(/\.00$/, "");
 }
 
+function normalizeMaterialName(name) {
+    return (name || "").trim().toLowerCase();
+}
+
+function findMaterialObjectIds(materialName) {
+    const targetName = normalizeMaterialName(materialName);
+    if (!targetName) {
+        return [];
+    }
+
+    const allMetaObjects = viewer.metaScene?.metaObjects || {};
+    const ids = [];
+
+    for (const metaObject of Object.values(allMetaObjects)) {
+        const propertySets = metaObject?.propertySets;
+        if (!Array.isArray(propertySets)) {
+            continue;
+        }
+
+        let hasMaterial = false;
+        for (const pset of propertySets) {
+            if (!Array.isArray(pset?.properties)) {
+                continue;
+            }
+
+            const normalizedSetName = (pset.name || "").toLowerCase();
+            const isAssociatedItemsSet = normalizedSetName.includes("itens_associados") || normalizedSetName.includes("itens associados");
+
+            if (!isAssociatedItemsSet) {
+                continue;
+            }
+
+            for (const prop of pset.properties) {
+                const name = (prop?.name || prop?.id || "").trim();
+                if (!name) {
+                    continue;
+                }
+
+                if (normalizeMaterialName(name) === targetName) {
+                    hasMaterial = true;
+                    break;
+                }
+            }
+
+            if (hasMaterial) {
+                break;
+            }
+        }
+
+        if (hasMaterial && metaObject.id) {
+            ids.push(metaObject.id);
+        }
+    }
+
+    return ids;
+}
+
+function updateMaterialsActiveItem() {
+    if (!materialsResultsList) {
+        return;
+    }
+
+    Array.from(materialsResultsList.children).forEach((item) => {
+        if (!(item instanceof HTMLElement)) {
+            return;
+        }
+
+        const itemName = item.dataset.materialName;
+        item.classList.toggle("is-active", Boolean(activeMaterialFilter && itemName === activeMaterialFilter));
+    });
+}
+
+function clearMaterialIsolation() {
+    activeMaterialFilter = null;
+    resetModelVisibility();
+    updateMaterialsActiveItem();
+}
+
+function isolateMaterialByName(materialName) {
+    if (!modelIsolateController) {
+        return;
+    }
+
+    const idsToFocus = findMaterialObjectIds(materialName);
+    if (!idsToFocus.length) {
+        return;
+    }
+
+    const allIds = getAllObjectIds();
+    const otherIds = allIds.filter((id) => !idsToFocus.includes(id));
+
+    modelIsolateController.setObjectsVisible(allIds, true);
+    modelIsolateController.setObjectsXRayed(allIds, true);
+    modelIsolateController.setObjectsHighlighted(allIds, false);
+
+    modelIsolateController.setObjectsVisible(idsToFocus, true);
+    modelIsolateController.setObjectsXRayed(idsToFocus, false);
+    viewer.scene.setObjectsHighlighted(idsToFocus, true);
+
+    if (otherIds.length) {
+        modelIsolateController.setObjectsHighlighted(otherIds, false);
+    }
+
+    const combinedAABB = mergeAABBs(idsToFocus.map((id) => viewer.scene.getAABB(id)));
+    if (combinedAABB) {
+        viewer.cameraFlight.flyTo({ aabb: combinedAABB, duration: 0.6 });
+    }
+
+    requestRenderFrame();
+}
+
 function collectQuantitativeMaterials() {
     const totals = new Map();
     const allMetaObjects = viewer.metaScene?.metaObjects || {};
@@ -2084,7 +2196,7 @@ function renderMaterialsResults(items) {
     const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
     const allInMeters = items.length > 0 && items.every((item) => item.unitLabel === "metro(s)");
     const totalUnit = allInMeters ? "metro(s)" : "item(ns)";
-    materialsSummary.textContent = `${items.length} material(is) consolidado(s) • Total: ${formatMaterialQuantity(totalItems)} ${totalUnit}`;
+    materialsSummary.textContent = `${items.length} material(is) consolidado(s) • Total: ${formatMaterialQuantity(totalItems)} ${totalUnit}. Clique em um material para isolar no modelo (clique novamente para limpar).`;
     lastMaterialsResults = items;
     updateMaterialsDownloadButton()
 
@@ -2093,12 +2205,35 @@ function renderMaterialsResults(items) {
     items.forEach((item) => {
         const li = document.createElement("li");
         li.className = "materials-result-item";
+        li.dataset.materialName = item.name;
+        li.setAttribute("role", "button");
+        li.setAttribute("tabindex", "0");
+        li.setAttribute("title", "Clique para isolar os elementos com este material");
         li.innerHTML = `
             <span class="materials-result-name">${item.name}</span>
             <span class="materials-result-quantity">${formatMaterialQuantity(item.quantity)} ${item.unitLabel}</span>
         `;
+        const handleMaterialClick = () => {
+            if (activeMaterialFilter === item.name) {
+                clearMaterialIsolation();
+                return;
+            }
+
+            activeMaterialFilter = item.name;
+            isolateMaterialByName(item.name);
+            updateMaterialsActiveItem();
+        };
+        li.addEventListener("click", handleMaterialClick);
+        li.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                handleMaterialClick();
+            }
+        });
         materialsResultsList.appendChild(li);
     });
+
+    updateMaterialsActiveItem();
 }
 
 function generateAndRenderMaterialsList() {

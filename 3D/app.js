@@ -2599,7 +2599,7 @@ function renderCollisionResults(collisions) {
         item.dataset.collisionId = objectId;
         item.setAttribute("role", "button");
         item.setAttribute("tabindex", "0");
-        item.setAttribute("title", "Clique para selecionar e usar o atalho K");
+        item.setAttribute("title", "Clique para selecionar a colisão");
 
         const title = document.createElement("div");
         title.classList.add("collision-result-title");
@@ -2750,14 +2750,6 @@ document.addEventListener("keydown", (event) => {
         return;
     }
     if (key === "k") {
-        if (collisionPanel && !collisionPanel.hidden && activeCollisionSelection) {
-            isolateCollisionGroup(
-                activeCollisionSelection.objectId,
-                activeCollisionSelection.collidingWith
-            );
-            updateCollisionActiveItem();
-            return;
-        }
         if (activeMaterialFilter) {
             isolateAssociatedItemsByName(activeMaterialFilter);
             updateMaterialsActiveItem();

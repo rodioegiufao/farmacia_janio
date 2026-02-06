@@ -282,6 +282,9 @@ const generateMaterialsButton = document.getElementById("generateMaterialsList")
 const downloadMaterialsExcelButton = document.getElementById("downloadMaterialsExcel");
 const materialsSummary = document.getElementById("materialsSummary");
 const materialsResultsList = document.getElementById("materialsResults");
+const materialsIdsPanel = document.getElementById("materialsIdsPanel");
+const materialsIdsSummary = document.getElementById("materialsIdsSummary");
+const materialsIdsList = document.getElementById("materialsIdsList");
 const searchBar = document.getElementById("searchBar");
 const searchInput = document.getElementById("searchIdInput");
 const searchButton = document.getElementById("btnSearchId");
@@ -534,6 +537,9 @@ function setupMaterialsPanelControls() {
         const shouldOpen = typeof forceState === "boolean" ? forceState : materialsPanel.hidden;
         materialsPanel.hidden = !shouldOpen;
         materialsPanelToggleButton?.classList.toggle("active", shouldOpen);
+        if (!shouldOpen) {
+            resetMaterialsIdsPanel();
+        }
     };
 
     materialsPanelToggleButton?.addEventListener("click", () => togglePanel());
@@ -547,6 +553,7 @@ function setupMaterialsPanelControls() {
 
     generateMaterialsButton?.addEventListener("click", () => {
         generateAndRenderMaterialsList();
+        resetMaterialsIdsPanel();
     });
     downloadMaterialsExcelButton?.addEventListener("click", () => {
         downloadMaterialsAsExcel(lastMaterialsResults);
@@ -561,6 +568,52 @@ function updateMaterialsDownloadButton() {
     }
 
     downloadMaterialsExcelButton.disabled = !lastMaterialsResults.length;
+}
+
+function resetMaterialsIdsPanel() {
+    if (!materialsIdsPanel || !materialsIdsSummary || !materialsIdsList) {
+        return;
+    }
+
+    materialsIdsPanel.hidden = true;
+    materialsIdsSummary.textContent = "";
+    materialsIdsList.innerHTML = "";
+}
+
+function renderMaterialsIdsList(materialName) {
+    if (!materialsIdsPanel || !materialsIdsSummary || !materialsIdsList) {
+        return;
+    }
+
+    materialsIdsPanel.hidden = false;
+    materialsIdsList.innerHTML = "";
+
+    if (!materialName) {
+        materialsIdsSummary.textContent = "Selecione um material na lista para visualizar os IDs associados.";
+        return;
+    }
+
+    const ids = findMaterialObjectIds(materialName);
+    if (!ids.length) {
+        materialsIdsSummary.textContent = `Nenhum ID encontrado para "${materialName}".`;
+        return;
+    }
+
+    materialsIdsSummary.textContent = `${ids.length} ID(s) encontrados para "${materialName}". Clique em um ID para focar no modelo.`;
+
+    ids.forEach((id) => {
+        const li = document.createElement("li");
+        li.className = "materials-id-item";
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "materials-id-button";
+        button.textContent = id;
+        button.addEventListener("click", () => {
+            focusObjectById(id);
+        });
+        li.appendChild(button);
+        materialsIdsList.appendChild(li);
+    });
 }
 
 function hidePanelElement(panelElement, toggleButton) {
@@ -590,6 +643,7 @@ function hideCollisionPanel() {
 
 function hideMaterialsPanel() {
     hidePanelElement(materialsPanel, materialsPanelToggleButton);
+    resetMaterialsIdsPanel();
 }
 
 function hideTreeViewPanel() {
@@ -2094,6 +2148,7 @@ function clearMaterialIsolation() {
     activeMaterialFilter = null;
     resetModelVisibility();
     updateMaterialsActiveItem();
+    resetMaterialsIdsPanel();
 }
 
 function isolateMaterialByName(materialName) {
@@ -2190,6 +2245,7 @@ function renderMaterialsResults(items) {
         updateMaterialsDownloadButton();
         materialsSummary.textContent = "Nenhuma propriedade quantitativa encontrada nos modelos carregados.";
         materialsResultsList.innerHTML = "";
+        resetMaterialsIdsPanel();
         return;
     }
 
@@ -2222,6 +2278,9 @@ function renderMaterialsResults(items) {
             activeMaterialFilter = item.name;
             isolateMaterialByName(item.name);
             updateMaterialsActiveItem();
+            if (materialsIdsPanel && !materialsIdsPanel.hidden) {
+                renderMaterialsIdsList(item.name);
+            }
         };
         li.addEventListener("click", handleMaterialClick);
         li.addEventListener("keydown", (event) => {
@@ -2565,7 +2624,14 @@ document.addEventListener("keydown", (event) => {
         }
         return;
     }
-
+    if (key === "t") {
+        if (materialsPanel) {
+            materialsPanel.hidden = false;
+            materialsPanelToggleButton?.classList.add("active");
+        }
+        renderMaterialsIdsList(activeMaterialFilter);
+        return;
+    }
     // Atalhos de entidade: requerem uma seleção prévia (duplo clique)
     if (!lastSelectedEntity) {
         return;

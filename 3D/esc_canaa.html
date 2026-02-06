@@ -227,6 +227,12 @@
             <button type="button" id="downloadMaterialsExcel" disabled>Baixar Excel</button>
         </div>
 
+        <div class="materials-search">
+            <label class="sr-only" for="materialsSearchInput">Buscar material</label>
+            <input id="materialsSearchInput" type="text" placeholder="Buscar material (ex: acessório)" aria-label="Buscar material" />
+            <button id="materialsSearchButton" type="button" class="materials-search-button">Buscar</button>
+        </div>
+
         <p id="materialsSummary" class="materials-summary">Clique em "Gerar lista" para consolidar os materiais dos modelos carregados.</p>
         <ul id="materialsResults" class="materials-results" aria-live="polite"></ul>
         <div id="materialsIdsPanel" class="materials-ids-panel" hidden>

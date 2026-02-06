@@ -201,14 +201,6 @@ function setupTransformPanelControls() {
     transformPanelToggleButton.addEventListener("click", () => togglePanel());
     closeTransformPanelButton.addEventListener("click", () => togglePanel(false));
 
-    document.addEventListener("click", (event) => {
-        const isClickInsidePanel = transformPanel.contains(event.target);
-        const isToggle = transformPanelToggleButton.contains(event.target);
-        if (!transformPanel.hidden && !isClickInsidePanel && !isToggle) {
-            togglePanel(false);
-        }
-    });
-
     togglePanel(false);
 }
 
@@ -493,12 +485,6 @@ function setupCollisionPanelControls() {
     collisionPanelToggleButton?.addEventListener("click", () => togglePanel());
     closeCollisionPanelButton?.addEventListener("click", () => togglePanel(false));
 
-    document.addEventListener("click", (event) => {
-        if (!collisionPanel.hidden && !collisionPanel.contains(event.target) && !collisionPanelToggleButton?.contains(event.target)) {
-            togglePanel(false);
-        }
-    });
-
     runCollisionCheckButton?.addEventListener("click", () => {
         const modelId = collisionModelASelect?.value;
         findAndRenderCollisions(modelId);
@@ -536,12 +522,6 @@ function setupMaterialsPanelControls() {
 
     materialsPanelToggleButton?.addEventListener("click", () => togglePanel());
     closeMaterialsPanelButton?.addEventListener("click", () => togglePanel(false));
-
-    document.addEventListener("click", (event) => {
-        if (!materialsPanel.hidden && !materialsPanel.contains(event.target) && !materialsPanelToggleButton?.contains(event.target)) {
-            togglePanel(false);
-        }
-    });
 
     generateMaterialsButton?.addEventListener("click", () => {
         generateAndRenderMaterialsList();

@@ -227,6 +227,7 @@ let lastMaterialsResults = [];
 let materialsAllResults = [];
 let materialsSearchQuery = "";
 let activeMaterialFilter = null;
+let activeCollisionSelection = null;
 const loadedModels = new Map();
 const originalTransforms = new Map();
 let currentModelTransforms = {};
@@ -624,6 +625,7 @@ function hideTransformPanel() {
 
 function hideCollisionPanel() {
     hidePanelElement(collisionPanel, collisionPanelToggleButton);
+    clearCollisionSelection();
 }
 
 function hideMaterialsPanel() {
@@ -1742,6 +1744,34 @@ function setCollisionState(collisions, modelId) {
     updateCollisionDownloadButton();
 }
 
+function updateCollisionActiveItem() {
+    if (!collisionResultsList) {
+        return;
+    }
+
+    Array.from(collisionResultsList.children).forEach((item) => {
+        if (!(item instanceof HTMLElement)) {
+            return;
+        }
+
+        const itemId = item.dataset.collisionId;
+        item.classList.toggle(
+            "is-active",
+            Boolean(activeCollisionSelection && itemId === activeCollisionSelection.objectId)
+        );
+    });
+}
+
+function setActiveCollisionSelection(objectId, collidingWith) {
+    activeCollisionSelection = { objectId, collidingWith };
+    updateCollisionActiveItem();
+}
+
+function clearCollisionSelection() {
+    activeCollisionSelection = null;
+    updateCollisionActiveItem();
+}
+
 function formatIfcPropertyValue(value) {
     if (value === null || value === undefined) {
         return "(vazio)";
@@ -2553,6 +2583,7 @@ async function downloadCollisionsAsPdf() {
 
 function renderCollisionResults(collisions) {
     collisionResultsList.innerHTML = "";
+    clearCollisionSelection();
 
     if (!collisions.length) {
         const emptyItem = document.createElement("li");
@@ -2565,6 +2596,10 @@ function renderCollisionResults(collisions) {
     collisions.forEach(({ objectId, collidingWith }, index) => {
         const item = document.createElement("li");
         item.classList.add("collision-result-item");
+        item.dataset.collisionId = objectId;
+        item.setAttribute("role", "button");
+        item.setAttribute("tabindex", "0");
+        item.setAttribute("title", "Clique para selecionar e usar o atalho K");
 
         const title = document.createElement("div");
         title.classList.add("collision-result-title");
@@ -2581,7 +2616,22 @@ function renderCollisionResults(collisions) {
         focusBtn.type = "button";
         focusBtn.textContent = "Isolar colisão";
         focusBtn.classList.add("collision-focus-btn");
-        focusBtn.addEventListener("click", () => isolateCollisionGroup(objectId, collidingWith));
+        focusBtn.addEventListener("click", () => {
+            setActiveCollisionSelection(objectId, collidingWith);
+            isolateCollisionGroup(objectId, collidingWith);
+        });
+
+        const handleCollisionSelect = () => {
+            setActiveCollisionSelection(objectId, collidingWith);
+        };
+
+        item.addEventListener("click", handleCollisionSelect);
+        item.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                handleCollisionSelect();
+            }
+        });
 
         actions.appendChild(focusBtn);
         item.append(title, list, actions);
@@ -2700,6 +2750,14 @@ document.addEventListener("keydown", (event) => {
         return;
     }
     if (key === "k") {
+        if (collisionPanel && !collisionPanel.hidden && activeCollisionSelection) {
+            isolateCollisionGroup(
+                activeCollisionSelection.objectId,
+                activeCollisionSelection.collidingWith
+            );
+            updateCollisionActiveItem();
+            return;
+        }
         if (activeMaterialFilter) {
             isolateAssociatedItemsByName(activeMaterialFilter);
             updateMaterialsActiveItem();

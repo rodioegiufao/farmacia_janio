@@ -185,6 +185,7 @@
             <ul class="help-list">
                 <li><kbd>P</kbd> — Propriedades do material</li>
                 <li><kbd>L</kbd> — Lista geral de materiais</li>
+                <li><kbd>T</kbd> — IDs do material selecionado</li>
                 <li><kbd>I</kbd> — Isolar</li>
                 <li><kbd>O</kbd> — Ocultar</li>
             </ul>
@@ -227,6 +228,10 @@
 
         <p id="materialsSummary" class="materials-summary">Clique em "Gerar lista" para consolidar os materiais dos modelos carregados.</p>
         <ul id="materialsResults" class="materials-results" aria-live="polite"></ul>
+        <div id="materialsIdsPanel" class="materials-ids-panel" hidden>
+            <p id="materialsIdsSummary" class="materials-ids-summary"></p>
+            <ul id="materialsIdsList" class="materials-ids-list" aria-live="polite"></ul>
+        </div>
     </div>
     <div id="transformPanel" hidden>
         <div class="transform-panel-header">

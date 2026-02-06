@@ -1135,8 +1135,8 @@ const POLICLINICA_MODEL_TRANSFORMS = {
 };
 
 const CANAA_MODEL_TRANSFORMS = {
-    IFC_EST_PP: { position: [62.3, 0.15, -36.8995], rotation: [0, 180, 0] },
-    //IFC_ELE: { position: [0, -0.05, 0] },
+    IFC_EST_PP: { position: [0, 0.37, 0]},
+    IFC_INC: { position: [0, 0, 0], rotation: [0, 180, 0] },
 };
 
 const DEFAULT_MODEL_TRANSFORMS = {

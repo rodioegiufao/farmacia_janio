@@ -111,14 +111,6 @@ function setupHelpPanel() {
 
     helpPanelToggleButton.addEventListener("click", () => togglePanel());
     closeHelpPanelButton.addEventListener("click", () => togglePanel(false));
-
-    document.addEventListener("click", (event) => {
-        const isClickInsidePanel = helpPanel.contains(event.target);
-        const isToggle = helpPanelToggleButton.contains(event.target);
-        if (!helpPanel.hidden && !isClickInsidePanel && !isToggle) {
-            togglePanel(false);
-        }
-    });
 }
 function setupAccessGate() {
     if (!accessGate || !accessForm || !accessInput) {

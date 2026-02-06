@@ -1982,7 +1982,7 @@ function normalizeQuantityByIfcType(prop, numericValue) {
 
     const linearMaterialKeywords = ["utp"];
 
-    const linearMaterialCompactKeywords = ["cat6", "cat5e", "categoria6", "categoria5e"];
+    const linearMaterialCompactKeywords = ["cfoi"];
 
     const isLinearMaterial = linearMaterialKeywords
         .some((keyword) => normalizedName.includes(keyword));

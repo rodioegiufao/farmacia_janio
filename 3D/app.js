@@ -639,7 +639,6 @@ function hideTreeViewPanel() {
     }
 
     treeViewContainer.style.display = "none";
-    resetModelVisibility();
 }
 
 function closePanelsOnEscape() {
@@ -2958,7 +2957,7 @@ function setupTreeViewFilter() {
     container.dataset.treeFilterAttached = "true";
 }
 /**
- * Alterna a visibilidade do contêiner do TreeView e reseta a visibilidade do modelo se estiver fechando.
+ * Alterna a visibilidade do contêiner do TreeView sem alterar o estado atual de visibilidade.
  */
 function toggleTreeView(button) {
     if (!treeViewContainer) {
@@ -2968,8 +2967,6 @@ function toggleTreeView(button) {
     if (treeViewContainer.style.display === 'block') {
         treeViewContainer.style.display = 'none';
         button?.classList.remove('active');
-        // Ação de "Mostrar Tudo" ao fechar o painel
-        resetModelVisibility(); 
     } else {
         treeViewContainer.style.display = 'block';
         button?.classList.add('active');

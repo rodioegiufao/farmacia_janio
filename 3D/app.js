@@ -2184,6 +2184,39 @@ function isolateMaterialByName(materialName) {
     requestRenderFrame();
 }
 
+function isolateAssociatedItemsByName(materialName) {
+    if (!modelIsolateController) {
+        return;
+    }
+
+    const idsToFocus = findMaterialObjectIds(materialName);
+    if (!idsToFocus.length) {
+        return;
+    }
+
+    const allIds = getAllObjectIds();
+    const otherIds = allIds.filter((id) => !idsToFocus.includes(id));
+
+    modelIsolateController.setObjectsVisible(allIds, false);
+    modelIsolateController.setObjectsXRayed(allIds, false);
+    modelIsolateController.setObjectsHighlighted(allIds, false);
+
+    modelIsolateController.setObjectsVisible(idsToFocus, true);
+    modelIsolateController.setObjectsHighlighted(idsToFocus, true);
+
+    if (otherIds.length) {
+        modelIsolateController.setObjectsHighlighted(otherIds, false);
+    }
+
+    const combinedAABB = mergeAABBs(idsToFocus.map((id) => viewer.scene.getAABB(id)));
+    if (combinedAABB) {
+        viewer.cameraFlight.flyTo({ aabb: combinedAABB, duration: 0.6 });
+    }
+
+    requestRenderFrame();
+}
+
+
 function collectQuantitativeMaterials() {
     const totals = new Map();
     const allMetaObjects = viewer.metaScene?.metaObjects || {};

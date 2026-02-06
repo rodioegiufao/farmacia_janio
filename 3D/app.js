@@ -2632,6 +2632,17 @@ document.addEventListener("keydown", (event) => {
         renderMaterialsIdsList(activeMaterialFilter);
         return;
     }
+    if (key === "k") {
+        if (activeMaterialFilter) {
+            isolateMaterialByName(activeMaterialFilter);
+            updateMaterialsActiveItem();
+        }
+        return;
+    }
+    // Atalhos de entidade: requerem uma seleção prévia (duplo clique)
+    if (!lastSelectedEntity) {
+        return;
+    }
     // Atalhos de entidade: requerem uma seleção prévia (duplo clique)
     if (!lastSelectedEntity) {
         return;

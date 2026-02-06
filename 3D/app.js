@@ -920,6 +920,12 @@ function setupDraggablePanels() {
         storageKey: `collisionPanelPosition:${pathname}`,
         ignoreSelectors: "input, button, textarea, select, a"
     });
+
+    setupDraggablePanel({
+        panel: materialsPanel,
+        storageKey: `materialsPanelPosition:${pathname}`,
+        ignoreSelectors: "input, button, textarea, select, a, .materials-results, .materials-results *, .materials-ids-panel, .materials-ids-panel *"
+    });
 }
 
 function finalizeInitialSetup() {

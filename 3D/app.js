@@ -2105,7 +2105,17 @@ function normalizeSearchText(value) {
         .replace(/[\u0300-\u036f]/g, "");
 }
 
-function findMaterialObjectIds(materialName) {
+function getActiveObjectIdSet() {
+    const scene = viewer?.scene;
+    const visibleIds = toArraySafe(scene?.visibleObjectIds);
+    if (visibleIds.length) {
+        return new Set(visibleIds);
+    }
+
+    return new Set(getAllObjectIds());
+}
+
+function findMaterialObjectIds(materialName, { activeOnly = true } = {}) {
     const targetName = normalizeMaterialName(materialName);
     if (!targetName) {
         return [];
@@ -2113,8 +2123,12 @@ function findMaterialObjectIds(materialName) {
 
     const allMetaObjects = viewer.metaScene?.metaObjects || {};
     const ids = [];
+    const activeIds = activeOnly ? getActiveObjectIdSet() : null;
 
     for (const metaObject of Object.values(allMetaObjects)) {
+        if (activeIds && metaObject?.id && !activeIds.has(metaObject.id)) {
+            continue;
+        }
         const propertySets = metaObject?.propertySets;
         if (!Array.isArray(propertySets)) {
             continue;
@@ -2249,8 +2263,12 @@ function isolateAssociatedItemsByName(materialName) {
 function collectQuantitativeMaterials() {
     const totals = new Map();
     const allMetaObjects = viewer.metaScene?.metaObjects || {};
+    const activeIds = getActiveObjectIdSet();
 
     for (const metaObject of Object.values(allMetaObjects)) {
+        if (metaObject?.id && !activeIds.has(metaObject.id)) {
+            continue;
+        }
         const propertySets = metaObject?.propertySets;
         if (!Array.isArray(propertySets)) {
             continue;

@@ -2293,7 +2293,7 @@ function renderMaterialsResults(items, options = {}) {
     const totalUnit = allInMeters ? "metro(s)" : "item(ns)";
     const baseSummary = `${items.length} material(is) consolidado(s)`;
     const filterHint = query && totalCount !== items.length ? ` de ${totalCount} (filtro: "${query}")` : "";
-    materialsSummary.textContent = `${baseSummary}${filterHint} • Total: ${formatMaterialQuantity(totalItems)} ${totalUnit}. Clique em um material para isolar no modelo (clique novamente para limpar).`;
+    materialsSummary.textContent = `${baseSummary}${filterHint}. Clique em um material para isolar no modelo (clique novamente para limpar).`;
     lastMaterialsResults = items;
     updateMaterialsDownloadButton()
 

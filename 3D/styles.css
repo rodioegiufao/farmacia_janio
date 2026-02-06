@@ -1324,6 +1324,23 @@ html, body {
     gap: 6px;
 }
 
+.collision-result-item:hover {
+    border-color: rgba(16, 185, 129, 0.45);
+    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.12);
+    transform: translateY(-1px);
+}
+
+.collision-result-item:focus-visible {
+    outline: 2px solid rgba(16, 185, 129, 0.75);
+    outline-offset: 2px;
+}
+
+.collision-result-item.is-active {
+    border-color: rgba(16, 185, 129, 0.85);
+    background: rgba(16, 185, 129, 0.12);
+    box-shadow: 0 8px 22px rgba(16, 185, 129, 0.18);
+}
+
 .collision-result-title {
     font-weight: 700;
     font-size: 13px;

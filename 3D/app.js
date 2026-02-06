@@ -1693,13 +1693,13 @@ function applyCollisionIsolation(objectAId, collidingIds, { animate = true } = {
     const idsToFocus = [objectAId, ...collidingIds];
     const allIds = getAllObjectIds();
     const otherIds = allIds.filter((id) => !idsToFocus.includes(id));
-    // Limpa estados anteriores e mostra tudo em X-ray para manter o contexto
-    modelIsolateController.setObjectsVisible(allIds, true);
-    modelIsolateController.setObjectsXRayed(allIds, true);
+    // Limpa estados anteriores e oculta tudo para isolar apenas o grupo em colisão
+    modelIsolateController.setObjectsVisible(allIds, false);
+    modelIsolateController.setObjectsXRayed(allIds, false);
     modelIsolateController.setObjectsHighlighted(allIds, false);
 
-    // Realça a colisão e remove o X-ray apenas dos elementos em conflito
-modelIsolateController.setObjectsVisible(idsToFocus, true);
+    // Mostra apenas os elementos em conflito e remove o X-ray deles
+    modelIsolateController.setObjectsVisible(idsToFocus, true);
     modelIsolateController.setObjectsXRayed(idsToFocus, false);
     viewer.scene.setObjectsHighlighted(idsToFocus, true);
 

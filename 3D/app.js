@@ -2667,7 +2667,7 @@ document.addEventListener("keydown", (event) => {
     }
     if (key === "k") {
         if (activeMaterialFilter) {
-            isolateMaterialByName(activeMaterialFilter);
+            isolateAssociatedItemsByName(activeMaterialFilter);
             updateMaterialsActiveItem();
         }
         return;

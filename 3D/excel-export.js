@@ -32,7 +32,7 @@ export async function downloadMaterialsAsExcel(items, normalizeSearchText) {
     const associationRows = buildAssociationRows(associationDefinitions, itemsByDescription, normalizeFn)
         .map(
             (association) => `
-        <Row>
+        <Row ss:StyleID="${association.matchStatus === "matched" ? "Matched" : "Unmatched"}">
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.codigo)}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.base)}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.descricao)}</Data></Cell>
@@ -49,6 +49,14 @@ export async function downloadMaterialsAsExcel(items, normalizeSearchText) {
  xmlns:x="urn:schemas-microsoft-com:office:excel"
  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
  xmlns:html="http://www.w3.org/TR/REC-html40">
+    <Styles>
+        <Style ss:ID="Matched">
+            <Interior ss:Color="#C6EFCE" ss:Pattern="Solid" />
+        </Style>
+        <Style ss:ID="Unmatched">
+            <Interior ss:Color="#FFF2CC" ss:Pattern="Solid" />
+        </Style>
+    </Styles>
     <Worksheet ss:Name="Materiais">
         <Table>
             <Row>
@@ -103,20 +111,41 @@ function getItemsByDescription(items, normalizeSearchText) {
     return items.reduce((acc, item) => {
         const normalizedName = normalizeSearchText(item.name);
         const quantity = Number.isFinite(item.quantity) ? item.quantity : 0;
-        acc.set(normalizedName, (acc.get(normalizedName) || 0) + quantity);
+        const unitLabel = item.unitLabel ? String(item.unitLabel).trim() : "";
+        const displayName = item.name ? String(item.name).trim() : "";
+        if (acc.has(normalizedName)) {
+            const current = acc.get(normalizedName);
+            current.quantity += quantity;
+            if (!current.unitLabel && unitLabel) {
+                current.unitLabel = unitLabel;
+            }
+            if (!current.displayName && displayName) {
+                current.displayName = displayName;
+            }
+        } else {
+            acc.set(normalizedName, {
+                quantity,
+                unitLabel,
+                displayName,
+            });
+        }
         return acc;
     }, new Map());
 }
 
 function buildAssociationRows(associationDefinitions, itemsByDescription, normalizeSearchText) {
     const aggregated = new Map();
+    const matchedDescriptions = new Set();
 
     associationDefinitions.forEach((association) => {
         const normalizedDescription = normalizeSearchText(association.itemDescricao || "");
-        const quantidade = itemsByDescription.get(normalizedDescription) || 0;
+        const matchData = itemsByDescription.get(normalizedDescription);
+        const quantidade = matchData?.quantity || 0;
         if (quantidade <= 0) {
             return;
         }
+
+        matchedDescriptions.add(normalizedDescription);
 
         const key = association.codigo
             ? `codigo:${association.codigo}`
@@ -134,10 +163,22 @@ function buildAssociationRows(associationDefinitions, itemsByDescription, normal
             descricao: association.descricao,
             unidade: association.unidade,
             quantidade,
+            matchStatus: "matched",
         });
     });
 
-    return Array.from(aggregated.values());
+    const unmatchedRows = Array.from(itemsByDescription.entries())
+        .filter(([normalizedName]) => !matchedDescriptions.has(normalizedName))
+        .map(([normalizedName, data]) => ({
+            codigo: "",
+            base: "",
+            descricao: data.displayName || normalizedName,
+            unidade: data.unitLabel || "",
+            quantidade: data.quantity,
+            matchStatus: "unmatched",
+        }));
+
+    return Array.from(aggregated.values()).concat(unmatchedRows);
 }
 
 /* ===========================

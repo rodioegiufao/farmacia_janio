@@ -28,7 +28,8 @@ export async function downloadMaterialsAsExcel(items, normalizeSearchText) {
         excelPath: "./base_de_dados.xlsx",
     });
 
-    const associationRows = associationDefinitions
+    const itemsByDescription = getItemsByDescription(items, normalizeFn);
+    const associationRows = buildAssociationRows(associationDefinitions, itemsByDescription, normalizeFn)
         .map(
             (association) => `
         <Row>
@@ -36,7 +37,7 @@ export async function downloadMaterialsAsExcel(items, normalizeSearchText) {
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.base)}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.descricao)}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.unidade)}</Data></Cell>
-            <Cell><Data ss:Type="Number">${getMaterialQuantityByDescription(items, association.itemDescricao, normalizeFn)}</Data></Cell>
+            <Cell><Data ss:Type="Number">${association.quantidade}</Data></Cell>
         </Row>
     `
         )
@@ -98,10 +99,45 @@ function sanitizeSpreadsheetCell(value) {
         .replace(/'/g, "&apos;");
 }
 
-function getMaterialQuantityByDescription(items, description, normalizeSearchText) {
-    const normalizedDescription = normalizeSearchText(description);
-    const match = items.find((item) => normalizeSearchText(item.name) === normalizedDescription);
-    return Number.isFinite(match?.quantity) ? match.quantity : 0;
+function getItemsByDescription(items, normalizeSearchText) {
+    return items.reduce((acc, item) => {
+        const normalizedName = normalizeSearchText(item.name);
+        const quantity = Number.isFinite(item.quantity) ? item.quantity : 0;
+        acc.set(normalizedName, (acc.get(normalizedName) || 0) + quantity);
+        return acc;
+    }, new Map());
+}
+
+function buildAssociationRows(associationDefinitions, itemsByDescription, normalizeSearchText) {
+    const aggregated = new Map();
+
+    associationDefinitions.forEach((association) => {
+        const normalizedDescription = normalizeSearchText(association.itemDescricao || "");
+        const quantidade = itemsByDescription.get(normalizedDescription) || 0;
+        if (quantidade <= 0) {
+            return;
+        }
+
+        const key = association.codigo
+            ? `codigo:${association.codigo}`
+            : `descricao:${association.descricao}|${association.base}|${association.unidade}`;
+        const current = aggregated.get(key);
+
+        if (current) {
+            current.quantidade += quantidade;
+            return;
+        }
+
+        aggregated.set(key, {
+            codigo: association.codigo,
+            base: association.base,
+            descricao: association.descricao,
+            unidade: association.unidade,
+            quantidade,
+        });
+    });
+
+    return Array.from(aggregated.values());
 }
 
 /* ===========================

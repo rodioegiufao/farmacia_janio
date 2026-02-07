@@ -10,18 +10,6 @@ export async function downloadMaterialsAsExcel(items, normalizeSearchText) {
             ? normalizeSearchText
             : (s) => String(s ?? "").trim().toLowerCase();
 
-    const rows = items
-        .map(
-            (item) => `
-        <Row>
-            <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(item.name)}</Data></Cell>
-            <Cell><Data ss:Type="Number">${Number.isFinite(item.quantity) ? item.quantity : 0}</Data></Cell>
-            <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(item.unitLabel)}</Data></Cell>
-        </Row>
-    `
-        )
-        .join("");
-
     // ✅ Carrega as associações do Excel colocado na pasta pública do site
     // (mesma pasta/rota onde seus JS são servidos)
     const associationDefinitions = await loadAssociationDefinitionsFromExcel({
@@ -29,18 +17,24 @@ export async function downloadMaterialsAsExcel(items, normalizeSearchText) {
     });
 
     const itemsByDescription = getItemsByDescription(items, normalizeFn);
-    const associationRows = buildAssociationRows(associationDefinitions, itemsByDescription, normalizeFn)
-        .map(
-            (association) => `
-        <Row ss:StyleID="${association.matchStatus === "matched" ? "Matched" : "Unmatched"}">
-            <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.codigo)}</Data></Cell>
-            <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.base)}</Data></Cell>
-            <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.descricao)}</Data></Cell>
-            <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.unidade)}</Data></Cell>
-            <Cell><Data ss:Type="Number">${association.quantidade}</Data></Cell>
+    const { associationRows, matchedDescriptions } = buildAssociationRows(
+        associationDefinitions,
+        itemsByDescription,
+        normalizeFn
+    );
+
+    const rows = items
+        .map((item) => {
+            const normalizedName = normalizeFn(item.name);
+            const statusStyle = matchedDescriptions.has(normalizedName) ? "Matched" : "Unmatched";
+            return `
+        <Row ss:StyleID="${statusStyle}">
+            <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(item.name)}</Data></Cell>
+            <Cell><Data ss:Type="Number">${Number.isFinite(item.quantity) ? item.quantity : 0}</Data></Cell>
+            <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(item.unitLabel)}</Data></Cell>
         </Row>
-    `
-        )
+    `;
+        })
         .join("");
 
     const spreadsheetXml = `<?xml version="1.0"?>
@@ -76,7 +70,19 @@ export async function downloadMaterialsAsExcel(items, normalizeSearchText) {
                 <Cell><Data ss:Type="String">UNIDADE</Data></Cell>
                 <Cell><Data ss:Type="String">QUANTIDADE</Data></Cell>
             </Row>
-            ${associationRows}
+            ${associationRows
+                .map(
+                    (association) => `
+        <Row ss:StyleID="Matched">
+            <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.codigo)}</Data></Cell>
+            <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.base)}</Data></Cell>
+            <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.descricao)}</Data></Cell>
+            <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.unidade)}</Data></Cell>
+            <Cell><Data ss:Type="Number">${association.quantidade}</Data></Cell>
+        </Row>
+    `
+                )
+                .join("")}
         </Table>
     </Worksheet>
 </Workbook>`;
@@ -167,18 +173,10 @@ function buildAssociationRows(associationDefinitions, itemsByDescription, normal
         });
     });
 
-    const unmatchedRows = Array.from(itemsByDescription.entries())
-        .filter(([normalizedName]) => !matchedDescriptions.has(normalizedName))
-        .map(([normalizedName, data]) => ({
-            codigo: "",
-            base: "",
-            descricao: data.displayName || normalizedName,
-            unidade: data.unitLabel || "",
-            quantidade: data.quantity,
-            matchStatus: "unmatched",
-        }));
-
-    return Array.from(aggregated.values()).concat(unmatchedRows);
+    return {
+        associationRows: Array.from(aggregated.values()),
+        matchedDescriptions,
+    };
 }
 
 /* ===========================

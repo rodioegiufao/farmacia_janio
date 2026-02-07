@@ -1,49 +1,46 @@
-export function downloadMaterialsAsExcel(items, normalizeSearchText) {
+// excel-export.js
+
+export async function downloadMaterialsAsExcel(items, normalizeSearchText) {
     if (!Array.isArray(items) || !items.length) {
         return;
     }
 
-    const rows = items.map((item) => `
+    const normalizeFn =
+        typeof normalizeSearchText === "function"
+            ? normalizeSearchText
+            : (s) => String(s ?? "").trim().toLowerCase();
+
+    const rows = items
+        .map(
+            (item) => `
         <Row>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(item.name)}</Data></Cell>
             <Cell><Data ss:Type="Number">${Number.isFinite(item.quantity) ? item.quantity : 0}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(item.unitLabel)}</Data></Cell>
         </Row>
-    `).join("");
+    `
+        )
+        .join("");
 
-    const associationDefinitions = [
-        {
-            codigo: "96985",
-            base: "SINAPI",
-            descricao: "HASTE DE ATERRAMENTO, DIÂMETRO 5/8\", COM 3 METROS - FORNECIMENTO E INSTALAÇÃO. AF_08/2023",
-            unidade: "UN",
-            itemDescricao: "Aterramento - Haste de aterramento - cobreada - 5/8\" x 2,40m"
-        },
-        {
-            codigo: "104753",
-            base: "SINAPI",
-            descricao: "CONECTOR SPLIT-BOLT, PARA SPDA, PARA CABOS ATÉ 50 MM2 - FORNECIMENTO E INSTALAÇÃO. AF_08/2023",
-            unidade: "UN",
-            itemDescricao: "Aterramento - Conector tipo \"U\" - 5/8\""
-        },
-        {
-            codigo: "981111",
-            base: "SINAPI",
-            descricao: "CAIXA DE INSPEÇÃO PARA ATERRAMENTO, CIRCULAR, EM POLIETILENO, DIÂMETRO INTERNO = 0,3 M. AF_12/2020",
-            unidade: "UN",
-            itemDescricao: "Aterramento - Caixa de inspeção - Polipropileno - Ø300x400mm"
-        }
-    ];
+    // ✅ Carrega as associações do Excel colocado na pasta pública do site
+    // (mesma pasta/rota onde seus JS são servidos)
+    const associationDefinitions = await loadAssociationDefinitionsFromExcel({
+        excelPath: "./base_de_dados.xlsx",
+    });
 
-    const associationRows = associationDefinitions.map((association) => `
+    const associationRows = associationDefinitions
+        .map(
+            (association) => `
         <Row>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.codigo)}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.base)}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.descricao)}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.unidade)}</Data></Cell>
-            <Cell><Data ss:Type="Number">${getMaterialQuantityByDescription(items, association.itemDescricao, normalizeSearchText)}</Data></Cell>
+            <Cell><Data ss:Type="Number">${getMaterialQuantityByDescription(items, association.itemDescricao, normalizeFn)}</Data></Cell>
         </Row>
-    `).join("");
+    `
+        )
+        .join("");
 
     const spreadsheetXml = `<?xml version="1.0"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
@@ -79,7 +76,9 @@ export function downloadMaterialsAsExcel(items, normalizeSearchText) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     const now = new Date();
-    const dateStamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const dateStamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+        now.getDate()
+    ).padStart(2, "0")}`;
 
     link.href = url;
     link.download = `lista_materiais_${dateStamp}.xls`;
@@ -101,7 +100,107 @@ function sanitizeSpreadsheetCell(value) {
 
 function getMaterialQuantityByDescription(items, description, normalizeSearchText) {
     const normalizedDescription = normalizeSearchText(description);
-    const match = items.find((item) =>
-        normalizeSearchText(item.name) === normalizedDescription);
+    const match = items.find((item) => normalizeSearchText(item.name) === normalizedDescription);
     return Number.isFinite(match?.quantity) ? match.quantity : 0;
+}
+
+/* ===========================
+   ✅ Leitura do base_de_dados.xlsx
+   - Aba "Descricao": CÓDIGO, BASE, DESCRIÇÃO, UNIDADE
+   - Aba "Associa":  Descrição (vira itemDescricao)
+   Obs: por padrão, casa por CÓDIGO se existir na aba Associa; se não, casa por índice de linha.
+   =========================== */
+
+let cachedAssociationDefinitions = null;
+let cachedExcelPath = null;
+
+async function ensureXLSXLoaded() {
+    if (window.XLSX) return;
+
+    await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+        script.onload = resolve;
+        script.onerror = () => reject(new Error("Falha ao carregar a biblioteca XLSX (SheetJS)."));
+        document.head.appendChild(script);
+    });
+}
+
+function pickHeader(rowObj, headerNames) {
+    if (!rowObj) return undefined;
+
+    const keys = Object.keys(rowObj);
+    const normalizedMap = new Map(keys.map((k) => [String(k).trim().toLowerCase(), k]));
+
+    for (const h of headerNames) {
+        const foundKey = normalizedMap.get(String(h).trim().toLowerCase());
+        if (foundKey) return rowObj[foundKey];
+    }
+    return undefined;
+}
+
+async function loadAssociationDefinitionsFromExcel({ excelPath = "./base_de_dados.xlsx" } = {}) {
+    // cache para não buscar/parsear toda hora
+    if (cachedAssociationDefinitions && cachedExcelPath === excelPath) {
+        return cachedAssociationDefinitions;
+    }
+
+    await ensureXLSXLoaded();
+
+    const res = await fetch(excelPath, { cache: "no-store" });
+    if (!res.ok) {
+        throw new Error(`Não foi possível carregar "${excelPath}" (status ${res.status}).`);
+    }
+
+    const arrayBuffer = await res.arrayBuffer();
+    const workbook = window.XLSX.read(arrayBuffer, { type: "array" });
+
+    // No arquivo que você enviou:
+    // - "Descricao" tem CÓDIGO/BASE/DESCRIÇÃO/UNIDADE
+    // - "Associa" tem Descrição (itemDescricao)
+    const sheetDetails =
+        workbook.Sheets["Descricao"] ||
+        workbook.Sheets["DESCRICAO"] ||
+        workbook.Sheets[workbook.SheetNames[0]];
+
+    const sheetItems =
+        workbook.Sheets["Associa"] ||
+        workbook.Sheets["ASSOCIA"] ||
+        workbook.Sheets[workbook.SheetNames[1]];
+
+    const detailsRows = window.XLSX.utils.sheet_to_json(sheetDetails, { defval: "" });
+    const itemRows = sheetItems ? window.XLSX.utils.sheet_to_json(sheetItems, { defval: "" }) : [];
+
+    // Se a aba "Associa" tiver CÓDIGO, tenta casar por código; senão, usa índice de linha.
+    const itemByCode = new Map();
+    for (const r of itemRows) {
+        const codigo = pickHeader(r, ["CÓDIGO", "CODIGO", "codigo"]);
+        const itemDesc = pickHeader(r, ["Descrição", "DESCRIÇÃO", "descricao", "Item", "itemDescricao"]);
+        if (codigo) itemByCode.set(String(codigo).trim(), String(itemDesc || "").trim());
+    }
+
+    const associationDefinitions = detailsRows
+        .map((r, idx) => {
+            const codigo = String(pickHeader(r, ["CÓDIGO", "CODIGO", "codigo"]) || "").trim();
+            const base = String(pickHeader(r, ["BASE", "base"]) || "").trim();
+            const descricao = String(pickHeader(r, ["DESCRIÇÃO", "DESCRICAO", "descricao"]) || "").trim();
+            const unidade = String(pickHeader(r, ["UNIDADE", "unidade"]) || "").trim();
+
+            let itemDescricao = "";
+            if (codigo && itemByCode.has(codigo)) {
+                itemDescricao = itemByCode.get(codigo);
+            } else if (itemRows[idx]) {
+                itemDescricao = String(
+                    pickHeader(itemRows[idx], ["Descrição", "DESCRIÇÃO", "descricao", "Item", "itemDescricao"]) || ""
+                ).trim();
+            }
+
+            return { codigo, base, descricao, unidade, itemDescricao };
+        })
+        .filter((x) => x.codigo || x.descricao || x.itemDescricao);
+
+    cachedAssociationDefinitions = associationDefinitions;
+    cachedExcelPath = excelPath;
+
+    return associationDefinitions;
 }

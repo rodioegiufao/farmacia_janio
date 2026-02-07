@@ -17,7 +17,7 @@ import {
     buildGridGeometry
 } from "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@latest/dist/xeokit-sdk.min.es.js";
 
-import { downloadMaterialsAsExcel } from "./excel-export.js";
+import { downloadMaterialsAsExcel, loadAssociaUnitsFromExcel } from "./excel-export.js";
 //import { setupAnnotations } from "./annotations.js";
 
 const { jsPDF } = window.jspdf;
@@ -34,6 +34,8 @@ let lastCollisionResults = [];
 let lastCollisionModelId = null;
 const ACCESS_PASSWORD = "ribeiro2026";
 const ACCESS_STORAGE_KEY = "farmacia_access_granted";
+let explicitLinearMaterials = new Set();
+let explicitLinearMaterialsLoadPromise = null
 
 // -----------------------------------------------------------------------------
 // 1. Configuração do Viewer e Redimensionamento (100% da tela)
@@ -88,6 +90,7 @@ function createGroundGrid() {
 }
 
 createGroundGrid();
+loadExplicitLinearMaterialsFromExcel();
 
 // -----------------------------------------------------------------------------
 // 1.1 Anotações fixas
@@ -1919,143 +1922,39 @@ function isIfcLengthMeasure(value) {
     return false;
 }
 
+function normalizeMaterialDescription(value) {
+    return (value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+}
+
+function loadExplicitLinearMaterialsFromExcel() {
+    if (explicitLinearMaterialsLoadPromise) {
+        return explicitLinearMaterialsLoadPromise;
+    }
+
+    explicitLinearMaterialsLoadPromise = (async () => {
+        try {
+            const associaRows = await loadAssociaUnitsFromExcel({ excelPath: "./base_de_dados.xlsx" });
+            const linearDescriptions = associaRows
+                .filter((row) => String(row.unidade || "").trim().toLowerCase() === "m")
+                .map((row) => normalizeMaterialDescription(row.descricao));
+            explicitLinearMaterials = new Set(linearDescriptions);
+        } catch (error) {
+            console.warn("Não foi possível carregar as unidades do Excel.", error);
+        }
+    })();
+
+    return explicitLinearMaterialsLoadPromise;
+}
+
 function normalizeQuantityByIfcType(prop, numericValue) {
     if (numericValue === null) {
         return { quantity: null, unitLabel: "item(ns)" };
     }
 
-    const normalizedName = (prop?.name || prop?.id || "")
-        .normalize("NFD")
-        .replace(/[̀-ͯ]/g, "")
-        .toLowerCase();
-
-    const explicitLinearMaterials = new Set([
-        "ferro maleavel classe 10 - tubo de aco galvanizado - 65 mm - 2.1/2\"",
-        "ferro maleavel classe 10 - tubo de aco galvanizado - 25 mm - 1\"",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 4 mm² - verde-amarelo",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 4 mm² - azul claro",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 2.5 mm² - amarelo",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 2.5 mm² - verde-amarelo",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 2.5 mm² - azul claro",
-        "cabeamento estruturado - metalico - utp-cat.6 - 4",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 4 mm² - vermelho",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 4 mm² - branco",
-        "cabeamento estruturado - metalico - utp-5e - 24awg - 4",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 4 mm² - preto",
-        "- sinapi - metros - eletroduto flexivel corrugado, pvc, dn 25 mm - 3/4\" - , para circuitos terminais, instalado em forro",
-        "cabo - epr - 2.5mm",
-        "perfilados perfurados - galvanizados a fogo - 38x38mm",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 2.5 mm² - preto",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 2.5 mm² - vermelho",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 2.5 mm² - branco",
-        "- composicao propria - metros - cabo isolado pp 3 x 1,5 mm2",
-        "eletroduto pvc flexivel - eletroduto pesado - 1.1/2\" - piso",
-        "eletroduto pvc flexivel - eletroduto leve - 3/4\" - forro",
-        "eletrocalha furada tipo u pre-galv. quen - eletrocalha perfurada tipo u - 50x50mm chapa 18",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 16 mm² - verde-amarelo",
-        "- sinapi - metros - eletroduto flexivel corrugado, pvc, dn 25 mm - 3/4\" - , para circuitos terminais, instalado em parede",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 25 mm² - azul claro",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 25 mm² - branco",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 25 mm² - preto",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 25 mm² - vermelho",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 10 mm² - azul claro",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 10 mm² - branco",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 10 mm² - preto",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 10 mm² - verde-amarelo",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 10 mm² - vermelho",
-        "eletroduto pvc flexivel - eletroduto pesado - 4\" - piso",
-        "eletroduto metalico rigido leve - eletroduto galvanizado, vara 3,0m - 3/4\"",
-        "eletrocalha furada tipo u pre-galv. quen - eletrocalha perfurada tipo u - 200x100mm chapa 18",
-        "eletrocalha furada tipo u pre-galv. quen - eletrocalha perfurada tipo u - 300x100mm chapa 18",
-        "eletrocalha furada tipo u pre-galv. quen - eletrocalha perfurada tipo u - 100x100mm chapa 18",
-        "- sinapi - metros - eletroduto flexivel corrugado, pvc, dn 32 mm - 1\" - , para circuitos terminais, instalado em forro",
-        "- composicao propria - metros - eletroduto flexivel corrugado, 3/4\", instalado no piso",
-        "eletroduto pvc flexivel - eletroduto leve - 3/4\" - parede",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 6 mm² - azul claro",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 6 mm² - branco",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 6 mm² - verde-amarelo",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 6 mm² - vermelho",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 16 mm² - azul claro",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 16 mm² - branco",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 16 mm² - preto",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 16 mm² - vermelho",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - sinapi - 6 mm² - preto",
-        "- sinapi - metros - eletroduto flexivel corrugado, pvc, dn 32 mm - 1\" - , para circuitos terminais, instalado em parede",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 4 mm² - verde-amarelo",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 4 mm² - azul claro",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 4 mm² - preto",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 4 mm² - vermelho",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 4 mm² - branco",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 2.5 mm² - amarelo",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 2.5 mm² - verde-amarelo",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 2.5 mm² - azul claro",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 6 mm² - verde-amarelo",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 6 mm² - vermelho",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 6 mm² - preto",
-        "pvc rigido soldavel - tubos - 25 mm",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 2.5 mm² - vermelho",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 2.5 mm² - preto",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 2.5 mm² - branco",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 6 mm² - branco",
-        "segmento de duto - tubo de cobre flexivel - 5/8\"",
-        "segmento de duto - tubo isolante esponjoso - 5/8\"",
-        "pvc esgoto - tubo rigido c/ ponta lisa - 150 mm - 6\"",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 6 mm² - azul claro",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 10 mm² - branco",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 10 mm² - preto",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 10 mm² - verde-amarelo",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 10 mm² - vermelho",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 10 mm² - azul claro",
-        "segmento de duto - cabo pp tetrapolar isol.pvc - 0,6/1kv - #4.0 mm²",
-        "eletroduto pvc flexivel - eletroduto leve - 3/4\"",
-        "cabo - cabo isolado 0,6 a 1kv epr - 150mm",
-        "segmento de duto - tubo de cobre flexivel - 3/8\"",
-        "segmento de duto - tubo isolante esponjoso - 3/8\"",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 95 mm² - verde-amarelo",
-        "condutores de protecao - spda - cabo de cobre nu - 7 fios - 50mm²",
-        "segmento de duto - cabo pp tetrapolar isol.pvc - 0,6/1kv - #2.5 mm²",
-        "condutores de protecao - spda - cabo de aluminio nu - 7 fios - 70mm",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 150 mm² - azul claro",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 150 mm² - branco",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 150 mm² - preto",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 150 mm² - vermelho",
-        "calha metalica - calha retangular - 200 mm x 100 mm - d50",
-        "condutores de protecao - spda - re-bar redonda aco galvanizado - 70mm²",
-        "pvc esgoto - tubo rigido c/ ponta lisa - 100 mm - 4\"",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 16 mm² - verde-amarelo",
-        "pvc esgoto - tubo rigido c/ ponta lisa - 50 mm - 2\"",
-        "eletrocalha furada tipo u pre-galv. quen - eletrocalha perfurada tipo u - 400x100mm chapa 16",
-        "cabo - cabo isolado 0,6 a 1kv epr - 35mm",
-        "eletroduto pvc flexivel - eletroduto leve - 3/4\" - piso",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 35 mm² - verde-amarelo",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 70 mm² - branco",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 70 mm² - preto",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 70 mm² - vermelho",
-        "eletrocalha furada tipo u pre-galv. quen - eletrocalha perfurada tipo u - 150x100mm chapa 18",
-        "acessorios uso geral - fita - manga lvr 3/4\"",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 50 mm² - verde-amarelo",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 95 mm² - azul claro",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 95 mm² - branco",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 95 mm² - preto",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 95 mm² - vermelho",
-        "pvc rigido soldavel - tubos - 32 mm",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 120 mm² - azul claro",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 120 mm² - branco",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 120 mm² - preto",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 120 mm² - vermelho",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 70 mm² - verde-amarelo",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 25 mm² - verde-amarelo",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 1.5 mm² - amarelo",
-        "cabo - cabo isolado 0,6 a 1kv epr - 10mm",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 50 mm² - azul claro",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 50 mm² - branco",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 50 mm² - preto",
-        "cabo unipolar - cobre - isol. xlpe - 0,6/1kv - ref. prysmian voltalene ecolene - 50 mm² - vermelho",
-        "segmento de duto - tubo de cobre flexivel - 1/2\"",
-        "segmento de duto - tubo isolante esponjoso - 1/2\"",
-        "segmento de duto - tubo de cobre flexivel - 1/4\"",
-        "segmento de duto - tubo isolante esponjoso - 1/4\"",
-    ]);
+    const normalizedName = normalizeMaterialDescription(prop?.name || prop?.id || "");
 
     const compactName = normalizedName.replace(/[^a-z0-9]/g, "");
 
@@ -2073,7 +1972,7 @@ function normalizeQuantityByIfcType(prop, numericValue) {
 
     if (isIfcLengthMeasure(prop?.value) || isLinearMaterial || isStructuredCableCategory || isExplicitLinearMaterial) {
         return {
-            quantity: numericValue / 1000,
+            quantity: numericValue / 100, // converte de cm para metros
             unitLabel: "metro(s)"
         };
     }

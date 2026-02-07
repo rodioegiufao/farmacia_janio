@@ -149,6 +149,8 @@ function buildAssociationRows(associationDefinitions, itemsByDescription, normal
 
 let cachedAssociationDefinitions = null;
 let cachedExcelPath = null;
+let cachedAssociaUnits = null;
+let cachedAssociaUnitsPath = null;
 
 async function ensureXLSXLoaded() {
     if (window.XLSX) return;
@@ -175,7 +177,7 @@ function pickHeader(rowObj, headerNames) {
     return undefined;
 }
 
-async function loadAssociationDefinitionsFromExcel({ excelPath = "./base_de_dados.xlsx" } = {}) {
+export async function loadAssociationDefinitionsFromExcel({ excelPath = "./base_de_dados.xlsx" } = {}) {
     // cache para não buscar/parsear toda hora
     if (cachedAssociationDefinitions && cachedExcelPath === excelPath) {
         return cachedAssociationDefinitions;
@@ -239,4 +241,47 @@ async function loadAssociationDefinitionsFromExcel({ excelPath = "./base_de_dado
     cachedExcelPath = excelPath;
 
     return associationDefinitions;
+}
+
+export async function loadAssociaUnitsFromExcel({ excelPath = "./base_de_dados.xlsx" } = {}) {
+    if (cachedAssociaUnits && cachedAssociaUnitsPath === excelPath) {
+        return cachedAssociaUnits;
+    }
+
+    await ensureXLSXLoaded();
+
+    const res = await fetch(excelPath, { cache: "no-store" });
+    if (!res.ok) {
+        throw new Error(`Não foi possível carregar "${excelPath}" (status ${res.status}).`);
+    }
+
+    const arrayBuffer = await res.arrayBuffer();
+    const workbook = window.XLSX.read(arrayBuffer, { type: "array" });
+
+    const sheetItems =
+        workbook.Sheets["Associa"] ||
+        workbook.Sheets["ASSOCIA"] ||
+        workbook.Sheets[workbook.SheetNames[1]];
+
+    if (!sheetItems) {
+        cachedAssociaUnits = [];
+        cachedAssociaUnitsPath = excelPath;
+        return cachedAssociaUnits;
+    }
+
+    const itemRows = window.XLSX.utils.sheet_to_json(sheetItems, { defval: "" });
+    const associationUnits = itemRows
+        .map((row) => {
+            const descricao = String(
+                pickHeader(row, ["Descrição", "DESCRIÇÃO", "descricao", "Item", "itemDescricao"]) || ""
+            ).trim();
+            const unidade = String(pickHeader(row, ["Unidade", "UNIDADE", "unidade"]) || "").trim();
+            return { descricao, unidade };
+        })
+        .filter((row) => row.descricao);
+
+    cachedAssociaUnits = associationUnits;
+    cachedAssociaUnitsPath = excelPath;
+
+    return associationUnits;
 }

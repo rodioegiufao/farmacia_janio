@@ -73,7 +73,7 @@ export async function downloadMaterialsAsExcel(items, normalizeSearchText) {
             ${associationRows
                 .map(
                     (association) => `
-        <Row ss:StyleID="Matched">
+        <Row>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.codigo)}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.base)}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.descricao)}</Data></Cell>

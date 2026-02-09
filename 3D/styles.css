@@ -607,6 +607,12 @@ html, body {
     padding: 8px 8px 4px;
 }
 
+.tree-view-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .tree-view-title {
     font-size: 16px;
     font-weight: 700;
@@ -632,6 +638,28 @@ html, body {
 #closeTreeView:hover {
     background-color: rgba(255, 255, 255, 0.05);
     color: #ff6b6b;
+}
+
+#toggleTreeViewSelection {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #f7f7f7;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+#toggleTreeViewSelection:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+#toggleTreeViewSelection:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 
@@ -1655,4 +1683,5 @@ html, body {
 .materials-id-button:focus-visible {
     outline: 2px solid rgba(59, 130, 246, 0.8);
     outline-offset: 2px;
+
 }

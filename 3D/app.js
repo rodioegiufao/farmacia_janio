@@ -2838,8 +2838,13 @@ function setupTreeViewSelectionControls() {
         return;
     }
 
-    const getCheckboxes = () =>
-        Array.from(container.querySelectorAll(".xeokit-tree-view input[type=\"checkbox\"]"));
+    const getCheckboxes = () => {
+        const treeRoot = container.classList.contains("xeokit-tree-view")
+            ? container
+            : container.querySelector(".xeokit-tree-view") ?? container;
+
+        return Array.from(treeRoot.querySelectorAll("input[type=\"checkbox\"]"));
+    };
 
     const updateButtonLabel = () => {
         const checkboxes = getCheckboxes();
@@ -3355,3 +3360,4 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+

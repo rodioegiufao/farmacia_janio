@@ -246,6 +246,7 @@ const closeHelpPanelButton = document.getElementById("closeHelpPanel");
 const treeViewContainer = document.getElementById("treeViewContainer");
 const treeViewContent = document.getElementById("treeViewContent");
 const closeTreeViewButton = document.getElementById("closeTreeView");
+const toggleTreeViewSelectionButton = document.getElementById("toggleTreeViewSelection");
 const toggleTreeViewButton = document.getElementById("btnToggleTree");
 const transformPanel = document.getElementById("transformPanel");
 const transformPanelToggleButton = document.getElementById("btnTransformPanel");
@@ -2711,6 +2712,7 @@ function setupModelIsolateController() {
     });
 
     setupTreeViewFilter();
+    setupTreeViewSelectionControls();
 
     modelIsolateController = viewer.scene;
 
@@ -2823,6 +2825,59 @@ function setupTreeViewFilter() {
     applyFilter();
 
     container.dataset.treeFilterAttached = "true";
+}
+
+function setupTreeViewSelectionControls() {
+    if (!toggleTreeViewSelectionButton) {
+        return;
+    }
+
+    const container = treeViewContent ?? treeViewContainer;
+
+    if (!container) {
+        return;
+    }
+
+    const getCheckboxes = () =>
+        Array.from(container.querySelectorAll(".xeokit-tree-view input[type=\"checkbox\"]"));
+
+    const updateButtonLabel = () => {
+        const checkboxes = getCheckboxes();
+        const hasItems = checkboxes.length > 0;
+        const allChecked = hasItems && checkboxes.every((checkbox) => checkbox.checked);
+
+        toggleTreeViewSelectionButton.disabled = !hasItems;
+        toggleTreeViewSelectionButton.textContent = allChecked ? "Deselecionar todos" : "Selecionar todos";
+    };
+
+    const toggleAllSelections = () => {
+        const checkboxes = getCheckboxes();
+        if (checkboxes.length === 0) {
+            return;
+        }
+
+        const shouldCheck = !checkboxes.every((checkbox) => checkbox.checked);
+        checkboxes.forEach((checkbox) => {
+            if (checkbox.checked !== shouldCheck) {
+                checkbox.click();
+            }
+        });
+
+        updateButtonLabel();
+    };
+
+    toggleTreeViewSelectionButton.addEventListener("click", toggleAllSelections);
+
+    container.addEventListener("change", (event) => {
+        if (event.target?.matches("input[type=\"checkbox\"]")) {
+            updateButtonLabel();
+        }
+    });
+
+    const observer = new MutationObserver(updateButtonLabel);
+    observer.observe(container, { childList: true, subtree: true });
+
+    updateButtonLabel();
 }
 /**
  * Alterna a visibilidade do contêiner do TreeView sem alterar o estado atual de visibilidade.

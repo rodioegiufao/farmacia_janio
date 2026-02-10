@@ -2625,19 +2625,21 @@ function findAndRenderCollisions(modelId) {
         return;
     }
 
-    const objects = getModelObjectIds(modelId);
+    const activeIds = getActiveObjectIdSet();
+    const objects = getModelObjectIds(modelId).filter((id) => activeIds.has(id));
     const targetIds = new Set(objects);
-    const externalObjects = getAllObjectIds().filter((id) => !targetIds.has(id) && getObjectMetaModelId(id) !== modelId);
+    const externalObjects = getAllObjectIds().filter((id) =>
+        activeIds.has(id) && !targetIds.has(id) && getObjectMetaModelId(id) !== modelId);
 
     if (!objects.length) {
-        collisionSummary.textContent = "Nenhum objeto encontrado no modelo selecionado.";
+        collisionSummary.textContent = "Nenhum objeto ativo encontrado no modelo selecionado.";
         collisionResultsList.innerHTML = "";
         setCollisionState([], null);
         return;
     }
 
     if (!externalObjects.length) {
-        collisionSummary.textContent = "Nenhum outro modelo carregado para comparar colisões.";
+        collisionSummary.textContent = "Nenhum outro objeto ativo em modelos diferentes para comparar colisões.";
         collisionResultsList.innerHTML = "";
         setCollisionState([], null);
         return;

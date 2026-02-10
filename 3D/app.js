@@ -1081,6 +1081,7 @@ const CANAA_MODELS = [
     { id: "IFC_ILU", src: "/3D/esc_canaa/modelo-09.xkt" },
     { id: "IFC_SPDA", src: "/3D/esc_canaa/modelo-10.xkt" },
     { id: "IFC_HID", src: "/3D/esc_canaa/modelo-11.xkt" },
+    { id: "IFC_SAN", src: "/3D/esc_canaa/modelo-12.xkt" },
   ];
 
 const defaultModels = [

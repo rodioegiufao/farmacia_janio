@@ -285,6 +285,7 @@ const searchButton = document.getElementById("btnSearchId");
 const closeSearchBarButton = document.getElementById("closeSearchBar");
 const searchToggleButton = document.getElementById("btnSearchToggle");
 const searchFeedback = document.getElementById("searchFeedback");
+let searchResultsList = document.getElementById("searchResultsList");
 
 setupAccessGate();
 setupHelpPanel();
@@ -664,6 +665,91 @@ function setSearchStatus(message, isError = false) {
     searchFeedback.dataset.state = isError ? "error" : "success";
 }
 
+function clearSearchResults() {
+    if (!searchResultsList) {
+        return;
+    }
+
+    searchResultsList.innerHTML = "";
+    searchResultsList.hidden = true;
+}
+
+function ensureSearchResultsList() {
+    if (!searchBar || searchResultsList) {
+        return;
+    }
+
+    searchResultsList = document.createElement("ul");
+    searchResultsList.id = "searchResultsList";
+    searchResultsList.className = "search-results-list";
+    searchResultsList.hidden = true;
+    searchBar.appendChild(searchResultsList);
+}
+
+function findObjectsByName(query) {
+    const normalizedQuery = normalizeSearchText(query);
+    if (!normalizedQuery) {
+        return [];
+    }
+
+    const activeObjectIds = new Set(getAllObjectIds());
+    const metaObjects = viewer.metaScene?.metaObjects || {};
+    const matches = [];
+
+    for (const objectId of activeObjectIds) {
+        const metaObject = metaObjects[objectId];
+        if (!metaObject) {
+            continue;
+        }
+
+        const normalizedName = normalizeSearchText(metaObject.name || "");
+        if (!normalizedName.includes(normalizedQuery)) {
+            continue;
+        }
+
+        matches.push({
+            id: objectId,
+            name: metaObject.name || "Sem nome",
+            ifcModelId: metaObject?.metaModel?.id || "IFC não identificado"
+        });
+    }
+
+    return matches.sort((a, b) => a.name.localeCompare(b.name, "pt-BR") || a.id.localeCompare(b.id, "pt-BR"));
+}
+
+function renderSearchResults(matches) {
+    ensureSearchResultsList();
+
+    if (!searchResultsList) {
+        return;
+    }
+
+    searchResultsList.innerHTML = "";
+    searchResultsList.hidden = !matches.length;
+
+    matches.forEach((match) => {
+        const listItem = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "search-result-item";
+        button.innerHTML = `
+            <span class="search-result-id">${match.id}</span>
+            <span class="search-result-name">${match.name}</span>
+            <span class="search-result-ifc">${match.ifcModelId}</span>
+        `;
+
+        button.addEventListener("click", () => {
+            const found = focusObjectById(match.id);
+            if (found) {
+                setSearchStatus(`Peça ${match.id} (${match.ifcModelId}) isolada com destaque.`);
+            }
+        });
+
+        listItem.appendChild(button);
+        searchResultsList.appendChild(listItem);
+    });
+}
+
 function openSearchBar() {
     if (!searchBar) {
         return;
@@ -778,11 +864,13 @@ function setupSearchControls() {
         const rawId = searchInput.value.trim();
 
         if (!rawId) {
-            setSearchStatus("Digite um ID de peça para buscar.", true);
+            clearSearchResults();
+            setSearchStatus("Digite o ID ou o nome da peça para buscar.", true);
             return;
         }
 
         if (!modelIsolateController || !getAllObjectIds().length) {
+            clearSearchResults();
             setSearchStatus("Carregue um modelo antes de buscar uma peça.", true);
             return;
         }
@@ -790,9 +878,30 @@ function setupSearchControls() {
         const found = focusObjectById(rawId);
 
         if (found) {
+            clearSearchResults();
             setSearchStatus(`Peça ${rawId} isolada com destaque.`);
         } else {
-            setSearchStatus(`Peça ${rawId} não encontrada nos modelos carregados.`, true);
+            const matchesByName = findObjectsByName(rawId);
+
+            if (!matchesByName.length) {
+                clearSearchResults();
+                setSearchStatus(`Nenhuma peça com ID ou nome "${rawId}" foi encontrada nos modelos carregados.`, true);
+                return;
+            }
+
+            if (matchesByName.length === 1) {
+                const [singleMatch] = matchesByName;
+                focusObjectById(singleMatch.id);
+                clearSearchResults();
+                setSearchStatus(`1 peça encontrada por nome: ${singleMatch.id} (${singleMatch.ifcModelId}).`);
+                return;
+            }
+
+            const ifcModels = [...new Set(matchesByName.map((item) => item.ifcModelId))];
+            renderSearchResults(matchesByName);
+            setSearchStatus(
+                `${matchesByName.length} peças encontradas por nome em ${ifcModels.length} IFC(s): ${ifcModels.join(", ")}. Selecione uma peça na lista abaixo.`
+            );
         }
     };
 
@@ -1160,7 +1269,7 @@ const POLICLINICA_MODEL_TRANSFORMS = {
 
 const CANAA_MODEL_TRANSFORMS = {
     IFC_EST_PP: { position: [48.212, 0.37, -36.8995], rotation: [0, 180, 0]},
-    //IFC_INC: { position: [0, 0, 0], rotation: [0, 180, 0] },
+    IFC_SAN: { position: [0, 0, 0], rotation: [0, 180, 0] },
     IFC_HID: { position: [0, 0, 0], rotation: [0, 180, 0] },
 };
 

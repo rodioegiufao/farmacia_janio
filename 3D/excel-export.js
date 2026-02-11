@@ -50,6 +50,9 @@ export async function downloadMaterialsAsExcel(items, normalizeSearchText) {
         <Style ss:ID="Unmatched">
             <Interior ss:Color="#FFF2CC" ss:Pattern="Solid" />
         </Style>
+        <Style ss:ID="AssociationQuantity">
+            <NumberFormat ss:Format="0.00" />
+        </Style>
     </Styles>
     <Worksheet ss:Name="Materiais">
         <Table>
@@ -80,7 +83,7 @@ export async function downloadMaterialsAsExcel(items, normalizeSearchText) {
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.base)}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.descricao)}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.unidade)}</Data></Cell>
-            <Cell><Data ss:Type="Number">${association.quantidade}</Data></Cell>
+            <Cell ss:StyleID="AssociationQuantity"><Data ss:Type="Number">${association.quantidade}</Data></Cell>
         </Row>
     `
                 )

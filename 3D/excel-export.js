@@ -64,16 +64,18 @@ export async function downloadMaterialsAsExcel(items, normalizeSearchText) {
     <Worksheet ss:Name="Associacoes">
         <Table>
             <Row>
-                <Cell><Data ss:Type="String">CÓDIGO</Data></Cell>
-                <Cell><Data ss:Type="String">BASE</Data></Cell>
-                <Cell><Data ss:Type="String">DESCRIÇÃO</Data></Cell>
-                <Cell><Data ss:Type="String">UNIDADE</Data></Cell>
-                <Cell><Data ss:Type="String">QUANTIDADE</Data></Cell>
+                <Cell><Data ss:Type="String">Item</Data></Cell>
+                <Cell><Data ss:Type="String">Código</Data></Cell>
+                <Cell><Data ss:Type="String">Banco</Data></Cell>
+                <Cell><Data ss:Type="String">Descrição</Data></Cell>
+                <Cell><Data ss:Type="String">Und</Data></Cell>
+                <Cell><Data ss:Type="String">Quant.</Data></Cell>
             </Row>
             ${associationRows
                 .map(
-                    (association) => `
+                    (association, index) => `
         <Row>
+            <Cell><Data ss:Type="String">1.${index + 1}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.codigo)}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.base)}</Data></Cell>
             <Cell><Data ss:Type="String">${sanitizeSpreadsheetCell(association.descricao)}</Data></Cell>

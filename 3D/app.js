@@ -233,7 +233,6 @@ let materialsSearchQuery = "";
 let activeMaterialFilter = null;
 let activeCollisionSelection = null;
 const rotationShortcutKey = "j";
-const defaultRotationSourceId = "3PvTjBOvv6DxittRodRIGo";
 const rotatedEntityAliases = new Map();
 const hiddenOriginalEntityIds = new Set();
 const loadedModels = new Map();
@@ -414,14 +413,20 @@ function rotateEntityWithCloneAlias(sourceId) {
     }
 
     const cloneId = getNextCloneId(normalizedSourceId);
-    const currentRotation = Array.isArray(entity.rotation) ? [...entity.rotation] : [0, 0, 0];
+    const entityRotation = Array.isArray(entity.rotation)
+        ? [...entity.rotation]
+        : (ArrayBuffer.isView(entity.rotation) ? Array.from(entity.rotation) : [0, 0, 0]);
+    const currentRotation = [
+        entityRotation[0] ?? 0,
+        entityRotation[1] ?? 0,
+        entityRotation[2] ?? 0
+    ];
 
     // Aplicação da transformação linear de rotação em 90º no eixo Y.
     currentRotation[1] = ((currentRotation[1] + 90) % 360 + 360) % 360;
 
-    if (Array.isArray(entity.rotation)) {
-        entity.rotation = currentRotation;
-    }
+    entity.rotation = currentRotation;
+    entity.visible = true;
 
     rotatedEntityAliases.set(cloneId, {
         entity,
@@ -2832,7 +2837,13 @@ document.addEventListener("keydown", (event) => {
 
     if (key === rotationShortcutKey) {
         const selectedSourceId = findSourceIdByEntity(lastSelectedEntity);
-        rotateEntityWithCloneAlias(selectedSourceId || defaultRotationSourceId);
+       
+        if (!selectedSourceId) {
+            setSearchStatus("Selecione uma peça (duplo clique) antes de usar o atalho J.", true);
+            return;
+        }
+
+        rotateEntityWithCloneAlias(selectedSourceId);
         return;
     }
     // Atalhos de entidade: requerem uma seleção prévia (duplo clique)

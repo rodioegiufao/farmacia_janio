@@ -232,6 +232,10 @@ let materialsAllResults = [];
 let materialsSearchQuery = "";
 let activeMaterialFilter = null;
 let activeCollisionSelection = null;
+const rotationShortcutKey = "j";
+const defaultRotationSourceId = "3PvTjBOvv6DxittRodRIGo";
+const rotatedEntityAliases = new Map();
+const hiddenOriginalEntityIds = new Set();
 const loadedModels = new Map();
 const originalTransforms = new Map();
 let currentModelTransforms = {};
@@ -335,23 +339,105 @@ function getAllObjectIds() {
         return [];
     }
 
-    if (typeof modelIsolateController.getObjectsIds === "function") {
-        return modelIsolateController.getObjectsIds();
+    const ids = [];
+
+    if (Array.isArray(modelIsolateController?.objectIds)) {
+        ids.push(...modelIsolateController.objectIds);
     }
 
-    if (typeof modelIsolateController.getObjectIds === "function") {
-        return modelIsolateController.getObjectIds();
+    if (!ids.length && modelIsolateController?.objects && typeof modelIsolateController.objects === "object") {
+        ids.push(...Object.keys(modelIsolateController.objects));
     }
 
-    if (Array.isArray(modelIsolateController.objectIds)) {
-        return modelIsolateController.objectIds;
+    if (!ids.length && typeof modelIsolateController?.getObjectsIds === "function") {
+        ids.push(...(modelIsolateController.getObjectsIds() || []));
     }
 
-    if (modelIsolateController.objects && typeof modelIsolateController.objects === "object") {
-        return Object.keys(modelIsolateController.objects);
+    if (!ids.length && typeof modelIsolateController?.getObjectIds === "function") {
+        ids.push(...(modelIsolateController.getObjectIds() || []));
     }
 
-    return [];
+    const unique = new Set(ids.filter((id) => !hiddenOriginalEntityIds.has(id)));
+    for (const aliasId of rotatedEntityAliases.keys()) {
+        unique.add(aliasId);
+    }
+
+    return Array.from(unique);
+}
+
+function resolveEntityById(id) {
+    if (!id) {
+        return null;
+    }
+
+    const aliasEntry = rotatedEntityAliases.get(id);
+    if (aliasEntry?.entity) {
+        return aliasEntry.entity;
+    }
+
+    return viewer.scene.objects?.[id] || null;
+}
+
+function findSourceIdByEntity(entity) {
+    if (!entity?.id) {
+        return null;
+    }
+
+    for (const [aliasId, aliasEntry] of rotatedEntityAliases.entries()) {
+        if (aliasEntry.entity === entity) {
+            return aliasEntry.sourceId || aliasId;
+        }
+    }
+
+    return entity.id;
+}
+
+function getNextCloneId(sourceId) {
+    let index = 1;
+    let cloneId = `${sourceId}-${index}`;
+
+    while (rotatedEntityAliases.has(cloneId) || viewer.scene.objects?.[cloneId]) {
+        index += 1;
+        cloneId = `${sourceId}-${index}`;
+    }
+
+    return cloneId;
+}
+
+function rotateEntityWithCloneAlias(sourceId) {
+    const normalizedSourceId = String(sourceId || "").trim();
+    const entity = resolveEntityById(normalizedSourceId);
+
+    if (!entity?.isObject) {
+        setSearchStatus(`Não foi possível rotacionar: peça ${normalizedSourceId} não encontrada.`, true);
+        return null;
+    }
+
+    const cloneId = getNextCloneId(normalizedSourceId);
+    const currentRotation = Array.isArray(entity.rotation) ? [...entity.rotation] : [0, 0, 0];
+    currentRotation[1] += 90;
+
+    if (Array.isArray(entity.rotation)) {
+        entity.rotation = currentRotation;
+    }
+
+    rotatedEntityAliases.set(cloneId, {
+        entity,
+        sourceId: normalizedSourceId,
+        copiedProperties: {
+            visible: entity.visible,
+            colorize: Array.isArray(entity.colorize) ? [...entity.colorize] : entity.colorize,
+            opacity: entity.opacity,
+            rotation: currentRotation
+        }
+    });
+
+    hiddenOriginalEntityIds.add(normalizedSourceId);
+    lastSelectedEntity = entity;
+    requestRenderFrame();
+
+    setSearchStatus(`Rotação aplicada: ${normalizedSourceId} ocultado e alias ${cloneId} criado.`);
+    return cloneId;
 }
 
 function ensureModelOption(modelId) {
@@ -697,7 +783,8 @@ function findObjectsByName(query) {
     const matches = [];
 
     for (const objectId of activeObjectIds) {
-        const metaObject = metaObjects[objectId];
+        const aliasEntry = rotatedEntityAliases.get(objectId);
+        const metaObject = aliasEntry ? metaObjects[aliasEntry.sourceId] : metaObjects[objectId];
         if (!metaObject) {
             continue;
         }
@@ -808,6 +895,9 @@ function focusObjectById(objectId, { animate = true, xrayOthers = true } = {}) {
         return false;
     }
 
+    const aliasEntry = rotatedEntityAliases.get(targetId);
+    const sceneTargetId = aliasEntry?.sourceId || targetId;
+
     modelIsolateController.setObjectsVisible(allIds, true);
     modelIsolateController.setObjectsHighlighted(allIds, false);
 
@@ -817,15 +907,15 @@ function focusObjectById(objectId, { animate = true, xrayOthers = true } = {}) {
         modelIsolateController.setObjectsXRayed(allIds, false);
     }
 
-    modelIsolateController.setObjectsXRayed([targetId], false);
-    modelIsolateController.setObjectsHighlighted([targetId], true);
+    modelIsolateController.setObjectsXRayed([sceneTargetId], false);
+    modelIsolateController.setObjectsHighlighted([sceneTargetId], true);
 
-    const entity = viewer.scene.objects?.[targetId];
+    const entity = resolveEntityById(targetId);
     if (entity) {
         lastSelectedEntity = entity;
     }
 
-    const aabb = viewer.scene.getAABB(targetId);
+    const aabb = viewer.scene.getAABB(sceneTargetId);
     if (aabb) {
         if (animate) {
             viewer.cameraFlight.flyTo({ aabb, duration: 0.6 });
@@ -2736,6 +2826,12 @@ document.addEventListener("keydown", (event) => {
             updateMaterialsActiveItem();
         }
         return;
+
+    if (key === rotationShortcutKey) {
+        const selectedSourceId = findSourceIdByEntity(lastSelectedEntity);
+        rotateEntityWithCloneAlias(selectedSourceId || defaultRotationSourceId);
+        return;
+    }
     }
     // Atalhos de entidade: requerem uma seleção prévia (duplo clique)
     if (!lastSelectedEntity) {

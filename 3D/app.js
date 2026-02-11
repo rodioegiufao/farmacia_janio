@@ -2159,7 +2159,19 @@ function extractNumericPropertyValue(value) {
 
         const normalized = value.replace(",", ".").trim();
         const parsed = Number.parseFloat(normalized);
-        return Number.isFinite(parsed) ? parsed : null;
+        if (Number.isFinite(parsed)) {
+            return parsed;
+        }
+
+        const firstNumberMatch = normalized.match(/[-+]?\d+(?:\.\d+)?/);
+        if (firstNumberMatch) {
+            const firstNumber = Number.parseFloat(firstNumberMatch[0]);
+            if (Number.isFinite(firstNumber)) {
+                return firstNumber;
+            }
+        }
+
+        return null;
     }
 
     if (value && typeof value === "object") {
@@ -2300,6 +2312,43 @@ function normalizeSearchText(value) {
         .replace(/[\u0300-\u036f]/g, "");
 }
 
+function isMaterialPropertySet(pset) {
+    const normalizedSetName = normalizeSearchText(pset?.name || pset?.id || "");
+    if (!normalizedSetName) {
+        return false;
+    }
+
+    return [
+        "itens_associados",
+        "itens associados",
+        "associated items",
+        "materiais",
+        "materials",
+        "material"
+    ].some((token) => normalizedSetName.includes(token));
+}
+
+function normalizeMaterialToken(value) {
+    if (value === null || value === undefined) {
+        return "";
+    }
+
+    if (typeof value === "string") {
+        return normalizeMaterialName(value);
+    }
+
+    if (typeof value === "object") {
+        const candidates = [value.value, value.amount, value.nominalValue, value.rawValue, value.label, value.name];
+        for (const candidate of candidates) {
+            if (typeof candidate === "string") {
+                return normalizeMaterialName(candidate);
+            }
+        }
+    }
+
+    return "";
+}
+
 function getActiveObjectIdSet() {
     const scene = viewer?.scene;
     const visibleIds = toArraySafe(scene?.visibleObjectIds);
@@ -2335,12 +2384,10 @@ function findMaterialObjectIds(materialName, { activeOnly = true } = {}) {
                 continue;
             }
 
-            const normalizedSetName = (pset.name || "").toLowerCase();
-            const isAssociatedItemsSet = normalizedSetName.includes("itens_associados") || normalizedSetName.includes("itens associados");
-
-            if (!isAssociatedItemsSet) {
+            if (!isMaterialPropertySet(pset)) {
                 continue;
             }
+
 
             for (const prop of pset.properties) {
                 const name = (prop?.name || prop?.id || "").trim();
@@ -2348,7 +2395,10 @@ function findMaterialObjectIds(materialName, { activeOnly = true } = {}) {
                     continue;
                 }
 
-                if (normalizeMaterialName(name) === targetName) {
+                const normalizedName = normalizeMaterialName(name);
+                const normalizedValue = normalizeMaterialToken(prop?.value);
+
+                if (normalizedName === targetName || normalizedValue === targetName) {
                     hasMaterial = true;
                     break;
                 }
@@ -2474,10 +2524,7 @@ function collectQuantitativeMaterials() {
                 continue;
             }
 
-            const normalizedSetName = (pset.name || "").toLowerCase();
-            const isAssociatedItemsSet = normalizedSetName.includes("itens_associados") || normalizedSetName.includes("itens associados");
-
-            if (!isAssociatedItemsSet) {
+            if (!isMaterialPropertySet(pset)) {
                 continue;
             }
 

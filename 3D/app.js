@@ -404,8 +404,10 @@ function getNextCloneId(sourceId) {
 }
 
 function rotateEntityWithCloneAlias(sourceId) {
-    const normalizedSourceId = String(sourceId || "").trim();
-    const entity = resolveEntityById(normalizedSourceId);
+    const requestedId = String(sourceId || "").trim();
+    const baseAliasEntry = rotatedEntityAliases.get(requestedId);
+    const normalizedSourceId = baseAliasEntry?.sourceId || requestedId;
+    const entity = resolveEntityById(requestedId);
 
     if (!entity?.isObject) {
         setSearchStatus(`Não foi possível rotacionar: peça ${normalizedSourceId} não encontrada.`, true);
@@ -445,6 +447,27 @@ function rotateEntityWithCloneAlias(sourceId) {
 
     setSearchStatus(`Rotação aplicada: ${normalizedSourceId} ocultado e alias ${cloneId} criado.`);
     return cloneId;
+}
+
+function resolveRotationTargetId() {
+    const selectedSourceId = findSourceIdByEntity(lastSelectedEntity);
+    if (selectedSourceId) {
+        return selectedSourceId;
+    }
+
+    if (lastEntity?.isObject) {
+        const hoveredSourceId = findSourceIdByEntity(lastEntity);
+        if (hoveredSourceId) {
+            return hoveredSourceId;
+        }
+    }
+
+    const typedId = searchInput?.value?.trim();
+    if (typedId && resolveEntityById(typedId)?.isObject) {
+        return typedId;
+    }
+
+    return null;
 }
 
 function ensureModelOption(modelId) {
@@ -2836,10 +2859,10 @@ document.addEventListener("keydown", (event) => {
     }
 
     if (key === rotationShortcutKey) {
-        const selectedSourceId = findSourceIdByEntity(lastSelectedEntity);
+        const selectedSourceId = resolveRotationTargetId();
        
         if (!selectedSourceId) {
-            setSearchStatus("Selecione uma peça (duplo clique) antes de usar o atalho J.", true);
+            setSearchStatus("Selecione uma peça (duplo clique), deixe o cursor sobre ela ou informe o ID na busca antes de usar o atalho J.", true);
             return;
         }
 

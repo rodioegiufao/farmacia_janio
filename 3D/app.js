@@ -2030,8 +2030,65 @@ function formatIfcPropertyValue(value) {
     return String(value);
 }
 
+function resolveMetaObject(entityId) {
+    if (!entityId) {
+        return null;
+    }
+
+    const metaObjects = viewer.metaScene?.metaObjects;
+    if (!metaObjects) {
+        return null;
+    }
+
+    if (metaObjects[entityId]) {
+        return metaObjects[entityId];
+    }
+
+    const rawId = String(entityId);
+    const candidateIds = new Set([rawId]);
+
+    ["#", "/", ":"].forEach((separator) => {
+        if (!rawId.includes(separator)) {
+            return;
+        }
+
+        const parts = rawId.split(separator);
+        const suffix = parts[parts.length - 1];
+        if (suffix) {
+            candidateIds.add(suffix);
+        }
+    });
+
+    for (const candidateId of candidateIds) {
+        if (metaObjects[candidateId]) {
+            return metaObjects[candidateId];
+        }
+    }
+
+    const normalizedCandidates = new Set(Array.from(candidateIds, (id) => id.toLowerCase()));
+
+    for (const [id, metaObject] of Object.entries(metaObjects)) {
+        const normalizedId = id.toLowerCase();
+        if (normalizedCandidates.has(normalizedId)) {
+            return metaObject;
+        }
+
+        for (const candidateId of normalizedCandidates) {
+            if (
+                normalizedId.endsWith(`#${candidateId}`) ||
+                normalizedId.endsWith(`/${candidateId}`) ||
+                normalizedId.endsWith(`:${candidateId}`)
+            ) {
+                return metaObject;
+            }
+        }
+    }
+
+    return null;
+}
+
 function buildIfcPropertiesLines(doc, objectId, maxWidth) {
-    const metaObject = viewer.metaScene?.metaObjects?.[objectId];
+    const metaObject = resolveMetaObject(objectId);
     if (!metaObject) {
         return ["Propriedades IFC: metadados não encontrados para este objeto."];
     }
@@ -3321,7 +3378,7 @@ function hideEntity(entity) {
 
 function isolateEntity(entity) {
     const scene = viewer.scene;
-    const metaObject = viewer.metaScene.metaObjects[entity?.id];
+    const metaObject = resolveMetaObject(entity?.id);
 
     if (!scene || !entity?.isObject || !metaObject) {
         return;
@@ -3363,7 +3420,7 @@ function showMaterialProperties(entity) {
         alert("Nenhuma entidade selecionada.");
         return;
     }
-    const metaObject = viewer.metaScene.metaObjects[entity.id];
+    const metaObject = resolveMetaObject(entity.id);
 
     if (!metaObject) {
         alert("Não há informações de metadados disponíveis para este objeto.");
@@ -3511,7 +3568,7 @@ const materialContextMenu = new ContextMenu({
                 doAction: (context) => {
                     const scene = context.viewer.scene;
                     const entity = context.entity;
-                    const metaObject = viewer.metaScene.metaObjects[entity.id];
+                    const metaObject = resolveMetaObject(entity.id);
                     if (!metaObject) return;
                     scene.setObjectsVisible(scene.objectIds, true);
                     scene.setObjectsXRayed(scene.objectIds, true);

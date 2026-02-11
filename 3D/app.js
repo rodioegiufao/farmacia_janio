@@ -415,7 +415,9 @@ function rotateEntityWithCloneAlias(sourceId) {
 
     const cloneId = getNextCloneId(normalizedSourceId);
     const currentRotation = Array.isArray(entity.rotation) ? [...entity.rotation] : [0, 0, 0];
-    currentRotation[1] += 90;
+
+    // Aplicação da transformação linear de rotação em 90º no eixo Y.
+    currentRotation[1] = ((currentRotation[1] + 90) % 360 + 360) % 360;
 
     if (Array.isArray(entity.rotation)) {
         entity.rotation = currentRotation;
@@ -2820,18 +2822,18 @@ document.addEventListener("keydown", (event) => {
         renderMaterialsIdsList(activeMaterialFilter);
         return;
     }
-    if (key === "k") {
+     if (key === "k") {
         if (activeMaterialFilter) {
             isolateAssociatedItemsByName(activeMaterialFilter);
             updateMaterialsActiveItem();
         }
         return;
+    }
 
     if (key === rotationShortcutKey) {
         const selectedSourceId = findSourceIdByEntity(lastSelectedEntity);
         rotateEntityWithCloneAlias(selectedSourceId || defaultRotationSourceId);
         return;
-    }
     }
     // Atalhos de entidade: requerem uma seleção prévia (duplo clique)
     if (!lastSelectedEntity) {

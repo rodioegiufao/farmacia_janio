@@ -1314,6 +1314,7 @@ const CANAA_MODELS = [
     { id: "IFC_EXA", src: "/3D/esc_canaa/modelo-13.xkt" },
     { id: "IFC_ARQ", src: "/3D/esc_canaa/modelo-14.xkt" },
     { id: "IFC_PLU", src: "/3D/esc_canaa/modelo-15.xkt" },
+    { id: "IFC_EST_EMT", src: "/3D/esc_canaa/modelo-15.xkt" },
   ];
 
 const defaultModels = [
@@ -1395,6 +1396,7 @@ const CANAA_MODEL_TRANSFORMS = {
     IFC_SAN: { position: [0, 0, 0], rotation: [0, 180, 0] },
     IFC_PLU: { position: [0, 0, 0], rotation: [0, 180, 0] },
     IFC_ARQ: { position: [48.212, 0.02, -36.8995], rotation: [0, 180, 0]},
+    IFC_ARQ: { position: [48.212, 0, -36.8995], rotation: [0, 180, 0]},
 };
 
 const DEFAULT_MODEL_TRANSFORMS = {

@@ -1315,6 +1315,7 @@ const CANAA_MODELS = [
     { id: "IFC_ARQ", src: "/3D/esc_canaa/modelo-14.xkt" },
     { id: "IFC_PLU", src: "/3D/esc_canaa/modelo-15.xkt" },
     { id: "IFC_EST_EMT", src: "/3D/esc_canaa/modelo-16.xkt" },
+    { id: "IFC_SDAI", src: "/3D/esc_canaa/modelo-17.xkt" },
   ];
 
 const defaultModels = [

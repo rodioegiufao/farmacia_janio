@@ -227,6 +227,45 @@ const xktLoader = new XKTLoaderPlugin(viewer);
 let ifcLoader = null;
 let webIfcModulePromise = null;
 
+function resolveIfcLoadMethod(loaderInstance) {
+    if (!loaderInstance) {
+        return null;
+    }
+
+    const supportedMethods = ["load", "loadModel", "loadIfc"];
+    return supportedMethods.find((methodName) => typeof loaderInstance[methodName] === "function") || null;
+}
+
+function createIfcLoaderWithFallbacks(IfcAPIConstructor, webIfcModule) {
+    const wasmPath = "https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/";
+    const optionFactories = [
+        () => ({ IfcAPI: IfcAPIConstructor, wasmPath }),
+        () => ({ IfcAPI: new IfcAPIConstructor(), wasmPath }),
+        () => ({ WebIFC: webIfcModule.WebIFC, wasmPath }),
+        () => ({ WebIFC: webIfcModule.default?.WebIFC, wasmPath })
+    ];
+
+    const constructorFactories = optionFactories.flatMap((optionsFactory) => [
+        () => new WebIFCLoaderPlugin(viewer, optionsFactory()),
+        () => new WebIFCLoaderPlugin({ viewer, ...optionsFactory() })
+    ]);
+
+    for (const createLoader of constructorFactories) {
+        try {
+            const loaderInstance = createLoader();
+            const loadMethod = resolveIfcLoadMethod(loaderInstance);
+
+            if (loadMethod) {
+                return loaderInstance;
+            }
+        } catch (error) {
+            // tenta a próxima variação
+        }
+    }
+
+    throw new Error("Não foi possível inicializar o WebIFCLoaderPlugin com uma API de carregamento compatível.");
+}
+
 async function getIfcLoader() {
     if (ifcLoader) {
         return ifcLoader;
@@ -251,10 +290,7 @@ async function getIfcLoader() {
             throw new Error("IfcAPI não encontrado no módulo web-ifc.");
         }
 
-        ifcLoader = new WebIFCLoaderPlugin(viewer, {
-            IfcAPI: new IfcAPIConstructor(),
-            wasmPath: "https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/"
-        });
+        ifcLoader = createIfcLoaderWithFallbacks(IfcAPIConstructor, webIfcModule);
     } catch (error) {
         console.error("Falha ao inicializar carregador IFC:", error);
         ifcLoader = null;
@@ -1585,11 +1621,25 @@ function setupIfcUploadInput() {
 
         const objectUrl = URL.createObjectURL(file);
         const modelId = `IFC_UPLOAD_${Date.now()}`;
-        const model = resolvedIfcLoader.load({
+        const loadMethod = resolveIfcLoadMethod(resolvedIfcLoader);
+
+        if (!loadMethod) {
+            setIfcUploadStatus("Versão do carregador IFC incompatível com este visualizador.", true);
+            return;
+        }
+
+        const modelResult = resolvedIfcLoader[loadMethod]({
             id: modelId,
             src: objectUrl,
             edges: true
         });
+        const model = typeof modelResult?.then === "function" ? await modelResult : modelResult;
+
+        if (!model || typeof model.on !== "function") {
+            URL.revokeObjectURL(objectUrl);
+            setIfcUploadStatus("Formato de resposta inesperado ao carregar IFC.", true);
+            return;
+        }
 
         expectedModels = 1;
         modelsLoadedCount = 0;

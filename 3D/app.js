@@ -4,7 +4,7 @@ import {
     Viewer,
     LocaleService,
     XKTLoaderPlugin,
-    AngleMeasurementsPlugin,
+    WebIFCLoaderPlugin,
     AngleMeasurementsMouseControl,
     DistanceMeasurementsPlugin,
     DistanceMeasurementsMouseControl,
@@ -223,6 +223,11 @@ onWindowResize();
 // -----------------------------------------------------------------------------
 
 const xktLoader = new XKTLoaderPlugin(viewer);
+const ifcLoader = typeof WebIFCLoaderPlugin === "function"
+    ? new WebIFCLoaderPlugin(viewer, {
+        wasmPath: "https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/"
+    })
+    : null;
 let modelsLoadedCount = 0;
 let expectedModels = 0;
 let defaultModelChecksDone = 0;
@@ -1440,6 +1445,8 @@ const selectCanaaModelsButton = document.getElementById("selectCanaaModels");
 const selectPublicProject = document.getElementById("selectPublicProject");
 const selectPrivateProject = document.getElementById("selectPrivateProject");
 const projectFromDataset = document.body?.dataset?.project;
+const ifcUploadInput = document.getElementById("ifcUploadInput");
+const ifcUploadStatus = document.getElementById("ifcUploadStatus");
 
 const PROJECT_CONFIGS = {
     iper: { models: IPER_MODELS, transforms: IPER_MODEL_TRANSFORMS },
@@ -1493,6 +1500,83 @@ function handleProjectSelectChange(event) {
     handleModelSelection(models, transforms, projectKey);
 }
 
+function clearAllLoadedModels() {
+    loadedModels.forEach((model) => {
+        if (typeof model.destroy === "function") {
+            model.destroy();
+        }
+    });
+
+    loadedModels.clear();
+    originalTransforms.clear();
+    currentModels = [];
+    currentModelTransforms = {};
+}
+
+function setIfcUploadStatus(message, isError = false) {
+    if (!ifcUploadStatus) {
+        return;
+    }
+
+    ifcUploadStatus.textContent = message;
+    ifcUploadStatus.style.color = isError ? "#fecaca" : "#cbd5e1";
+}
+
+function setupIfcUploadInput() {
+    if (!ifcUploadInput) {
+        return;
+    }
+
+    if (!ifcLoader) {
+        setIfcUploadStatus("O carregador IFC não está disponível nesta versão.", true);
+        ifcUploadInput.disabled = true;
+        return;
+    }
+
+    ifcUploadInput.addEventListener("change", () => {
+        const file = ifcUploadInput.files?.[0];
+
+        if (!file) {
+            return;
+        }
+
+        if (!file.name.toLowerCase().endsWith(".ifc")) {
+            setIfcUploadStatus("Arquivo inválido. Selecione um arquivo .ifc.", true);
+            return;
+        }
+
+        clearAllLoadedModels();
+        setIfcUploadStatus(`Carregando ${file.name}...`);
+
+        const objectUrl = URL.createObjectURL(file);
+        const modelId = `IFC_UPLOAD_${Date.now()}`;
+        const model = ifcLoader.load({
+            id: modelId,
+            src: objectUrl,
+            edges: true
+        });
+
+        expectedModels = 1;
+        modelsLoadedCount = 0;
+        defaultModelChecksDone = 1;
+
+        model.on("loaded", () => {
+            currentModels = [{ id: modelId, src: file.name }];
+            registerModelTransform(model);
+            adjustCameraOnLoad();
+            viewer.cameraFlight.jumpTo(viewer.scene);
+            URL.revokeObjectURL(objectUrl);
+            setIfcUploadStatus(`IFC carregado: ${file.name}.`);
+        });
+
+        model.on("error", (error) => {
+            URL.revokeObjectURL(objectUrl);
+            setIfcUploadStatus(`Falha ao carregar ${file.name}.`, true);
+            console.error("Erro ao carregar IFC:", error);
+        });
+    });
+}
+
 if (selectIperModelsButton) {
     selectIperModelsButton.addEventListener("click", () => {
         handleModelSelection(IPER_MODELS, IPER_MODEL_TRANSFORMS, "iper");
@@ -1535,6 +1619,8 @@ if (projectFromDataset && PROJECT_CONFIGS[projectFromDataset]) {
     const { models, transforms } = PROJECT_CONFIGS[projectFromDataset];
     handleModelSelection(models, transforms, projectFromDataset, { replaceUrl: true });
 }
+
+setupIfcUploadInput();
 
 if (transformModelSelect) {
     transformModelSelect.addEventListener("change", (event) => syncTransformInputs(event.target.value));

@@ -207,3 +207,15 @@ body[data-mode="mobile"] #transformPanel {
 body[data-mode="mobile"] #creditNote {
     display: none;
 }
+
+.ifc-upload-panel {
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    padding: 10px 12px;
+}
+
+.ifc-upload-panel p {
+    font-size: 0.8rem;
+}

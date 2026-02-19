@@ -5,6 +5,7 @@ import {
     LocaleService,
     XKTLoaderPlugin,
     WebIFCLoaderPlugin,
+    AngleMeasurementsPlugin,
     AngleMeasurementsMouseControl,
     DistanceMeasurementsPlugin,
     DistanceMeasurementsMouseControl,
@@ -224,8 +225,9 @@ onWindowResize();
 
 const xktLoader = new XKTLoaderPlugin(viewer);
 let ifcLoader = null;
+let webIfcModulePromise = null;
 
-function getIfcLoader() {
+async function getIfcLoader() {
     if (ifcLoader) {
         return ifcLoader;
     }
@@ -235,7 +237,15 @@ function getIfcLoader() {
     }
 
     try {
+        if (!webIfcModulePromise) {
+            webIfcModulePromise = import("https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/web-ifc-api.js");
+        }
+
+        const webIfcModule = await webIfcModulePromise;
+        const WebIFC = webIfcModule.WebIFC || webIfcModule;
+
         ifcLoader = new WebIFCLoaderPlugin(viewer, {
+            WebIFC,
             wasmPath: "https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/"
         });
     } catch (error) {
@@ -1544,7 +1554,7 @@ function setupIfcUploadInput() {
         return;
     }
 
-    ifcUploadInput.addEventListener("change", () => {
+    ifcUploadInput.addEventListener("change", async () => {
         const resolvedIfcLoader = getIfcLoader();
 
         if (!resolvedIfcLoader) {

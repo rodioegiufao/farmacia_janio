@@ -223,11 +223,28 @@ onWindowResize();
 // -----------------------------------------------------------------------------
 
 const xktLoader = new XKTLoaderPlugin(viewer);
-const ifcLoader = typeof WebIFCLoaderPlugin === "function"
-    ? new WebIFCLoaderPlugin(viewer, {
-        wasmPath: "https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/"
-    })
-    : null;
+let ifcLoader = null;
+
+function getIfcLoader() {
+    if (ifcLoader) {
+        return ifcLoader;
+    }
+
+    if (typeof WebIFCLoaderPlugin !== "function") {
+        return null;
+    }
+
+    try {
+        ifcLoader = new WebIFCLoaderPlugin(viewer, {
+            wasmPath: "https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/"
+        });
+    } catch (error) {
+        console.error("Falha ao inicializar carregador IFC:", error);
+        ifcLoader = null;
+    }
+
+    return ifcLoader;
+}
 let modelsLoadedCount = 0;
 let expectedModels = 0;
 let defaultModelChecksDone = 0;
@@ -1527,13 +1544,14 @@ function setupIfcUploadInput() {
         return;
     }
 
-    if (!ifcLoader) {
-        setIfcUploadStatus("O carregador IFC não está disponível nesta versão.", true);
-        ifcUploadInput.disabled = true;
-        return;
-    }
-
     ifcUploadInput.addEventListener("change", () => {
+        const resolvedIfcLoader = getIfcLoader();
+
+        if (!resolvedIfcLoader) {
+            setIfcUploadStatus("Falha ao ativar o carregador IFC. O restante do visualizador segue disponível.", true);
+            return;
+        }
+
         const file = ifcUploadInput.files?.[0];
 
         if (!file) {
@@ -1550,7 +1568,7 @@ function setupIfcUploadInput() {
 
         const objectUrl = URL.createObjectURL(file);
         const modelId = `IFC_UPLOAD_${Date.now()}`;
-        const model = ifcLoader.load({
+        const model = resolvedIfcLoader.load({
             id: modelId,
             src: objectUrl,
             edges: true

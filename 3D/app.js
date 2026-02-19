@@ -242,10 +242,17 @@ async function getIfcLoader() {
         }
 
         const webIfcModule = await webIfcModulePromise;
-        const WebIFC = webIfcModule.WebIFC || webIfcModule;
+        const IfcAPIConstructor =
+            webIfcModule.IfcAPI ||
+            webIfcModule.WebIFC?.IfcAPI ||
+            webIfcModule.default?.IfcAPI;
+
+        if (typeof IfcAPIConstructor !== "function") {
+            throw new Error("IfcAPI não encontrado no módulo web-ifc.");
+        }
 
         ifcLoader = new WebIFCLoaderPlugin(viewer, {
-            WebIFC,
+            IfcAPI: new IfcAPIConstructor(),
             wasmPath: "https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/"
         });
     } catch (error) {
@@ -1555,7 +1562,7 @@ function setupIfcUploadInput() {
     }
 
     ifcUploadInput.addEventListener("change", async () => {
-        const resolvedIfcLoader = getIfcLoader();
+        const resolvedIfcLoader = await getIfcLoader();
 
         if (!resolvedIfcLoader) {
             setIfcUploadStatus("Falha ao ativar o carregador IFC. O restante do visualizador segue disponível.", true);

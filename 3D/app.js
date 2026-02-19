@@ -1366,6 +1366,7 @@ const IPER_MODEL_TRANSFORMS = {
 const FARMACIA_MODEL_TRANSFORMS = {
     IFC_EST: { position: [2.22, 0.1, 2.61] },
     IFC_SAN: { position: [14.09, 0, 0] },
+    IFC_HID: { position: [0, 0.1, 0] },
     //IFC_INC: { position: [14.09, 0, 0] },
     IFC_ILUX: { position: [14.09, 0, 0] },
     IFC_ALI: { position: [14.09, 0, 0] },

@@ -1,4 +1,4 @@
-// app.js
+// app.js Rodrigo Damasceno - 2026
 
 import {
     Viewer,

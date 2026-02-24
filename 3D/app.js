@@ -1474,7 +1474,7 @@ const CANAA_MODEL_TRANSFORMS = {
     IFC_SAN: { position: [-28.212, 0, 0], rotation: [0, 180, 0] },
     //IFC_PLU: { position: [0, 0, 0], rotation: [0, 180, 0] },
     IFC_ARQ: { position: [48.24, 0.02, -36.8695], rotation: [0, 180, 0]},
-    IFC_EST_EMT: { position: [48.212, 0.6, -36.8995], rotation: [0, 180, 0]},
+    IFC_EST_EMT: { position: [48.212, 0.06, -36.8995], rotation: [0, 180, 0]},
 };
 
 const DEFAULT_MODEL_TRANSFORMS = {
@@ -3888,3 +3888,4 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+

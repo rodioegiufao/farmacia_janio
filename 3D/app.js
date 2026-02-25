@@ -3671,6 +3671,37 @@ function hideSimilarEntities(entity) {
     scene.setObjectsVisible(Array.from(idsToHide), false);
 }
 
+function isolateSimilarEntities(entity) {
+    const scene = viewer.scene;
+
+    if (!scene || !entity?.isObject) {
+        return;
+    }
+
+    const tokens = collectEntityMaterialTokens(entity);
+    const idsToShow = new Set();
+
+    for (const token of tokens) {
+        const matchingIds = findMaterialObjectIds(token, { activeOnly: false });
+        for (const id of matchingIds) {
+            idsToShow.add(id);
+        }
+    }
+
+    if (entity.id) {
+        idsToShow.add(entity.id);
+    }
+
+    if (!idsToShow.size) {
+        return;
+    }
+
+    scene.setObjectsVisible(scene.objectIds, false);
+    scene.setObjectsXRayed(scene.xrayedObjectIds, false);
+    scene.setObjectsSelected(scene.selectedObjectIds, false);
+    scene.setObjectsVisible(Array.from(idsToShow), true);
+}
+
 function isolateEntity(entity) {
     const scene = viewer.scene;
     const metaObject = resolveMetaObject(entity?.id);
@@ -3829,6 +3860,12 @@ const materialContextMenu = new ContextMenu({
                 }
             },
             {
+                title: "Isolar Similares",
+                doAction: (context) => {
+                    isolateSimilarEntities(context.entity);
+                }
+            },
+            {
                 title: "Isolar",
                 doAction: (context) => {
                     isolateEntity(context.entity);
@@ -3966,5 +4003,6 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 

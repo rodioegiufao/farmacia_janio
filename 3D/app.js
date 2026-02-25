@@ -3600,6 +3600,77 @@ function hideEntity(entity) {
     entity.visible = false;
 }
 
+function collectEntityMaterialTokens(entity) {
+    const metaObject = resolveMetaObject(entity?.id);
+    if (!metaObject?.propertySets?.length) {
+        return [];
+    }
+
+    const ignoredTokens = new Set([
+        "material",
+        "materials",
+        "materiais",
+        "itens associados",
+        "itens_associados",
+        "associated items"
+    ]);
+
+    const tokens = new Set();
+
+    for (const pset of metaObject.propertySets) {
+        if (!isMaterialPropertySet(pset) || !Array.isArray(pset?.properties)) {
+            continue;
+        }
+
+        for (const prop of pset.properties) {
+            const normalizedName = normalizeMaterialName(prop?.name || prop?.id || "");
+            const normalizedValue = normalizeMaterialToken(prop?.value);
+
+            if (normalizedName && !ignoredTokens.has(normalizedName)) {
+                tokens.add(normalizedName);
+            }
+
+            if (normalizedValue && !ignoredTokens.has(normalizedValue)) {
+                tokens.add(normalizedValue);
+            }
+        }
+    }
+
+    return Array.from(tokens);
+}
+
+function hideSimilarEntities(entity) {
+    const scene = viewer.scene;
+
+    if (!scene || !entity?.isObject) {
+        return;
+    }
+
+    const visibleIds = new Set(toArraySafe(scene.visibleObjectIds));
+    const tokens = collectEntityMaterialTokens(entity);
+    const idsToHide = new Set();
+
+    for (const token of tokens) {
+        const matchingIds = findMaterialObjectIds(token, { activeOnly: false });
+        for (const id of matchingIds) {
+            if (visibleIds.has(id)) {
+                idsToHide.add(id);
+            }
+        }
+    }
+
+    if (entity.id && visibleIds.has(entity.id)) {
+        idsToHide.add(entity.id);
+    }
+
+    if (!idsToHide.size) {
+        return;
+    }
+
+    scene.setObjectsSelected(scene.selectedObjectIds, false);
+    scene.setObjectsVisible(Array.from(idsToHide), false);
+}
+
 function isolateEntity(entity) {
     const scene = viewer.scene;
     const metaObject = resolveMetaObject(entity?.id);
@@ -3751,6 +3822,13 @@ const materialContextMenu = new ContextMenu({
                 }
             },
             {
+                title: "Ocultar Similares",
+                getEnabled: (context) => context.entity.visible,
+                doAction: (context) => {
+                    hideSimilarEntities(context.entity);
+                }
+            },
+            {
                 title: "Isolar",
                 doAction: (context) => {
                     isolateEntity(context.entity);
@@ -3888,4 +3966,5 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 

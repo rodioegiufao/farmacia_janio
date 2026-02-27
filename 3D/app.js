@@ -259,8 +259,42 @@ function resolveIfcLoadMethod(loaderInstance) {
         return null;
     }
 
-    const supportedMethods = ["load", "loadModel", "loadIfc"];
-    return supportedMethods.find((methodName) => typeof loaderInstance[methodName] === "function") || null;
+    const supportedMethods = [
+        "load",
+        "loadModel",
+        "loadIfc",
+        "loadIFC",
+        "loadModelFromFile",
+        "loadModelFromIfc"
+    ];
+
+    const firstSupportedMethod = supportedMethods.find((methodName) => typeof loaderInstance[methodName] === "function");
+    if (firstSupportedMethod) {
+        return firstSupportedMethod;
+    }
+
+    let currentPrototype = loaderInstance;
+    while (currentPrototype) {
+        const dynamicMethod = Object.getOwnPropertyNames(currentPrototype).find((methodName) => {
+            if (methodName === "constructor") {
+                return false;
+            }
+
+            if (!/load|ifc/i.test(methodName)) {
+                return false;
+            }
+
+            return typeof loaderInstance[methodName] === "function";
+        });
+
+        if (dynamicMethod) {
+            return dynamicMethod;
+        }
+
+        currentPrototype = Object.getPrototypeOf(currentPrototype);
+    }
+
+    return null;
 }
 
 async function createIfcLoaderWithFallbacks() {
@@ -270,31 +304,32 @@ async function createIfcLoaderWithFallbacks() {
     ];
 
     const optionFactories = wasmPaths.flatMap((wasmPath) => [
+        () => ({ wasmPath }),
+        () => ({ wasmDir: wasmPath }),
         () => ({ wasmPath, dataSource: ifcUploadDataSource }),
+        () => ({ wasmDir: wasmPath, dataSource: ifcUploadDataSource }),
         () => ({ webIfc: { wasmPath }, dataSource: ifcUploadDataSource }),
         () => ({ WebIFC: { wasmPath }, dataSource: ifcUploadDataSource }),
         () => ({ webIFC: { wasmPath }, dataSource: ifcUploadDataSource })
     ]);
 
     const constructorFactories = optionFactories.flatMap((optionsFactory) => [
+        () => new WebIFCLoaderPlugin(viewer),
         () => new WebIFCLoaderPlugin(viewer, optionsFactory()),
         () => new WebIFCLoaderPlugin({ viewer, ...optionsFactory() })
     ]);
 
+    let lastError = null;
+
     for (const createLoader of constructorFactories) {
         try {
-            const loaderInstance = createLoader();
-            const loadMethod = resolveIfcLoadMethod(loaderInstance);
-
-            if (loadMethod) {
-                return loaderInstance;
-            }
+            return createLoader();
         } catch (error) {
-            // tenta a próxima variação
+            lastError = error;
         }
     }
 
-    throw new Error("Não foi possível inicializar o WebIFCLoaderPlugin com uma API de carregamento compatível.");
+    throw new Error(`Não foi possível inicializar o WebIFCLoaderPlugin. ${lastError?.message || ""}`.trim());
 }
 
 async function getIfcLoader() {
@@ -4030,6 +4065,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

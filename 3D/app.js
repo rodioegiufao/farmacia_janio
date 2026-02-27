@@ -1372,16 +1372,15 @@ async function loadDefaultModel({ id, src }) {
 }
 
 const IPER_MODELS = [
-    { id: "IFC_LOG_TEF", src: "/3D/iper/modelo-02.xkt" },
     { id: "IFC_ELE", src: "/3D/iper/modelo-01.xkt" },
-    { id: "IFC_SPDA", src: "/3D/iper/modelo-19.xkt" },
+    { id: "IFC_LOG", src: "/3D/iper/modelo-02.xkt" },
+    { id: "IFC_HID", src: "/3D/iper/modelo-03.xkt" },
+    { id: "IFC_ALI", src: "/3D/iper/modelo-04.xkt" },
     { id: "IFC_EST", src: "/3D/iper/modelo-05.xkt" },
+    //{ id: "IFC_ARQ", src: "/3D/iper/modelo-06.xkt" },
+    { id: "IFC_PLU", src: "/3D/iper/modelo-07.xkt" },
     { id: "IFC_SAN", src: "/3D/iper/modelo-08.xkt" },
     { id: "IFC_INC", src: "/3D/iper/modelo-09.xkt" },
-    { id: "IFC_HID", src: "/3D/iper/modelo-03.xkt" },
-    { id: "IFC_PLU", src: "/3D/iper/modelo-07.xkt" },
-    { id: "IFC_CLI", src: "/3D/iper/modelo-18.xkt" },
-    { id: "IFC_ALI", src: "/3D/iper/modelo-04.xkt" },
     { id: "IFC_EST_SQD", src: "/3D/iper/modelo-10.xkt" },
     { id: "IFC_EST_SUB", src: "/3D/iper/modelo-11.xkt" },
     { id: "IFC_EST_CT", src: "/3D/iper/modelo-12.xkt" },
@@ -1390,6 +1389,8 @@ const IPER_MODELS = [
     { id: "IFC_FOT", src: "/3D/iper/modelo-15.xkt" },
     { id: "IFC_EMT_ESC", src: "/3D/iper/modelo-16.xkt" },
     { id: "IFC_EMT_COB", src: "/3D/iper/modelo-17.xkt" },
+    { id: "IFC_CLI", src: "/3D/iper/modelo-18.xkt" },
+    { id: "IFC_SPDA", src: "/3D/iper/modelo-19.xkt" },
     { id: "IFC_SUB", src: "/3D/iper/modelo-20.xkt" },
     { id: "IFC_ILUX", src: "/3D/iper/modelo-21.xkt" },
 ];
@@ -1471,7 +1472,7 @@ const defaultModels = [
 const IPER_MODEL_TRANSFORMS = {
     IFC_EST: { position: [-8.789, 0.4, 22.48] },
     IFC_SPDA: { position: [0.15, 0, -0.2], rotation: [0, 90, 0] },
-    IFC_LOG_TEF: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
+    IFC_LOG: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
     IFC_ELE: { position: [0.16, 0, -0.19] },
     IFC_SAN: { position: [0.2, 0, 13.9], rotation: [0, 90, 0] },
     IFC_SUB: { position: [2.7, -0.25, 2.68], rotation: [0, 96, 0] },
@@ -4065,6 +4066,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

@@ -225,6 +225,22 @@ onWindowResize();
 
 const xktLoader = new XKTLoaderPlugin(viewer);
 let ifcLoader = null;
+let webIfcApi = null;
+
+async function getWebIfcApi() {
+    if (webIfcApi) {
+        return webIfcApi;
+    }
+
+    const webIfcModule = await import("https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/web-ifc-api.js");
+
+    webIfcApi = {
+        WebIFC: webIfcModule,
+        IfcAPI: webIfcModule.IfcAPI
+    };
+
+    return webIfcApi;
+}
 
 function resolveIfcLoadMethod(loaderInstance) {
     if (!loaderInstance) {
@@ -235,13 +251,14 @@ function resolveIfcLoadMethod(loaderInstance) {
     return supportedMethods.find((methodName) => typeof loaderInstance[methodName] === "function") || null;
 }
 
-function createIfcLoaderWithFallbacks() {
+async function createIfcLoaderWithFallbacks() {
     const wasmPath = "https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/";
+    const webIfcConfig = await getWebIfcApi();
     const optionFactories = [
-        () => ({ wasmPath }),
-        () => ({ webIfc: { wasmPath } }),
-        () => ({ WebIFC: { wasmPath } }),
-        () => ({ webIFC: { wasmPath } })
+        () => ({ ...webIfcConfig, wasmPath }),
+        () => ({ ...webIfcConfig, webIfc: { wasmPath } }),
+        () => ({ ...webIfcConfig, WebIFC: { ...webIfcConfig.WebIFC, wasmPath } }),
+        () => ({ ...webIfcConfig, webIFC: { ...webIfcConfig.WebIFC, wasmPath } })
     ];
 
     const constructorFactories = optionFactories.flatMap((optionsFactory) => [
@@ -275,7 +292,7 @@ async function getIfcLoader() {
     }
 
     try {
-        ifcLoader = createIfcLoaderWithFallbacks();
+        ifcLoader = await createIfcLoaderWithFallbacks();
     } catch (error) {
         console.error("Falha ao inicializar carregador IFC:", error);
         ifcLoader = null;
@@ -3988,6 +4005,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

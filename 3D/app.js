@@ -225,7 +225,6 @@ onWindowResize();
 
 const xktLoader = new XKTLoaderPlugin(viewer);
 let ifcLoader = null;
-let webIfcModulePromise = null;
 
 function normalizeBlobUrl(src) {
     if (typeof src !== "string") {
@@ -265,34 +264,17 @@ function resolveIfcLoadMethod(loaderInstance) {
 }
 
 async function createIfcLoaderWithFallbacks() {
-    const wasmPath = "https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/";
-    let webIfcModule = null;
+    const wasmPaths = [
+        "https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/",
+        "https://cdn.jsdelivr.net/npm/web-ifc@0.0.44/"
+    ];
 
-    try {
-        webIfcModulePromise = webIfcModulePromise || import("https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/web-ifc-api.js");
-        webIfcModule = await webIfcModulePromise;
-    } catch (error) {
-        console.warn("Não foi possível carregar o módulo web-ifc-api.js. Tentando inicializar sem ele.", error);
-    }
-
-    const ifcApiConstructor = webIfcModule?.IfcAPI;
-    const webIfcNamespace = webIfcModule && ifcApiConstructor
-        ? (typeof webIfcModule.WebIFC === "object" ? webIfcModule.WebIFC : webIfcModule)
-        : null;
-
-    const optionFactories = [
-        () => ({ wasmPath, WebIFC: webIfcNamespace, IfcAPI: ifcApiConstructor, dataSource: ifcUploadDataSource }),
+    const optionFactories = wasmPaths.flatMap((wasmPath) => [
         () => ({ wasmPath, dataSource: ifcUploadDataSource }),
         () => ({ webIfc: { wasmPath }, dataSource: ifcUploadDataSource }),
         () => ({ WebIFC: { wasmPath }, dataSource: ifcUploadDataSource }),
         () => ({ webIFC: { wasmPath }, dataSource: ifcUploadDataSource })
-    ].filter((factory) => {
-        const options = factory();
-        if (options.WebIFC || options.IfcAPI) {
-            return Boolean(options.WebIFC && options.IfcAPI);
-        }
-        return true;
-    });
+    ]);
 
     const constructorFactories = optionFactories.flatMap((optionsFactory) => [
         () => new WebIFCLoaderPlugin(viewer, optionsFactory()),
@@ -4048,6 +4030,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

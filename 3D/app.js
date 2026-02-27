@@ -225,30 +225,6 @@ onWindowResize();
 
 const xktLoader = new XKTLoaderPlugin(viewer);
 let ifcLoader = null;
-let webIfcApi = null;
-
-async function getWebIfcApi() {
-    if (webIfcApi) {
-        return webIfcApi;
-    }
-
-    const webIfcModule = await import("https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/web-ifc-api.js");
-
-    const IfcAPIConstructor = webIfcModule?.IfcAPI;
-
-    if (typeof IfcAPIConstructor !== "function") {
-        throw new Error("A biblioteca web-ifc carregou sem o construtor IfcAPI.");
-    }
-
-    const ifcApiInstance = new IfcAPIConstructor();
-
-    webIfcApi = {
-        WebIFC: webIfcModule,
-        IfcAPI: ifcApiInstance
-    };
-
-    return webIfcApi;
-}
 
 function normalizeBlobUrl(src) {
     if (typeof src !== "string") {
@@ -287,36 +263,13 @@ function resolveIfcLoadMethod(loaderInstance) {
     return supportedMethods.find((methodName) => typeof loaderInstance[methodName] === "function") || null;
 }
 
-function hasIfcOpenModel(apiCandidate) {
-    return typeof apiCandidate?.OpenModel === "function";
-}
-
-function hasWorkingIfcApi(loaderInstance) {
-    if (!loaderInstance) {
-        return false;
-    }
-
-    const candidates = [
-        loaderInstance._ifcAPI,
-        loaderInstance.ifcAPI,
-        loaderInstance._webIfc,
-        loaderInstance.webIfc,
-        loaderInstance._options?.IfcAPI,
-        loaderInstance._options?.webIfc,
-        loaderInstance._options?.WebIFC
-    ];
-
-    return candidates.some((candidate) => hasIfcOpenModel(candidate));
-}
-
 async function createIfcLoaderWithFallbacks() {
     const wasmPath = "https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/";
-    const webIfcConfig = await getWebIfcApi();
     const optionFactories = [
-        () => ({ ...webIfcConfig, wasmPath, dataSource: ifcUploadDataSource }),
-        () => ({ ...webIfcConfig, webIfc: { wasmPath }, dataSource: ifcUploadDataSource }),
-        () => ({ ...webIfcConfig, WebIFC: { ...webIfcConfig.WebIFC, wasmPath }, dataSource: ifcUploadDataSource }),
-        () => ({ ...webIfcConfig, webIFC: { ...webIfcConfig.WebIFC, wasmPath }, dataSource: ifcUploadDataSource })
+        () => ({ wasmPath, dataSource: ifcUploadDataSource }),
+        () => ({ webIfc: { wasmPath }, dataSource: ifcUploadDataSource }),
+        () => ({ WebIFC: { wasmPath }, dataSource: ifcUploadDataSource }),
+        () => ({ webIFC: { wasmPath }, dataSource: ifcUploadDataSource })
     ];
 
     const constructorFactories = optionFactories.flatMap((optionsFactory) => [
@@ -329,7 +282,7 @@ async function createIfcLoaderWithFallbacks() {
             const loaderInstance = createLoader();
             const loadMethod = resolveIfcLoadMethod(loaderInstance);
 
-            if (loadMethod && hasWorkingIfcApi(loaderInstance)) {
+            if (loadMethod) {
                 return loaderInstance;
             }
         } catch (error) {
@@ -4073,6 +4026,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

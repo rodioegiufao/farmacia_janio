@@ -234,9 +234,17 @@ async function getWebIfcApi() {
 
     const webIfcModule = await import("https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/web-ifc-api.js");
 
+    const IfcAPIConstructor = webIfcModule?.IfcAPI;
+
+    if (typeof IfcAPIConstructor !== "function") {
+        throw new Error("A biblioteca web-ifc carregou sem o construtor IfcAPI.");
+    }
+
+    const ifcApiInstance = new IfcAPIConstructor();
+
     webIfcApi = {
         WebIFC: webIfcModule,
-        IfcAPI: webIfcModule.IfcAPI
+        IfcAPI: ifcApiInstance
     };
 
     return webIfcApi;
@@ -279,6 +287,28 @@ function resolveIfcLoadMethod(loaderInstance) {
     return supportedMethods.find((methodName) => typeof loaderInstance[methodName] === "function") || null;
 }
 
+function hasIfcOpenModel(apiCandidate) {
+    return typeof apiCandidate?.OpenModel === "function";
+}
+
+function hasWorkingIfcApi(loaderInstance) {
+    if (!loaderInstance) {
+        return false;
+    }
+
+    const candidates = [
+        loaderInstance._ifcAPI,
+        loaderInstance.ifcAPI,
+        loaderInstance._webIfc,
+        loaderInstance.webIfc,
+        loaderInstance._options?.IfcAPI,
+        loaderInstance._options?.webIfc,
+        loaderInstance._options?.WebIFC
+    ];
+
+    return candidates.some((candidate) => hasIfcOpenModel(candidate));
+}
+
 async function createIfcLoaderWithFallbacks() {
     const wasmPath = "https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/";
     const webIfcConfig = await getWebIfcApi();
@@ -299,7 +329,7 @@ async function createIfcLoaderWithFallbacks() {
             const loaderInstance = createLoader();
             const loadMethod = resolveIfcLoadMethod(loaderInstance);
 
-            if (loadMethod) {
+            if (loadMethod && hasWorkingIfcApi(loaderInstance)) {
                 return loaderInstance;
             }
         } catch (error) {
@@ -1659,13 +1689,22 @@ function setupIfcUploadInput() {
             return;
         }
 
-        const modelResult = resolvedIfcLoader[loadMethod]({
-            id: modelId,
-            src: normalizeBlobUrl(objectUrl),
-            cacheBuster: false,
-            edges: true
-        });
-        const model = typeof modelResult?.then === "function" ? await modelResult : modelResult;
+        let model;
+
+        try {
+            const modelResult = resolvedIfcLoader[loadMethod]({
+                id: modelId,
+                src: normalizeBlobUrl(objectUrl),
+                cacheBuster: false,
+                edges: true
+            });
+            model = typeof modelResult?.then === "function" ? await modelResult : modelResult;
+        } catch (error) {
+            URL.revokeObjectURL(objectUrl);
+            setIfcUploadStatus(`Falha ao iniciar o carregamento do IFC: ${error?.message || error}.`, true);
+            console.error("Erro ao iniciar carregamento IFC:", error);
+            return;
+        }
 
         if (!model || typeof model.on !== "function") {
             URL.revokeObjectURL(objectUrl);
@@ -4034,6 +4073,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

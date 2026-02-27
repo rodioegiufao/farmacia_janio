@@ -242,6 +242,34 @@ async function getWebIfcApi() {
     return webIfcApi;
 }
 
+function normalizeBlobUrl(src) {
+    if (typeof src !== "string") {
+        return src;
+    }
+
+    return src.startsWith("blob:") ? src.split("?")[0] : src;
+}
+
+const ifcUploadDataSource = {
+    getIFC(src, ok, error) {
+        const resolvedSrc = normalizeBlobUrl(src);
+
+        fetch(resolvedSrc)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Falha HTTP ${response.status} ao baixar IFC.`);
+                }
+                return response.arrayBuffer();
+            })
+            .then((arrayBuffer) => ok(arrayBuffer))
+            .catch((fetchError) => {
+                if (typeof error === "function") {
+                    error(fetchError?.message || fetchError);
+                }
+            });
+    }
+};
+
 function resolveIfcLoadMethod(loaderInstance) {
     if (!loaderInstance) {
         return null;
@@ -255,10 +283,10 @@ async function createIfcLoaderWithFallbacks() {
     const wasmPath = "https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/";
     const webIfcConfig = await getWebIfcApi();
     const optionFactories = [
-        () => ({ ...webIfcConfig, wasmPath }),
-        () => ({ ...webIfcConfig, webIfc: { wasmPath } }),
-        () => ({ ...webIfcConfig, WebIFC: { ...webIfcConfig.WebIFC, wasmPath } }),
-        () => ({ ...webIfcConfig, webIFC: { ...webIfcConfig.WebIFC, wasmPath } })
+        () => ({ ...webIfcConfig, wasmPath, dataSource: ifcUploadDataSource }),
+        () => ({ ...webIfcConfig, webIfc: { wasmPath }, dataSource: ifcUploadDataSource }),
+        () => ({ ...webIfcConfig, WebIFC: { ...webIfcConfig.WebIFC, wasmPath }, dataSource: ifcUploadDataSource }),
+        () => ({ ...webIfcConfig, webIFC: { ...webIfcConfig.WebIFC, wasmPath }, dataSource: ifcUploadDataSource })
     ];
 
     const constructorFactories = optionFactories.flatMap((optionsFactory) => [
@@ -1633,7 +1661,7 @@ function setupIfcUploadInput() {
 
         const modelResult = resolvedIfcLoader[loadMethod]({
             id: modelId,
-            src: objectUrl,
+            src: normalizeBlobUrl(objectUrl),
             cacheBuster: false,
             edges: true
         });
@@ -4006,6 +4034,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

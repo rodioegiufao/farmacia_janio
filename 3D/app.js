@@ -1393,6 +1393,7 @@ const IPER_MODELS = [
     { id: "IFC_SPDA", src: "/3D/iper/modelo-19.xkt" },
     { id: "IFC_SUB", src: "/3D/iper/modelo-20.xkt" },
     { id: "IFC_ILUX", src: "/3D/iper/modelo-21.xkt" },
+    { id: "IFC_TEF", src: "/3D/iper/modelo-22.xkt" },
 ];
 
 const FARMACIA_MODELS = [
@@ -1473,6 +1474,7 @@ const IPER_MODEL_TRANSFORMS = {
     IFC_EST: { position: [-8.789, 0.4, 22.48] },
     IFC_SPDA: { position: [0.15, 0, -0.2], rotation: [0, 90, 0] },
     IFC_LOG: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
+    IFC_TEF: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
     IFC_ELE: { position: [0.16, 0, -0.19] },
     IFC_SAN: { position: [0.2, 0, 13.9], rotation: [0, 90, 0] },
     IFC_SUB: { position: [2.7, -0.25, 2.68], rotation: [0, 96, 0] },
@@ -4066,6 +4068,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

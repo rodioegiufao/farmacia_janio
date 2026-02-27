@@ -1634,6 +1634,7 @@ function setupIfcUploadInput() {
         const modelResult = resolvedIfcLoader[loadMethod]({
             id: modelId,
             src: objectUrl,
+            cacheBuster: false,
             edges: true
         });
         const model = typeof modelResult?.then === "function" ? await modelResult : modelResult;
@@ -4005,6 +4006,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

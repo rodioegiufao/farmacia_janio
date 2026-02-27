@@ -225,7 +225,6 @@ onWindowResize();
 
 const xktLoader = new XKTLoaderPlugin(viewer);
 let ifcLoader = null;
-let webIfcModulePromise = null;
 
 function resolveIfcLoadMethod(loaderInstance) {
     if (!loaderInstance) {
@@ -236,13 +235,13 @@ function resolveIfcLoadMethod(loaderInstance) {
     return supportedMethods.find((methodName) => typeof loaderInstance[methodName] === "function") || null;
 }
 
-function createIfcLoaderWithFallbacks(IfcAPIConstructor, webIfcModule) {
+function createIfcLoaderWithFallbacks() {
     const wasmPath = "https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/";
     const optionFactories = [
-        () => ({ IfcAPI: IfcAPIConstructor, wasmPath }),
-        () => ({ IfcAPI: new IfcAPIConstructor(), wasmPath }),
-        () => ({ WebIFC: webIfcModule.WebIFC, wasmPath }),
-        () => ({ WebIFC: webIfcModule.default?.WebIFC, wasmPath })
+        () => ({ wasmPath }),
+        () => ({ webIfc: { wasmPath } }),
+        () => ({ WebIFC: { wasmPath } }),
+        () => ({ webIFC: { wasmPath } })
     ];
 
     const constructorFactories = optionFactories.flatMap((optionsFactory) => [
@@ -276,21 +275,7 @@ async function getIfcLoader() {
     }
 
     try {
-        if (!webIfcModulePromise) {
-            webIfcModulePromise = import("https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/web-ifc-api.js");
-        }
-
-        const webIfcModule = await webIfcModulePromise;
-        const IfcAPIConstructor =
-            webIfcModule.IfcAPI ||
-            webIfcModule.WebIFC?.IfcAPI ||
-            webIfcModule.default?.IfcAPI;
-
-        if (typeof IfcAPIConstructor !== "function") {
-            throw new Error("IfcAPI não encontrado no módulo web-ifc.");
-        }
-
-        ifcLoader = createIfcLoaderWithFallbacks(IfcAPIConstructor, webIfcModule);
+        ifcLoader = createIfcLoaderWithFallbacks();
     } catch (error) {
         console.error("Falha ao inicializar carregador IFC:", error);
         ifcLoader = null;
@@ -4003,6 +3988,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

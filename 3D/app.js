@@ -1448,6 +1448,10 @@ const CANAA_MODELS = [
     { id: "IFC_GLP", src: "/3D/esc_canaa/modelo-18.xkt" },
   ];
 
+const SEBRAE_RR_MODELS = [
+    { id: "IFC_ALI", src: "/3D/sebrae-rr/modelo-01.xkt" },
+];
+
 const defaultModels = [
     { id: "IFC_LOG_TEF", src: "/3D/lacen/modelo-01.xkt" },
     { id: "IFC_ELE", src: "/3D/lacen/modelo-02.xkt" },
@@ -1532,6 +1536,8 @@ const CANAA_MODEL_TRANSFORMS = {
     IFC_EST_EMT: { position: [48.212, 0.06, -36.8995], rotation: [0, 180, 0]},
 };
 
+const SEBRAE_RR_MODEL_TRANSFORMS = {};
+
 const DEFAULT_MODEL_TRANSFORMS = {
     IFC_ILUX: { position: [-14.08, 0, 0] },
     IFC_EST: { position: [-62.3, 0.4, 35.2] },
@@ -1580,6 +1586,7 @@ const PROJECT_CONFIGS = {
     policlinica: { models: POLICLINICA_MODELS, transforms: POLICLINICA_MODEL_TRANSFORMS },
     farmacia: { models: FARMACIA_MODELS, transforms: FARMACIA_MODEL_TRANSFORMS },
     esc_canaa: { models: CANAA_MODELS, transforms: CANAA_MODEL_TRANSFORMS },
+    sebrae_rr: { models: SEBRAE_RR_MODELS, transforms: SEBRAE_RR_MODEL_TRANSFORMS },
 };
 
 const PROJECT_ROUTES = {
@@ -1588,6 +1595,7 @@ const PROJECT_ROUTES = {
     policlinica: "/3D/policlinica",
     farmacia: "/3D/farmacia",
     esc_canaa: "/3D/esc_canaa",
+    sebrae_rr: "/3D/sebrae-rr",
 };
 
 function updateProjectUrl(projectKey, { replace = false } = {}) {
@@ -4068,6 +4076,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

@@ -1536,7 +1536,9 @@ const CANAA_MODEL_TRANSFORMS = {
     IFC_EST_EMT: { position: [48.212, 0.06, -36.8995], rotation: [0, 180, 0]},
 };
 
-const SEBRAE_RR_MODEL_TRANSFORMS = {};
+const SEBRAE_RR_MODEL_TRANSFORMS = {
+    IFC_ALI: { position: [15, 0, 50] },
+};
 
 const DEFAULT_MODEL_TRANSFORMS = {
     IFC_ILUX: { position: [-14.08, 0, 0] },
@@ -4076,6 +4078,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

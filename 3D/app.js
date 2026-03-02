@@ -1496,6 +1496,7 @@ const IPER_MODEL_TRANSFORMS = {
     IFC_EMT_ESC: { position: [0.14, 0.35, -0.15], rotation: [0, 90, 0]  },
     IFC_EMT_COB: { position: [0.14, 0, -0.15], rotation: [0, 90, 0]  },
     IFC_ILUX: { position: [-14, 0, 0]},
+    IFC_ARQ: { position: [0, 0, 0], rotation: [0, 90, 0]  },
 };
 
 const FARMACIA_MODEL_TRANSFORMS = {
@@ -3449,6 +3450,34 @@ function setupTreeViewSelectionControls() {
         return Array.from(treeRoot.querySelectorAll("input[type=\"checkbox\"]"));
     };
 
+    let architectureDefaultApplied = false;
+
+    const uncheckArchitectureByDefault = () => {
+        if (architectureDefaultApplied) {
+            return;
+        }
+
+        const architectureCheckbox = getCheckboxes().find((checkbox) => {
+            const item = checkbox.closest(".xeokit-tree-view-item");
+            const title = item
+                ?.querySelector(".xeokit-tree-view-item-title")
+                ?.textContent
+                ?.trim();
+
+            return title === "IFC_ARQ";
+        });
+
+        if (!architectureCheckbox) {
+            return;
+        }
+
+        if (architectureCheckbox.checked) {
+            architectureCheckbox.click();
+        }
+
+        architectureDefaultApplied = true;
+    };
+
     const updateButtonLabel = () => {
         const checkboxes = getCheckboxes();
         const hasItems = checkboxes.length > 0;
@@ -3482,10 +3511,14 @@ function setupTreeViewSelectionControls() {
         }
     });
 
-    const observer = new MutationObserver(updateButtonLabel);
-    observer.observe(container, { childList: true, subtree: true });
-
+    uncheckArchitectureByDefault();
     updateButtonLabel();
+
+    const selectionObserver = new MutationObserver(() => {
+        uncheckArchitectureByDefault();
+        updateButtonLabel();
+    });
+    selectionObserver.observe(container, { childList: true, subtree: true });
 }
 /**
  * Alterna a visibilidade do contêiner do TreeView sem alterar o estado atual de visibilidade.

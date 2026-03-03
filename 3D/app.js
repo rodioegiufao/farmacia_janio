@@ -1681,6 +1681,115 @@ function setIfcUploadStatus(message, isError = false) {
     ifcUploadStatus.style.color = isError ? "#fecaca" : "#cbd5e1";
 }
 
+function finalizeUploadedModelLoad(model, { modelId, fileName, formatLabel, objectUrl }) {
+    if (!model || typeof model.on !== "function") {
+        URL.revokeObjectURL(objectUrl);
+        setIfcUploadStatus(`Formato de resposta inesperado ao carregar ${formatLabel}.`, true);
+        return;
+    }
+
+    expectedModels = 1;
+    modelsLoadedCount = 0;
+    defaultModelChecksDone = 1;
+
+    model.on("loaded", () => {
+        currentModels = [{ id: modelId, src: fileName }];
+        registerModelTransform(model);
+        adjustCameraOnLoad();
+        viewer.cameraFlight.jumpTo(viewer.scene);
+        URL.revokeObjectURL(objectUrl);
+        setIfcUploadStatus(`${formatLabel} carregado: ${fileName}.`);
+    });
+
+    model.on("error", (error) => {
+        URL.revokeObjectURL(objectUrl);
+        setIfcUploadStatus(`Falha ao carregar ${fileName}.`, true);
+        console.error(`Erro ao carregar ${formatLabel}:`, error);
+    });
+}
+
+async function loadIfcUpload(file) {
+    const objectUrl = URL.createObjectURL(file);
+    const modelId = `IFC_UPLOAD_${Date.now()}`;
+    const normalizedSrc = normalizeBlobUrl(objectUrl);
+    const loader = await getIfcLoader();
+
+    if (!loader) {
+        URL.revokeObjectURL(objectUrl);
+        setIfcUploadStatus("Carregador IFC indisponível no momento.", true);
+        return;
+    }
+
+    const loadMethod = resolveIfcLoadMethod(loader);
+    if (!loadMethod) {
+        URL.revokeObjectURL(objectUrl);
+        setIfcUploadStatus("Não foi possível identificar o método de carregamento IFC.", true);
+        return;
+    }
+
+    let model;
+
+    try {
+        const firstAttempt = loader[loadMethod]({
+            id: modelId,
+            src: normalizedSrc,
+            cacheBuster: false,
+            edges: true
+        });
+
+        model = typeof firstAttempt?.then === "function" ? await firstAttempt : firstAttempt;
+    } catch (firstError) {
+        try {
+            const fallbackAttempt = loader[loadMethod](normalizedSrc, {
+                id: modelId,
+                cacheBuster: false,
+                edges: true
+            });
+            model = typeof fallbackAttempt?.then === "function" ? await fallbackAttempt : fallbackAttempt;
+        } catch (fallbackError) {
+            URL.revokeObjectURL(objectUrl);
+            setIfcUploadStatus(`Falha ao iniciar o carregamento do IFC: ${fallbackError?.message || fallbackError}.`, true);
+            console.error("Erro ao iniciar carregamento IFC:", firstError, fallbackError);
+            return;
+        }
+    }
+
+    finalizeUploadedModelLoad(model, {
+        modelId,
+        fileName: file.name,
+        formatLabel: "IFC",
+        objectUrl
+    });
+}
+
+function loadXktUpload(file) {
+    const objectUrl = URL.createObjectURL(file);
+    const modelId = `XKT_UPLOAD_${Date.now()}`;
+
+    let model;
+
+    try {
+        model = xktLoader.load({
+            id: modelId,
+            src: normalizeBlobUrl(objectUrl),
+            cacheBuster: false,
+            edges: true
+        });
+    } catch (error) {
+        URL.revokeObjectURL(objectUrl);
+        setIfcUploadStatus(`Falha ao iniciar o carregamento do XKT: ${error?.message || error}.`, true);
+        console.error("Erro ao iniciar carregamento XKT:", error);
+        return;
+    }
+
+    finalizeUploadedModelLoad(model, {
+        modelId,
+        fileName: file.name,
+        formatLabel: "XKT",
+        objectUrl
+    });
+}
+
 function setupIfcUploadInput() {
     if (!ifcUploadInput) {
         return;
@@ -1693,57 +1802,24 @@ function setupIfcUploadInput() {
             return;
         }
 
-        if (!file.name.toLowerCase().endsWith(".xkt")) {
-            setIfcUploadStatus("Arquivo inválido. Selecione um arquivo .xkt.", true);
+        const lowerCaseFileName = file.name.toLowerCase();
+        const isXktFile = lowerCaseFileName.endsWith(".xkt");
+        const isIfcFile = lowerCaseFileName.endsWith(".ifc");
+
+        if (!isXktFile && !isIfcFile) {
+            setIfcUploadStatus("Arquivo inválido. Selecione um arquivo .xkt ou .ifc.", true);
             return;
         }
 
         clearAllLoadedModels();
         setIfcUploadStatus(`Carregando ${file.name}...`);
 
-        const objectUrl = URL.createObjectURL(file);
-        const modelId = `XKT_UPLOAD_${Date.now()}`;
-
-        let model;
-
-        try {
-            model = xktLoader.load({
-                id: modelId,
-                src: normalizeBlobUrl(objectUrl),
-                cacheBuster: false,
-                edges: true
-            });
-        } catch (error) {
-            URL.revokeObjectURL(objectUrl);
-            setIfcUploadStatus(`Falha ao iniciar o carregamento do XKT: ${error?.message || error}.`, true);
-            console.error("Erro ao iniciar carregamento XKT:", error);
+        if (isIfcFile) {
+            await loadIfcUpload(file);
             return;
         }
 
-        if (!model || typeof model.on !== "function") {
-            URL.revokeObjectURL(objectUrl);
-            setIfcUploadStatus("Formato de resposta inesperado ao carregar XKT.", true);
-            return;
-        }
-
-        expectedModels = 1;
-        modelsLoadedCount = 0;
-        defaultModelChecksDone = 1;
-
-        model.on("loaded", () => {
-            currentModels = [{ id: modelId, src: file.name }];
-            registerModelTransform(model);
-            adjustCameraOnLoad();
-            viewer.cameraFlight.jumpTo(viewer.scene);
-            URL.revokeObjectURL(objectUrl);
-            setIfcUploadStatus(`XKT carregado: ${file.name}.`);
-        });
-
-        model.on("error", (error) => {
-            URL.revokeObjectURL(objectUrl);
-            setIfcUploadStatus(`Falha ao carregar ${file.name}.`, true);
-            console.error("Erro ao carregar XKT:", error);
-        });
+        loadXktUpload(file);
     });
 }
 
@@ -4119,25 +4195,3 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

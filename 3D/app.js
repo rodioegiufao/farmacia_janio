@@ -1457,7 +1457,7 @@ const defaultModels = [
     { id: "IFC_ELE", src: "/3D/lacen/modelo-02.xkt" },
     { id: "IFC_SPDA", src: "/3D/lacen/modelo-03.xkt" },
     { id: "IFC_ECX", src: "/3D/lacen/modelo-04.xkt" },
-    { id: "IFC_ILUX", src: "/3D/acen/modelo-05.xkt" },
+    { id: "IFC_ILUX", src: "/3D/lacen/modelo-05.xkt" },
     { id: "IFC_EST", src: "/3D/lacen/modelo-06.xkt" },
     { id: "IFC_SAN", src: "/3D/lacen/modelo-07.xkt" },
     { id: "IFC_INC", src: "/3D/lacen/modelo-08.xkt" },
@@ -4097,6 +4097,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

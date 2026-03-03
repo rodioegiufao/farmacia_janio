@@ -223,7 +223,29 @@ onWindowResize();
 // 2. Carregamento dos Modelos e Ajuste da Câmera
 // -----------------------------------------------------------------------------
 
-const xktLoader = new XKTLoaderPlugin(viewer);
+const xktDataSource = {
+    getXKT(src, ok, error) {
+        const resolvedSrc = normalizeBlobUrl(src);
+
+        fetch(resolvedSrc)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Falha HTTP ${response.status} ao baixar XKT.`);
+                }
+                return response.arrayBuffer();
+            })
+            .then((arrayBuffer) => ok(new Uint8Array(arrayBuffer)))
+            .catch((fetchError) => {
+                if (typeof error === "function") {
+                    error(fetchError?.message || fetchError);
+                }
+            });
+    }
+};
+
+const xktLoader = new XKTLoaderPlugin(viewer, {
+    dataSource: xktDataSource
+});
 let ifcLoader = null;
 
 function normalizeBlobUrl(src) {
@@ -4097,6 +4119,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

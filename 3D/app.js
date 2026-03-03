@@ -1665,21 +1665,14 @@ function setupIfcUploadInput() {
     }
 
     ifcUploadInput.addEventListener("change", async () => {
-        const resolvedIfcLoader = await getIfcLoader();
-
-        if (!resolvedIfcLoader) {
-            setIfcUploadStatus("Falha ao ativar o carregador IFC. O restante do visualizador segue disponível.", true);
-            return;
-        }
-
         const file = ifcUploadInput.files?.[0];
 
         if (!file) {
             return;
         }
 
-        if (!file.name.toLowerCase().endsWith(".ifc")) {
-            setIfcUploadStatus("Arquivo inválido. Selecione um arquivo .ifc.", true);
+        if (!file.name.toLowerCase().endsWith(".xkt")) {
+            setIfcUploadStatus("Arquivo inválido. Selecione um arquivo .xkt.", true);
             return;
         }
 
@@ -1687,34 +1680,27 @@ function setupIfcUploadInput() {
         setIfcUploadStatus(`Carregando ${file.name}...`);
 
         const objectUrl = URL.createObjectURL(file);
-        const modelId = `IFC_UPLOAD_${Date.now()}`;
-        const loadMethod = resolveIfcLoadMethod(resolvedIfcLoader);
-
-        if (!loadMethod) {
-            setIfcUploadStatus("Versão do carregador IFC incompatível com este visualizador.", true);
-            return;
-        }
+        const modelId = `XKT_UPLOAD_${Date.now()}`;
 
         let model;
 
         try {
-            const modelResult = resolvedIfcLoader[loadMethod]({
+            model = xktLoader.load({
                 id: modelId,
                 src: normalizeBlobUrl(objectUrl),
                 cacheBuster: false,
                 edges: true
             });
-            model = typeof modelResult?.then === "function" ? await modelResult : modelResult;
         } catch (error) {
             URL.revokeObjectURL(objectUrl);
-            setIfcUploadStatus(`Falha ao iniciar o carregamento do IFC: ${error?.message || error}.`, true);
-            console.error("Erro ao iniciar carregamento IFC:", error);
+            setIfcUploadStatus(`Falha ao iniciar o carregamento do XKT: ${error?.message || error}.`, true);
+            console.error("Erro ao iniciar carregamento XKT:", error);
             return;
         }
 
         if (!model || typeof model.on !== "function") {
             URL.revokeObjectURL(objectUrl);
-            setIfcUploadStatus("Formato de resposta inesperado ao carregar IFC.", true);
+            setIfcUploadStatus("Formato de resposta inesperado ao carregar XKT.", true);
             return;
         }
 
@@ -1728,13 +1714,13 @@ function setupIfcUploadInput() {
             adjustCameraOnLoad();
             viewer.cameraFlight.jumpTo(viewer.scene);
             URL.revokeObjectURL(objectUrl);
-            setIfcUploadStatus(`IFC carregado: ${file.name}.`);
+            setIfcUploadStatus(`XKT carregado: ${file.name}.`);
         });
 
         model.on("error", (error) => {
             URL.revokeObjectURL(objectUrl);
             setIfcUploadStatus(`Falha ao carregar ${file.name}.`, true);
-            console.error("Erro ao carregar IFC:", error);
+            console.error("Erro ao carregar XKT:", error);
         });
     });
 }
@@ -4111,6 +4097,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

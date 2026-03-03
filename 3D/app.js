@@ -1514,7 +1514,7 @@ const defaultModels = [
 ];
 
 const IPER_MODEL_TRANSFORMS = {
-    IFC_EST: { position: [-8.789, 0.4, 22.48] },
+    IFC_EST: { position: [-8.789, 0.4, 22.5] },
     IFC_SPDA: { position: [0.15, 0, -0.2], rotation: [0, 90, 0] },
     IFC_LOG: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
     IFC_TEF: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },

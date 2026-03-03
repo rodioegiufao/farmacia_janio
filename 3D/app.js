@@ -234,7 +234,7 @@ const xktDataSource = {
                 }
                 return response.arrayBuffer();
             })
-            .then((arrayBuffer) => ok(new Uint8Array(arrayBuffer)))
+            .then((arrayBuffer) => ok(arrayBuffer))
             .catch((fetchError) => {
                 if (typeof error === "function") {
                     error(fetchError?.message || fetchError);
@@ -4119,6 +4119,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

@@ -325,27 +325,44 @@ async function createIfcLoaderWithFallbacks() {
         "https://cdn.jsdelivr.net/npm/web-ifc@0.0.44/"
     ];
 
-    const optionFactories = wasmPaths.flatMap((wasmPath) => [
-        () => ({ wasmPath }),
-        () => ({ wasmDir: wasmPath }),
-        () => ({ wasmPath, dataSource: ifcUploadDataSource }),
-        () => ({ wasmDir: wasmPath, dataSource: ifcUploadDataSource }),
-        () => ({ webIfc: { wasmPath }, dataSource: ifcUploadDataSource }),
-        () => ({ WebIFC: { wasmPath }, dataSource: ifcUploadDataSource }),
-        () => ({ webIFC: { wasmPath }, dataSource: ifcUploadDataSource })
-    ]);
+    const configureWasmPath = (loader, wasmPath) => {
+        const configCandidates = [
+            () => loader?.setWasmPath?.(wasmPath),
+            () => loader?.setWasmDir?.(wasmPath),
+            () => loader?.setWebIFCPath?.(wasmPath),
+            () => loader?.ifcManager?.setWasmPath?.(wasmPath),
+            () => loader?.ifcManager?.setWasmPath?.(wasmPath, true),
+            () => loader?.ifcManager?.setWasmPath?.(wasmPath, false)
+        ];
 
-    const constructorFactories = optionFactories.flatMap((optionsFactory) => [
-        () => new WebIFCLoaderPlugin(viewer),
-        () => new WebIFCLoaderPlugin(viewer, optionsFactory()),
-        () => new WebIFCLoaderPlugin({ viewer, ...optionsFactory() })
-    ]);
+        for (const tryConfigure of configCandidates) {
+            try {
+                tryConfigure();
+                return true;
+            } catch (error) {
+                // Continua tentando outras assinaturas entre versões do xeokit/web-ifc.
+            }
+        }
+
+        return false;
+    };
 
     let lastError = null;
 
-    for (const createLoader of constructorFactories) {
+    for (const wasmPath of wasmPaths) {
         try {
-            return createLoader();
+            const loader = new WebIFCLoaderPlugin(viewer, {
+                dataSource: ifcUploadDataSource,
+                wasmPath,
+                wasmDir: wasmPath,
+                webIfc: { wasmPath },
+                WebIFC: { wasmPath },
+                webIFC: { wasmPath }
+            });
+
+            configureWasmPath(loader, wasmPath);
+
+            return loader;
         } catch (error) {
             lastError = error;
         }
@@ -4195,3 +4212,4 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+

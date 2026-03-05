@@ -1572,7 +1572,7 @@ const CANAA_MODEL_TRANSFORMS = {
     IFC_EST_PP: { position: [48.212, 0.385, -36.8995], rotation: [0, 180, 0]},
     IFC_SAN: { position: [14.062,-0.1, 0], rotation: [0, 180, 0] },
     //IFC_PLU: { position: [0, 0, 0], rotation: [0, 180, 0] },
-    IFC_ARQ: { position: [48.24, 0.02, -36.8695], rotation: [0, 180, 0]},
+    IFC_ARQ: { position: [48.25, 0, -36.8695]},
     IFC_EST_EMT: { position: [48.212, 0.075, -36.8995], rotation: [0, 180, 0]},
 };
 

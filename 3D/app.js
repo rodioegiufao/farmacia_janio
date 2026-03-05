@@ -1573,7 +1573,7 @@ const CANAA_MODEL_TRANSFORMS = {
     IFC_SAN: { position: [14.062,-0.1, 0], rotation: [0, 180, 0] },
     //IFC_PLU: { position: [0, 0, 0], rotation: [0, 180, 0] },
     IFC_ARQ: { position: [48.24, 0.02, -36.8695], rotation: [0, 180, 0]},
-    IFC_EST_EMT: { position: [48.212, 0.06, -36.8995], rotation: [0, 180, 0]},
+    IFC_EST_EMT: { position: [48.212, 0.075, -36.8995], rotation: [0, 180, 0]},
 };
 
 const SEBRAE_RR_MODEL_TRANSFORMS = {
@@ -4212,5 +4212,6 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 

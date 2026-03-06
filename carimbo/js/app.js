@@ -148,22 +148,35 @@ class PDFAnalyzerApp {
             return;
         }
         
-        fileList.innerHTML = '';
-        
-        this.uploadedFiles = Array.from(files).filter(file => {
+        const novosArquivos = Array.from(files).filter(file => {
             const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
             if (!isPDF) {
                 console.warn(`⚠️ Arquivo ignorado (não é PDF): ${file.name}`);
             }
             return isPDF;
         });
+
+        // Mantém os arquivos já adicionados e evita duplicatas
+        const arquivosExistentes = new Set(
+            this.uploadedFiles.map(file => `${file.name}-${file.size}-${file.lastModified}`)
+        );
+
+        novosArquivos.forEach(file => {
+            const fileId = `${file.name}-${file.size}-${file.lastModified}`;
+            if (!arquivosExistentes.has(fileId)) {
+                this.uploadedFiles.push(file);
+                arquivosExistentes.add(fileId);
+            }
+        });
         
         console.log(`✅ ${this.uploadedFiles.length} arquivos PDF carregados`);
-        
-        if (this.uploadedFiles.length === 0 && files.length > 0) {
+
+        if (novosArquivos.length === 0 && files.length > 0) {
             this.showError('Por favor, selecione arquivos PDF válidos.');
             return;
         }
+
+        fileList.innerHTML = '';
 
         this.uploadedFiles.forEach((file, index) => {
             const fileItem = document.createElement('div');

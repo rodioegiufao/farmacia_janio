@@ -135,6 +135,7 @@ const MESES_PT_BR = {
 // Templates disponíveis
 const TEMPLATES = {
     "memorial": "viabilidade/templates/memorial-descritivo.docx",
+    "memorial_aerea": "viabilidade/templates/memorial-descritivo-aérea.docx",
     "procuração": "viabilidade/templates/procuração.docx",
     "termo_responsabilidade": "viabilidade/templates/termo-responsabilidade.docx",
     "carta_viabilidade": "viabilidade/templates/carta-viabilidade.docx",
@@ -403,7 +404,7 @@ async function processarFormulario() {
 
 function validarFormulario() {
     const camposObrigatorios = [
-        'potencia', 'art', 'tensao', 'ramal_tamanho', 'ramal_cabo',
+        'potencia', 'art', 'tensao', 'ramal_tamanho', 'ramal_cabo', 'tipo_subestacao',
         'potencia_trafo_1', 'tensao_trafo_1', 'tipo_trafo', // Novos campos de Trafo 1 e Tipo
         'carga_instalada', // Campo movido/novo
         'nome_projeto', 'concessionaria', 'endereco_empreendimento',
@@ -527,6 +528,7 @@ function coletarDadosFormulario() {
     const potencia1 = document.getElementById('potencia_trafo_1')?.value || '';
     const tensao1 = document.getElementById('tensao_trafo_1')?.value || '';
     const tipoTrafo = document.getElementById('tipo_trafo')?.value || 'N/A';
+    const tipoSubestacao = document.getElementById('tipo_subestacao')?.value || 'abrigada';
     const cargaInstalada = document.getElementById('carga_instalada')?.value || 'N/A';
 
     const qtdTrafos = document.getElementById('quantidade_trafos')?.value || '1';
@@ -626,7 +628,7 @@ function coletarDadosFormulario() {
     dados['MES_ATUAL'] = mesPortugues.toUpperCase();
     dados['ANO_ATUAL'] = hoje.getFullYear().toString();
     // Salvar dados para uso posterior
-    dadosProcessados = { ...dados };
+    dadosProcessados = { ...dados, tipo_subestacao: tipoSubestacao };
     
     return dados;
 }
@@ -699,7 +701,9 @@ async function gerarDocumentosWord(dados, documentosParaGerar) {
     
     for (const docInfo of documentosParaGerar) {
         try {
-            const templateUrl = TEMPLATES[docInfo.tipo];
+            const templateUrl = docInfo.tipo === 'memorial'
+                ? (dadosProcessados.tipo_subestacao === 'aerea' ? TEMPLATES.memorial_aerea : TEMPLATES.memorial)
+                : TEMPLATES[docInfo.tipo];
             const response = await fetch(templateUrl);
             
             if (!response.ok) {

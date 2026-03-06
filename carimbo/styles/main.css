@@ -330,7 +330,47 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 0.75rem;
     transition: background 0.3s ease;
+}
+
+.file-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    min-width: 0;
+}
+
+.file-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-size {
+    flex-shrink: 0;
+}
+
+.delete-file-button {
+    border: none;
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+.delete-file-button:hover {
+    background: rgba(239, 68, 68, 0.3);
+    transform: scale(1.05);
 }
 
 .file-item:hover {

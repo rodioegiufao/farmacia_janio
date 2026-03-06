@@ -176,17 +176,45 @@ class PDFAnalyzerApp {
             return;
         }
 
+        this.renderFileList();
+    }
+
+    renderFileList() {
+        const fileList = document.getElementById('fileList');
+        if (!fileList) {
+            return;
+        }
+
         fileList.innerHTML = '';
 
         this.uploadedFiles.forEach((file, index) => {
             const fileItem = document.createElement('div');
             fileItem.className = 'file-item';
             fileItem.innerHTML = `
-                <span>${file.name}</span>
-                <span>${this.formatFileSize(file.size)}</span>
+                <div class="file-info">
+                    <span class="file-name" title="${file.name}">${file.name}</span>
+                    <span class="file-size">${this.formatFileSize(file.size)}</span>
+                </div>
+                <button type="button" class="delete-file-button" data-file-index="${index}" title="Excluir PDF" aria-label="Excluir PDF ${file.name}">
+                    🗑️
+                </button>
             `;
+
+            const deleteButton = fileItem.querySelector('.delete-file-button');
+            deleteButton.addEventListener('click', () => this.removeFile(index));
+
             fileList.appendChild(fileItem);
         });
+    }
+
+    removeFile(index) {
+        if (index < 0 || index >= this.uploadedFiles.length) {
+            return;
+        }
+
+        const [removedFile] = this.uploadedFiles.splice(index, 1);
+        console.log(`🗑️ Arquivo removido: ${removedFile.name}`);
+        this.renderFileList();
     }
 
     loadDefaultKeywords() {

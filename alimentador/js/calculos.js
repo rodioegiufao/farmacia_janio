@@ -77,9 +77,9 @@ class CalculosEletricos {
             "ATIVA_R": pr,
             "ATIVA_S": ps,
             "ATIVA_T": pt,
-            "DEM_R": this.calcularDemanda(pr, fd),
-            "DEM_S": this.calcularDemanda(ps, fd),
-            "DEM_T": this.calcularDemanda(pt, fd),
+            "DEM_R": this.calcularDemanda(pr, fd, fp),
+            "DEM_S": this.calcularDemanda(ps, fd, fp),
+            "DEM_T": this.calcularDemanda(pt, fd, fp),
             "R": this.arredondarCorrente(c_qds[0]),
             "S": this.arredondarCorrente(c_qds[1]),
             "T": this.arredondarCorrente(c_qds[2]),
@@ -179,8 +179,8 @@ class CalculosEletricos {
     }
 
     // Calcular demanda individual
-    calcularDemanda(potencia, fd) {
-        const demanda = potencia * fd;
+    calcularDemanda(potencia, fd, fp) {
+        const demanda = (potencia * fd) / fp;
         // Arredondar para 2 casas decimais
         return Math.round(demanda * 100) / 100;
     }

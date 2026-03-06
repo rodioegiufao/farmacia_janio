@@ -44,22 +44,22 @@ window.MAPEAMENTO_PROJETOS = {
 };
 
 window.PALAVRAS_CHAVE_PADRAO = [
-    "SEINF",
-    "CONSTRUÇÃO DO PRÉDIO DA PROCURADORIA GERAL DO ESTADO DE",
-    "AV. BENJAMIN CONSTANT, LOTE: 177 - DESD., BAIRRO: SÃO PEDRO,",
-    "BOA VISTA - RORAIMA, CEP: 69306-695",
-    "Av. Getúlio Vargas, Nº 3941,",
-    "Canarinho",
-    "CEP: 69.306-700 - Boa Vista/RR",
-    "SETEMBRO", 
-    "5.488,41",
-    "2.085,40",
-    "8.942,32",
-    "6.436,83",
-    "2.088,85",
-    "2.387,93",
-    "2.091,02",
-    "3.557,36",
+    "CONSTRUÇÃO DE UMA CRECHE E PRÉ-ESCOLAR PADRÃO FNDE TIPO 1 - PROINFÂNCIA NO BAIRRO NOVA CANAÃ, ",
+    "NO MUNICÍPIO DE BOA VISTA/RR",
+    "RUA CALEBE (ENTRE RUA HEBRON E RUA QUEILA), S/Nº, BAIRRO NOVA CANAÃ, BOA VISTA, RORAIMA, CEP",
+    "69.314-402",
+    "Rua: Gavião, n° 289, Jóquei Clube",
+    "CEP: 69.313-028 - Boa Vista/RR",
+    "PREFEITURA MUNICIPAL DE BOA VISTA", 
+    "SECRETARIA MUNICIPAL DE EDUCAÇÃO E CULTURA (SMEC)",
+    "Rua: General Penha Brasil,",
+    "nº 705, São Francisco. ",
+    "CEP: 69305-130 - Boa Vista/RR",
+    "FEVEREIRO / 2026",
+    "4.520,24",
+    "1.527,88",
+    "2.434,62",
+    "1.182,87"
 ];
 
 // Criar lista FIXA de palavras-chave dos engenheiros (sempre serão pesquisadas)

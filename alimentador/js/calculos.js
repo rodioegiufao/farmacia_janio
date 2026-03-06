@@ -8,7 +8,7 @@ class CalculosEletricos {
         this.cb_voltenax_corrente = [54, 75, 100, 133, 164, 198, 253, 306, 354, 407];
         
         // Disjuntores caixa moldada
-        this.dj_cx_mol = [40, 50, 63, 100, 125, 150, 160, 200, 250, 320, 400, 500, 630, 700, 800, 1000, 1600, 2000, 2500];
+        this.dj_cx_mol = [32, 40, 50, 63, 100, 110, 125, 150, 160, 200, 250, 320, 400, 500, 630, 700, 800, 1000, 1600, 2000, 2500];
         
         // Capacidades padrão de subestações (kVA)
         this.subestacoes_kva = [75, 112.5, 225, 300, 500, 750, 1000, 1250, 1500, 1750, 2000];

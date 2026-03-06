@@ -85,8 +85,8 @@ class CalculosEletricos {
             "T": this.arredondarCorrente(c_qds[2]),
             "FP": fp,
             "FD": fd,
-            "TENSAO_FASE_V": tensao_linha, // <-- Agora é fase-neutro
-            "TENSAO_LINHA_V": tensao_fase, // <-- Agora é fase-fase (entrada do usuário)
+            "TENSAO_FASE_V": tensao_fase, // <-- Agora é fase-neutro
+            "TENSAO_LINHA_V": tensao_linha, // <-- Agora é fase-fase (entrada do usuário)
             "POT_TOTAL_W": sum_pot,
             "DEM_TOTAL_VA": this.calcularDemandaTotal(sum_pot, fd, fp),
             "COR_MEDIA_A": this.arredondarCorrente(c_med),

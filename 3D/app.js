@@ -1433,6 +1433,7 @@ const IPER_MODELS = [
     { id: "IFC_SUB", src: "/3D/iper/modelo-20.xkt" },
     { id: "IFC_ILUX", src: "/3D/iper/modelo-21.xkt" },
     { id: "IFC_TEF", src: "/3D/iper/modelo-22.xkt" },
+    { id: "IFC_SDAI", src: "/3D/iper/modelo-23.xkt" },
 ];
 
 const FARMACIA_MODELS = [

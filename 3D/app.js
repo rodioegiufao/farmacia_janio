@@ -1538,6 +1538,7 @@ const IPER_MODEL_TRANSFORMS = {
     IFC_EMT_COB: { position: [0.14, 0, -0.15], rotation: [0, 90, 0]  },
     IFC_ILUX: { position: [-14, 0, 0]},
     IFC_ARQ: { position: [0.15, 0, -0.17], rotation: [0, 90, 0]  },
+    IFC_SDAI: { position: [0.16, 0, -0.19] },
 };
 
 const FARMACIA_MODEL_TRANSFORMS = {

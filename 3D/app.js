@@ -1485,6 +1485,7 @@ const CANAA_MODELS = [
     { id: "IFC_EST_EMT", src: "/3D/esc_canaa/modelo-16.xkt" },
     { id: "IFC_SDAI", src: "/3D/esc_canaa/modelo-17.xkt" },
     { id: "IFC_GLP", src: "/3D/esc_canaa/modelo-18.xkt" },
+    { id: "IFC_IRRI", src: "/3D/esc_canaa/modelo-19.xkt" },
   ];
 
 const SEBRAE_RR_MODELS = [

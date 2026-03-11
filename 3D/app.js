@@ -1552,7 +1552,7 @@ const FARMACIA_MODEL_TRANSFORMS = {
     IFC_FOT: { position: [14.09, 0, 0] },
     //IFC_ARQ: { position: [14.09, 0, 0] },
     IFC_CLI: { position: [14.09, 0, 0] },
-    IFC_EXA: { position: [14.09, 0, 0] },
+    //IFC_EXA: { position: [14.09, 0, 0] },
     IFC_ELE: { position: [14.09, 0, 0] },
     IFC_LOG_TEF: { position: [14.09, 0, 0] },
 };

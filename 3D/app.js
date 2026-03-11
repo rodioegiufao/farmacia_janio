@@ -1443,7 +1443,7 @@ const FARMACIA_MODELS = [
     { id: "IFC_EST", src: "/3D/drogaria/modelo-06.xkt" },
     { id: "IFC_SAN", src: "/3D/drogaria/modelo-08.xkt" },
     { id: "IFC_PLU", src: "/3D/drogaria/modelo-07.xkt" },
-    //{ id: "IFC_ARQ", src: "/3D/drogaria/modelo-09.xkt" },
+    { id: "IFC_ARQ", src: "/3D/drogaria/modelo-09.xkt" },
     { id: "IFC_FOT", src: "/3D/drogaria/modelo-03.xkt" },
     { id: "IFC_ALI", src: "/3D/drogaria/modelo-01.xkt" },
     { id: "IFC_CLI", src: "/3D/drogaria/modelo-10.xkt" },

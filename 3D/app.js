@@ -1449,6 +1449,7 @@ const FARMACIA_MODELS = [
     { id: "IFC_CLI", src: "/3D/drogaria/modelo-10.xkt" },
     { id: "IFC_HID", src: "/3D/drogaria/modelo-11.xkt" },
     { id: "IFC_INC", src: "/3D/drogaria/modelo-12.xkt" },
+    { id: "IFC_EXA", src: "/3D/drogaria/modelo-13.xkt" },
 ];
 
 const POLICLINICA_MODELS = [
@@ -1551,6 +1552,7 @@ const FARMACIA_MODEL_TRANSFORMS = {
     IFC_FOT: { position: [14.09, 0, 0] },
     IFC_ARQ: { position: [14.09, 0, 0] },
     IFC_CLI: { position: [14.09, 0, 0] },
+    IFC_EXA: { position: [14.09, 0, 0] },
     IFC_ELE: { position: [14.09, 0, 0] },
     IFC_LOG_TEF: { position: [14.09, 0, 0] },
 };

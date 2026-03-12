@@ -1439,12 +1439,12 @@ const IPER_MODELS = [
 const FARMACIA_MODELS = [
     { id: "IFC_LOG_TEF", src: "/3D/drogaria/modelo-05.xkt" },
     { id: "IFC_ELE", src: "/3D/drogaria/modelo-04.xkt" },
-    { id: "IFC_ILUX", src: "/3D/drogaria/modelo-02.xkt" },
+    //{ id: "IFC_ILUX", src: "/3D/drogaria/modelo-02.xkt" },
     { id: "IFC_EST", src: "/3D/drogaria/modelo-06.xkt" },
     { id: "IFC_SAN", src: "/3D/drogaria/modelo-08.xkt" },
     { id: "IFC_PLU", src: "/3D/drogaria/modelo-07.xkt" },
     { id: "IFC_ARQ", src: "/3D/drogaria/modelo-09.xkt" },
-    //{ id: "IFC_FOT", src: "/3D/drogaria/modelo-03.xkt" },
+    { id: "IFC_FOT", src: "/3D/drogaria/modelo-03.xkt" },
     { id: "IFC_ALI", src: "/3D/drogaria/modelo-01.xkt" },
     { id: "IFC_CLI", src: "/3D/drogaria/modelo-10.xkt" },
     { id: "IFC_HID", src: "/3D/drogaria/modelo-11.xkt" },
@@ -4217,6 +4217,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
+
 
 
 

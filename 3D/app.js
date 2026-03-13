@@ -1685,7 +1685,13 @@ function handleModelSelection(models, transforms, projectKey, { replaceUrl = fal
     if (modelSelectionOverlay) {
         modelSelectionOverlay.hidden = true;
     }
-
+    clearAllLoadedModels();
+    resetModelVisibility();
+    loadModelGroup(models, transforms);
+    updateProjectUrl(projectKey, { replace: replaceUrl });
+    setIfcUploadStatus("");
+    requestRenderFrame();
+}
 function handleProjectSelectChange(event) {
     const projectKey = event.target.value;
     if (!projectKey || !PROJECT_CONFIGS[projectKey]) {
@@ -4244,8 +4250,3 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
     canvasElement.addEventListener('touchcancel', clearTouch, { passive: true });
 
 })();
-
-
-
-
-

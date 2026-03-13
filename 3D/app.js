@@ -1786,6 +1786,7 @@ function openMaterialsPanelAndFilterByBudgetCode(codigoComposicao) {
     return associatedMaterials;
 }
 
+
 function setBudgetStatus(message, isError = false) {
     if (!budgetStatus) {
         return;

@@ -1667,15 +1667,62 @@ const PROJECT_ROUTES = {
     sebrae_rr: "/3D/sebrae-rr",
 };
 
-const PROJECT_BUDGET_URLS = {
-    esc_canaa: "/3D/esc_canaa/OR%C3%87AMENTO%20ESCOLA%20NOVA%20CANA%C3%83.xlsx",
+const PROJECT_BUDGET_DATA_URLS = {
+    esc_canaa: "/3D/esc_canaa/budget_rows.json",
 };
 
-const BUDGET_DATA_START_ROW = 4;
 const BUDGET_COLUMN_COUNT = 10;
 const BUDGET_NUMBER_COLUMNS = new Set([5, 6, 7, 8, 9]);
 const budgetAssociationsByCode = new Map();
 const budgetAssociationsByDescription = new Map();
+
+function parseBudgetNumber(rawValue) {
+    const rawText = String(rawValue || "").trim();
+    const normalized = rawText
+        .replace(/\s+/g, "")
+        .replace(/[^0-9,.-]/g, "");
+
+    if (!normalized) {
+        return NaN;
+    }
+
+    if (normalized.includes(",") && normalized.includes(".")) {
+        return Number.parseFloat(normalized.replace(/\./g, "").replace(",", "."));
+    }
+
+    if (normalized.includes(",")) {
+        return Number.parseFloat(normalized.replace(",", "."));
+    }
+
+    return Number.parseFloat(normalized);
+}
+
+function formatBudgetNumber(value) {
+    if (!Number.isFinite(value)) {
+        return "";
+    }
+
+    return value.toFixed(2).replace(/\.00$/, "").replace(/(\.\d*[1-9])0+$/, "$1");
+}
+
+function computeBudgetTotalIfNeeded(rowValues) {
+    if (rowValues[8]) {
+        return rowValues;
+    }
+
+    const quantity = parseBudgetNumber(rowValues[5]);
+    const unitWithBdi = parseBudgetNumber(rowValues[7]);
+    const unitValue = parseBudgetNumber(rowValues[6]);
+    const unitToUse = Number.isFinite(unitWithBdi) ? unitWithBdi : unitValue;
+
+    if (!Number.isFinite(quantity) || !Number.isFinite(unitToUse)) {
+        return rowValues;
+    }
+
+    const updatedRow = [...rowValues];
+    updatedRow[8] = formatBudgetNumber(quantity * unitToUse);
+    return updatedRow;
+}
 
 function normalizeCompositionCode(rawCode) {
     const cleaned = String(rawCode || "").trim().toLowerCase();
@@ -1835,8 +1882,8 @@ function getBudgetRowClass(itemValue, hasDescription, hasCode) {
 }
 
 async function renderProjectBudgetTable(projectKey) {
-    const budgetUrl = PROJECT_BUDGET_URLS[projectKey];
-    if (!budgetUrl || !budgetTableBody || !budgetTable) {
+    const budgetDataUrl = PROJECT_BUDGET_DATA_URLS[projectKey];
+    if (!budgetDataUrl || !budgetTableBody || !budgetTable) {
         return false;
     }
 
@@ -1845,40 +1892,20 @@ async function renderProjectBudgetTable(projectKey) {
         clearBudgetTable();
         await ensureBudgetAssociationsLoaded();
 
-        if (!window.XLSX) {
-            await new Promise((resolve, reject) => {
-                const script = document.createElement("script");
-                script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
-                script.onload = resolve;
-                script.onerror = () => reject(new Error("Falha ao carregar a biblioteca XLSX."));
-                document.head.appendChild(script);
-            });
-        }
-
-        const response = await fetch(budgetUrl, { cache: "no-store" });
+        const response = await fetch(budgetDataUrl, { cache: "no-store" });
         if (!response.ok) {
-            throw new Error(`Não foi possível carregar a planilha (status ${response.status}).`);
+            throw new Error(`Não foi possível carregar os dados do orçamento (status ${response.status}).`);
+        }
+        const budgetRows = await response.json();
+        if (!Array.isArray(budgetRows)) {
+            throw new Error("Formato inválido dos dados de orçamento.");
         }
 
-        const workbookBuffer = await response.arrayBuffer();
-        const workbook = window.XLSX.read(workbookBuffer, { type: "array" });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-
-        const sheetRange = window.XLSX.utils.decode_range(worksheet["!ref"] || "A1:A1");
-        const firstDataRow = Math.max(sheetRange.s.r, BUDGET_DATA_START_ROW);
         const fragment = document.createDocumentFragment();
-
-        for (let rowIndex = firstDataRow; rowIndex <= sheetRange.e.r; rowIndex += 1) {
-            const normalized = Array.from({ length: BUDGET_COLUMN_COUNT }, (_, colIndex) => {
-                const cellRef = window.XLSX.utils.encode_cell({ c: colIndex, r: rowIndex });
-                const cell = worksheet[cellRef];
-                if (!cell) {
-                    return "";
-                }
-
-                return String(window.XLSX.utils.format_cell(cell) || "").trim();
-            });
+        for (const row of budgetRows) {
+            const normalized = computeBudgetTotalIfNeeded(
+                Array.from({ length: BUDGET_COLUMN_COUNT }, (_, colIndex) => String(row?.[colIndex] || "").trim())
+            );
 
             const hasAnyValue = normalized.some((value) => value);
             if (!hasAnyValue) {
@@ -1960,9 +1987,9 @@ async function renderProjectBudgetTable(projectKey) {
 }
 
 function openProjectBudget(projectKey = activeProjectKey) {
-    const budgetUrl = PROJECT_BUDGET_URLS[projectKey];
+    const budgetDataUrl = PROJECT_BUDGET_DATA_URLS[projectKey];
 
-    if (!budgetPanel || !budgetUrl) {
+    if (!budgetPanel || !budgetDataUrl) {
         return false;
     }
 

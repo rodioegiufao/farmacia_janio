@@ -199,7 +199,7 @@
                 <li><kbd>T</kbd> — IDs do material selecionado</li>
                 <li><kbd>K</kbd> — Isolar material selecionado na lista</li>
                 <li><kbd>I</kbd> — Isolar</li>
-                <li><kbd>OR</kbd> — Mostrar orçamento da Escola Canaã</li>
+                <li><kbd>Z</kbd> — Mostrar orçamento da Escola Canaã</li>
                 <li><kbd>J</kbd> — Rotacionar a peça selecionada em 90°</li>
             </ul>
             <p class="help-note">Para selecionar um objeto, clique duas vezes.</p>
@@ -213,7 +213,26 @@
             </div>
             <button id="closeBudgetPanel" type="button" aria-label="Fechar painel">✕</button>
         </div>
-        <iframe id="budgetFrame" title="Orçamento da Escola Canaã"></iframe>
+        <p id="budgetStatus" class="budget-status">Carregando orçamento...</p>
+        <div class="budget-table-wrapper" aria-label="Tabela do orçamento da Escola Canaã">
+            <table id="budgetTable" class="budget-table" hidden>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Código</th>
+                        <th>Banco</th>
+                        <th>Descrição</th>
+                        <th>Und</th>
+                        <th>Quant.</th>
+                        <th>Valor Unit</th>
+                        <th>Valor Unit com BDI</th>
+                        <th>Total</th>
+                        <th>Peso (%)</th>
+                    </tr>
+                </thead>
+                <tbody id="budgetTableBody"></tbody>
+            </table>
+        </div>
     </div>
     <div id="collisionPanel" hidden>
         <div class="collision-panel-header">

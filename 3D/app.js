@@ -459,10 +459,10 @@ let searchResultsList = document.getElementById("searchResultsList");
 const budgetPanel = document.getElementById("budgetPanel");
 const budgetPanelToggleButton = document.getElementById("btnBudget");
 const closeBudgetPanelButton = document.getElementById("closeBudgetPanel");
-const budgetFrame = document.getElementById("budgetFrame");
-const budgetFrameLoadedProjects = new Set();
-let pendingBudgetShortcut = false;
-let pendingBudgetShortcutAt = 0;
+const budgetStatus = document.getElementById("budgetStatus");
+const budgetTable = document.getElementById("budgetTable");
+const budgetTableBody = document.getElementById("budgetTableBody");
+const budgetTableLoadedProjects = new Set();
 
 setupAccessGate();
 setupHelpPanel();
@@ -1667,16 +1667,125 @@ const PROJECT_BUDGET_URLS = {
     esc_canaa: "/3D/esc_canaa/OR%C3%87AMENTO%20ESCOLA%20NOVA%20CANA%C3%83.xlsx",
 };
 
-function openProjectBudget(projectKey = activeProjectKey) {
-    const budgetUrl = PROJECT_BUDGET_URLS[projectKey];
+const BUDGET_NUMBER_COLUMNS = new Set([5, 6, 7, 8, 9]);
 
-    if (!budgetPanel || !budgetFrame || !budgetUrl) {
+function setBudgetStatus(message, isError = false) {
+    if (!budgetStatus) {
+        return;
+    }
+
+    budgetStatus.hidden = !message;
+    budgetStatus.textContent = message || "";
+    budgetStatus.style.color = isError ? "#ffb4b4" : "#cfd8dc";
+}
+
+function clearBudgetTable() {
+    if (budgetTableBody) {
+        budgetTableBody.innerHTML = "";
+    }
+
+    if (budgetTable) {
+        budgetTable.hidden = true;
+    }
+}
+
+function getBudgetRowClass(itemValue, hasDescription, hasCode) {
+    const isSection = itemValue && /^\d+(\.\d+)?$/.test(itemValue) && hasDescription && !hasCode;
+    return isSection ? "section-row" : "data-row";
+}
+
+async function renderProjectBudgetTable(projectKey) {
+    const budgetUrl = PROJECT_BUDGET_URLS[projectKey];
+    if (!budgetUrl || !budgetTableBody || !budgetTable) {
         return false;
     }
 
-    if (!budgetFrameLoadedProjects.has(projectKey)) {
-        budgetFrame.src = budgetUrl;
-        budgetFrameLoadedProjects.add(projectKey);
+    try {
+        setBudgetStatus("Carregando orçamento...");
+        clearBudgetTable();
+
+        if (!window.XLSX) {
+            await new Promise((resolve, reject) => {
+                const script = document.createElement("script");
+                script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+                script.onload = resolve;
+                script.onerror = () => reject(new Error("Falha ao carregar a biblioteca XLSX."));
+                document.head.appendChild(script);
+            });
+        }
+
+        const response = await fetch(budgetUrl, { cache: "no-store" });
+        if (!response.ok) {
+            throw new Error(`Não foi possível carregar a planilha (status ${response.status}).`);
+        }
+
+        const workbookBuffer = await response.arrayBuffer();
+        const workbook = window.XLSX.read(workbookBuffer, { type: "array" });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+
+        const rows = window.XLSX.utils.sheet_to_json(worksheet, {
+            header: 1,
+            range: 3,
+            defval: "",
+            raw: false,
+        });
+
+        const fragment = document.createDocumentFragment();
+
+        rows.forEach((cells) => {
+            const hasAnyValue = Array.isArray(cells) && cells.some((cell) => String(cell || "").trim());
+            if (!hasAnyValue) {
+                return;
+            }
+
+            const normalized = Array.from({ length: 10 }, (_, index) => String(cells[index] || "").trim());
+            const [item, codigo, , descricao] = normalized;
+            const tr = document.createElement("tr");
+            tr.className = getBudgetRowClass(item, Boolean(descricao), Boolean(codigo));
+
+            normalized.forEach((value, index) => {
+                const td = document.createElement("td");
+                td.textContent = value;
+                if (BUDGET_NUMBER_COLUMNS.has(index)) {
+                    td.classList.add("numeric");
+                }
+                tr.appendChild(td);
+            });
+
+            fragment.appendChild(tr);
+        });
+
+        budgetTableBody.appendChild(fragment);
+        budgetTable.hidden = false;
+        setBudgetStatus("");
+        return true;
+    } catch (error) {
+        console.error("Erro ao carregar orçamento:", error);
+        clearBudgetTable();
+        setBudgetStatus(`Erro ao carregar orçamento: ${error.message}`, true);
+        return false;
+    }
+}
+
+function openProjectBudget(projectKey = activeProjectKey) {
+    const budgetUrl = PROJECT_BUDGET_URLS[projectKey];
+
+    if (!budgetPanel || !budgetUrl) {
+        return false;
+    }
+
+    if (!budgetTableLoadedProjects.has(projectKey)) {
+        renderProjectBudgetTable(projectKey).then((loaded) => {
+            if (loaded) {
+                budgetTableLoadedProjects.add(projectKey);
+            }
+        });
+    } else {
+        setBudgetStatus("");
+        if (budgetTable) {
+            budgetTable.hidden = false;
+        }
     }
 
     budgetPanel.hidden = false;
@@ -3335,23 +3444,11 @@ document.addEventListener("keydown", (event) => {
     }
 
     if (activeProjectKey === "esc_canaa") {
-        if (key === "o") {
-            pendingBudgetShortcut = true;
-            pendingBudgetShortcutAt = Date.now();
-            return;
-        }
-
-        if (key === "r") {
-            const elapsed = Date.now() - pendingBudgetShortcutAt;
-            if (pendingBudgetShortcut && elapsed <= 900 && openProjectBudget()) {
-                pendingBudgetShortcut = false;
+        if (key === "z") {
+            if (openProjectBudget()) {
                 event.preventDefault();
                 return;
             }
-        }
-
-        if (key !== "r") {
-            pendingBudgetShortcut = false;
         }
     }
     

@@ -219,3 +219,12 @@ body[data-mode="mobile"] #creditNote {
 .ifc-upload-panel p {
     font-size: 0.8rem;
 }
+
+body[data-mode="mobile"] #budgetPanel {
+    top: 20px;
+    right: 20px;
+    left: 20px;
+    width: auto;
+    max-width: none;
+    height: calc(100% - 40px);
+}

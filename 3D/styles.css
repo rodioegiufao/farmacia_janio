@@ -1608,6 +1608,24 @@ html, body {
     background: #edf7e8;
 }
 
+.budget-table td.budget-code-clickable {
+    color: #0b3d91;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    font-weight: 600;
+}
+
+.budget-table td.budget-code-clickable:hover {
+    color: #072a65;
+    background: rgba(11, 61, 145, 0.08);
+}
+
+.budget-table td.budget-code-clickable:focus-visible {
+    outline: 2px solid #0b3d91;
+    outline-offset: -2px;
+}
+
 /* ---------------------------------------------------- */
 /* Painel de lista geral de materiais IFC               */
 /* ---------------------------------------------------- */

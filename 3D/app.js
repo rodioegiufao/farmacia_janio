@@ -3008,6 +3008,44 @@ function normalizeMaterialName(name) {
     return (name || "").trim().toLowerCase();
 }
 
+function normalizeMaterialComparisonText(value) {
+    return normalizeSearchText(value).replace(/\s+/g, " ").trim();
+}
+
+function normalizeMaterialCompactText(value) {
+    return normalizeMaterialComparisonText(value).replace(/[^a-z0-9]/g, "");
+}
+
+function materialNamesMatch(referenceName, candidateName) {
+    const normalizedReference = normalizeMaterialComparisonText(referenceName);
+    const normalizedCandidate = normalizeMaterialComparisonText(candidateName);
+
+    if (!normalizedReference || !normalizedCandidate) {
+        return false;
+    }
+
+    if (normalizedReference === normalizedCandidate) {
+        return true;
+    }
+
+    const compactReference = normalizeMaterialCompactText(normalizedReference);
+    const compactCandidate = normalizeMaterialCompactText(normalizedCandidate);
+
+    if (compactReference && compactReference === compactCandidate) {
+        return true;
+    }
+
+    if (compactReference.length >= 10 && compactCandidate.includes(compactReference)) {
+        return true;
+    }
+
+    if (compactCandidate.length >= 10 && compactReference.includes(compactCandidate)) {
+        return true;
+    }
+
+    return false;
+}
+
 function normalizeSearchText(value) {
     return (value || "")
         .trim()
@@ -3099,10 +3137,9 @@ function findMaterialObjectIds(materialName, { activeOnly = true } = {}) {
                     continue;
                 }
 
-                const normalizedName = normalizeMaterialName(name);
                 const normalizedValue = normalizeMaterialToken(prop?.value);
 
-                if (normalizedName === targetName || normalizedValue === targetName) {
+                if (materialNamesMatch(targetName, name) || materialNamesMatch(targetName, normalizedValue)) {
                     hasMaterial = true;
                     break;
                 }
@@ -3364,8 +3401,9 @@ async function applyMaterialsSearch({ skipAssociationsLoad = false } = {}) {
     if (normalizedQuery) {
         const associatedMaterials = getAssociatedMaterialsByBudgetReference({ code: rawQuery, description: rawQuery });
         if (associatedMaterials.length) {
-            const associatedSet = new Set(associatedMaterials);
-            filteredItems = materialsAllResults.filter((item) => associatedSet.has(normalizeMaterialName(item.name)));
+            filteredItems = materialsAllResults.filter((item) =>
+                associatedMaterials.some((associatedName) => materialNamesMatch(associatedName, item.name))
+            );
         }
     }
 

@@ -1668,6 +1668,7 @@ const PROJECT_BUDGET_URLS = {
 };
 
 const BUDGET_DATA_START_ROW = 4;
+const BUDGET_COLUMN_COUNT = 10;
 const BUDGET_NUMBER_COLUMNS = new Set([5, 6, 7, 8, 9]);
 
 function setBudgetStatus(message, isError = false) {
@@ -1725,22 +1726,26 @@ async function renderProjectBudgetTable(projectKey) {
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
 
-        const rows = window.XLSX.utils.sheet_to_json(worksheet, {
-            header: 1,
-            range: BUDGET_DATA_START_ROW,
-            defval: "",
-            raw: false,
-        });
-
+        const sheetRange = window.XLSX.utils.decode_range(worksheet["!ref"] || "A1:A1");
+        const firstDataRow = Math.max(sheetRange.s.r, BUDGET_DATA_START_ROW);
         const fragment = document.createDocumentFragment();
 
-        rows.forEach((cells) => {
-            const hasAnyValue = Array.isArray(cells) && cells.some((cell) => String(cell || "").trim());
+        for (let rowIndex = firstDataRow; rowIndex <= sheetRange.e.r; rowIndex += 1) {
+            const normalized = Array.from({ length: BUDGET_COLUMN_COUNT }, (_, colIndex) => {
+                const cellRef = window.XLSX.utils.encode_cell({ c: colIndex, r: rowIndex });
+                const cell = worksheet[cellRef];
+                if (!cell) {
+                    return "";
+                }
+
+                return String(window.XLSX.utils.format_cell(cell) || "").trim();
+            });
+
+            const hasAnyValue = normalized.some((value) => value);
             if (!hasAnyValue) {
-                return;
+                continue;
             }
 
-            const normalized = Array.from({ length: 10 }, (_, index) => String(cells[index] || "").trim());
             const [item, codigo, , descricao] = normalized;
             const tr = document.createElement("tr");
             tr.className = getBudgetRowClass(item, Boolean(descricao), Boolean(codigo));
@@ -1755,7 +1760,7 @@ async function renderProjectBudgetTable(projectKey) {
             });
 
             fragment.appendChild(tr);
-        });
+        }
 
         budgetTableBody.appendChild(fragment);
         budgetTable.hidden = false;

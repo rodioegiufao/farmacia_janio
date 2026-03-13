@@ -1754,6 +1754,38 @@ function isolateBudgetComposition(codigoComposicao) {
     return true;
 }
 
+function getAssociatedMaterialsByBudgetCode(query) {
+    const normalizedCode = normalizeCompositionCode(query);
+    if (!normalizedCode || !budgetAssociationsByCode.has(normalizedCode)) {
+        return [];
+    }
+
+    return Array.from(budgetAssociationsByCode.get(normalizedCode));
+}
+
+function openMaterialsPanelAndFilterByBudgetCode(codigoComposicao) {
+    if (!materialsPanel) {
+        return [];
+    }
+
+    if (!materialsAllResults.length) {
+        generateAndRenderMaterialsList();
+    }
+
+    const associatedMaterials = getAssociatedMaterialsByBudgetCode(codigoComposicao);
+    if (!associatedMaterials.length) {
+        return [];
+    }
+
+    materialsPanel.hidden = false;
+    materialsPanelToggleButton?.classList.add("active");
+    if (materialsSearchInput) {
+        materialsSearchInput.value = codigoComposicao;
+    }
+    applyMaterialsSearch({ skipAssociationsLoad: true });
+    return associatedMaterials;
+}
+
 function setBudgetStatus(message, isError = false) {
     if (!budgetStatus) {
         return;
@@ -1846,13 +1878,26 @@ async function renderProjectBudgetTable(projectKey) {
                         td.setAttribute("tabindex", "0");
                         td.title = "Clique para localizar os itens desta composição no modelo";
 
-                        const handleCompositionClick = () => {
-                            const isolated = isolateBudgetComposition(value);
-                            if (!isolated) {
-                                setBudgetStatus(`Composição ${value} sem itens encontrados no modelo atual.`, true);
+                        const handleCompositionClick = async () => {
+                            await ensureBudgetAssociationsLoaded();
+
+                            const associatedMaterials = openMaterialsPanelAndFilterByBudgetCode(value);
+                            if (!associatedMaterials.length) {
+                                setBudgetStatus(`Composição ${value} sem itens associados na base para pesquisa.`, true);
                                 return;
                             }
-                            setBudgetStatus(`Composição ${value}: itens associados localizados no modelo.`);
+
+                            const isolated = isolateBudgetComposition(value);
+                            if (!isolated) {
+                                setBudgetStatus(
+                                    `Composição ${value}: associações carregadas. Clique no item associado na lista de materiais para localizar no modelo.`,
+                                    true
+                                );
+                                return;
+                            }
+                            setBudgetStatus(
+                                `Composição ${value}: itens associados localizados. Você pode clicar em qualquer item associado na lista de materiais.`
+                            );
                         };
 
                         td.addEventListener("click", handleCompositionClick);
@@ -3267,19 +3312,34 @@ function generateAndRenderMaterialsList() {
     renderMaterialsResults(items, { totalCount: items.length, query: "" });
 }
 
-function applyMaterialsSearch() {
+async function applyMaterialsSearch({ skipAssociationsLoad = false } = {}) {
     if (!materialsSummary || !materialsResultsList) {
         return;
+    }
+
+    if (!skipAssociationsLoad) {
+        try {
+            await ensureBudgetAssociationsLoaded();
+        } catch (error) {
+            console.warn("Não foi possível carregar as associações para pesquisa por código.", error);
+        }
     }
 
     const rawQuery = materialsSearchInput?.value || "";
     const normalizedQuery = normalizeSearchText(rawQuery);
     materialsSearchQuery = rawQuery;
 
-    const filteredItems = normalizedQuery
-        ? materialsAllResults.filter((item) =>
-            normalizeSearchText(item.name).includes(normalizedQuery))
+    let filteredItems = normalizedQuery
+        ? materialsAllResults.filter((item) => normalizeSearchText(item.name).includes(normalizedQuery))
         : materialsAllResults;
+
+    if (normalizedQuery) {
+        const associatedMaterials = getAssociatedMaterialsByBudgetCode(rawQuery);
+        if (associatedMaterials.length) {
+            const associatedSet = new Set(associatedMaterials);
+            filteredItems = materialsAllResults.filter((item) => associatedSet.has(normalizeMaterialName(item.name)));
+        }
+    }
 
     if (activeMaterialFilter && !filteredItems.some((item) => item.name === activeMaterialFilter)) {
         clearMaterialIsolation();

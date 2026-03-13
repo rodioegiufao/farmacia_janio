@@ -1675,6 +1675,7 @@ const BUDGET_DATA_START_ROW = 4;
 const BUDGET_COLUMN_COUNT = 10;
 const BUDGET_NUMBER_COLUMNS = new Set([5, 6, 7, 8, 9]);
 const budgetAssociationsByCode = new Map();
+const budgetAssociationsByDescription = new Map();
 
 function normalizeCompositionCode(rawCode) {
     const cleaned = String(rawCode || "").trim().toLowerCase();
@@ -1691,7 +1692,7 @@ function normalizeCompositionCode(rawCode) {
 }
 
 async function ensureBudgetAssociationsLoaded() {
-    if (budgetAssociationsByCode.size > 0) {
+    if (budgetAssociationsByCode.size > 0 || budgetAssociationsByDescription.size > 0) {
         return;
     }
 
@@ -1699,28 +1700,58 @@ async function ensureBudgetAssociationsLoaded() {
 
     associations.forEach((association) => {
         const normalizedCode = normalizeCompositionCode(association.codigo);
+        const normalizedDescription = normalizeSearchText(association.descricao).replace(/\s+/g, " ");
         const normalizedItemDescription = normalizeMaterialName(association.itemDescricao);
 
-        if (!normalizedCode || !normalizedItemDescription) {
+        if (!normalizedItemDescription) {
             return;
         }
 
-        if (!budgetAssociationsByCode.has(normalizedCode)) {
-            budgetAssociationsByCode.set(normalizedCode, new Set());
+        if (normalizedCode) {
+            if (!budgetAssociationsByCode.has(normalizedCode)) {
+                budgetAssociationsByCode.set(normalizedCode, new Set());
+            }
+
+            budgetAssociationsByCode.get(normalizedCode).add(normalizedItemDescription);
         }
 
-        budgetAssociationsByCode.get(normalizedCode).add(normalizedItemDescription);
+        if (normalizedDescription) {
+            if (!budgetAssociationsByDescription.has(normalizedDescription)) {
+                budgetAssociationsByDescription.set(normalizedDescription, new Set());
+            }
+
+            budgetAssociationsByDescription.get(normalizedDescription).add(normalizedItemDescription);
+        }
     });
 }
 
-function isolateBudgetComposition(codigoComposicao) {
-    const normalizedCode = normalizeCompositionCode(codigoComposicao);
-    if (!normalizedCode) {
-        return false;
+function getAssociatedMaterialsByBudgetReference({ code = "", description = "" } = {}) {
+    const associatedItems = new Set();
+
+    const normalizedCode = normalizeCompositionCode(code);
+    if (normalizedCode && budgetAssociationsByCode.has(normalizedCode)) {
+        budgetAssociationsByCode.get(normalizedCode).forEach((item) => associatedItems.add(item));
     }
 
-    const associatedItems = budgetAssociationsByCode.get(normalizedCode);
-    if (!associatedItems || !associatedItems.size) {
+    const normalizedDescription = normalizeSearchText(description).replace(/\s+/g, " ");
+    if (normalizedDescription) {
+        if (budgetAssociationsByDescription.has(normalizedDescription)) {
+            budgetAssociationsByDescription.get(normalizedDescription).forEach((item) => associatedItems.add(item));
+        } else {
+            budgetAssociationsByDescription.forEach((items, descriptionKey) => {
+                if (descriptionKey.includes(normalizedDescription) || normalizedDescription.includes(descriptionKey)) {
+                    items.forEach((item) => associatedItems.add(item));
+                }
+            });
+        }
+    }
+
+    return Array.from(associatedItems);
+}
+
+function isolateBudgetComposition({ code = "", description = "" } = {}) {
+    const associatedItems = getAssociatedMaterialsByBudgetReference({ code, description });
+    if (!associatedItems.length) {
         return false;
     }
 
@@ -1754,16 +1785,7 @@ function isolateBudgetComposition(codigoComposicao) {
     return true;
 }
 
-function getAssociatedMaterialsByBudgetCode(query) {
-    const normalizedCode = normalizeCompositionCode(query);
-    if (!normalizedCode || !budgetAssociationsByCode.has(normalizedCode)) {
-        return [];
-    }
-
-    return Array.from(budgetAssociationsByCode.get(normalizedCode));
-}
-
-function openMaterialsPanelAndFilterByBudgetCode(codigoComposicao) {
+function openMaterialsPanelAndFilterByBudgetReference({ code = "", description = "" } = {}) {
     if (!materialsPanel) {
         return [];
     }
@@ -1772,7 +1794,7 @@ function openMaterialsPanelAndFilterByBudgetCode(codigoComposicao) {
         generateAndRenderMaterialsList();
     }
 
-    const associatedMaterials = getAssociatedMaterialsByBudgetCode(codigoComposicao);
+    const associatedMaterials = getAssociatedMaterialsByBudgetReference({ code, description });
     if (!associatedMaterials.length) {
         return [];
     }
@@ -1780,7 +1802,7 @@ function openMaterialsPanelAndFilterByBudgetCode(codigoComposicao) {
     materialsPanel.hidden = false;
     materialsPanelToggleButton?.classList.add("active");
     if (materialsSearchInput) {
-        materialsSearchInput.value = codigoComposicao;
+        materialsSearchInput.value = description || code;
     }
     applyMaterialsSearch({ skipAssociationsLoad: true });
     return associatedMaterials;
@@ -1864,6 +1886,11 @@ async function renderProjectBudgetTable(projectKey) {
             }
 
             const [item, codigo, , descricao] = normalized;
+            const codeKey = normalizeCompositionCode(codigo);
+            const descriptionKey = normalizeSearchText(descricao).replace(/\s+/g, " ");
+            const hasAssociations =
+                (codeKey && budgetAssociationsByCode.has(codeKey)) ||
+                (descriptionKey && budgetAssociationsByDescription.has(descriptionKey));
             const tr = document.createElement("tr");
             tr.className = getBudgetRowClass(item, Boolean(descricao), Boolean(codigo));
 
@@ -1871,44 +1898,44 @@ async function renderProjectBudgetTable(projectKey) {
                 const td = document.createElement("td");
                 td.textContent = value;
 
-                if (index === 1) {
-                    const codeKey = normalizeCompositionCode(value);
-                    if (codeKey && budgetAssociationsByCode.has(codeKey)) {
-                        td.classList.add("budget-code-clickable");
-                        td.setAttribute("role", "button");
-                        td.setAttribute("tabindex", "0");
-                        td.title = "Clique para localizar os itens desta composição no modelo";
+                if (hasAssociations && (index === 1 || index === 3)) {
+                    td.classList.add("budget-code-clickable");
+                    td.setAttribute("role", "button");
+                    td.setAttribute("tabindex", "0");
+                    td.title = "Clique para pesquisar os itens desta composição na base e localizar no modelo";
 
-                        const handleCompositionClick = async () => {
-                            await ensureBudgetAssociationsLoaded();
+                    const handleCompositionClick = async () => {
+                        await ensureBudgetAssociationsLoaded();
 
-                            const associatedMaterials = openMaterialsPanelAndFilterByBudgetCode(value);
-                            if (!associatedMaterials.length) {
-                                setBudgetStatus(`Composição ${value} sem itens associados na base para pesquisa.`, true);
-                                return;
-                            }
-
-                            const isolated = isolateBudgetComposition(value);
-                            if (!isolated) {
-                                setBudgetStatus(
-                                    `Composição ${value}: associações carregadas. Clique no item associado na lista de materiais para localizar no modelo.`,
-                                    true
-                                );
-                                return;
-                            }
-                            setBudgetStatus(
-                                `Composição ${value}: itens associados localizados. Você pode clicar em qualquer item associado na lista de materiais.`
-                            );
-                        };
-
-                        td.addEventListener("click", handleCompositionClick);
-                        td.addEventListener("keydown", (event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                handleCompositionClick();
-                            }
+                        const associatedMaterials = openMaterialsPanelAndFilterByBudgetReference({
+                            code: codigo,
+                            description: descricao
                         });
-                    }
+                        if (!associatedMaterials.length) {
+                            setBudgetStatus(`Composição ${codigo || descricao} sem itens associados na base para pesquisa.`, true);
+                            return;
+                        }
+
+                        const isolated = isolateBudgetComposition({ code: codigo, description: descricao });
+                        if (!isolated) {
+                            setBudgetStatus(
+                                `Composição ${codigo || descricao}: associações carregadas. Clique no item associado na lista de materiais para localizar no modelo.`,
+                                true
+                            );
+                         return;
+                        }
+                        setBudgetStatus(
+                            `Composição ${codigo || descricao}: itens associados localizados. Você pode clicar em qualquer item associado na lista de materiais.`
+                        );
+                    };
+
+                    td.addEventListener("click", handleCompositionClick);
+                    td.addEventListener("keydown", (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleCompositionClick();
+                        }
+                    });
                 }
 
                 if (BUDGET_NUMBER_COLUMNS.has(index)) {
@@ -3335,7 +3362,7 @@ async function applyMaterialsSearch({ skipAssociationsLoad = false } = {}) {
         : materialsAllResults;
 
     if (normalizedQuery) {
-        const associatedMaterials = getAssociatedMaterialsByBudgetCode(rawQuery);
+        const associatedMaterials = getAssociatedMaterialsByBudgetReference({ code: rawQuery, description: rawQuery });
         if (associatedMaterials.length) {
             const associatedSet = new Set(associatedMaterials);
             filteredItems = materialsAllResults.filter((item) => associatedSet.has(normalizeMaterialName(item.name)));

@@ -456,6 +456,13 @@ const closeSearchBarButton = document.getElementById("closeSearchBar");
 const searchToggleButton = document.getElementById("btnSearchToggle");
 const searchFeedback = document.getElementById("searchFeedback");
 let searchResultsList = document.getElementById("searchResultsList");
+const budgetPanel = document.getElementById("budgetPanel");
+const budgetPanelToggleButton = document.getElementById("btnBudget");
+const closeBudgetPanelButton = document.getElementById("closeBudgetPanel");
+const budgetFrame = document.getElementById("budgetFrame");
+const budgetFrameLoadedProjects = new Set();
+let pendingBudgetShortcut = false;
+let pendingBudgetShortcutAt = 0;
 
 setupAccessGate();
 setupHelpPanel();
@@ -922,6 +929,10 @@ function hideMaterialsPanel() {
     resetMaterialsIdsPanel();
 }
 
+function hideBudgetPanel() {
+    hidePanelElement(budgetPanel, budgetPanelToggleButton);
+}
+
 function hideTreeViewPanel() {
     if (!treeViewContainer || treeViewContainer.style.display === "none") {
         return;
@@ -935,6 +946,7 @@ function closePanelsOnEscape() {
     hideTransformPanel();
     hideCollisionPanel();
     hideMaterialsPanel();
+    hideBudgetPanel();
     hideTreeViewPanel();
     closeSearchBar();
 }
@@ -1341,6 +1353,11 @@ function setupDraggablePanels() {
         storageKey: `materialsPanelPosition:${pathname}`,
         ignoreSelectors: "input, button, textarea, select, a, .materials-results, .materials-results *, .materials-ids-panel, .materials-ids-panel *"
     });
+    setupDraggablePanel({
+        panel: budgetPanel,
+        storageKey: `budgetPanelPosition:${pathname}`,
+        ignoreSelectors: "input, button, textarea, select, a, iframe"
+    });
 }
 
 function finalizeInitialSetup() {
@@ -1653,11 +1670,18 @@ const PROJECT_BUDGET_URLS = {
 function openProjectBudget(projectKey = activeProjectKey) {
     const budgetUrl = PROJECT_BUDGET_URLS[projectKey];
 
-    if (!budgetUrl) {
+    if (!budgetPanel || !budgetFrame || !budgetUrl) {
         return false;
     }
 
-    window.open(budgetUrl, "_blank", "noopener,noreferrer");
+    if (!budgetFrameLoadedProjects.has(projectKey)) {
+        budgetFrame.src = budgetUrl;
+        budgetFrameLoadedProjects.add(projectKey);
+    }
+
+    budgetPanel.hidden = false;
+    budgetPanelToggleButton?.classList.add("active");
+    budgetPanelToggleButton?.setAttribute("aria-pressed", "true");
     return true;
 }
 
@@ -3310,8 +3334,25 @@ document.addEventListener("keydown", (event) => {
         return;
     }
 
-    if (key === "o" && openProjectBudget()) {
-        return;
+    if (activeProjectKey === "esc_canaa") {
+        if (key === "o") {
+            pendingBudgetShortcut = true;
+            pendingBudgetShortcutAt = Date.now();
+            return;
+        }
+
+        if (key === "r") {
+            const elapsed = Date.now() - pendingBudgetShortcutAt;
+            if (pendingBudgetShortcut && elapsed <= 900 && openProjectBudget()) {
+                pendingBudgetShortcut = false;
+                event.preventDefault();
+                return;
+            }
+        }
+
+        if (key !== "r") {
+            pendingBudgetShortcut = false;
+        }
     }
     
     if (key === "r") {
@@ -3372,19 +3413,25 @@ document.addEventListener("keydown", (event) => {
         isolateEntity(lastSelectedEntity);
     } else if (key === "p") {
         showMaterialProperties(lastSelectedEntity);
-    } else if (key === "o") {
+    } else if (key === "o" && activeProjectKey !== "esc_canaa") {
         hideEntity(lastSelectedEntity);
     }
 });
 
-const budgetToggleButton = document.getElementById("btnBudget");
+if (budgetPanelToggleButton) {
+    budgetPanelToggleButton.addEventListener("click", () => {
+        if (budgetPanel?.hidden) {
+            openProjectBudget();
+            return;
+        }
 
-if (budgetToggleButton) {
-    budgetToggleButton.addEventListener("click", () => {
-        openProjectBudget();
+        hideBudgetPanel();
     });
 }
 
+closeBudgetPanelButton?.addEventListener("click", () => {
+    hideBudgetPanel();
+});
 // -----------------------------------------------------------------------------
 // 4. Menu de Contexto (Deletar Medição) (MANTIDO)
 // -----------------------------------------------------------------------------

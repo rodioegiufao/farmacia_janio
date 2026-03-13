@@ -115,7 +115,7 @@
         <button
             id="btnBudget"
             class="tool-button"
-            title="Abrir orçamento da Escola Nova Canaã"
+            title="Mostrar orçamento da Escola Nova Canaã"
         >
             <span style="font-size: 1.2em;">💰</span>
             Orçamento
@@ -199,11 +199,21 @@
                 <li><kbd>T</kbd> — IDs do material selecionado</li>
                 <li><kbd>K</kbd> — Isolar material selecionado na lista</li>
                 <li><kbd>I</kbd> — Isolar</li>
-                <li><kbd>O</kbd> — Abrir orçamento da Escola Canaã</li>
+                <li><kbd>OR</kbd> — Mostrar orçamento da Escola Canaã</li>
                 <li><kbd>J</kbd> — Rotacionar a peça selecionada em 90°</li>
             </ul>
             <p class="help-note">Para selecionar um objeto, clique duas vezes.</p>
         </div>
+    </div>
+    <div id="budgetPanel" hidden>
+        <div class="budget-panel-header">
+            <div>
+                <div class="budget-panel-title">Orçamento da Escola Canaã</div>
+                <div class="budget-panel-subtitle">Visualização direta da planilha de orçamento</div>
+            </div>
+            <button id="closeBudgetPanel" type="button" aria-label="Fechar painel">✕</button>
+        </div>
+        <iframe id="budgetFrame" title="Orçamento da Escola Canaã"></iframe>
     </div>
     <div id="collisionPanel" hidden>
         <div class="collision-panel-header">

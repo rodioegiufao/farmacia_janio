@@ -37,6 +37,7 @@ const ACCESS_PASSWORD = "ribeiro2026";
 const ACCESS_STORAGE_KEY = "farmacia_access_granted";
 let explicitLinearMaterials = new Set();
 let explicitLinearMaterialsLoadPromise = null
+let activeProjectKey = null;
 
 // -----------------------------------------------------------------------------
 // 1. Configuração do Viewer e Redimensionamento (100% da tela)
@@ -1645,6 +1646,21 @@ const PROJECT_ROUTES = {
     sebrae_rr: "/3D/sebrae-rr",
 };
 
+const PROJECT_BUDGET_URLS = {
+    esc_canaa: "/3D/esc_canaa/OR%C3%87AMENTO%20ESCOLA%20NOVA%20CANA%C3%83.xlsx",
+};
+
+function openProjectBudget(projectKey = activeProjectKey) {
+    const budgetUrl = PROJECT_BUDGET_URLS[projectKey];
+
+    if (!budgetUrl) {
+        return false;
+    }
+
+    window.open(budgetUrl, "_blank", "noopener,noreferrer");
+    return true;
+}
+
 function updateProjectUrl(projectKey, { replace = false } = {}) {
     const route = PROJECT_ROUTES[projectKey];
     if (!route || !window?.history?.pushState) {
@@ -1664,12 +1680,11 @@ function updateProjectUrl(projectKey, { replace = false } = {}) {
 }
 
 function handleModelSelection(models, transforms, projectKey, { replaceUrl = false } = {}) {
+    activeProjectKey = projectKey;
+
     if (modelSelectionOverlay) {
         modelSelectionOverlay.hidden = true;
     }
-    loadModelGroup(models, transforms);
-    updateProjectUrl(projectKey, { replace: replaceUrl });
-}
 
 function handleProjectSelectChange(event) {
     const projectKey = event.target.value;
@@ -3289,6 +3304,10 @@ document.addEventListener("keydown", (event) => {
         return;
     }
 
+    if (key === "o" && openProjectBudget()) {
+        return;
+    }
+    
     if (key === "r") {
         resetXRay();
         return;
@@ -3351,6 +3370,14 @@ document.addEventListener("keydown", (event) => {
         hideEntity(lastSelectedEntity);
     }
 });
+
+const budgetToggleButton = document.getElementById("btnBudget");
+
+if (budgetToggleButton) {
+    budgetToggleButton.addEventListener("click", () => {
+        openProjectBudget();
+    });
+}
 
 // -----------------------------------------------------------------------------
 // 4. Menu de Contexto (Deletar Medição) (MANTIDO)

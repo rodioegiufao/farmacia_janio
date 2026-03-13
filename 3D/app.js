@@ -1667,6 +1667,7 @@ const PROJECT_BUDGET_URLS = {
     esc_canaa: "/3D/esc_canaa/OR%C3%87AMENTO%20ESCOLA%20NOVA%20CANA%C3%83.xlsx",
 };
 
+const BUDGET_DATA_START_ROW = 4;
 const BUDGET_NUMBER_COLUMNS = new Set([5, 6, 7, 8, 9]);
 
 function setBudgetStatus(message, isError = false) {
@@ -1726,7 +1727,7 @@ async function renderProjectBudgetTable(projectKey) {
 
         const rows = window.XLSX.utils.sheet_to_json(worksheet, {
             header: 1,
-            range: 3,
+            range: BUDGET_DATA_START_ROW,
             defval: "",
             raw: false,
         });

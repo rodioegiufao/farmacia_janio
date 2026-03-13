@@ -18,7 +18,11 @@ import {
     buildGridGeometry
 } from "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@latest/dist/xeokit-sdk.min.es.js";
 
-import { downloadMaterialsAsExcel, loadAssociaUnitsFromExcel } from "./excel-export.js";
+import {
+    downloadMaterialsAsExcel,
+    loadAssociationDefinitionsFromExcel,
+    loadAssociaUnitsFromExcel
+} from "./excel-export.js";
 //import { setupAnnotations } from "./annotations.js";
 
 const { jsPDF } = window.jspdf;
@@ -1670,6 +1674,85 @@ const PROJECT_BUDGET_URLS = {
 const BUDGET_DATA_START_ROW = 4;
 const BUDGET_COLUMN_COUNT = 10;
 const BUDGET_NUMBER_COLUMNS = new Set([5, 6, 7, 8, 9]);
+const budgetAssociationsByCode = new Map();
+
+function normalizeCompositionCode(rawCode) {
+    const cleaned = String(rawCode || "").trim().toLowerCase();
+    if (!cleaned) {
+        return "";
+    }
+
+    const directDigits = cleaned.replace(/[^0-9]/g, "");
+    if (directDigits) {
+        return directDigits;
+    }
+
+    return cleaned.replace(/\s+/g, " ");
+}
+
+async function ensureBudgetAssociationsLoaded() {
+    if (budgetAssociationsByCode.size > 0) {
+        return;
+    }
+
+    const associations = await loadAssociationDefinitionsFromExcel({ excelPath: "./base_de_dados.xlsx" });
+
+    associations.forEach((association) => {
+        const normalizedCode = normalizeCompositionCode(association.codigo);
+        const normalizedItemDescription = normalizeMaterialName(association.itemDescricao);
+
+        if (!normalizedCode || !normalizedItemDescription) {
+            return;
+        }
+
+        if (!budgetAssociationsByCode.has(normalizedCode)) {
+            budgetAssociationsByCode.set(normalizedCode, new Set());
+        }
+
+        budgetAssociationsByCode.get(normalizedCode).add(normalizedItemDescription);
+    });
+}
+
+function isolateBudgetComposition(codigoComposicao) {
+    const normalizedCode = normalizeCompositionCode(codigoComposicao);
+    if (!normalizedCode) {
+        return false;
+    }
+
+    const associatedItems = budgetAssociationsByCode.get(normalizedCode);
+    if (!associatedItems || !associatedItems.size) {
+        return false;
+    }
+
+    const objectIds = new Set();
+
+    associatedItems.forEach((itemName) => {
+        const ids = findMaterialObjectIds(itemName);
+        ids.forEach((id) => objectIds.add(id));
+    });
+
+    if (!objectIds.size || !modelIsolateController) {
+        return false;
+    }
+
+    const idsToFocus = Array.from(objectIds);
+    const allIds = getAllObjectIds();
+
+    modelIsolateController.setObjectsVisible(allIds, false);
+    modelIsolateController.setObjectsXRayed(allIds, false);
+    modelIsolateController.setObjectsHighlighted(allIds, false);
+
+    modelIsolateController.setObjectsVisible(idsToFocus, true);
+    modelIsolateController.setObjectsHighlighted(idsToFocus, true);
+
+    const combinedAABB = mergeAABBs(idsToFocus.map((id) => viewer.scene.getAABB(id)));
+    if (combinedAABB) {
+        viewer.cameraFlight.flyTo({ aabb: combinedAABB, duration: 0.6 });
+    }
+
+    requestRenderFrame();
+    return true;
+}
 
 function setBudgetStatus(message, isError = false) {
     if (!budgetStatus) {
@@ -1705,6 +1788,7 @@ async function renderProjectBudgetTable(projectKey) {
     try {
         setBudgetStatus("Carregando orçamento...");
         clearBudgetTable();
+        await ensureBudgetAssociationsLoaded();
 
         if (!window.XLSX) {
             await new Promise((resolve, reject) => {
@@ -1750,9 +1834,37 @@ async function renderProjectBudgetTable(projectKey) {
             const tr = document.createElement("tr");
             tr.className = getBudgetRowClass(item, Boolean(descricao), Boolean(codigo));
 
-            normalized.forEach((value, index) => {
+             normalized.forEach((value, index) => {
                 const td = document.createElement("td");
                 td.textContent = value;
+
+                if (index === 1) {
+                    const codeKey = normalizeCompositionCode(value);
+                    if (codeKey && budgetAssociationsByCode.has(codeKey)) {
+                        td.classList.add("budget-code-clickable");
+                        td.setAttribute("role", "button");
+                        td.setAttribute("tabindex", "0");
+                        td.title = "Clique para localizar os itens desta composição no modelo";
+
+                        const handleCompositionClick = () => {
+                            const isolated = isolateBudgetComposition(value);
+                            if (!isolated) {
+                                setBudgetStatus(`Composição ${value} sem itens encontrados no modelo atual.`, true);
+                                return;
+                            }
+                            setBudgetStatus(`Composição ${value}: itens associados localizados no modelo.`);
+                        };
+
+                        td.addEventListener("click", handleCompositionClick);
+                        td.addEventListener("keydown", (event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                handleCompositionClick();
+                            }
+                        });
+                    }
+                }
+
                 if (BUDGET_NUMBER_COLUMNS.has(index)) {
                     td.classList.add("numeric");
                 }

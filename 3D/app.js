@@ -1150,7 +1150,20 @@ function formatModelLabel(modelId) {
         return "Modelo não identificado";
     }
 
-    return String(modelId).replace(/_/g, "-");
+    const normalizedModelId = String(modelId).replace(/_/g, "-");
+
+    const modelBudgetLabels = {
+        "IFC-ALI": "CIRCUITO ALIMENTADOR",
+        "IFC-ELE": "INSTALAÇÕES ELÉTRICAS DE BAIXA TENSÃO",
+        "IFC-ILUX": "ILUMINAÇÃO EXTERNA",
+        "IFC-LOG": "CABEAMENTO ESTRUTURADO E CFTV",
+        "IFC-LOG-TEF": "CABEAMENTO ESTRUTURADO, CFTV E TELEFONIA",
+        "IFC-SPDA": "SISTEMA DE PROTEÇÃO CONTRA DESCARGAS ATMOSFÉRICAS - SPDA",
+        "IFC-SDAI": "SISTEMA DE DETECÇÃO E ALARME DE INCÊNDIO",
+        "IFC-SUB": "SUBESTAÇÃO AÉREA"
+    };
+
+    return modelBudgetLabels[normalizedModelId] || normalizedModelId;
 }
 
 function buildWebBudgetMaterials(materials, associationDefinitions) {

@@ -1668,7 +1668,7 @@ const PROJECT_ROUTES = {
 };
 
 const PROJECT_BUDGET_DATA_URLS = {
-    esc_canaa: "/3D/esc_canaa/budget_rows.json",
+    esc_canaa: "/3D/budget_rows.json",
 };
 
 const BUDGET_COLUMN_COUNT = 10;

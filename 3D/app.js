@@ -1025,16 +1025,29 @@ function renderWebBudgetRows(materials) {
         return;
     }
 
-    webBudgetSummary.textContent = `${materials.length} associação(ões) da planilha web. Clique em uma linha para localizar no modelo.`;
+    webBudgetSummary.textContent = `${materials.length} associação(ões) da planilha web. Itens separados por modelo XKT.`;
 
     const fragment = document.createDocumentFragment();
+    let currentGroupModel = null;
     materials.forEach((item) => {
+        if (item.modelId !== currentGroupModel) {
+            currentGroupModel = item.modelId;
+            const groupRow = document.createElement("tr");
+            groupRow.className = "web-budget-group-row";
+            const groupCell = document.createElement("td");
+            groupCell.colSpan = 5;
+            groupCell.textContent = `${formatModelLabel(item.modelId)}:`;
+            groupRow.appendChild(groupCell);
+            fragment.appendChild(groupRow);
+        }
         const sourceMaterialNames = Array.isArray(item.sourceMaterialNames) && item.sourceMaterialNames.length
             ? item.sourceMaterialNames
             : [item.name];
-        const ids = Array.from(
-            new Set(sourceMaterialNames.flatMap((materialName) => findMaterialObjectIds(materialName)))
-        );
+        const ids = Array.from(new Set(
+            sourceMaterialNames
+                .flatMap((materialName) => findMaterialObjectIds(materialName, { activeOnly: false }))
+                .filter((id) => getObjectMetaModelId(id) === item.modelId)
+        ));
         const tr = document.createElement("tr");
         tr.setAttribute("role", "button");
         tr.setAttribute("tabindex", "0");
@@ -1049,21 +1062,21 @@ function renderWebBudgetRows(materials) {
 
         const handleRowSelection = () => {
             activeMaterialFilter = sourceMaterialNames.length === 1 ? sourceMaterialNames[0] : item.descricao;
-            isolateMaterialsByNames(sourceMaterialNames);
+            isolateMaterialsByNames(sourceMaterialNames, { modelId: item.modelId });
             updateMaterialsActiveItem();
             if (sourceMaterialNames.length === 1) {
                 renderMaterialsIdsList(sourceMaterialNames[0]);
             } else {
                 resetMaterialsIdsPanel();
                 if (materialsIdsSummary) {
-                    materialsIdsSummary.textContent = `${item.descricao}: ${ids.length} ID(s) vinculados em ${sourceMaterialNames.length} item(ns) associado(s).`;
+                    materialsIdsSummary.textContent = `${item.descricao} (${formatModelLabel(item.modelId)}): ${ids.length} ID(s) vinculados em ${sourceMaterialNames.length} item(ns) associado(s).`;
                 }
             }
             if (materialsPanel) {
                 materialsPanel.hidden = false;
                 materialsPanelToggleButton?.classList.add("active");
             }
-            webBudgetSummary.textContent = `${item.descricao}: ${formatMaterialQuantity(item.quantidade)} ${item.unidade || "unid."}. Itens localizados no modelo.`;
+            webBudgetSummary.textContent = `${formatModelLabel(item.modelId)} · ${item.descricao}: ${formatMaterialQuantity(item.quantidade)} ${item.unidade || "unid."}. Itens localizados no modelo.`;
         };
 
         tr.addEventListener("click", handleRowSelection);
@@ -1078,6 +1091,14 @@ function renderWebBudgetRows(materials) {
     });
 
     webBudgetRowsContainer.appendChild(fragment);
+}
+
+function formatModelLabel(modelId) {
+    if (!modelId) {
+        return "Modelo não identificado";
+    }
+
+    return String(modelId).replace(/_/g, "-");
 }
 
 function buildWebBudgetMaterials(materials, associationDefinitions) {
@@ -1105,6 +1126,19 @@ function buildWebBudgetMaterials(materials, associationDefinitions) {
             current.sourceMaterialNames.push(item.name);
         }
 
+        const itemModelEntries = item.quantityByModel instanceof Map
+            ? item.quantityByModel.entries()
+            : Object.entries(item.quantityByModel || {});
+        for (const [modelId, modelQuantityRaw] of itemModelEntries) {
+            const modelQuantity = Number(modelQuantityRaw) || 0;
+            if (!modelId || modelQuantity <= 0) {
+                continue;
+            }
+
+            const previous = current.quantityByModel.get(modelId) || 0;
+            current.quantityByModel.set(modelId, previous + modelQuantity);
+        }
+
         acc.set(normalizedName, current);
         return acc;
     }, new Map());
@@ -1123,31 +1157,42 @@ function buildWebBudgetMaterials(materials, associationDefinitions) {
             return;
         }
 
-        const key = association?.codigo
-            ? `codigo:${association.codigo}`
-            : `descricao:${association?.descricao || ""}|${association?.base || ""}|${association?.unidade || ""}`;
-
-        const current = aggregated.get(key) || {
-            codigo: association?.codigo || "",
-            base: association?.base || "",
-            descricao: association?.descricao || association?.itemDescricao || "",
-            unidade: association?.unidade || matchData?.unitLabel || "",
-            quantidade: 0,
-            sourceMaterialNames: []
-        };
-
-        current.quantidade += quantity;
-        matchData?.sourceMaterialNames?.forEach((materialName) => {
-            if (!current.sourceMaterialNames.includes(materialName)) {
-                current.sourceMaterialNames.push(materialName);
+        const modelEntries = matchData?.quantityByModel?.entries?.() || [];
+        for (const [modelId, modelQuantityRaw] of modelEntries) {
+            const modelQuantity = Number(modelQuantityRaw) || 0;
+            if (!modelId || modelQuantity <= 0) {
+                continue;
             }
-        });
+            const baseKey = association?.codigo
+                ? `codigo:${association.codigo}`
+                : `descricao:${association?.descricao || ""}|${association?.base || ""}|${association?.unidade || ""}`;
+            const key = `${modelId}|${baseKey}`;
 
-        aggregated.set(key, current);
+            const current = aggregated.get(key) || {
+                modelId,
+                codigo: association?.codigo || "",
+                base: association?.base || "",
+                descricao: association?.descricao || association?.itemDescricao || "",
+                unidade: association?.unidade || matchData?.unitLabel || "",
+                quantidade: 0,
+                sourceMaterialNames: []
+            };
+
+            current.quantidade += modelQuantity;
+            matchData?.sourceMaterialNames?.forEach((materialName) => {
+                if (!current.sourceMaterialNames.includes(materialName)) {
+                    current.sourceMaterialNames.push(materialName);
+                }
+            });
+
+            aggregated.set(key, current);
+        }
     });
 
     return Array.from(aggregated.values()).sort(
-        (a, b) => b.quantidade - a.quantidade || a.descricao.localeCompare(b.descricao, "pt-BR")
+        (a, b) => a.modelId.localeCompare(b.modelId, "pt-BR")
+            || b.quantidade - a.quantidade
+            || a.descricao.localeCompare(b.descricao, "pt-BR")
     );
 }
 async function openWebBudgetPanel() {
@@ -3457,12 +3502,14 @@ function isolateMaterialByName(materialName) {
     requestRenderFrame();
 }
 
-function isolateMaterialsByNames(materialNames) {
+function isolateMaterialsByNames(materialNames, { modelId = null } = {}) {
     if (!Array.isArray(materialNames) || !materialNames.length) {
         return;
     }
 
-    const idsToFocus = Array.from(new Set(materialNames.flatMap((materialName) => findMaterialObjectIds(materialName))));
+    const idsToFocus = Array.from(new Set(materialNames
+        .flatMap((materialName) => findMaterialObjectIds(materialName, { activeOnly: false }))
+        .filter((id) => !modelId || getObjectMetaModelId(id) === modelId)));
     if (!idsToFocus.length) {
         return;
     }
@@ -3564,8 +3611,21 @@ function collectQuantitativeMaterials() {
                 }
 
                 const aggregationKey = `${name}__${normalized.unitLabel}`;
-                const current = totals.get(aggregationKey) || { name, quantity: 0, unitLabel: normalized.unitLabel };
+                const current = totals.get(aggregationKey) || {
+                    name,
+                    quantity: 0,
+                    unitLabel: normalized.unitLabel,
+                    quantityByModel: new Map()
+                };
+
                 current.quantity += normalized.quantity;
+
+                const modelId = metaObject?.metaModel?.id || null;
+                if (modelId) {
+                    const previous = current.quantityByModel.get(modelId) || 0;
+                    current.quantityByModel.set(modelId, previous + normalized.quantity);
+                }
+
                 totals.set(aggregationKey, current);
             }
         }

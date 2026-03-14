@@ -1751,6 +1751,21 @@ html, body {
     text-align: right;
 }
 
+.web-budget-group-row {
+    cursor: default !important;
+}
+
+.web-budget-group-row td {
+    background: #eef3f8;
+    font-weight: 700;
+    color: #1f3552;
+}
+
+.web-budget-group-row:hover,
+.web-budget-group-row:focus-visible {
+    background: transparent !important;
+}
+
 .materials-panel-header {
     display: flex;
     align-items: center;

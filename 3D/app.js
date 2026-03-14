@@ -407,6 +407,7 @@ let webBudgetRowsContainer = null;
 let webBudgetSummary = null;
 let webBudgetSourceCacheRef = null;
 let webBudgetAssociationsPromise = null;
+let activeWebBudgetSelection = null;
 let activeCollisionSelection = null;
 const rotationShortcutKey = "j";
 const rotatedEntityAliases = new Map();
@@ -1112,6 +1113,11 @@ function renderWebBudgetRows(materials) {
 
         const handleRowSelection = () => {
             activeMaterialFilter = sourceMaterialNames.length === 1 ? sourceMaterialNames[0] : item.descricao;
+            activeWebBudgetSelection = {
+                modelId: item.modelId,
+                materialNames: sourceMaterialNames,
+                descricao: item.descricao
+            };
             isolateMaterialsByNames(sourceMaterialNames, { modelId: item.modelId });
             updateMaterialsActiveItem();
             if (sourceMaterialNames.length === 1) {
@@ -1121,10 +1127,6 @@ function renderWebBudgetRows(materials) {
                 if (materialsIdsSummary) {
                     materialsIdsSummary.textContent = `${item.descricao} (${formatModelLabel(item.modelId)}): ${ids.length} ID(s) vinculados em ${sourceMaterialNames.length} item(ns) associado(s).`;
                 }
-            }
-            if (materialsPanel) {
-                materialsPanel.hidden = false;
-                materialsPanelToggleButton?.classList.add("active");
             }
             webBudgetSummary.textContent = `${formatModelLabel(item.modelId)} · ${item.descricao}: ${formatMaterialQuantity(item.quantidade)} ${item.unidade || "unid."}. Itens localizados no modelo.`;
         };
@@ -3523,6 +3525,7 @@ function updateMaterialsActiveItem() {
 
 function clearMaterialIsolation() {
     activeMaterialFilter = null;
+    activeWebBudgetSelection = null;
     resetModelVisibility();
     updateMaterialsActiveItem();
     resetMaterialsIdsPanel();
@@ -3628,6 +3631,14 @@ function isolateAssociatedItemsByName(materialName) {
     requestRenderFrame();
 }
 
+function isolateActiveWebBudgetSelection() {
+    if (!activeWebBudgetSelection) {
+        return false;
+    }
+
+    isolateMaterialsByNames(activeWebBudgetSelection.materialNames, { modelId: activeWebBudgetSelection.modelId });
+    return true;
+}
 
 function collectQuantitativeMaterials() {
     const totals = new Map();
@@ -4119,6 +4130,16 @@ document.addEventListener("keydown", (event) => {
         if (activeMaterialFilter) {
             isolateAssociatedItemsByName(activeMaterialFilter);
             updateMaterialsActiveItem();
+        }
+        return;
+    }
+
+    if (key === "7") {
+        if (isolateActiveWebBudgetSelection()) {
+            const { modelId, descricao } = activeWebBudgetSelection;
+            if (webBudgetSummary) {
+                webBudgetSummary.textContent = `${formatModelLabel(modelId)} · ${descricao}: isolamento por modelo XKT aplicado.`;
+            }
         }
         return;
     }

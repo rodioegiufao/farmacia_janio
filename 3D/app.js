@@ -1160,7 +1160,8 @@ function formatModelLabel(modelId) {
         "IFC-LOG-TEF": "CABEAMENTO ESTRUTURADO, CFTV E TELEFONIA",
         "IFC-SPDA": "SISTEMA DE PROTEÇÃO CONTRA DESCARGAS ATMOSFÉRICAS - SPDA",
         "IFC-SDAI": "SISTEMA DE DETECÇÃO E ALARME DE INCÊNDIO",
-        "IFC-SUB": "SUBESTAÇÃO AÉREA"
+        "IFC-SUB": "SUBESTAÇÃO AÉREA",
+        "IFC-FOT": "SISTEMA FOTOVOLTAICO"
     };
 
     return modelBudgetLabels[normalizedModelId] || normalizedModelId;

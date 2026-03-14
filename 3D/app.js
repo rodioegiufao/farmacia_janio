@@ -1115,8 +1115,13 @@ function buildWebBudgetMaterials(materials, associationDefinitions) {
         const current = acc.get(normalizedName) || {
             quantity: 0,
             unitLabel: "",
-            sourceMaterialNames: []
+            sourceMaterialNames: [],
+            quantityByModel: new Map()
         };
+
+        if (!(current.quantityByModel instanceof Map)) {
+            current.quantityByModel = new Map(Object.entries(current.quantityByModel || {}));
+        }
 
         current.quantity += Number(item.quantity) || 0;
         if (!current.unitLabel && item.unitLabel) {

@@ -402,6 +402,9 @@ let lastMaterialsResults = [];
 let materialsAllResults = [];
 let materialsSearchQuery = "";
 let activeMaterialFilter = null;
+let webBudgetPanel = null;
+let webBudgetRowsContainer = null;
+let webBudgetSummary = null;
 let activeCollisionSelection = null;
 const rotationShortcutKey = "j";
 const rotatedEntityAliases = new Map();
@@ -931,6 +934,158 @@ function hideCollisionPanel() {
 function hideMaterialsPanel() {
     hidePanelElement(materialsPanel, materialsPanelToggleButton);
     resetMaterialsIdsPanel();
+}
+
+function hideWebBudgetPanel() {
+    if (!webBudgetPanel) {
+        return;
+    }
+
+    webBudgetPanel.hidden = true;
+}
+
+function hideBudgetPanel() {
+    hidePanelElement(budgetPanel, budgetPanelToggleButton);
+}
+
+function hideTreeViewPanel() {
+    if (!treeViewContainer || treeViewContainer.style.display === "none") {
+        return;
+    }
+
+    treeViewContainer.style.display = "none";
+}
+
+function closePanelsOnEscape() {
+    hideHelpPanel();
+    hideTransformPanel();
+    hideCollisionPanel();
+    hideMaterialsPanel();
+    hideBudgetPanel();
+    hideTreeViewPanel();
+    closeSearchBar();
+}
+function closePanelsOnEscape() {
+    hideHelpPanel();
+    hideTransformPanel();
+    hideCollisionPanel();
+    hideMaterialsPanel();
+    hideWebBudgetPanel();
+    hideBudgetPanel();
+    hideTreeViewPanel();
+    closeSearchBar();
+}
+
+function ensureWebBudgetPanel() {
+    if (webBudgetPanel) {
+        return webBudgetPanel;
+    }
+
+    const panel = document.createElement("div");
+    panel.id = "webBudgetPanel";
+    panel.hidden = true;
+    panel.innerHTML = `
+        <div class="web-budget-header">
+            <div>
+                <div class="web-budget-title">Orçamento web (Z)</div>
+                <div class="web-budget-subtitle">Visualização em tabela da lista total de materiais</div>
+            </div>
+            <button id="closeWebBudgetPanel" type="button" aria-label="Fechar orçamento web">✕</button>
+        </div>
+        <p id="webBudgetSummary" class="web-budget-summary"></p>
+        <div class="web-budget-table-wrapper" aria-label="Tabela de orçamento web">
+            <table class="web-budget-table">
+                <thead>
+                    <tr>
+                        <th>Material</th>
+                        <th>Quantidade</th>
+                        <th>Unidade</th>
+                        <th>IDs vinculados</th>
+                    </tr>
+                </thead>
+                <tbody id="webBudgetRows"></tbody>
+            </table>
+        </div>
+    `;
+
+    document.body.appendChild(panel);
+
+    webBudgetPanel = panel;
+    webBudgetRowsContainer = panel.querySelector("#webBudgetRows");
+    webBudgetSummary = panel.querySelector("#webBudgetSummary");
+
+    panel.querySelector("#closeWebBudgetPanel")?.addEventListener("click", () => {
+        hideWebBudgetPanel();
+    });
+
+    return panel;
+}
+
+function renderWebBudgetRows(materials) {
+    if (!webBudgetRowsContainer || !webBudgetSummary) {
+        return;
+    }
+
+    webBudgetRowsContainer.innerHTML = "";
+
+    if (!materials.length) {
+        webBudgetSummary.textContent = "Nenhum item para exibir.";
+        return;
+    }
+
+    webBudgetSummary.textContent = `${materials.length} material(is) na planilha web. Clique em uma linha para localizar no modelo.`;
+
+    const fragment = document.createDocumentFragment();
+    materials.forEach((item) => {
+        const ids = findMaterialObjectIds(item.name);
+        const tr = document.createElement("tr");
+        tr.setAttribute("role", "button");
+        tr.setAttribute("tabindex", "0");
+        tr.title = `Localizar ${item.name} no modelo`;
+        tr.innerHTML = `
+            <td>${item.name}</td>
+            <td class="numeric">${formatMaterialQuantity(item.quantity)}</td>
+            <td>${item.unitLabel}</td>
+            <td>${ids.length}</td>
+        `;
+
+        const handleRowSelection = () => {
+            activeMaterialFilter = item.name;
+            isolateMaterialByName(item.name);
+            updateMaterialsActiveItem();
+            renderMaterialsIdsList(item.name);
+            if (materialsPanel) {
+                materialsPanel.hidden = false;
+                materialsPanelToggleButton?.classList.add("active");
+            }
+            webBudgetSummary.textContent = `${item.name}: ${ids.length} ID(s) vinculados. Itens localizados no modelo.`;
+        };
+
+        tr.addEventListener("click", handleRowSelection);
+        tr.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                handleRowSelection();
+            }
+        });
+
+        fragment.appendChild(tr);
+    });
+
+    webBudgetRowsContainer.appendChild(fragment);
+}
+
+function openWebBudgetPanel() {
+    ensureWebBudgetPanel();
+
+    if (!materialsAllResults.length) {
+        materialsSummary.textContent = 'Para abrir o orçamento web com Z, clique em "Gerar lista" primeiro.';
+        return false;
+    }
+
+    renderWebBudgetRows(materialsAllResults);
+    webBudgetPanel.hidden = false;
+    return true;
 }
 
 function hideBudgetPanel() {
@@ -3714,12 +3869,10 @@ document.addEventListener("keydown", (event) => {
         return;
     }
 
-    if (activeProjectKey === "esc_canaa") {
-        if (key === "z") {
-            if (openProjectBudget()) {
-                event.preventDefault();
-                return;
-            }
+    if (key === "z" && materialsPanel && !materialsPanel.hidden) {
+        if (openWebBudgetPanel()) {
+            event.preventDefault();
+            return;
         }
     }
     

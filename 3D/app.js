@@ -1028,7 +1028,12 @@ function renderWebBudgetRows(materials) {
 
     const fragment = document.createDocumentFragment();
     materials.forEach((item) => {
-        const ids = findMaterialObjectIds(item.name);
+        const sourceMaterialNames = Array.isArray(item.sourceMaterialNames) && item.sourceMaterialNames.length
+            ? item.sourceMaterialNames
+            : [item.name];
+        const ids = Array.from(
+            new Set(sourceMaterialNames.flatMap((materialName) => findMaterialObjectIds(materialName)))
+        );
         const tr = document.createElement("tr");
         tr.setAttribute("role", "button");
         tr.setAttribute("tabindex", "0");
@@ -1041,10 +1046,17 @@ function renderWebBudgetRows(materials) {
         `;
 
         const handleRowSelection = () => {
-            activeMaterialFilter = item.name;
-            isolateMaterialByName(item.name);
+            activeMaterialFilter = sourceMaterialNames.length === 1 ? sourceMaterialNames[0] : item.name;
+            isolateMaterialsByNames(sourceMaterialNames);
             updateMaterialsActiveItem();
-            renderMaterialsIdsList(item.name);
+            if (sourceMaterialNames.length === 1) {
+                renderMaterialsIdsList(sourceMaterialNames[0]);
+            } else {
+                resetMaterialsIdsPanel();
+                if (materialsIdsSummary) {
+                    materialsIdsSummary.textContent = `${item.name}: ${ids.length} ID(s) vinculados em ${sourceMaterialNames.length} item(ns) associado(s).`;
+                }
+            }
             if (materialsPanel) {
                 materialsPanel.hidden = false;
                 materialsPanelToggleButton?.classList.add("active");
@@ -1066,7 +1078,54 @@ function renderWebBudgetRows(materials) {
     webBudgetRowsContainer.appendChild(fragment);
 }
 
-function openWebBudgetPanel() {
+function buildWebBudgetMaterials(materials, associationDefinitions) {
+    if (!Array.isArray(materials) || !materials.length || !Array.isArray(associationDefinitions) || !associationDefinitions.length) {
+        return [];
+    }
+
+    const associationItemNames = Array.from(
+        new Set(
+            associationDefinitions
+                .map((association) => String(association?.itemDescricao || "").trim())
+                .filter(Boolean)
+        )
+    );
+
+    if (!associationItemNames.length) {
+        return [];
+    }
+
+    const aggregated = new Map();
+
+    materials.forEach((item) => {
+        const matchedAssociationName = associationItemNames.find((associationName) => materialNamesMatch(associationName, item.name));
+        if (!matchedAssociationName) {
+            return;
+        }
+
+        const key = normalizeMaterialComparisonText(matchedAssociationName);
+        const current = aggregated.get(key) || {
+            name: matchedAssociationName,
+            quantity: 0,
+            unitLabel: item.unitLabel,
+            sourceMaterialNames: []
+        };
+
+        current.quantity += Number(item.quantity) || 0;
+        if (!current.unitLabel && item.unitLabel) {
+            current.unitLabel = item.unitLabel;
+        }
+        if (!current.sourceMaterialNames.includes(item.name)) {
+            current.sourceMaterialNames.push(item.name);
+        }
+
+        aggregated.set(key, current);
+    });
+
+    return Array.from(aggregated.values()).sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name, "pt-BR"));
+}
+
+async function openWebBudgetPanel() {
     ensureWebBudgetPanel();
 
     if (!materialsAllResults.length) {
@@ -1074,7 +1133,16 @@ function openWebBudgetPanel() {
         return false;
     }
 
-    renderWebBudgetRows(materialsAllResults);
+    let webBudgetMaterials = [];
+
+    try {
+        const associations = await loadAssociationDefinitionsFromExcel({ excelPath: "./base_de_dados.xlsx" });
+        webBudgetMaterials = buildWebBudgetMaterials(materialsAllResults, associations);
+    } catch (error) {
+        console.warn("Não foi possível carregar as associações para montar o orçamento web.", error);
+    }
+
+    renderWebBudgetRows(webBudgetMaterials);
     webBudgetPanel.hidden = false;
     return true;
 }
@@ -3364,6 +3432,39 @@ function isolateMaterialByName(materialName) {
     requestRenderFrame();
 }
 
+function isolateMaterialsByNames(materialNames) {
+    if (!Array.isArray(materialNames) || !materialNames.length) {
+        return;
+    }
+
+    const idsToFocus = Array.from(new Set(materialNames.flatMap((materialName) => findMaterialObjectIds(materialName))));
+    if (!idsToFocus.length) {
+        return;
+    }
+
+    const allIds = getAllObjectIds();
+    const otherIds = allIds.filter((id) => !idsToFocus.includes(id));
+
+    modelIsolateController.setObjectsVisible(allIds, true);
+    modelIsolateController.setObjectsXRayed(allIds, true);
+    modelIsolateController.setObjectsHighlighted(allIds, false);
+
+    modelIsolateController.setObjectsVisible(idsToFocus, true);
+    modelIsolateController.setObjectsXRayed(idsToFocus, false);
+    viewer.scene.setObjectsHighlighted(idsToFocus, true);
+
+    if (otherIds.length) {
+        modelIsolateController.setObjectsHighlighted(otherIds, false);
+    }
+
+    const combinedAABB = mergeAABBs(idsToFocus.map((id) => viewer.scene.getAABB(id)));
+    if (combinedAABB) {
+        viewer.cameraFlight.flyTo({ aabb: combinedAABB, duration: 0.6 });
+    }
+
+    requestRenderFrame();
+}
+
 function isolateAssociatedItemsByName(materialName) {
     if (!modelIsolateController) {
         return;
@@ -3839,10 +3940,9 @@ document.addEventListener("keydown", (event) => {
     }
 
     if (key === "z" && materialsPanel && !materialsPanel.hidden) {
-        if (openWebBudgetPanel()) {
-            event.preventDefault();
-            return;
-        }
+        event.preventDefault();
+        openWebBudgetPanel();
+        return;
     }
     
     if (key === "r") {

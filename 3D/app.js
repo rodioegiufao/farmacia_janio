@@ -961,15 +961,6 @@ function closePanelsOnEscape() {
     hideTransformPanel();
     hideCollisionPanel();
     hideMaterialsPanel();
-    hideBudgetPanel();
-    hideTreeViewPanel();
-    closeSearchBar();
-}
-function closePanelsOnEscape() {
-    hideHelpPanel();
-    hideTransformPanel();
-    hideCollisionPanel();
-    hideMaterialsPanel();
     hideWebBudgetPanel();
     hideBudgetPanel();
     hideTreeViewPanel();

@@ -1679,6 +1679,25 @@ html, body {
     justify-content: space-between;
     align-items: center;
     gap: 10px;
+    cursor: grab;
+    user-select: none;
+}
+
+.web-budget-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#toggleWebBudgetPanelMinimize,
+#closeWebBudgetPanel {
+    background: transparent;
+    border: none;
+    color: #f0f0f0;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
 }
 
 .web-budget-title {
@@ -1693,19 +1712,28 @@ html, body {
     font-size: 12px;
 }
 
-#closeWebBudgetPanel {
-    background: transparent;
-    border: none;
-    color: #f0f0f0;
-    font-size: 16px;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 6px;
-}
-
+#toggleWebBudgetPanelMinimize:hover,
 #closeWebBudgetPanel:hover {
     background-color: rgba(255, 255, 255, 0.05);
     color: #ff6b6b;
+}
+
+.web-budget-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+}
+
+#webBudgetPanel.is-minimized {
+    height: auto;
+    min-width: 360px;
+    width: min(560px, calc(100% - 40px));
+}
+
+#webBudgetPanel.is-minimized .web-budget-content {
+    display: none;
 }
 
 .web-budget-table-wrapper {

@@ -405,6 +405,8 @@ let activeMaterialFilter = null;
 let webBudgetPanel = null;
 let webBudgetRowsContainer = null;
 let webBudgetSummary = null;
+let webBudgetSourceCacheRef = null;
+let webBudgetAssociationsPromise = null;
 let activeCollisionSelection = null;
 const rotationShortcutKey = "j";
 const rotatedEntityAliases = new Map();
@@ -944,6 +946,36 @@ function hideWebBudgetPanel() {
     webBudgetPanel.hidden = true;
 }
 
+function getWebBudgetMinimizedStorageKey() {
+    return `webBudgetPanelMinimized:${window.location.pathname}`;
+}
+
+function setWebBudgetMinimizedState(minimized) {
+    if (!webBudgetPanel) {
+        return;
+    }
+
+    webBudgetPanel.classList.toggle("is-minimized", minimized);
+    const minimizeButton = webBudgetPanel.querySelector("#toggleWebBudgetPanelMinimize");
+    minimizeButton?.setAttribute("aria-expanded", minimized ? "false" : "true");
+    minimizeButton?.setAttribute("aria-label", minimized ? "Expandir orçamento web" : "Minimizar orçamento web");
+    if (minimizeButton) {
+        minimizeButton.textContent = minimized ? "▢" : "—";
+    }
+    window.localStorage?.setItem(getWebBudgetMinimizedStorageKey(), minimized ? "1" : "0");
+}
+
+async function ensureWebBudgetAssociationsLoaded() {
+    if (!webBudgetAssociationsPromise) {
+        webBudgetAssociationsPromise = loadAssociationDefinitionsFromExcel({ excelPath: "./base_de_dados.xlsx" })
+            .catch((error) => {
+                webBudgetAssociationsPromise = null;
+                throw error;
+            });
+    }
+
+    return webBudgetAssociationsPromise;
+}
 function hideBudgetPanel() {
     hidePanelElement(budgetPanel, budgetPanelToggleButton);
 }
@@ -981,22 +1013,27 @@ function ensureWebBudgetPanel() {
                 <div class="web-budget-title">Orçamento web (Z)</div>
                 <div class="web-budget-subtitle">Visualização em tabela da lista total de materiais</div>
             </div>
-            <button id="closeWebBudgetPanel" type="button" aria-label="Fechar orçamento web">✕</button>
+            <div class="web-budget-actions">
+                <button id="toggleWebBudgetPanelMinimize" type="button" aria-label="Minimizar orçamento web" aria-expanded="true">—</button>
+                <button id="closeWebBudgetPanel" type="button" aria-label="Fechar orçamento web">✕</button>
+            </div>
         </div>
-        <p id="webBudgetSummary" class="web-budget-summary"></p>
-        <div class="web-budget-table-wrapper" aria-label="Tabela de orçamento web">
-            <table class="web-budget-table">
-                <thead>
-                    <tr>
-                        <th>Código</th>
-                        <th>Base</th>
-                        <th>Descrição</th>
-                        <th>Unidade</th>
-                        <th>Quantidade</th>
-                    </tr>
-                </thead>
-                <tbody id="webBudgetRows"></tbody>
-            </table>
+        <div class="web-budget-content">
+            <p id="webBudgetSummary" class="web-budget-summary"></p>
+            <div class="web-budget-table-wrapper" aria-label="Tabela de orçamento web">
+                <table class="web-budget-table">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Base</th>
+                            <th>Descrição</th>
+                            <th>Unidade</th>
+                            <th>Quantidade</th>
+                        </tr>
+                    </thead>
+                    <tbody id="webBudgetRows"></tbody>
+                </table>
+            </div>
         </div>
     `;
 
@@ -1009,7 +1046,20 @@ function ensureWebBudgetPanel() {
     panel.querySelector("#closeWebBudgetPanel")?.addEventListener("click", () => {
         hideWebBudgetPanel();
     });
+    panel.querySelector("#toggleWebBudgetPanelMinimize")?.addEventListener("click", () => {
+        const shouldMinimize = !panel.classList.contains("is-minimized");
+        setWebBudgetMinimizedState(shouldMinimize);
+    });
 
+    const shouldStartMinimized = window.localStorage?.getItem(getWebBudgetMinimizedStorageKey()) === "1";
+    setWebBudgetMinimizedState(shouldStartMinimized);
+
+    setupDraggablePanel({
+        panel,
+        storageKey: `webBudgetPanelPosition:${window.location.pathname}`,
+        handleSelector: ".web-budget-header",
+        ignoreSelectors: "input, button, textarea, select, a, .web-budget-table-wrapper, .web-budget-table-wrapper *"
+    });
     return panel;
 }
 
@@ -1208,16 +1258,20 @@ async function openWebBudgetPanel() {
         return false;
     }
 
-    let webBudgetMaterials = [];
+    if (webBudgetSourceCacheRef !== materialsAllResults) {
+        let webBudgetMaterials = [];
 
-    try {
-        const associations = await loadAssociationDefinitionsFromExcel({ excelPath: "./base_de_dados.xlsx" });
-        webBudgetMaterials = buildWebBudgetMaterials(materialsAllResults, associations);
-    } catch (error) {
-        console.warn("Não foi possível carregar as associações para montar o orçamento web.", error);
+        try {
+            const associations = await ensureWebBudgetAssociationsLoaded();
+            webBudgetMaterials = buildWebBudgetMaterials(materialsAllResults, associations);
+        } catch (error) {
+            console.warn("Não foi possível carregar as associações para montar o orçamento web.", error);
+        }
+
+        renderWebBudgetRows(webBudgetMaterials);
+        webBudgetSourceCacheRef = materialsAllResults;
     }
 
-    renderWebBudgetRows(webBudgetMaterials);
     webBudgetPanel.hidden = false;
     return true;
 }

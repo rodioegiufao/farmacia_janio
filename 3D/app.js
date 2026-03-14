@@ -1079,28 +1079,6 @@ function openWebBudgetPanel() {
     return true;
 }
 
-function hideBudgetPanel() {
-    hidePanelElement(budgetPanel, budgetPanelToggleButton);
-}
-
-function hideTreeViewPanel() {
-    if (!treeViewContainer || treeViewContainer.style.display === "none") {
-        return;
-    }
-
-    treeViewContainer.style.display = "none";
-}
-
-function closePanelsOnEscape() {
-    hideHelpPanel();
-    hideTransformPanel();
-    hideCollisionPanel();
-    hideMaterialsPanel();
-    hideBudgetPanel();
-    hideTreeViewPanel();
-    closeSearchBar();
-}
-
 function setSearchStatus(message, isError = false) {
     if (!searchFeedback) {
         return;

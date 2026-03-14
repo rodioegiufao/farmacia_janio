@@ -988,10 +988,11 @@ function ensureWebBudgetPanel() {
             <table class="web-budget-table">
                 <thead>
                     <tr>
-                        <th>Material</th>
-                        <th>Quantidade</th>
+                        <th>Código</th>
+                        <th>Base</th>
+                        <th>Descrição</th>
                         <th>Unidade</th>
-                        <th>IDs vinculados</th>
+                        <th>Quantidade</th>
                     </tr>
                 </thead>
                 <tbody id="webBudgetRows"></tbody>
@@ -1024,7 +1025,7 @@ function renderWebBudgetRows(materials) {
         return;
     }
 
-    webBudgetSummary.textContent = `${materials.length} material(is) na planilha web. Clique em uma linha para localizar no modelo.`;
+    webBudgetSummary.textContent = `${materials.length} associação(ões) da planilha web. Clique em uma linha para localizar no modelo.`;
 
     const fragment = document.createDocumentFragment();
     materials.forEach((item) => {
@@ -1037,16 +1038,17 @@ function renderWebBudgetRows(materials) {
         const tr = document.createElement("tr");
         tr.setAttribute("role", "button");
         tr.setAttribute("tabindex", "0");
-        tr.title = `Localizar ${item.name} no modelo`;
+        tr.title = `Localizar ${item.descricao} no modelo`;
         tr.innerHTML = `
-            <td>${item.name}</td>
-            <td class="numeric">${formatMaterialQuantity(item.quantity)}</td>
-            <td>${item.unitLabel}</td>
-            <td>${ids.length}</td>
+            <td>${item.codigo || "-"}</td>
+            <td>${item.base || "-"}</td>
+            <td>${item.descricao}</td>
+            <td>${item.unidade || "-"}</td>
+            <td class="numeric">${formatMaterialQuantity(item.quantidade)}</td>
         `;
 
         const handleRowSelection = () => {
-            activeMaterialFilter = sourceMaterialNames.length === 1 ? sourceMaterialNames[0] : item.name;
+            activeMaterialFilter = sourceMaterialNames.length === 1 ? sourceMaterialNames[0] : item.descricao;
             isolateMaterialsByNames(sourceMaterialNames);
             updateMaterialsActiveItem();
             if (sourceMaterialNames.length === 1) {
@@ -1054,14 +1056,14 @@ function renderWebBudgetRows(materials) {
             } else {
                 resetMaterialsIdsPanel();
                 if (materialsIdsSummary) {
-                    materialsIdsSummary.textContent = `${item.name}: ${ids.length} ID(s) vinculados em ${sourceMaterialNames.length} item(ns) associado(s).`;
+                    materialsIdsSummary.textContent = `${item.descricao}: ${ids.length} ID(s) vinculados em ${sourceMaterialNames.length} item(ns) associado(s).`;
                 }
             }
             if (materialsPanel) {
                 materialsPanel.hidden = false;
                 materialsPanelToggleButton?.classList.add("active");
             }
-            webBudgetSummary.textContent = `${item.name}: ${ids.length} ID(s) vinculados. Itens localizados no modelo.`;
+            webBudgetSummary.textContent = `${item.descricao}: ${formatMaterialQuantity(item.quantidade)} ${item.unidade || "unid."}. Itens localizados no modelo.`;
         };
 
         tr.addEventListener("click", handleRowSelection);
@@ -1083,31 +1085,15 @@ function buildWebBudgetMaterials(materials, associationDefinitions) {
         return [];
     }
 
-    const associationItemNames = Array.from(
-        new Set(
-            associationDefinitions
-                .map((association) => String(association?.itemDescricao || "").trim())
-                .filter(Boolean)
-        )
-    );
-
-    if (!associationItemNames.length) {
-        return [];
-    }
-
-    const aggregated = new Map();
-
-    materials.forEach((item) => {
-        const matchedAssociationName = associationItemNames.find((associationName) => materialNamesMatch(associationName, item.name));
-        if (!matchedAssociationName) {
-            return;
+    const itemsByDescription = materials.reduce((acc, item) => {
+        const normalizedName = normalizeSearchText(item.name || "").replace(/\s+/g, " ");
+        if (!normalizedName) {
+            return acc;
         }
 
-        const key = normalizeMaterialComparisonText(matchedAssociationName);
-        const current = aggregated.get(key) || {
-            name: matchedAssociationName,
+        const current = acc.get(normalizedName) || {
             quantity: 0,
-            unitLabel: item.unitLabel,
+            unitLabel: "",
             sourceMaterialNames: []
         };
 
@@ -1115,16 +1101,55 @@ function buildWebBudgetMaterials(materials, associationDefinitions) {
         if (!current.unitLabel && item.unitLabel) {
             current.unitLabel = item.unitLabel;
         }
-        if (!current.sourceMaterialNames.includes(item.name)) {
+        if (item.name && !current.sourceMaterialNames.includes(item.name)) {
             current.sourceMaterialNames.push(item.name);
         }
+
+        acc.set(normalizedName, current);
+        return acc;
+    }, new Map());
+
+    const aggregated = new Map();
+
+    associationDefinitions.forEach((association) => {
+        const normalizedDescription = normalizeSearchText(association?.itemDescricao || "").replace(/\s+/g, " ");
+        if (!normalizedDescription) {
+            return;
+        }
+
+        const matchData = itemsByDescription.get(normalizedDescription);
+        const quantity = matchData?.quantity || 0;
+        if (quantity <= 0) {
+            return;
+        }
+
+        const key = association?.codigo
+            ? `codigo:${association.codigo}`
+            : `descricao:${association?.descricao || ""}|${association?.base || ""}|${association?.unidade || ""}`;
+
+        const current = aggregated.get(key) || {
+            codigo: association?.codigo || "",
+            base: association?.base || "",
+            descricao: association?.descricao || association?.itemDescricao || "",
+            unidade: association?.unidade || matchData?.unitLabel || "",
+            quantidade: 0,
+            sourceMaterialNames: []
+        };
+
+        current.quantidade += quantity;
+        matchData?.sourceMaterialNames?.forEach((materialName) => {
+            if (!current.sourceMaterialNames.includes(materialName)) {
+                current.sourceMaterialNames.push(materialName);
+            }
+        });
 
         aggregated.set(key, current);
     });
 
-    return Array.from(aggregated.values()).sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name, "pt-BR"));
+    return Array.from(aggregated.values()).sort(
+        (a, b) => b.quantidade - a.quantidade || a.descricao.localeCompare(b.descricao, "pt-BR")
+    );
 }
-
 async function openWebBudgetPanel() {
     ensureWebBudgetPanel();
 

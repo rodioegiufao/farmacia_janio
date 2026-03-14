@@ -3631,13 +3631,50 @@ function isolateAssociatedItemsByName(materialName) {
     requestRenderFrame();
 }
 
+function isolateAssociatedItemsByNames(materialNames, { modelId = null } = {}) {
+    if (!modelIsolateController || !Array.isArray(materialNames) || !materialNames.length) {
+        return false;
+    }
+
+    const idsToFocus = Array.from(new Set(materialNames
+        .flatMap((materialName) => findMaterialObjectIds(materialName, { activeOnly: false }))
+        .filter((id) => !modelId || getObjectMetaModelId(id) === modelId)));
+
+    if (!idsToFocus.length) {
+        return false;
+    }
+
+    const allIds = getAllObjectIds();
+    const otherIds = allIds.filter((id) => !idsToFocus.includes(id));
+
+    modelIsolateController.setObjectsVisible(allIds, false);
+    modelIsolateController.setObjectsXRayed(allIds, false);
+    modelIsolateController.setObjectsHighlighted(allIds, false);
+
+    modelIsolateController.setObjectsVisible(idsToFocus, true);
+    modelIsolateController.setObjectsHighlighted(idsToFocus, true);
+
+    if (otherIds.length) {
+        modelIsolateController.setObjectsHighlighted(otherIds, false);
+    }
+
+    const combinedAABB = mergeAABBs(idsToFocus.map((id) => viewer.scene.getAABB(id)));
+    if (combinedAABB) {
+        viewer.cameraFlight.flyTo({ aabb: combinedAABB, duration: 0.6 });
+    }
+
+    requestRenderFrame();
+    return true;
+}
+
 function isolateActiveWebBudgetSelection() {
     if (!activeWebBudgetSelection) {
         return false;
     }
 
-    isolateMaterialsByNames(activeWebBudgetSelection.materialNames, { modelId: activeWebBudgetSelection.modelId });
-    return true;
+    return isolateAssociatedItemsByNames(activeWebBudgetSelection.materialNames, {
+        modelId: activeWebBudgetSelection.modelId
+    });
 }
 
 function collectQuantitativeMaterials() {

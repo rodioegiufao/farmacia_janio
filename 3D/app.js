@@ -988,7 +988,6 @@ function ensureWebBudgetPanel() {
             <table class="web-budget-table">
                 <thead>
                     <tr>
-                        <th>Pavimento</th>
                         <th>Código</th>
                         <th>Base</th>
                         <th>Descrição</th>
@@ -1041,7 +1040,6 @@ function renderWebBudgetRows(materials) {
         tr.setAttribute("tabindex", "0");
         tr.title = `Localizar ${item.descricao} no modelo`;
         tr.innerHTML = `
-            <td>${item.pavimento || "-"}</td>
             <td>${item.codigo || "-"}</td>
             <td>${item.base || "-"}</td>
             <td>${item.descricao}</td>
@@ -1051,11 +1049,7 @@ function renderWebBudgetRows(materials) {
 
         const handleRowSelection = () => {
             activeMaterialFilter = sourceMaterialNames.length === 1 ? sourceMaterialNames[0] : item.descricao;
-            if (Array.isArray(item.objectIds) && item.objectIds.length) {
-                isolateObjectIds(item.objectIds);
-            } else {
-                isolateMaterialsByNames(sourceMaterialNames);
-            }
+            isolateMaterialsByNames(sourceMaterialNames);
             updateMaterialsActiveItem();
             if (sourceMaterialNames.length === 1) {
                 renderMaterialsIdsList(sourceMaterialNames[0]);
@@ -1100,9 +1094,7 @@ function buildWebBudgetMaterials(materials, associationDefinitions) {
         const current = acc.get(normalizedName) || {
             quantity: 0,
             unitLabel: "",
-            sourceMaterialNames: [],
-            quantityByPavimento: new Map(),
-            objectIdsByPavimento: new Map()
+            sourceMaterialNames: []
         };
 
         current.quantity += Number(item.quantity) || 0;
@@ -1112,22 +1104,7 @@ function buildWebBudgetMaterials(materials, associationDefinitions) {
         if (item.name && !current.sourceMaterialNames.includes(item.name)) {
             current.sourceMaterialNames.push(item.name);
         }
-        const quantityByPavimento = item?.quantityByPavimento;
-        if (quantityByPavimento instanceof Map) {
-            quantityByPavimento.forEach((pavimentoQuantity, pavimentoName) => {
-                const existingQuantity = current.quantityByPavimento.get(pavimentoName) || 0;
-                current.quantityByPavimento.set(pavimentoName, existingQuantity + (Number(pavimentoQuantity) || 0));
-            });
-        }
 
-        const objectIdsByPavimento = item?.objectIdsByPavimento;
-        if (objectIdsByPavimento instanceof Map) {
-            objectIdsByPavimento.forEach((pavimentoIds, pavimentoName) => {
-                const existingIds = current.objectIdsByPavimento.get(pavimentoName) || [];
-                const mergedIds = Array.from(new Set([...existingIds, ...(Array.isArray(pavimentoIds) ? pavimentoIds : [])]));
-                current.objectIdsByPavimento.set(pavimentoName, mergedIds);
-            });
-        }
         acc.set(normalizedName, current);
         return acc;
     }, new Map());
@@ -1146,49 +1123,31 @@ function buildWebBudgetMaterials(materials, associationDefinitions) {
             return;
         }
 
-        const quantitiesByPavimento = matchData?.quantityByPavimento instanceof Map
-            ? matchData.quantityByPavimento
-            : new Map([["Sem pavimento", quantity]]);
+        const key = association?.codigo
+            ? `codigo:${association.codigo}`
+            : `descricao:${association?.descricao || ""}|${association?.base || ""}|${association?.unidade || ""}`;
 
-        quantitiesByPavimento.forEach((pavimentoQuantity, pavimentoName) => {
-            const safeQuantity = Number(pavimentoQuantity) || 0;
-            if (safeQuantity <= 0) {
-                return;
+        const current = aggregated.get(key) || {
+            codigo: association?.codigo || "",
+            base: association?.base || "",
+            descricao: association?.descricao || association?.itemDescricao || "",
+            unidade: association?.unidade || matchData?.unitLabel || "",
+            quantidade: 0,
+            sourceMaterialNames: []
+        };
+
+        current.quantidade += quantity;
+        matchData?.sourceMaterialNames?.forEach((materialName) => {
+            if (!current.sourceMaterialNames.includes(materialName)) {
+                current.sourceMaterialNames.push(materialName);
             }
-        const keyPrefix = association?.codigo
-                ? `codigo:${association.codigo}`
-                : `descricao:${association?.descricao || ""}|${association?.base || ""}|${association?.unidade || ""}`;
-            const key = `${keyPrefix}|pavimento:${pavimentoName || "Sem pavimento"}`;
-
-            const current = aggregated.get(key) || {
-                pavimento: pavimentoName || "Sem pavimento",
-                codigo: association?.codigo || "",
-                base: association?.base || "",
-                descricao: association?.descricao || association?.itemDescricao || "",
-                unidade: association?.unidade || matchData?.unitLabel || "",
-                quantidade: 0,
-                sourceMaterialNames: [],
-                objectIds: []
-            };
-
-            current.quantidade += safeQuantity;
-            matchData?.sourceMaterialNames?.forEach((materialName) => {
-                if (!current.sourceMaterialNames.includes(materialName)) {
-                    current.sourceMaterialNames.push(materialName);
-                }
-            });
-
-            const pavimentoObjectIds = matchData?.objectIdsByPavimento?.get(pavimentoName) || [];
-            current.objectIds = Array.from(new Set([...current.objectIds, ...pavimentoObjectIds]));
-
-            aggregated.set(key, current);
         });
+
+        aggregated.set(key, current);
     });
 
     return Array.from(aggregated.values()).sort(
-        (a, b) => b.quantidade - a.quantidade
-            || a.pavimento.localeCompare(b.pavimento, "pt-BR")
-            || a.descricao.localeCompare(b.descricao, "pt-BR")
+        (a, b) => b.quantidade - a.quantidade || a.descricao.localeCompare(b.descricao, "pt-BR")
     );
 }
 async function openWebBudgetPanel() {
@@ -3531,60 +3490,6 @@ function isolateMaterialsByNames(materialNames) {
     requestRenderFrame();
 }
 
-function isolateObjectIds(idsToFocus) {
-    if (!Array.isArray(idsToFocus) || !idsToFocus.length || !modelIsolateController) {
-        return;
-    }
-
-    const uniqueIds = Array.from(new Set(idsToFocus));
-    const allIds = getAllObjectIds();
-    const otherIds = allIds.filter((id) => !uniqueIds.includes(id));
-
-    modelIsolateController.setObjectsVisible(allIds, true);
-    modelIsolateController.setObjectsXRayed(allIds, true);
-    modelIsolateController.setObjectsHighlighted(allIds, false);
-
-    modelIsolateController.setObjectsVisible(uniqueIds, true);
-    modelIsolateController.setObjectsXRayed(uniqueIds, false);
-    viewer.scene.setObjectsHighlighted(uniqueIds, true);
-
-    if (otherIds.length) {
-        modelIsolateController.setObjectsHighlighted(otherIds, false);
-    }
-
-    const combinedAABB = mergeAABBs(uniqueIds.map((id) => viewer.scene.getAABB(id)));
-    if (combinedAABB) {
-        viewer.cameraFlight.flyTo({ aabb: combinedAABB, duration: 0.6 });
-    }
-
-    requestRenderFrame();
-}
-
-function findStoreyNameFromMetaObject(metaObject, allMetaObjects) {
-    if (!metaObject || !allMetaObjects) {
-        return "Sem pavimento";
-    }
-
-    let current = metaObject;
-    let hops = 0;
-    while (current && hops < 30) {
-        if (current.type === "IfcBuildingStorey") {
-            return (current.name || current.id || "Sem pavimento").trim();
-        }
-
-        const parentRef = current.parentId || current.parent || current.parentObjectId || current.parentMetaObjectId || current.parentNodeId;
-        const parentId = typeof parentRef === "string" ? parentRef : parentRef?.id;
-        if (!parentId) {
-            break;
-        }
-
-        current = allMetaObjects[parentId];
-        hops += 1;
-    }
-
-    return "Sem pavimento";
-}
-
 function isolateAssociatedItemsByName(materialName) {
     if (!modelIsolateController) {
         return;
@@ -3659,26 +3564,8 @@ function collectQuantitativeMaterials() {
                 }
 
                 const aggregationKey = `${name}__${normalized.unitLabel}`;
-                const current = totals.get(aggregationKey) || {
-                    name,
-                    quantity: 0,
-                    unitLabel: normalized.unitLabel,
-                    quantityByPavimento: new Map(),
-                    objectIdsByPavimento: new Map()
-                };
-                
+                const current = totals.get(aggregationKey) || { name, quantity: 0, unitLabel: normalized.unitLabel };
                 current.quantity += normalized.quantity;
-
-                const pavimentoName = findStoreyNameFromMetaObject(metaObject, allMetaObjects);
-                const previousPavimentoQuantity = current.quantityByPavimento.get(pavimentoName) || 0;
-                current.quantityByPavimento.set(pavimentoName, previousPavimentoQuantity + normalized.quantity);
-
-                if (metaObject?.id) {
-                    const previousPavimentoIds = current.objectIdsByPavimento.get(pavimentoName) || [];
-                    if (!previousPavimentoIds.includes(metaObject.id)) {
-                        current.objectIdsByPavimento.set(pavimentoName, [...previousPavimentoIds, metaObject.id]);
-                    }
-                }
                 totals.set(aggregationKey, current);
             }
         }

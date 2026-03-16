@@ -1162,7 +1162,8 @@ function formatModelLabel(modelId) {
         "IFC-SPDA": "SISTEMA DE PROTEÇÃO CONTRA DESCARGAS ATMOSFÉRICAS - SPDA",
         "IFC-SDAI": "SISTEMA DE DETECÇÃO E ALARME DE INCÊNDIO",
         "IFC-SUB": "SUBESTAÇÃO AÉREA",
-        "IFC-FOT": "SISTEMA FOTOVOLTAICO"
+        "IFC-FOT": "SISTEMA FOTOVOLTAICO",
+        "IFC-HID": "INSTALAÇÕES HIDRÁULICAS"
     };
 
     return modelBudgetLabels[normalizedModelId] || normalizedModelId;

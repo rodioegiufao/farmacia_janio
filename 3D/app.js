@@ -62,7 +62,6 @@ function detectViewerCompatibility() {
         typeof navigator.hardwareConcurrency === "number" && navigator.hardwareConcurrency <= 4;
 
     const useCompatibilityMode =
-        isTouchDevice ||
         !supportsWebGL2 ||
         lowMemoryDevice ||
         lowCpuDevice;
@@ -88,6 +87,7 @@ function detectViewerCompatibility() {
     }
     
     const enableDataTextures = supportsWebGL2 && !useCompatibilityMode;
+    const enableNavCube = supportsWebGL2 && !isTouchDevice;
 
     return {
         supportsWebGL,
@@ -97,6 +97,7 @@ function detectViewerCompatibility() {
         disableSAO: useCompatibilityMode,
         disableEdges: useCompatibilityMode,
         enableDataTextures,
+        enableNavCube,
         reasons
     };
 }
@@ -1877,7 +1878,7 @@ async function loadDefaultModel({ id, src }) {
             id,
             src,
             edges: !viewerCompatibility.disableEdges,
-            dtxEnabled: viewerCompatibility.preferDataTextures
+            dtxEnabled: viewerCompatibility.enableDataTextures
         });
 
         model.on("loaded", () => {
@@ -2694,7 +2695,7 @@ function loadXktUpload(file) {
             src: normalizeBlobUrl(objectUrl),
             cacheBuster: false,
             edges: !viewerCompatibility.disableEdges,
-            dtxEnabled: viewerCompatibility.preferDataTextures
+            dtxEnabled: viewerCompatibility.enableDataTextures
         });
     } catch (error) {
         URL.revokeObjectURL(objectUrl);
@@ -4472,14 +4473,22 @@ setupMeasurementEvents(distanceMeasurementsPlugin);
 // 5. Cubo de Navegação (NavCube) (MANTIDO)
 // -----------------------------------------------------------------------------
 
-new NavCubePlugin(viewer, {
-    canvasId: "myNavCubeCanvas", 
-    visible: true,
-    size: 150, 
-    alignment: "bottomRight", 
-    bottomMargin: 20, 
-    rightMargin: 20 
-});
+if (viewerCompatibility.enableNavCube) {
+    new NavCubePlugin(viewer, {
+        canvasId: "myNavCubeCanvas",
+        visible: true,
+        size: 150,
+        alignment: "bottomRight",
+        bottomMargin: 20,
+        rightMargin: 20
+    });
+} else {
+    const navCubeCanvas = document.getElementById("myNavCubeCanvas");
+
+    if (navCubeCanvas) {
+        navCubeCanvas.style.display = "none";
+    }
+}
 
 // -----------------------------------------------------------------------------
 // 6. TreeViewPlugin e Lógica de Isolamento (MANTIDO)

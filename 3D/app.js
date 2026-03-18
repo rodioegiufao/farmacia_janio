@@ -44,6 +44,63 @@ let explicitLinearMaterials = new Set();
 let explicitLinearMaterialsLoadPromise = null
 let activeProjectKey = null;
 
+function detectViewerCompatibility() {
+    const tempCanvas = document.createElement("canvas");
+    const supportsWebGL2 = !!tempCanvas.getContext("webgl2");
+    const supportsWebGL =
+        supportsWebGL2 ||
+        !!tempCanvas.getContext("webgl") ||
+        !!tempCanvas.getContext("experimental-webgl");
+
+    const isTouchDevice =
+        window.matchMedia?.("(pointer: coarse)")?.matches ||
+        /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent || "");
+
+    const lowMemoryDevice =
+        typeof navigator.deviceMemory === "number" && navigator.deviceMemory <= 4;
+    const lowCpuDevice =
+        typeof navigator.hardwareConcurrency === "number" && navigator.hardwareConcurrency <= 4;
+
+    const useCompatibilityMode =
+        isTouchDevice ||
+        !supportsWebGL2 ||
+        lowMemoryDevice ||
+        lowCpuDevice;
+
+    const reasons = [];
+
+    if (!supportsWebGL) {
+        reasons.push("WebGL indisponível");
+    } else if (!supportsWebGL2) {
+        reasons.push("WebGL2 indisponível");
+    }
+
+    if (isTouchDevice) {
+        reasons.push("dispositivo touch");
+    }
+
+    if (lowMemoryDevice) {
+        reasons.push("memória reduzida");
+    }
+
+    if (lowCpuDevice) {
+        reasons.push("CPU reduzida");
+    }
+
+    return {
+        supportsWebGL,
+        supportsWebGL2,
+        isTouchDevice,
+        useCompatibilityMode,
+        disableSAO: useCompatibilityMode,
+        disableEdges: useCompatibilityMode,
+        preferDataTextures: useCompatibilityMode,
+        reasons
+    };
+}
+
+const viewerCompatibility = detectViewerCompatibility();
+
 // -----------------------------------------------------------------------------
 // 1. Configuração do Viewer e Redimensionamento (100% da tela)
 // -----------------------------------------------------------------------------
@@ -51,9 +108,11 @@ let activeProjectKey = null;
 const viewer = new Viewer({
 
     canvasId: "meuCanvas",
-    transparent: false, 
-    saoEnabled: true,
-    edgesEnabled: true,
+    transparent: false,
+    saoEnabled: !viewerCompatibility.disableSAO,
+    edgesEnabled: !viewerCompatibility.disableEdges,
+    pbrEnabled: false,
+    dtxEnabled: viewerCompatibility.preferDataTextures,
     backgroundColor: [0.72, 0.77, 0.82],
     
     // CONFIGURAÇÃO DE LOCALIZAÇÃO (NavCube em Português)
@@ -71,8 +130,17 @@ const viewer = new Viewer({
             }
         },
         locale: "pt" // Define o idioma padrão como Português
-    })
+     })
 });
+
+if (!viewerCompatibility.supportsWebGL) {
+    console.error("Este dispositivo não oferece suporte a WebGL, necessário para abrir os modelos 3D.");
+} else if (viewerCompatibility.useCompatibilityMode) {
+    console.warn(
+        `Modo de compatibilidade 3D ativado (${viewerCompatibility.reasons.join(", ")}). ` +
+        "SAO, realce de arestas e shaders mais pesados foram reduzidos para evitar falhas em celulares/tablets."
+    );
+}
 
 // Ajusta a cor do destaque (highlight) para azul
 const { highlightMaterial } = viewer.scene;
@@ -1806,7 +1874,8 @@ async function loadDefaultModel({ id, src }) {
         const model = xktLoader.load({
             id,
             src,
-            edges: true
+            edges: !viewerCompatibility.disableEdges,
+            dtxEnabled: viewerCompatibility.preferDataTextures
         });
 
         model.on("loaded", () => {
@@ -2516,13 +2585,13 @@ async function loadIfcUpload(file) {
         id: modelId,
         src: normalizedSrc,
         cacheBuster: false,
-        edges: true,
+        edges: !viewerCompatibility.disableEdges,
         loadMetadata: true,
         loadMetadataPropertySets: true,
         excludeTypes: ["IfcSpace", "IfcOpeningElement"],
         origin: [0, 0, 0],
         position: [0, 0, 0],
-        dtxEnabled: true
+        dtxEnabled: viewerCompatibility.preferDataTextures
     };
 
     let fileTextPromise = null;
@@ -2622,7 +2691,8 @@ function loadXktUpload(file) {
             id: modelId,
             src: normalizeBlobUrl(objectUrl),
             cacheBuster: false,
-            edges: true
+            edges: !viewerCompatibility.disableEdges,
+            dtxEnabled: viewerCompatibility.preferDataTextures
         });
     } catch (error) {
         URL.revokeObjectURL(objectUrl);

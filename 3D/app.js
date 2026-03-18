@@ -413,7 +413,7 @@ async function setupIfcOpenShellRuntime() {
         viewer.scene.canvas.spinner.processes++;
 
         try {
-            const pyodide = await window.loadPyodide();
+            const pyodide = await window.loadPyodide({});
 
             await pyodide.loadPackage("micropip");
             await pyodide.loadPackage("numpy");
@@ -2553,9 +2553,11 @@ function setIfcUploadStatus(message, isError = false) {
     ifcUploadStatus.style.color = isError ? "#fecaca" : "#cbd5e1";
 }
 
-function finalizeUploadedModelLoad(model, { modelId, fileName, formatLabel, objectUrl }) {
+function finalizeUploadedModelLoad(model, { modelId, fileName, formatLabel, objectUrl = null }) {
     if (!model || typeof model.on !== "function") {
-        URL.revokeObjectURL(objectUrl);
+        if (objectUrl) {
+            URL.revokeObjectURL(objectUrl);
+        }
         setIfcUploadStatus(`Formato de resposta inesperado ao carregar ${formatLabel}.`, true);
         return;
     }
@@ -2569,24 +2571,25 @@ function finalizeUploadedModelLoad(model, { modelId, fileName, formatLabel, obje
         registerModelTransform(model);
         adjustCameraOnLoad();
         viewer.cameraFlight.jumpTo(viewer.scene);
-        URL.revokeObjectURL(objectUrl);
+        if (objectUrl) {
+            URL.revokeObjectURL(objectUrl);
+        }
         setIfcUploadStatus(`${formatLabel} carregado: ${fileName}.`);
     });
 
     model.on("error", (error) => {
-        URL.revokeObjectURL(objectUrl);
+        if (objectUrl) {
+            URL.revokeObjectURL(objectUrl);
+        }
         setIfcUploadStatus(`Falha ao carregar ${fileName}.`, true);
         console.error(`Erro ao carregar ${formatLabel}:`, error);
     });
 }
 
 async function loadIfcUpload(file) {
-    const objectUrl = URL.createObjectURL(file);
     const modelId = `IFC_UPLOAD_${Date.now()}`;
-    const normalizedSrc = normalizeBlobUrl(objectUrl);
     const baseIfcLoadOptions = {
         id: modelId,
-        src: normalizedSrc,
         cacheBuster: false,
         edges: !viewerCompatibility.disableEdges,
         loadMetadata: true,
@@ -2597,16 +2600,11 @@ async function loadIfcUpload(file) {
         dtxEnabled: viewerCompatibility.enableDataTextures
     };
 
-    let fileTextPromise = null;
+    const [fileText, fileArrayBuffer] = await Promise.all([
+        file.text(),
+        file.arrayBuffer()
+    ]);
 
-    const getIfcFileText = async () => {
-        if (!fileTextPromise) {
-            fileTextPromise = file.text();
-        }
-
-        return fileTextPromise;
-    };
-    
     const tryLoadWithResolvedMethod = async (loader) => {
         const loadMethod = resolveIfcLoadMethod(loader);
 
@@ -2616,20 +2614,18 @@ async function loadIfcUpload(file) {
 
         const attempts = [
             async () => loader[loadMethod]({
-                ...baseIfcLoadOptions
-            }),
-            async () => loader[loadMethod](normalizedSrc, {
                 ...baseIfcLoadOptions,
-                src: undefined
+                text: fileText
             }),
             async () => loader[loadMethod]({
                 ...baseIfcLoadOptions,
-                text: await getIfcFileText()
+                data: fileArrayBuffer
             }),
-            async () => loader[loadMethod](await getIfcFileText(), {
-                ...baseIfcLoadOptions,
-                src: undefined,
-                text: undefined
+            async () => loader[loadMethod](fileText, {
+                ...baseIfcLoadOptions
+            }),
+            async () => loader[loadMethod](fileArrayBuffer, {
+                ...baseIfcLoadOptions
             })
         ];
 
@@ -2641,7 +2637,6 @@ async function loadIfcUpload(file) {
                 return typeof result?.then === "function" ? await result : result;
             } catch (error) {
                 errors.push(error);
-                throw new Error(fallbackError?.message || firstError?.message || fallbackError || firstError);
             }
         }
         const lastError = errors[errors.length - 1];
@@ -2673,11 +2668,9 @@ async function loadIfcUpload(file) {
         finalizeUploadedModelLoad(model, {
             modelId,
             fileName: file.name,
-            formatLabel: "IFC",
-            objectUrl
+            formatLabel: "IFC"
         });
     } catch (error) {
-        URL.revokeObjectURL(objectUrl);
         setIfcUploadStatus(`Falha ao iniciar o carregamento do IFC: ${error?.message || error}.`, true);
         console.error("Erro ao iniciar carregamento IFC:", error);
     }

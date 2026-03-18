@@ -86,6 +86,8 @@ function detectViewerCompatibility() {
     if (lowCpuDevice) {
         reasons.push("CPU reduzida");
     }
+    
+    const enableDataTextures = supportsWebGL2 && !useCompatibilityMode;
 
     return {
         supportsWebGL,
@@ -94,7 +96,7 @@ function detectViewerCompatibility() {
         useCompatibilityMode,
         disableSAO: useCompatibilityMode,
         disableEdges: useCompatibilityMode,
-        preferDataTextures: useCompatibilityMode,
+        enableDataTextures,
         reasons
     };
 }
@@ -112,7 +114,7 @@ const viewer = new Viewer({
     saoEnabled: !viewerCompatibility.disableSAO,
     edgesEnabled: !viewerCompatibility.disableEdges,
     pbrEnabled: false,
-    dtxEnabled: viewerCompatibility.preferDataTextures,
+    dtxEnabled: viewerCompatibility.enableDataTextures,
     backgroundColor: [0.72, 0.77, 0.82],
     
     // CONFIGURAÇÃO DE LOCALIZAÇÃO (NavCube em Português)
@@ -2591,7 +2593,7 @@ async function loadIfcUpload(file) {
         excludeTypes: ["IfcSpace", "IfcOpeningElement"],
         origin: [0, 0, 0],
         position: [0, 0, 0],
-        dtxEnabled: viewerCompatibility.preferDataTextures
+        dtxEnabled: viewerCompatibility.enableDataTextures
     };
 
     let fileTextPromise = null;

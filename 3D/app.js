@@ -17,7 +17,7 @@ import {
     SectionPlanesPlugin,
     LineSet,
     buildGridGeometry
-} from "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@latest/dist/xeokit-sdk.min.es.js";
+} from "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@2.6.92/dist/xeokit-sdk.min.es.js";
 
 import {
     downloadMaterialsAsExcel,
@@ -2534,7 +2534,7 @@ async function loadIfcUpload(file) {
 
         return fileTextPromise;
     };
-    
+
     const tryLoadWithResolvedMethod = async (loader) => {
         const loadMethod = resolveIfcLoadMethod(loader);
 

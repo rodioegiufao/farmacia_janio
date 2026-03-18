@@ -2553,7 +2553,14 @@ function setIfcUploadStatus(message, isError = false) {
     ifcUploadStatus.style.color = isError ? "#fecaca" : "#cbd5e1";
 }
 
-function finalizeUploadedModelLoad(model, { modelId, fileName, formatLabel, objectUrl = null }) {
+let uploadModelSequence = 0;
+
+function buildUploadModelId(prefix) {
+    uploadModelSequence += 1;
+    return `${prefix}_${Date.now()}_${uploadModelSequence}`;
+}
+
+function finalizeUploadedModelLoad(model, { modelId, fileName, formatLabel, objectUrl = null, totalFiles = 1, loadedFilesRef = { count: 0 } }) {
     if (!model || typeof model.on !== "function") {
         if (objectUrl) {
             URL.revokeObjectURL(objectUrl);
@@ -2562,19 +2569,20 @@ function finalizeUploadedModelLoad(model, { modelId, fileName, formatLabel, obje
         return;
     }
 
-    expectedModels = 1;
-    modelsLoadedCount = 0;
-    defaultModelChecksDone = 1;
-
     model.on("loaded", () => {
-        currentModels = [{ id: modelId, src: fileName }];
+        currentModels = [...currentModels, { id: modelId, src: fileName }];
         registerModelTransform(model);
         adjustCameraOnLoad();
         viewer.cameraFlight.jumpTo(viewer.scene);
         if (objectUrl) {
             URL.revokeObjectURL(objectUrl);
         }
-        setIfcUploadStatus(`${formatLabel} carregado: ${fileName}.`);
+        loadedFilesRef.count += 1;
+        const loadedCount = loadedFilesRef.count;
+        const statusMessage = totalFiles > 1
+            ? `${loadedCount}/${totalFiles} arquivo(s) carregado(s). Último: ${fileName}.`
+            : `${formatLabel} carregado: ${fileName}.`;
+        setIfcUploadStatus(statusMessage);
     });
 
     model.on("error", (error) => {
@@ -2586,8 +2594,8 @@ function finalizeUploadedModelLoad(model, { modelId, fileName, formatLabel, obje
     });
 }
 
-async function loadIfcUpload(file) {
-    const modelId = `IFC_UPLOAD_${Date.now()}`;
+async function loadIfcUpload(file, uploadContext = {}) {
+    const modelId = buildUploadModelId("IFC_UPLOAD");
     const baseIfcLoadOptions = {
         id: modelId,
         cacheBuster: false,
@@ -2666,6 +2674,7 @@ async function loadIfcUpload(file) {
         }
 
         finalizeUploadedModelLoad(model, {
+            ...uploadContext,
             modelId,
             fileName: file.name,
             formatLabel: "IFC"
@@ -2676,9 +2685,9 @@ async function loadIfcUpload(file) {
     }
 }
 
-function loadXktUpload(file) {
+function loadXktUpload(file, uploadContext = {}) {
     const objectUrl = URL.createObjectURL(file);
-    const modelId = `XKT_UPLOAD_${Date.now()}`;
+    const modelId = buildUploadModelId("XKT_UPLOAD");
 
     let model;
 
@@ -2698,6 +2707,7 @@ function loadXktUpload(file) {
     }
 
     finalizeUploadedModelLoad(model, {
+        ...uploadContext,
         modelId,
         fileName: file.name,
         formatLabel: "XKT",
@@ -2711,30 +2721,53 @@ function setupIfcUploadInput() {
     }
 
     ifcUploadInput.addEventListener("change", async () => {
-        const file = ifcUploadInput.files?.[0];
+        const files = Array.from(ifcUploadInput.files || []);
 
-        if (!file) {
+        if (!files.length) {
             return;
         }
 
-        const lowerCaseFileName = file.name.toLowerCase();
-        const isXktFile = lowerCaseFileName.endsWith(".xkt");
-        const isIfcFile = lowerCaseFileName.endsWith(".ifc");
+        const invalidFile = files.find((file) => {
+            const lowerCaseFileName = file.name.toLowerCase();
+            return !lowerCaseFileName.endsWith(".xkt") && !lowerCaseFileName.endsWith(".ifc");
+        });
 
-        if (!isXktFile && !isIfcFile) {
-            setIfcUploadStatus("Arquivo inválido. Selecione um arquivo .xkt ou .ifc.", true);
+        if (invalidFile) {
+            setIfcUploadStatus("Arquivo inválido. Selecione apenas arquivos .xkt ou .ifc.", true);
             return;
         }
 
         clearAllLoadedModels();
-        setIfcUploadStatus(`Carregando ${file.name}...`);
+        currentModels = [];
+        currentModelTransforms = {};
+        expectedModels = files.length;
+        modelsLoadedCount = 0;
+        defaultModelChecksDone = files.length;
 
-        if (isIfcFile) {
-            await loadIfcUpload(file);
-            return;
+        const loadedFilesRef = { count: 0 };
+        const uploadContext = {
+            totalFiles: files.length,
+            loadedFilesRef
+        };
+
+        setIfcUploadStatus(
+            files.length > 1
+                ? `Carregando ${files.length} arquivos...`
+                : `Carregando ${files[0].name}...`
+        );
+
+        for (const file of files) {
+            const lowerCaseFileName = file.name.toLowerCase();
+
+            if (lowerCaseFileName.endsWith(".ifc")) {
+                await loadIfcUpload(file, uploadContext);
+                continue;
+            }
+
+            loadXktUpload(file, uploadContext);
         }
 
-        loadXktUpload(file);
+        ifcUploadInput.value = "";
     });
 }
 

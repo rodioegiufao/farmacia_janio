@@ -5,6 +5,7 @@ import {
     LocaleService,
     XKTLoaderPlugin,
     WebIFCLoaderPlugin,
+    IFCOpenShellLoaderPlugin,
     AngleMeasurementsPlugin,
     AngleMeasurementsMouseControl,
     DistanceMeasurementsPlugin,
@@ -252,6 +253,10 @@ const xktLoader = new XKTLoaderPlugin(viewer, {
     dataSource: xktDataSource
 });
 let ifcLoader = null;
+let ifcOpenShellLoader = null;
+let pyodideSetupPromise = null;
+
+const IFC_OPEN_SHELL_WHEEL_URL = "https://ifcopenshell.github.io/wasm-wheels/ifcopenshell-0.8.3+34a1bc6-cp313-cp313-emscripten_4_0_9_wasm32.whl";
 
 function normalizeBlobUrl(src) {
     if (typeof src !== "string") {
@@ -322,6 +327,68 @@ function resolveIfcLoadMethod(loaderInstance) {
     }
 
     return null;
+}
+
+async function setupIfcOpenShellRuntime() {
+    if (pyodideSetupPromise) {
+        return pyodideSetupPromise;
+    }
+
+    pyodideSetupPromise = (async () => {
+        if (typeof window.loadPyodide !== "function") {
+            throw new Error("Pyodide não está disponível na página.");
+        }
+
+        viewer.scene.canvas.spinner.processes++;
+
+        try {
+            const pyodide = await window.loadPyodide();
+
+            await pyodide.loadPackage("micropip");
+            await pyodide.loadPackage("numpy");
+            await pyodide.loadPackage("shapely");
+
+            const micropip = pyodide.pyimport("micropip");
+
+            await micropip.install("typing-extensions");
+            await micropip.install(IFC_OPEN_SHELL_WHEEL_URL);
+
+            const ifcopenshell = pyodide.pyimport("ifcopenshell");
+            const ifcopenshellGeom = pyodide.pyimport("ifcopenshell.geom");
+            const settings = ifcopenshellGeom.settings();
+
+            settings.set(settings.WELD_VERTICES, false);
+
+            return {
+                pyodide,
+                ifcopenshell,
+                ifcopenshellGeom,
+                settings
+            };
+        } finally {
+            viewer.scene.canvas.spinner.processes = Math.max(0, viewer.scene.canvas.spinner.processes - 1);
+        }
+    })().catch((error) => {
+        pyodideSetupPromise = null;
+        throw error;
+    });
+
+    return pyodideSetupPromise;
+}
+
+async function getIfcOpenShellLoader() {
+    if (ifcOpenShellLoader) {
+        return ifcOpenShellLoader;
+    }
+
+    const { ifcopenshell, ifcopenshellGeom } = await setupIfcOpenShellRuntime();
+
+    ifcOpenShellLoader = new IFCOpenShellLoaderPlugin(viewer, {
+        ifcopenshell,
+        ifcopenshell_geom: ifcopenshellGeom
+    });
+
+    return ifcOpenShellLoader;
 }
 
 async function createIfcLoaderWithFallbacks() {
@@ -2445,54 +2512,75 @@ async function loadIfcUpload(file) {
     const objectUrl = URL.createObjectURL(file);
     const modelId = `IFC_UPLOAD_${Date.now()}`;
     const normalizedSrc = normalizeBlobUrl(objectUrl);
-    const loader = await getIfcLoader();
 
-    if (!loader) {
-        URL.revokeObjectURL(objectUrl);
-        setIfcUploadStatus("Carregador IFC indisponível no momento.", true);
-        return;
-    }
+    const tryLoadWithResolvedMethod = async (loader) => {
+        const loadMethod = resolveIfcLoadMethod(loader);
 
-    const loadMethod = resolveIfcLoadMethod(loader);
     if (!loadMethod) {
-        URL.revokeObjectURL(objectUrl);
-        setIfcUploadStatus("Não foi possível identificar o método de carregamento IFC.", true);
-        return;
-    }
+            throw new Error("Não foi possível identificar o método de carregamento IFC.");
+        }
 
-    let model;
-
-    try {
-        const firstAttempt = loader[loadMethod]({
-            id: modelId,
-            src: normalizedSrc,
-            cacheBuster: false,
-            edges: true
-        });
-
-        model = typeof firstAttempt?.then === "function" ? await firstAttempt : firstAttempt;
-    } catch (firstError) {
         try {
-            const fallbackAttempt = loader[loadMethod](normalizedSrc, {
+            const firstAttempt = loader[loadMethod]({
                 id: modelId,
                 cacheBuster: false,
-                edges: true
+                edges: true,
+                loadMetadata: true,
+                loadMetadataPropertySets: true,
+                excludeTypes: ["IfcSpace", "IfcOpeningElement"],
+                origin: [0, 0, 0],
+                position: [0, 0, 0],
+                dtxEnabled: true
             });
-            model = typeof fallbackAttempt?.then === "function" ? await fallbackAttempt : fallbackAttempt;
-        } catch (fallbackError) {
-            URL.revokeObjectURL(objectUrl);
-            setIfcUploadStatus(`Falha ao iniciar o carregamento do IFC: ${fallbackError?.message || fallbackError}.`, true);
-            console.error("Erro ao iniciar carregamento IFC:", firstError, fallbackError);
-            return;
-        }
-    }
+            return typeof firstAttempt?.then === "function" ? await firstAttempt : firstAttempt;
+        } catch (firstError) {
+            try {
+                const fallbackAttempt = loader[loadMethod](normalizedSrc, {
+                    id: modelId,
+                    cacheBuster: false,
+                    edges: true
+                });
 
-    finalizeUploadedModelLoad(model, {
-        modelId,
-        fileName: file.name,
-        formatLabel: "IFC",
-        objectUrl
-    });
+                return typeof fallbackAttempt?.then === "function" ? await fallbackAttempt : fallbackAttempt;
+            } catch (fallbackError) {
+                throw new Error(fallbackError?.message || firstError?.message || fallbackError || firstError);
+            }
+        }
+    };
+
+    try {
+        let model = null;
+        let ifcOpenShellError = null;
+
+        try {
+            const openShellLoader = await getIfcOpenShellLoader();
+            model = await tryLoadWithResolvedMethod(openShellLoader);
+        } catch (error) {
+            ifcOpenShellError = error;
+            console.warn("Falha ao carregar IFC com IFCOpenShellLoaderPlugin. Tentando WebIFCLoaderPlugin.", error);
+        }
+
+        if (!model) {
+            const webIfcLoader = await getIfcLoader();
+
+            if (!webIfcLoader) {
+                throw ifcOpenShellError || new Error("Carregador IFC indisponível no momento.");
+            }
+
+            model = await tryLoadWithResolvedMethod(webIfcLoader);
+        }
+
+        finalizeUploadedModelLoad(model, {
+            modelId,
+            fileName: file.name,
+            formatLabel: "IFC",
+            objectUrl
+        });
+    } catch (error) {
+        URL.revokeObjectURL(objectUrl);
+        setIfcUploadStatus(`Falha ao iniciar o carregamento do IFC: ${error?.message || error}.`, true);
+        console.error("Erro ao iniciar carregamento IFC:", error);
+    }
 }
 
 function loadXktUpload(file) {

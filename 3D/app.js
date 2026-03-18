@@ -17,7 +17,7 @@ import {
     SectionPlanesPlugin,
     LineSet,
     buildGridGeometry
-} from "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@latest/dist/xeokit-sdk.min.es.js";
+} from "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@2.6.107/dist/xeokit-sdk.min.es.js";
 
 import {
     downloadMaterialsAsExcel,

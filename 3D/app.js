@@ -2737,12 +2737,8 @@ function setupIfcUploadInput() {
             return;
         }
 
-        clearAllLoadedModels();
-        currentModels = [];
-        currentModelTransforms = {};
-        expectedModels = files.length;
-        modelsLoadedCount = 0;
-        defaultModelChecksDone = files.length;
+        expectedModels += files.length;
+        defaultModelChecksDone += files.length;
 
         const loadedFilesRef = { count: 0 };
         const uploadContext = {
@@ -2752,8 +2748,8 @@ function setupIfcUploadInput() {
 
         setIfcUploadStatus(
             files.length > 1
-                ? `Carregando ${files.length} arquivos...`
-                : `Carregando ${files[0].name}...`
+                ? `Adicionando ${files.length} arquivos ao cenário...`
+                : `Adicionando ${files[0].name} ao cenário...`
         );
 
         for (const file of files) {

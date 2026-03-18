@@ -2512,40 +2512,68 @@ async function loadIfcUpload(file) {
     const objectUrl = URL.createObjectURL(file);
     const modelId = `IFC_UPLOAD_${Date.now()}`;
     const normalizedSrc = normalizeBlobUrl(objectUrl);
+    const baseIfcLoadOptions = {
+        id: modelId,
+        src: normalizedSrc,
+        cacheBuster: false,
+        edges: true,
+        loadMetadata: true,
+        loadMetadataPropertySets: true,
+        excludeTypes: ["IfcSpace", "IfcOpeningElement"],
+        origin: [0, 0, 0],
+        position: [0, 0, 0],
+        dtxEnabled: true
+    };
 
+    let fileTextPromise = null;
+
+    const getIfcFileText = async () => {
+        if (!fileTextPromise) {
+            fileTextPromise = file.text();
+        }
+
+        return fileTextPromise;
+    };
+    
     const tryLoadWithResolvedMethod = async (loader) => {
         const loadMethod = resolveIfcLoadMethod(loader);
 
-    if (!loadMethod) {
+        if (!loadMethod) {
             throw new Error("Não foi possível identificar o método de carregamento IFC.");
         }
 
-        try {
-            const firstAttempt = loader[loadMethod]({
-                id: modelId,
-                cacheBuster: false,
-                edges: true,
-                loadMetadata: true,
-                loadMetadataPropertySets: true,
-                excludeTypes: ["IfcSpace", "IfcOpeningElement"],
-                origin: [0, 0, 0],
-                position: [0, 0, 0],
-                dtxEnabled: true
-            });
-            return typeof firstAttempt?.then === "function" ? await firstAttempt : firstAttempt;
-        } catch (firstError) {
-            try {
-                const fallbackAttempt = loader[loadMethod](normalizedSrc, {
-                    id: modelId,
-                    cacheBuster: false,
-                    edges: true
-                });
+        const attempts = [
+            async () => loader[loadMethod]({
+                ...baseIfcLoadOptions
+            }),
+            async () => loader[loadMethod](normalizedSrc, {
+                ...baseIfcLoadOptions,
+                src: undefined
+            }),
+            async () => loader[loadMethod]({
+                ...baseIfcLoadOptions,
+                text: await getIfcFileText()
+            }),
+            async () => loader[loadMethod](await getIfcFileText(), {
+                ...baseIfcLoadOptions,
+                src: undefined,
+                text: undefined
+            })
+        ];
 
-                return typeof fallbackAttempt?.then === "function" ? await fallbackAttempt : fallbackAttempt;
-            } catch (fallbackError) {
+        const errors = [];
+
+        for (const attempt of attempts) {
+            try {
+                const result = await attempt();
+                return typeof result?.then === "function" ? await result : result;
+            } catch (error) {
+                errors.push(error);
                 throw new Error(fallbackError?.message || firstError?.message || fallbackError || firstError);
             }
         }
+        const lastError = errors[errors.length - 1];
+        throw new Error(lastError?.message || errors[0]?.message || "Falha desconhecida ao carregar IFC.");
     };
 
     try {

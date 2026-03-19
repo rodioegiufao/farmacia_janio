@@ -585,6 +585,7 @@ let explorerTabPanels = new Map();
 let explorerTabSummaries = new Map();
 let explorerTabLists = new Map();
 let explorerRefreshHandle = null;
+let objectModelIdLookup = new Map();
 const transformPanel = document.getElementById("transformPanel");
 const transformPanelToggleButton = document.getElementById("btnTransformPanel");
 const closeTransformPanelButton = document.getElementById("closeTransformPanel");
@@ -1388,6 +1389,7 @@ function syncTransformInputs(modelId) {
 
 function registerModelTransform(model) {
     loadedModels.set(model.id, model);
+    objectModelIdLookup.clear();
 
     if (!originalTransforms.has(model.id)) {
         originalTransforms.set(model.id, {
@@ -3105,6 +3107,7 @@ function clearAllLoadedModels() {
     });
 
     loadedModels.clear();
+    objectModelIdLookup.clear();
     originalTransforms.clear();
     currentModels = [];
     currentModelTransforms = {};
@@ -3557,11 +3560,35 @@ function getModelObjectIds(modelId) {
     return ids;
 }
 
+function rebuildObjectModelIdLookup() {
+    objectModelIdLookup.clear();
+
+    loadedModels.forEach((model, modelId) => {
+        if (!Array.isArray(model?.objectIds)) {
+            return;
+        }
+
+        model.objectIds.forEach((objectId) => {
+            if (objectId) {
+                objectModelIdLookup.set(objectId, modelId);
+            }
+        });
+    });
+}
+
 function getObjectMetaModelId(objectId) {
     const metaObjects = viewer.metaScene?.metaObjects || {};
     const metaObject = metaObjects[objectId];
 
-    return metaObject?.metaModel?.id || null;
+    if (metaObject?.metaModel?.id) {
+        return metaObject.metaModel.id;
+    }
+
+    if (!objectModelIdLookup.size && loadedModels.size) {
+        rebuildObjectModelIdLookup();
+    }
+
+    return objectModelIdLookup.get(objectId) || null;
 }
 
 function intersectsAABB(aabbA, aabbB, overlapTolerance = 0) {

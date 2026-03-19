@@ -455,7 +455,7 @@ html, body {
 }
 
 #treeViewContainer.explorer-enabled .tree-view-title {
-    font-size: 28px;
+    font-size: 22px;
     font-weight: 700;
     line-height: 1.1;
 }
@@ -476,7 +476,7 @@ html, body {
 }
 
 #treeViewContainer.explorer-enabled .tree-view-actions button:hover {
-    background: rgba(94, 23, 235, 0.35);
+    background: rgba(45, 140, 255, 0.2);
 }
 
 #treeViewContainer.explorer-enabled .explorer-tabs {
@@ -497,17 +497,17 @@ html, body {
     color: rgba(255, 255, 255, 0.88);
     font-weight: 700;
     cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 #treeViewContainer.explorer-enabled .explorer-tab-button:hover {
-    background: rgba(123, 73, 255, 0.2);
+    background: rgba(0, 168, 107, 0.18)
 }
 
 #treeViewContainer.explorer-enabled .explorer-tab-button.is-active {
-    background: linear-gradient(135deg, #7c3aed, #5b21b6);
+    background: linear-gradient(135deg, #10c678, #00a86b);
     color: #ffffff;
-    box-shadow: 0 6px 14px rgba(91, 33, 182, 0.32);
+    box-shadow: 0 6px 14px rgba(0, 168, 107, 0.3);
 }
 
 #treeViewContainer.explorer-enabled .explorer-content {
@@ -560,11 +560,13 @@ html, body {
     color: inherit;
     cursor: pointer;
     text-align: left;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 #treeViewContainer.explorer-enabled .explorer-list-item:hover {
-    background: rgba(124, 58, 237, 0.16);
-    border-color: rgba(167, 139, 250, 0.45);
+    background: rgba(0, 168, 107, 0.14);
+    border-color: rgba(0, 196, 122, 0.35);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
 }
 
 #treeViewContainer.explorer-enabled .explorer-list-item-text {
@@ -594,12 +596,13 @@ html, body {
 #treeViewContainer.explorer-enabled .explorer-list-item-badge {
     flex: 0 0 auto;
     border-radius: 999px;
-    padding: 4px 8px;
-    background: rgba(124, 58, 237, 0.22);
-    color: #d9c7ff;
+    padding: 4px 10px;
+    background: linear-gradient(135deg, #2d8cff, #007bff);
+    color: #ffffff;
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
+    box-shadow: 0 3px 10px rgba(0, 123, 255, 0.28);
 }
 
 #treeViewContainer.explorer-enabled #treeViewContent {

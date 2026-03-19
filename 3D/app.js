@@ -671,7 +671,7 @@ function updateExplorerHeader() {
     }
 
     if (toggleTreeViewSelectionButton) {
-        toggleTreeViewSelectionButton.hidden = activeExplorerTab !== "storeys";
+        toggleTreeViewSelectionButton.hidden = true;
     }
 }
 
@@ -724,23 +724,6 @@ function setupExplorerPanel() {
         button.addEventListener("click", () => setActiveExplorerTab(tabDefinition.id));
         explorerTabButtons.set(tabDefinition.id, button);
         tabsBar.appendChild(button);
-
-        if (tabDefinition.id === "storeys") {
-            const panel = document.createElement("section");
-            panel.className = "explorer-tab-panel explorer-tab-panel--tree";
-            panel.dataset.explorerPanel = tabDefinition.id;
-            panel.hidden = true;
-
-            const summary = document.createElement("p");
-            summary.className = "explorer-tab-summary";
-            panel.appendChild(summary);
-            explorerTabPanels.set(tabDefinition.id, panel);
-            explorerTabSummaries.set(tabDefinition.id, summary);
-
-            panel.appendChild(treeViewContent);
-            content.appendChild(panel);
-            return;
-        }
 
         content.appendChild(createExplorerTabPanel(tabDefinition.id));
     });
@@ -1177,14 +1160,74 @@ function renderExplorerClassesTab() {
 
 function renderExplorerStoreysTab() {
     const summary = explorerTabSummaries.get("storeys");
-    if (!summary) {
+    const list = explorerTabLists.get("storeys");
+    if (!summary || !list) {
         return;
     }
 
-    const storeys = Object.values(viewer.metaScene?.metaObjects || {}).filter((metaObject) => metaObject?.type === "IfcBuildingStorey");
-    summary.textContent = storeys.length
-        ? `${storeys.length} pavimento(s) IFC encontrado(s). Use a árvore abaixo para isolar o nível desejado.`
-        : "Carregue um modelo com pavimentos IFC para usar esta aba.";
+    const groupedStoreys = new Map();
+
+    Object.values(viewer.metaScene?.metaObjects || {}).forEach((metaObject) => {
+        if (metaObject?.type !== "IfcBuildingStorey" || !metaObject?.id) {
+            return;
+        }
+
+        const modelId = getObjectMetaModelId(metaObject.id) || "SEM_MODELO";
+        if (!groupedStoreys.has(modelId)) {
+            groupedStoreys.set(modelId, {
+                modelId,
+                modelLabel: getExplorerModelLabel(modelId),
+                storeys: []
+            });
+        }
+
+        groupedStoreys.get(modelId).storeys.push({
+            id: metaObject.id,
+            name: metaObject.name || metaObject.id
+        });
+    });
+
+    const groups = Array.from(groupedStoreys.values())
+        .map((group) => ({
+            ...group,
+            storeys: group.storeys.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+        }))
+        .sort((a, b) => a.modelLabel.localeCompare(b.modelLabel, "pt-BR"));
+
+    list.innerHTML = "";
+
+    if (!groups.length) {
+        summary.textContent = "Carregue um modelo com pavimentos IFC para usar esta aba.";
+        return;
+    }
+
+    const totalStoreys = groups.reduce((sum, group) => sum + group.storeys.length, 0);
+    summary.textContent = `${totalStoreys} pavimento(s) IFC encontrado(s) em ${groups.length} IFC(s). Expanda o botão + de cada IFC para abrir os pavimentos.`;
+
+    groups.forEach((group) => {
+        list.appendChild(buildExplorerCollapsibleGroup({
+            tabId: "storeys",
+            groupKey: group.modelId,
+            titleText: group.modelLabel,
+            metaText: group.modelId,
+            countText: `${group.storeys.length} pavimento(s)`,
+            renderChildren: (children) => {
+                group.storeys.forEach((storey) => {
+                    const item = buildExplorerActionButton({
+                        primaryText: storey.name,
+                        secondaryText: storey.id,
+                        title: `Isolar pavimento ${storey.name}`,
+                        onClick: () => {
+                            isolateStorey(storey.id);
+                            setActiveExplorerTab("storeys");
+                        }
+                    });
+                    item.classList.add("explorer-tree-leaf");
+                    children.appendChild(item);
+                });
+            }
+        }));
+    });
 }
 
 function refreshExplorerPanels() {

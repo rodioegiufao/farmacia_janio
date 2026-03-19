@@ -533,20 +533,19 @@ html, body {
     line-height: 1.4;
 }
 
-#treeViewContainer.explorer-enabled .explorer-tab-list,
-#treeViewContainer.explorer-enabled #treeViewContent {
+#treeViewContainer.explorer-enabled .explorer-tab-list {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
     padding-right: 4px;
-}
-
-#treeViewContainer.explorer-enabled .explorer-tab-list {
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
+#treeViewContainer.explorer-enabled #treeViewContent {
+    display: none;
+}
 #treeViewContainer.explorer-enabled .explorer-list-item {
     display: flex;
     align-items: center;
@@ -676,16 +675,10 @@ html, body {
     width: calc(100% - 2px);
 }
 
-#treeViewContainer.explorer-enabled #treeViewContent {
-    padding-top: 2px;
-}
-
-#treeViewContainer.explorer-enabled #treeViewContent::-webkit-scrollbar,
 #treeViewContainer.explorer-enabled .explorer-tab-list::-webkit-scrollbar {
     width: 8px;
 }
 
-#treeViewContainer.explorer-enabled #treeViewContent::-webkit-scrollbar-thumb,
 #treeViewContainer.explorer-enabled .explorer-tab-list::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.18);
     border-radius: 999px;

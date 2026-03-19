@@ -3391,6 +3391,254 @@ function resolveMetaObject(entityId) {
 
     return null;
 }
+function getMetaObjectParent(metaObject) {
+    if (!metaObject) {
+        return null;
+    }
+
+    if (typeof metaObject.parent === "string") {
+        return resolveMetaObject(metaObject.parent);
+    }
+
+    if (metaObject.parent?.id) {
+        return metaObject.parent;
+    }
+
+    if (metaObject.parentId) {
+        return resolveMetaObject(metaObject.parentId);
+    }
+
+    return null;
+}
+
+function getMetaObjectChildren(metaObject) {
+    if (!metaObject) {
+        return [];
+    }
+
+    const entries = [];
+
+    if (Array.isArray(metaObject.children)) {
+        entries.push(...metaObject.children);
+    }
+
+    if (Array.isArray(metaObject.childrenIds)) {
+        entries.push(...metaObject.childrenIds);
+    }
+
+    const children = [];
+    const seenIds = new Set();
+
+    for (const entry of entries) {
+        const child = typeof entry === "string" ? resolveMetaObject(entry) : entry;
+        if (!child?.id || seenIds.has(child.id)) {
+            continue;
+        }
+
+        seenIds.add(child.id);
+        children.push(child);
+    }
+
+    return children;
+}
+
+function traverseMetaObjectSubtree(metaObject, visitor) {
+    if (!metaObject || typeof visitor !== "function") {
+        return;
+    }
+
+    const stack = [metaObject];
+    const visited = new Set();
+
+    while (stack.length) {
+        const current = stack.pop();
+        if (!current?.id || visited.has(current.id)) {
+            continue;
+        }
+
+        visited.add(current.id);
+        visitor(current);
+
+        const children = getMetaObjectChildren(current);
+        for (let i = children.length - 1; i >= 0; i--) {
+            stack.push(children[i]);
+        }
+    }
+}
+
+function isSceneObjectId(objectId) {
+    return Boolean(resolveEntityById(objectId));
+}
+
+function metaObjectBelongsToStorey(metaObject, storeyId) {
+    if (!metaObject?.id || !storeyId) {
+        return false;
+    }
+
+    let current = metaObject;
+    const visited = new Set();
+
+    while (current?.id && !visited.has(current.id)) {
+        if (current.id === storeyId) {
+            return true;
+        }
+
+        visited.add(current.id);
+        current = getMetaObjectParent(current);
+    }
+
+    return false;
+}
+
+function getObjectsByStorey(storeyId) {
+    const storeyMetaObject = resolveMetaObject(storeyId);
+    if (!storeyMetaObject) {
+        return [];
+    }
+
+    const ids = new Set();
+
+    if (typeof viewer.scene.getObjectsInSubtree === "function") {
+        const subtreeIds = viewer.scene.getObjectsInSubtree(storeyMetaObject.id) || [];
+        subtreeIds.forEach((id) => {
+            if (isSceneObjectId(id)) {
+                ids.add(id);
+            }
+        });
+    }
+
+    traverseMetaObjectSubtree(storeyMetaObject, (metaObject) => {
+        if (isSceneObjectId(metaObject.id)) {
+            ids.add(metaObject.id);
+        }
+    });
+
+    const allMetaObjects = viewer.metaScene?.metaObjects || {};
+    for (const metaObject of Object.values(allMetaObjects)) {
+        if (!metaObject?.id || !isSceneObjectId(metaObject.id)) {
+            continue;
+        }
+
+        if (metaObjectBelongsToStorey(metaObject, storeyMetaObject.id)) {
+            ids.add(metaObject.id);
+        }
+    }
+
+    return Array.from(ids);
+}
+
+function getClassesFromObjects(objectIds) {
+    const classIds = new Set();
+
+    objectIds.forEach((objectId) => {
+        const metaObject = resolveMetaObject(objectId);
+        const classId = metaObject?.type;
+        if (classId) {
+            classIds.add(classId);
+        }
+    });
+
+    return Array.from(classIds);
+}
+
+function expandHierarchy(objectIds) {
+    const expandedIds = new Set();
+
+    objectIds.forEach((objectId) => {
+        const metaObject = resolveMetaObject(objectId);
+        if (!metaObject) {
+            if (isSceneObjectId(objectId)) {
+                expandedIds.add(objectId);
+            }
+            return;
+        }
+
+        traverseMetaObjectSubtree(metaObject, (childMetaObject) => {
+            if (isSceneObjectId(childMetaObject.id)) {
+                expandedIds.add(childMetaObject.id);
+            }
+        });
+    });
+
+    return Array.from(expandedIds);
+}
+
+function getAllEntitiesFromStorey(storeyId) {
+    const objectIds = getObjectsByStorey(storeyId);
+    const expandedObjectIds = expandHierarchy(objectIds);
+    const classIds = getClassesFromObjects(expandedObjectIds);
+
+    return {
+        objectIds: expandedObjectIds,
+        classIds
+    };
+}
+
+function getObjectIdsByType(type) {
+    if (!type) {
+        return [];
+    }
+
+    if (typeof viewer.metaScene?.getObjectIDsByType === "function") {
+        return viewer.metaScene.getObjectIDsByType(type) || [];
+    }
+
+    const metaObjects = viewer.metaScene?.metaObjects || {};
+    const ids = [];
+
+    for (const metaObject of Object.values(metaObjects)) {
+        if (metaObject?.type === type && metaObject?.id) {
+            ids.push(metaObject.id);
+        }
+    }
+
+    return ids;
+}
+
+function isolateStorey(storeyId) {
+    const storeyMetaObject = resolveMetaObject(storeyId);
+    if (!storeyMetaObject) {
+        return false;
+    }
+
+    const { objectIds, classIds } = getAllEntitiesFromStorey(storeyMetaObject.id);
+    const idsToFocus = new Set(objectIds);
+
+    classIds.forEach((classId) => {
+        getObjectIdsByType(classId).forEach((objectId) => {
+            const metaObject = resolveMetaObject(objectId);
+            if (metaObjectBelongsToStorey(metaObject, storeyMetaObject.id) && isSceneObjectId(objectId)) {
+                idsToFocus.add(objectId);
+            }
+        });
+    });
+
+    const idsToShow = Array.from(idsToFocus);
+    if (!idsToShow.length) {
+        return false;
+    }
+
+    const allIds = getAllObjectIds();
+    modelIsolateController.setObjectsVisible(allIds, false);
+    modelIsolateController.setObjectsXRayed(allIds, false);
+    modelIsolateController.setObjectsHighlighted(allIds, false);
+
+    modelIsolateController.setObjectsVisible(idsToShow, true);
+    modelIsolateController.setObjectsXRayed(idsToShow, false);
+    viewer.scene.setObjectsHighlighted(idsToShow, true);
+
+    const combinedAABB = mergeAABBs(idsToShow.map((id) => viewer.scene.getAABB(id)));
+    if (combinedAABB) {
+        viewer.cameraFlight.flyTo({
+            aabb: combinedAABB,
+            duration: 0.6
+        });
+    }
+
+    clearSelection();
+    requestRenderFrame();
+    return true;
+}
 
 function buildIfcPropertiesLines(doc, objectId, maxWidth) {
     const metaObject = resolveMetaObject(objectId);
@@ -4559,29 +4807,32 @@ function setupModelIsolateController() {
     // Ouve o evento de "seleção" no TreeView
     treeView.on("nodeClicked", (event) => {
         const entityId = event.entityId;
-        
+        const metaObject = resolveMetaObject(entityId);
+
+        if (metaObject?.type === "IfcBuildingStorey" && isolateStorey(metaObject.id)) {
+            return;
+        }
         // Verifica se há alguma entidade associada ao nó
         if (entityId && viewer.scene.getObjectsInSubtree(entityId).length > 0) {
             
             const subtreeIds = viewer.scene.getObjectsInSubtree(entityId);
 
-            // Isola (mostra apenas) a parte do modelo (pavimento, por exemplo) clicada
-            modelIsolateController.setObjectsXRayed(getAllObjectIds(), true); // X-ray em TUDO
-            modelIsolateController.setObjectsXRayed(subtreeIds, false); // Tira o X-ray do subconjunto isolado
+            // Mantém o comportamento existente para nós que não são pavimentos.
+            modelIsolateController.setObjectsXRayed(getAllObjectIds(), true);
+            modelIsolateController.setObjectsXRayed(subtreeIds, false);
+            modelIsolateController.isolate(subtreeIds);
 
-            modelIsolateController.isolate(subtreeIds); // Isola o subconjunto
-            
             viewer.cameraFlight.flyTo({
                 aabb: viewer.scene.getAABB(entityId),
                 duration: 0.5
             });
             
-            clearSelection(); // Limpa a seleção específica quando se usa a TreeView
+            clearSelection();
 
         } else {
             // Se o usuário clicar em um nó que não contém objetos (como o nó raiz do projeto ou um item folha)
             // Apenas reseta a visibilidade.
-            resetModelVisibility(); 
+            resetModelVisibility();
         }
     });
 }

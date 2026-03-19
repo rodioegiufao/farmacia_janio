@@ -574,7 +574,10 @@ const EXPLORER_TAB_DEFINITIONS = [
     { id: "classes", label: "Classes", subtitle: "Classes IFC agrupadas para isolamento" },
     { id: "storeys", label: "Storeys", subtitle: "Selecione o pavimento para isolar" }
 ];
-const EXPLORER_OBJECT_PREVIEW_LIMIT = 120;
+const explorerExpandedGroups = {
+    objects: new Set(),
+    classes: new Set()
+};
 let activeExplorerTab = "models";
 let explorerTabsInitialized = false;
 let explorerTabButtons = new Map();
@@ -802,6 +805,13 @@ function focusModelById(modelId) {
     }
 
     const ids = expandHierarchy(getModelObjectIds(modelId).filter((id) => isSceneObjectId(id)));
+    return focusObjectCollection(ids);
+}
+
+function focusObjectCollection(ids) {
+    if (!modelIsolateController) {
+        return false;
+    }
     if (!ids.length) {
         return false;
     }
@@ -823,30 +833,23 @@ function focusModelById(modelId) {
     return true;
 }
 
+function focusClassByTypeAndModel(type, modelId) {
+    if (!type || !modelId) {
+        return false;
+    }
+
+    const ids = expandHierarchy(
+        getObjectIdsByType(type)
+            .filter((id) => isSceneObjectId(id))
+            .filter((id) => (getObjectMetaModelId(id) || "SEM_MODELO") === modelId)
+    );
+
+    return focusObjectCollection(ids);
+}
+
 function focusClassByType(type) {
-    if (!modelIsolateController) {
-        return false;
-    }
-
     const ids = expandHierarchy(getObjectIdsByType(type).filter((id) => isSceneObjectId(id)));
-    if (!ids.length) {
-        return false;
-    }
-
-    const allIds = getAllObjectIds();
-    modelIsolateController.setObjectsVisible(allIds, false);
-    modelIsolateController.setObjectsXRayed(allIds, false);
-    modelIsolateController.setObjectsHighlighted(allIds, false);
-    modelIsolateController.setObjectsVisible(ids, true);
-    viewer.scene.setObjectsHighlighted(ids, true);
-
-    const combinedAABB = mergeAABBs(ids.map((id) => viewer.scene.getAABB(id)));
-    if (combinedAABB) {
-        viewer.cameraFlight.flyTo({ aabb: combinedAABB, duration: 0.6 });
-    }
-
-    clearSelection();
-    requestRenderFrame();
+    return focusObjectCollection(ids);
     return true;
 }
 
@@ -882,7 +885,91 @@ function buildExplorerActionButton({ primaryText, secondaryText, onClick, title 
     button.addEventListener("click", onClick);
     return button;
 }
+function toggleExplorerGroup(tabId, groupKey) {
+    const expandedGroups = explorerExpandedGroups[tabId];
+    if (!expandedGroups) {
+        return false;
+    }
 
+    if (expandedGroups.has(groupKey)) {
+        expandedGroups.delete(groupKey);
+        return false;
+    }
+
+    expandedGroups.add(groupKey);
+    return true;
+}
+
+function buildExplorerCollapsibleGroup({
+    tabId,
+    groupKey,
+    titleText,
+    metaText,
+    countText,
+    onHeaderClick,
+    renderChildren
+}) {
+    const isExpanded = explorerExpandedGroups[tabId]?.has(groupKey);
+
+    const section = document.createElement("section");
+    section.className = `explorer-tree-group${isExpanded ? " is-expanded" : ""}`;
+
+    const header = document.createElement("button");
+    header.type = "button";
+    header.className = "explorer-tree-group-header";
+    header.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+    header.title = titleText;
+
+    const toggle = document.createElement("span");
+    toggle.className = "explorer-tree-group-toggle";
+    toggle.textContent = isExpanded ? "−" : "+";
+    header.appendChild(toggle);
+
+    const textWrapper = document.createElement("span");
+    textWrapper.className = "explorer-tree-group-title-wrapper";
+
+    const title = document.createElement("span");
+    title.className = "explorer-tree-group-title";
+    title.textContent = titleText;
+    textWrapper.appendChild(title);
+
+    if (metaText) {
+        const meta = document.createElement("span");
+        meta.className = "explorer-tree-group-meta";
+        meta.textContent = metaText;
+        textWrapper.appendChild(meta);
+    }
+
+    header.appendChild(textWrapper);
+
+    if (countText) {
+        const count = document.createElement("span");
+        count.className = "explorer-tree-group-count";
+        count.textContent = countText;
+        header.appendChild(count);
+    }
+
+    header.addEventListener("click", () => {
+        toggleExplorerGroup(tabId, groupKey);
+        if (typeof onHeaderClick === "function") {
+            onHeaderClick();
+        }
+        scheduleExplorerRefresh(0);
+    });
+
+    section.appendChild(header);
+
+    const children = document.createElement("div");
+    children.className = "explorer-tree-group-children";
+    children.hidden = !isExpanded;
+
+    if (isExpanded && typeof renderChildren === "function") {
+        renderChildren(children);
+    }
+
+    section.appendChild(children);
+    return section;
+}
 function renderExplorerModelsTab() {
     const summary = explorerTabSummaries.get("models");
     const list = explorerTabLists.get("models");
@@ -970,71 +1057,33 @@ function renderExplorerObjectsTab() {
         groupedObjects.get(entry.modelId).items.push(entry);
     });
 
-    let remainingSlots = EXPLORER_OBJECT_PREVIEW_LIMIT;
-    let renderedCount = 0;
 
     const groups = Array.from(groupedObjects.values())
         .sort((a, b) => a.modelLabel.localeCompare(b.modelLabel, "pt-BR"));
 
     groups.forEach((group) => {
-        const visibleItems = remainingSlots > 0 ? group.items.slice(0, remainingSlots) : [];
-        const hiddenCount = Math.max(0, group.items.length - visibleItems.length);
-
-        if (!visibleItems.length && renderedCount > 0) {
-            return;
-        }
-
-        const section = document.createElement("section");
-        section.className = "explorer-group-section";
-
-        const header = document.createElement("div");
-        header.className = "explorer-group-header";
-
-        const titleWrapper = document.createElement("div");
-        titleWrapper.className = "explorer-group-title-wrapper";
-
-        const title = document.createElement("span");
-        title.className = "explorer-group-title";
-        title.textContent = group.modelLabel;
-        titleWrapper.appendChild(title);
-
-        const meta = document.createElement("span");
-        meta.className = "explorer-group-meta";
-        meta.textContent = group.modelId;
-        titleWrapper.appendChild(meta);
-
-        const count = document.createElement("span");
-        count.className = "explorer-group-count";
-        count.textContent = `${group.items.length} objeto(s)`;
-
-        header.appendChild(titleWrapper);
-        header.appendChild(count);
-        section.appendChild(header);
-
-        visibleItems.forEach((entry) => {
-            section.appendChild(buildExplorerActionButton({
-                primaryText: entry.name,
-                secondaryText: `${entry.type} • ${entry.id}`,
-                title: `Focar objeto ${entry.id}`,
-                onClick: () => focusObjectById(entry.id)
-            }));
-        });
-
-        if (hiddenCount > 0) {
-            const overflowNotice = document.createElement("p");
-            overflowNotice.className = "explorer-group-overflow";
-            overflowNotice.textContent = `+${hiddenCount} objeto(s) deste modelo não exibido(s) nesta prévia.`;
-            section.appendChild(overflowNotice);
-        }
-
-        list.appendChild(section);
-        renderedCount += visibleItems.length;
-        remainingSlots = Math.max(0, remainingSlots - visibleItems.length);
+        list.appendChild(buildExplorerCollapsibleGroup({
+            tabId: "objects",
+            groupKey: group.modelId,
+            titleText: group.modelLabel,
+            metaText: group.modelId,
+            countText: `${group.items.length} objeto(s)`,
+            renderChildren: (children) => {
+                group.items.forEach((entry) => {
+                    const item = buildExplorerActionButton({
+                        primaryText: entry.name,
+                        secondaryText: `${entry.type} • ${entry.id}`,
+                        title: `Focar objeto ${entry.id}`,
+                        onClick: () => focusObjectById(entry.id)
+                    });
+                    item.classList.add("explorer-tree-leaf");
+                    children.appendChild(item);
+                });
+            }
+        }));
     });
     const extraCount = Math.max(0, metaObjects.length - renderedCount);
-    summary.textContent = extraCount > 0
-        ? `${metaObjects.length} objeto(s) encontrados em ${groups.length} modelo(s). Mostrando ${renderedCount} itens agrupados por IFC/XKT para manter o painel leve.`
-        : `${metaObjects.length} objeto(s) encontrados em ${groups.length} modelo(s), agrupados por IFC/XKT. Clique em um item para focar no modelo.`;
+    summary.textContent = `${metaObjects.length} objeto(s) encontrados em ${groups.length} IFC(s). Expanda o botão + de cada IFC para abrir os objetos.`;
 }
 
 function renderExplorerClassesTab() {
@@ -1044,14 +1093,30 @@ function renderExplorerClassesTab() {
         return;
     }
 
-    const classCounts = new Map();
+    const groupedClasses = new Map();
     getExplorerSceneMetaObjects().forEach((metaObject) => {
+        const modelId = getObjectMetaModelId(metaObject.id) || "SEM_MODELO";
+        if (!groupedClasses.has(modelId)) {
+            groupedClasses.set(modelId, {
+                modelId,
+                modelLabel: getExplorerModelLabel(modelId),
+                classes: new Map()
+            });
+        }
         const type = metaObject.type || "Sem classe";
-        classCounts.set(type, (classCounts.get(type) || 0) + 1);
+        const modelEntry = groupedClasses.get(modelId);
+        const classEntry = modelEntry.classes.get(type) || { count: 0 };
+        classEntry.count += 1;
+        modelEntry.classes.set(type, classEntry);
     });
 
-    const entries = Array.from(classCounts.entries())
-        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"));
+    const entries = Array.from(groupedClasses.values())
+        .map((group) => ({
+            ...group,
+            classEntries: Array.from(group.classes.entries())
+                .sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0], "pt-BR"))
+        }))
+        .sort((a, b) => a.modelLabel.localeCompare(b.modelLabel, "pt-BR"));
 
     list.innerHTML = "";
 
@@ -1060,16 +1125,31 @@ function renderExplorerClassesTab() {
         return;
     }
 
-    summary.textContent = `${entries.length} classe(s) IFC detectada(s). Clique para isolar a classe desejada.`;
+    const totalClasses = entries.reduce((sum, group) => sum + group.classEntries.length, 0);
+    summary.textContent = `${totalClasses} classe(s) IFC detectada(s) em ${entries.length} IFC(s). Expanda o botão + de cada IFC para abrir as classes.`;
 
-    entries.forEach(([type, count]) => {
-        list.appendChild(buildExplorerActionButton({
-            primaryText: type,
-            secondaryText: `${count} objeto(s)`,
-            title: `Isolar classe ${type}`,
-            onClick: () => {
-                focusClassByType(type);
-                setActiveExplorerTab("classes");
+    entries.forEach((group) => {
+        const totalObjects = group.classEntries.reduce((sum, [, entry]) => sum + entry.count, 0);
+        list.appendChild(buildExplorerCollapsibleGroup({
+            tabId: "classes",
+            groupKey: group.modelId,
+            titleText: group.modelLabel,
+            metaText: group.modelId,
+            countText: `${group.classEntries.length} classe(s) • ${totalObjects} objeto(s)`,
+            renderChildren: (children) => {
+                group.classEntries.forEach(([type, entry]) => {
+                    const item = buildExplorerActionButton({
+                        primaryText: type,
+                        secondaryText: `${entry.count} objeto(s)`,
+                        title: `Isolar classe ${type} no IFC ${group.modelId}`,
+                        onClick: () => {
+                            focusClassByTypeAndModel(type, group.modelId) || focusClassByType(type);
+                            setActiveExplorerTab("classes");
+                        }
+                    });
+                    item.classList.add("explorer-tree-leaf");
+                    children.appendChild(item);
+                });
             }
         }));
     });

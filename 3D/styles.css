@@ -501,13 +501,13 @@ html, body {
 }
 
 #treeViewContainer.explorer-enabled .explorer-tab-button:hover {
-    background: rgba(0, 168, 107, 0.18)
+    background: rgba(151, 71, 255, 0.18);
 }
 
 #treeViewContainer.explorer-enabled .explorer-tab-button.is-active {
-    background: linear-gradient(135deg, #10c678, #00a86b);
+    background: linear-gradient(135deg, #7c3aed, #9333ea);
     color: #ffffff;
-    box-shadow: 0 6px 14px rgba(0, 168, 107, 0.3);
+    box-shadow: 0 6px 14px rgba(124, 58, 237, 0.3);
 }
 
 #treeViewContainer.explorer-enabled .explorer-content {
@@ -564,8 +564,8 @@ html, body {
 }
 
 #treeViewContainer.explorer-enabled .explorer-list-item:hover {
-    background: rgba(0, 168, 107, 0.14);
-    border-color: rgba(0, 196, 122, 0.35);
+    background: rgba(151, 71, 255, 0.14);
+    border-color: rgba(167, 98, 255, 0.35);
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
 }
 
@@ -597,12 +597,83 @@ html, body {
     flex: 0 0 auto;
     border-radius: 999px;
     padding: 4px 10px;
-    background: linear-gradient(135deg, #2d8cff, #007bff);
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
     color: #ffffff;
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    box-shadow: 0 3px 10px rgba(0, 123, 255, 0.28);
+    box-shadow: 0 3px 10px rgba(124, 58, 237, 0.28);
+}
+
+#treeViewContainer.explorer-enabled .explorer-tree-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#treeViewContainer.explorer-enabled .explorer-tree-group-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: inherit;
+    padding: 4px 0;
+    cursor: pointer;
+    text-align: left;
+}
+
+#treeViewContainer.explorer-enabled .explorer-tree-group-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 3px 8px rgba(124, 58, 237, 0.28);
+}
+
+#treeViewContainer.explorer-enabled .explorer-tree-group-title-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+#treeViewContainer.explorer-enabled .explorer-tree-group-title {
+    color: #ffffff;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#treeViewContainer.explorer-enabled .explorer-tree-group-meta,
+#treeViewContainer.explorer-enabled .explorer-tree-group-count {
+    color: rgba(240, 240, 240, 0.72);
+    font-size: 12px;
+}
+
+#treeViewContainer.explorer-enabled .explorer-tree-group-count {
+    flex: 0 0 auto;
+}
+
+#treeViewContainer.explorer-enabled .explorer-tree-group-children {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-left: 24px;
+}
+
+#treeViewContainer.explorer-enabled .explorer-tree-leaf {
+    width: calc(100% - 2px);
 }
 
 #treeViewContainer.explorer-enabled #treeViewContent {

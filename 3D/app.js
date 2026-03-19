@@ -586,6 +586,7 @@ let explorerTabSummaries = new Map();
 let explorerTabLists = new Map();
 let explorerRefreshHandle = null;
 let objectModelIdLookup = new Map();
+let normalizedSceneObjectIdLookup = new Map();
 const transformPanel = document.getElementById("transformPanel");
 const transformPanelToggleButton = document.getElementById("btnTransformPanel");
 const closeTransformPanelButton = document.getElementById("closeTransformPanel");
@@ -791,10 +792,14 @@ function getExplorerSceneMetaObjects() {
     const entries = [];
 
     for (const metaObject of Object.values(metaObjects)) {
-        if (!metaObject?.id || !isSceneObjectId(metaObject.id)) {
+        const sceneObjectId = resolveSceneObjectId(metaObject?.id);
+        if (!metaObject?.id || !sceneObjectId) {
             continue;
         }
-        entries.push(metaObject);
+        entries.push({
+            ...metaObject,
+            sceneObjectId
+        });
     }
 
     return entries;
@@ -1024,7 +1029,7 @@ function renderExplorerObjectsTab() {
         .map((metaObject) => {
             const modelId = getObjectMetaModelId(metaObject.id) || "SEM_MODELO";
             return {
-                id: metaObject.id,
+                sceneObjectId: metaObject.sceneObjectId || metaObject.id,
                 name: metaObject.name || metaObject.id,
                 type: metaObject.type || "Sem classe",
                 modelId,
@@ -1075,7 +1080,7 @@ function renderExplorerObjectsTab() {
                         primaryText: entry.name,
                         secondaryText: `${entry.type} • ${entry.id}`,
                         title: `Focar objeto ${entry.id}`,
-                        onClick: () => focusObjectById(entry.id)
+                        onClick: () => focusObjectById(entry.sceneObjectId || entry.id)
                     });
                     item.classList.add("explorer-tree-leaf");
                     children.appendChild(item);
@@ -1083,7 +1088,7 @@ function renderExplorerObjectsTab() {
             }
         }));
     });
-    const extraCount = Math.max(0, metaObjects.length - renderedCount);
+    
     summary.textContent = `${metaObjects.length} objeto(s) encontrados em ${groups.length} IFC(s). Expanda o botão + de cada IFC para abrir os objetos.`;
 }
 
@@ -1093,9 +1098,16 @@ function renderExplorerClassesTab() {
     if (!summary || !list) {
         return;
     }
+    
+    const metaObjects = getExplorerSceneMetaObjects();
+    const totalMetaObjects = Object.keys(viewer.metaScene?.metaObjects || {}).length;
+    const metaObjectsWithType = metaObjects.filter((metaObject) => Boolean(metaObject?.type));
 
     const groupedClasses = new Map();
-    getExplorerSceneMetaObjects().forEach((metaObject) => {
+    console.log("[Explorer Classes] total metaObjects:", totalMetaObjects);
+    console.log("[Explorer Classes] metaObjects com type:", metaObjectsWithType.length);
+
+    metaObjectsWithType.forEach((metaObject) => {
         const modelId = getObjectMetaModelId(metaObject.id) || "SEM_MODELO";
         if (!groupedClasses.has(modelId)) {
             groupedClasses.set(modelId, {
@@ -1111,6 +1123,11 @@ function renderExplorerClassesTab() {
         modelEntry.classes.set(type, classEntry);
     });
 
+    groupedClasses.forEach((group, modelId) => {
+        const filteredByModel = Array.from(group.classes.values()).reduce((sum, entry) => sum + entry.count, 0);
+        console.log(`[Explorer Classes] metaObjects filtrados para o modelo ${modelId}:`, filteredByModel);
+    });
+
     const entries = Array.from(groupedClasses.values())
         .map((group) => ({
             ...group,
@@ -1122,11 +1139,13 @@ function renderExplorerClassesTab() {
     list.innerHTML = "";
 
     if (!entries.length) {
+        console.log("[Explorer Classes] classes finais:", 0);
         summary.textContent = "Nenhuma classe IFC encontrada.";
         return;
     }
 
     const totalClasses = entries.reduce((sum, group) => sum + group.classEntries.length, 0);
+    console.log("[Explorer Classes] classes finais:", totalClasses);
     summary.textContent = `${totalClasses} classe(s) IFC detectada(s) em ${entries.length} IFC(s). Expanda o botão + de cada IFC para abrir as classes.`;
 
     entries.forEach((group) => {
@@ -1390,6 +1409,7 @@ function syncTransformInputs(modelId) {
 function registerModelTransform(model) {
     loadedModels.set(model.id, model);
     objectModelIdLookup.clear();
+    normalizedSceneObjectIdLookup.clear();
 
     if (!originalTransforms.has(model.id)) {
         originalTransforms.set(model.id, {
@@ -2146,7 +2166,7 @@ function focusObjectById(objectId, { animate = true, xrayOthers = true } = {}) {
         return false;
     }
 
-    const targetId = String(objectId).trim();
+    const targetId = resolveSceneObjectId(objectId) || String(objectId).trim();
     const allIds = getAllObjectIds();
 
     if (!allIds.includes(targetId)) {
@@ -3108,6 +3128,7 @@ function clearAllLoadedModels() {
 
     loadedModels.clear();
     objectModelIdLookup.clear();
+    normalizedSceneObjectIdLookup.clear();
     originalTransforms.clear();
     currentModels = [];
     currentModelTransforms = {};
@@ -3400,10 +3421,10 @@ if (resetTransformButton) {
 
 const angleMeasurementsPlugin = new AngleMeasurementsPlugin(viewer, { zIndex: 100000 });
 const angleMeasurementsMouseControl = new AngleMeasurementsMouseControl(angleMeasurementsPlugin, {
-    pointerLens: new PointerLens(viewer), 
-    snapping: true 
+    pointerLens: new PointerLens(viewer),
+    snapping: true
 });
-angleMeasurementsMouseControl.deactivate(); 
+angleMeasurementsMouseControl.deactivate();
 
 const distanceMeasurementsPlugin = new DistanceMeasurementsPlugin(viewer, { zIndex: 100000 });
 const distanceMeasurementsMouseControl = new DistanceMeasurementsMouseControl(distanceMeasurementsPlugin, {
@@ -3577,18 +3598,26 @@ function rebuildObjectModelIdLookup() {
 }
 
 function getObjectMetaModelId(objectId) {
-    const metaObjects = viewer.metaScene?.metaObjects || {};
-    const metaObject = metaObjects[objectId];
+    const metaObject = resolveMetaObject(objectId);
 
     if (metaObject?.metaModel?.id) {
         return metaObject.metaModel.id;
     }
 
+    const sceneObjectId = resolveSceneObjectId(objectId);
+    if (sceneObjectId) {
+        for (const candidateId of new Set([sceneObjectId, findSourceIdByEntity(resolveEntityById(sceneObjectId))].filter(Boolean))) {
+            const candidateMetaObject = resolveMetaObject(candidateId);
+            if (candidateMetaObject?.metaModel?.id) {
+                return candidateMetaObject.metaModel.id;
+            }
+        }
+    }
+
     if (!objectModelIdLookup.size && loadedModels.size) {
         rebuildObjectModelIdLookup();
     }
-
-    return objectModelIdLookup.get(objectId) || null;
+    return objectModelIdLookup.get(sceneObjectId || objectId) || null;
 }
 
 function intersectsAABB(aabbA, aabbB, overlapTolerance = 0) {
@@ -4036,8 +4065,85 @@ function traverseMetaObjectSubtree(metaObject, visitor) {
     }
 }
 
+function buildSceneObjectIdCandidates(objectId) {
+    if (!objectId) {
+        return [];
+    }
+
+    const rawId = String(objectId).trim();
+    if (!rawId) {
+        return [];
+    }
+
+    const candidates = new Set([rawId]);
+
+    ["#", "/", ":"].forEach((separator) => {
+        if (!rawId.includes(separator)) {
+            return;
+        }
+
+        const parts = rawId.split(separator);
+        const suffix = parts[parts.length - 1]?.trim();
+        if (suffix) {
+            candidates.add(suffix);
+        }
+    });
+
+    return Array.from(candidates);
+}
+
+function rebuildSceneObjectIdLookup() {
+    normalizedSceneObjectIdLookup.clear();
+
+    const sceneObjectIds = new Set();
+    Object.keys(viewer.scene?.objects || {}).forEach((id) => {
+        if (id) {
+            sceneObjectIds.add(id);
+        }
+    });
+
+    getAllObjectIds().forEach((id) => {
+        if (id) {
+            sceneObjectIds.add(id);
+        }
+    });
+
+    sceneObjectIds.forEach((sceneObjectId) => {
+        buildSceneObjectIdCandidates(sceneObjectId).forEach((candidateId) => {
+            const normalizedCandidate = candidateId.toLowerCase();
+            if (!normalizedSceneObjectIdLookup.has(normalizedCandidate)) {
+                normalizedSceneObjectIdLookup.set(normalizedCandidate, sceneObjectId);
+            }
+        });
+    });
+}
+
+function resolveSceneObjectId(objectId) {
+    if (!objectId) {
+        return null;
+    }
+
+    const directEntity = resolveEntityById(objectId);
+    if (directEntity?.id) {
+        return findSourceIdByEntity(directEntity) || directEntity.id;
+    }
+
+    if (!normalizedSceneObjectIdLookup.size) {
+        rebuildSceneObjectIdLookup();
+    }
+
+    for (const candidateId of buildSceneObjectIdCandidates(objectId)) {
+        const resolvedId = normalizedSceneObjectIdLookup.get(candidateId.toLowerCase());
+        if (resolvedId) {
+            return resolvedId;
+        }
+    }
+
+    return null;
+}
+
 function isSceneObjectId(objectId) {
-    return Boolean(resolveEntityById(objectId));
+    return Boolean(resolveSceneObjectId(objectId));
 }
 
 function metaObjectBelongsToStorey(metaObject, storeyId) {
@@ -4071,15 +4177,17 @@ function getObjectsByStorey(storeyId) {
     if (typeof viewer.scene.getObjectsInSubtree === "function") {
         const subtreeIds = viewer.scene.getObjectsInSubtree(storeyMetaObject.id) || [];
         subtreeIds.forEach((id) => {
-            if (isSceneObjectId(id)) {
-                ids.add(id);
+            const sceneObjectId = resolveSceneObjectId(id);
+            if (sceneObjectId) {
+                ids.add(sceneObjectId);
             }
         });
     }
 
     traverseMetaObjectSubtree(storeyMetaObject, (metaObject) => {
-        if (isSceneObjectId(metaObject.id)) {
-            ids.add(metaObject.id);
+        const sceneObjectId = resolveSceneObjectId(metaObject.id);
+        if (sceneObjectId) {
+            ids.add(sceneObjectId);
         }
     });
 
@@ -4090,7 +4198,10 @@ function getObjectsByStorey(storeyId) {
         }
 
         if (metaObjectBelongsToStorey(metaObject, storeyMetaObject.id)) {
-            ids.add(metaObject.id);
+            const sceneObjectId = resolveSceneObjectId(metaObject.id);
+            if (sceneObjectId) {
+                ids.add(sceneObjectId);
+            }
         }
     }
 
@@ -4117,15 +4228,17 @@ function expandHierarchy(objectIds) {
     objectIds.forEach((objectId) => {
         const metaObject = resolveMetaObject(objectId);
         if (!metaObject) {
-            if (isSceneObjectId(objectId)) {
-                expandedIds.add(objectId);
+            const sceneObjectId = resolveSceneObjectId(objectId);
+            if (sceneObjectId) {
+                expandedIds.add(sceneObjectId);
             }
             return;
         }
 
         traverseMetaObjectSubtree(metaObject, (childMetaObject) => {
-            if (isSceneObjectId(childMetaObject.id)) {
-                expandedIds.add(childMetaObject.id);
+            const sceneObjectId = resolveSceneObjectId(childMetaObject.id);
+            if (sceneObjectId) {
+                expandedIds.add(sceneObjectId);
             }
         });
     });
@@ -4177,8 +4290,9 @@ function isolateStorey(storeyId) {
     classIds.forEach((classId) => {
         getObjectIdsByType(classId).forEach((objectId) => {
             const metaObject = resolveMetaObject(objectId);
-            if (metaObjectBelongsToStorey(metaObject, storeyMetaObject.id) && isSceneObjectId(objectId)) {
-                idsToFocus.add(objectId);
+            const sceneObjectId = resolveSceneObjectId(objectId);
+            if (metaObjectBelongsToStorey(metaObject, storeyMetaObject.id) && sceneObjectId) {
+                idsToFocus.add(sceneObjectId)
             }
         });
     });

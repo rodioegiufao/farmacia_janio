@@ -566,6 +566,22 @@ const treeViewContent = document.getElementById("treeViewContent");
 const closeTreeViewButton = document.getElementById("closeTreeView");
 const toggleTreeViewSelectionButton = document.getElementById("toggleTreeViewSelection");
 const toggleTreeViewButton = document.getElementById("btnToggleTree");
+const treeViewTitleElement = treeViewContainer?.querySelector(".tree-view-title");
+const treeViewSubtitleElement = treeViewContainer?.querySelector(".tree-view-subtitle");
+const EXPLORER_TAB_DEFINITIONS = [
+    { id: "models", label: "Models", subtitle: "Modelos IFC/XKT carregados no visualizador" },
+    { id: "objects", label: "Objects", subtitle: "Objetos disponíveis para foco e inspeção" },
+    { id: "classes", label: "Classes", subtitle: "Classes IFC agrupadas para isolamento" },
+    { id: "storeys", label: "Storeys", subtitle: "Selecione o pavimento para isolar" }
+];
+const EXPLORER_OBJECT_PREVIEW_LIMIT = 120;
+let activeExplorerTab = "models";
+let explorerTabsInitialized = false;
+let explorerTabButtons = new Map();
+let explorerTabPanels = new Map();
+let explorerTabSummaries = new Map();
+let explorerTabLists = new Map();
+let explorerRefreshHandle = null;
 const transformPanel = document.getElementById("transformPanel");
 const transformPanelToggleButton = document.getElementById("btnTransformPanel");
 const closeTransformPanelButton = document.getElementById("closeTransformPanel");
@@ -612,6 +628,7 @@ const budgetTable = document.getElementById("budgetTable");
 const budgetTableBody = document.getElementById("budgetTableBody");
 const budgetTableLoadedProjects = new Set();
 
+setupExplorerPanel();
 setupAccessGate();
 setupHelpPanel();
 setupTransformPanelControls();
@@ -635,6 +652,368 @@ function resetModelVisibility() {
     }
     lastPickedEntity = null; // Garante que a referência de seleção também seja limpa.
     clearSelection(false); // Limpa o estado visual do botão "Limpar Seleção"
+}
+function updateExplorerHeader() {
+    const activeTab = EXPLORER_TAB_DEFINITIONS.find(({ id }) => id === activeExplorerTab)
+        || EXPLORER_TAB_DEFINITIONS[0];
+
+    if (treeViewTitleElement) {
+        treeViewTitleElement.textContent = "Explorer";
+    }
+
+    if (treeViewSubtitleElement) {
+        treeViewSubtitleElement.textContent = activeTab.subtitle;
+    }
+
+    if (toggleTreeViewSelectionButton) {
+        toggleTreeViewSelectionButton.hidden = activeExplorerTab !== "storeys";
+    }
+}
+
+function createExplorerTabPanel(tabId) {
+    const panel = document.createElement("section");
+    panel.className = "explorer-tab-panel";
+    panel.dataset.explorerPanel = tabId;
+    panel.hidden = true;
+
+    const summary = document.createElement("p");
+    summary.className = "explorer-tab-summary";
+    panel.appendChild(summary);
+
+    const list = document.createElement("div");
+    list.className = "explorer-tab-list";
+    panel.appendChild(list);
+
+    explorerTabPanels.set(tabId, panel);
+    explorerTabSummaries.set(tabId, summary);
+    explorerTabLists.set(tabId, list);
+
+    return panel;
+}
+
+function setupExplorerPanel() {
+    if (!treeViewContainer || !treeViewContent || explorerTabsInitialized) {
+        return;
+    }
+
+    const header = treeViewContainer.querySelector(".tree-view-header");
+    if (!header) {
+        return;
+    }
+
+    const tabsBar = document.createElement("div");
+    tabsBar.className = "explorer-tabs";
+    tabsBar.setAttribute("role", "tablist");
+    tabsBar.setAttribute("aria-label", "Explorador do modelo");
+
+    const content = document.createElement("div");
+    content.className = "explorer-content";
+
+    EXPLORER_TAB_DEFINITIONS.forEach((tabDefinition) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "explorer-tab-button";
+        button.dataset.explorerTab = tabDefinition.id;
+        button.setAttribute("role", "tab");
+        button.textContent = tabDefinition.label;
+        button.addEventListener("click", () => setActiveExplorerTab(tabDefinition.id));
+        explorerTabButtons.set(tabDefinition.id, button);
+        tabsBar.appendChild(button);
+
+        if (tabDefinition.id === "storeys") {
+            const panel = document.createElement("section");
+            panel.className = "explorer-tab-panel explorer-tab-panel--tree";
+            panel.dataset.explorerPanel = tabDefinition.id;
+            panel.hidden = true;
+
+            const summary = document.createElement("p");
+            summary.className = "explorer-tab-summary";
+            panel.appendChild(summary);
+            explorerTabPanels.set(tabDefinition.id, panel);
+            explorerTabSummaries.set(tabDefinition.id, summary);
+
+            panel.appendChild(treeViewContent);
+            content.appendChild(panel);
+            return;
+        }
+
+        content.appendChild(createExplorerTabPanel(tabDefinition.id));
+    });
+
+    header.insertAdjacentElement("afterend", tabsBar);
+    tabsBar.insertAdjacentElement("afterend", content);
+
+    treeViewContainer.classList.add("explorer-enabled");
+    explorerTabsInitialized = true;
+    updateExplorerHeader();
+    setActiveExplorerTab(activeExplorerTab);
+}
+
+function setActiveExplorerTab(tabId) {
+    if (!explorerTabsInitialized) {
+        return;
+    }
+
+    activeExplorerTab = explorerTabButtons.has(tabId) ? tabId : "models";
+
+    explorerTabButtons.forEach((button, id) => {
+        const isActive = id === activeExplorerTab;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-selected", isActive ? "true" : "false");
+        button.setAttribute("tabindex", isActive ? "0" : "-1");
+    });
+
+    explorerTabPanels.forEach((panel, id) => {
+        panel.hidden = id !== activeExplorerTab;
+    });
+
+    updateExplorerHeader();
+    scheduleExplorerRefresh(0);
+}
+
+function scheduleExplorerRefresh(delay = 80) {
+    if (!explorerTabsInitialized) {
+        return;
+    }
+
+    window.clearTimeout(explorerRefreshHandle);
+    explorerRefreshHandle = window.setTimeout(() => {
+        refreshExplorerPanels();
+    }, delay);
+}
+
+function getExplorerSceneMetaObjects() {
+    const metaObjects = viewer.metaScene?.metaObjects || {};
+    const entries = [];
+
+    for (const metaObject of Object.values(metaObjects)) {
+        if (!metaObject?.id || !isSceneObjectId(metaObject.id)) {
+            continue;
+        }
+        entries.push(metaObject);
+    }
+
+    return entries;
+}
+
+function focusModelById(modelId) {
+    if (!modelIsolateController) {
+        return false;
+    }
+
+    const ids = expandHierarchy(getModelObjectIds(modelId).filter((id) => isSceneObjectId(id)));
+    if (!ids.length) {
+        return false;
+    }
+
+    const allIds = getAllObjectIds();
+    modelIsolateController.setObjectsVisible(allIds, false);
+    modelIsolateController.setObjectsXRayed(allIds, false);
+    modelIsolateController.setObjectsHighlighted(allIds, false);
+    modelIsolateController.setObjectsVisible(ids, true);
+    viewer.scene.setObjectsHighlighted(ids, true);
+
+    const combinedAABB = mergeAABBs(ids.map((id) => viewer.scene.getAABB(id)));
+    if (combinedAABB) {
+        viewer.cameraFlight.flyTo({ aabb: combinedAABB, duration: 0.6 });
+    }
+
+    clearSelection();
+    requestRenderFrame();
+    return true;
+}
+
+function focusClassByType(type) {
+    if (!modelIsolateController) {
+        return false;
+    }
+
+    const ids = expandHierarchy(getObjectIdsByType(type).filter((id) => isSceneObjectId(id)));
+    if (!ids.length) {
+        return false;
+    }
+
+    const allIds = getAllObjectIds();
+    modelIsolateController.setObjectsVisible(allIds, false);
+    modelIsolateController.setObjectsXRayed(allIds, false);
+    modelIsolateController.setObjectsHighlighted(allIds, false);
+    modelIsolateController.setObjectsVisible(ids, true);
+    viewer.scene.setObjectsHighlighted(ids, true);
+
+    const combinedAABB = mergeAABBs(ids.map((id) => viewer.scene.getAABB(id)));
+    if (combinedAABB) {
+        viewer.cameraFlight.flyTo({ aabb: combinedAABB, duration: 0.6 });
+    }
+
+    clearSelection();
+    requestRenderFrame();
+    return true;
+}
+
+function buildExplorerActionButton({ primaryText, secondaryText, onClick, title }) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "explorer-list-item";
+    if (title) {
+        button.title = title;
+    }
+
+    const textWrapper = document.createElement("span");
+    textWrapper.className = "explorer-list-item-text";
+
+    const primary = document.createElement("span");
+    primary.className = "explorer-list-item-primary";
+    primary.textContent = primaryText;
+    textWrapper.appendChild(primary);
+
+    if (secondaryText) {
+        const secondary = document.createElement("span");
+        secondary.className = "explorer-list-item-secondary";
+        secondary.textContent = secondaryText;
+        textWrapper.appendChild(secondary);
+    }
+
+    const badge = document.createElement("span");
+    badge.className = "explorer-list-item-badge";
+    badge.textContent = "Abrir";
+
+    button.appendChild(textWrapper);
+    button.appendChild(badge);
+    button.addEventListener("click", onClick);
+    return button;
+}
+
+function renderExplorerModelsTab() {
+    const summary = explorerTabSummaries.get("models");
+    const list = explorerTabLists.get("models");
+    if (!summary || !list) {
+        return;
+    }
+
+    const models = Array.from(loadedModels.values());
+    list.innerHTML = "";
+
+    if (!models.length) {
+        summary.textContent = "Nenhum modelo carregado ainda.";
+        return;
+    }
+
+    summary.textContent = `${models.length} modelo(s) carregado(s). Clique em um item para isolar o modelo.`;
+
+    models
+        .sort((a, b) => String(a.id).localeCompare(String(b.id), "pt-BR"))
+        .forEach((model) => {
+            const objectCount = getModelObjectIds(model.id).filter((id) => isSceneObjectId(id)).length;
+            const label = model.src || model.id;
+            list.appendChild(buildExplorerActionButton({
+                primaryText: label,
+                secondaryText: `${model.id} • ${objectCount} objeto(s)`,
+                title: `Isolar modelo ${label}`,
+                onClick: () => {
+                    focusModelById(model.id);
+                    setActiveExplorerTab("models");
+                }
+            }));
+        });
+}
+
+function renderExplorerObjectsTab() {
+    const summary = explorerTabSummaries.get("objects");
+    const list = explorerTabLists.get("objects");
+    if (!summary || !list) {
+        return;
+    }
+
+    const metaObjects = getExplorerSceneMetaObjects()
+        .map((metaObject) => ({
+            id: metaObject.id,
+            name: metaObject.name || metaObject.id,
+            type: metaObject.type || "Sem classe"
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+    list.innerHTML = "";
+
+    if (!metaObjects.length) {
+        summary.textContent = "Nenhum objeto disponível para listagem.";
+        return;
+    }
+
+    const visibleItems = metaObjects.slice(0, EXPLORER_OBJECT_PREVIEW_LIMIT);
+    const extraCount = Math.max(0, metaObjects.length - visibleItems.length);
+    summary.textContent = extraCount > 0
+        ? `${metaObjects.length} objeto(s) encontrados. Mostrando os ${visibleItems.length} primeiros para manter o painel leve.`
+        : `${metaObjects.length} objeto(s) encontrados. Clique em um item para focar no modelo.`;
+
+    visibleItems.forEach((entry) => {
+        list.appendChild(buildExplorerActionButton({
+            primaryText: entry.name,
+            secondaryText: `${entry.type} • ${entry.id}`,
+            title: `Focar objeto ${entry.id}`,
+            onClick: () => focusObjectById(entry.id)
+        }));
+    });
+}
+
+function renderExplorerClassesTab() {
+    const summary = explorerTabSummaries.get("classes");
+    const list = explorerTabLists.get("classes");
+    if (!summary || !list) {
+        return;
+    }
+
+    const classCounts = new Map();
+    getExplorerSceneMetaObjects().forEach((metaObject) => {
+        const type = metaObject.type || "Sem classe";
+        classCounts.set(type, (classCounts.get(type) || 0) + 1);
+    });
+
+    const entries = Array.from(classCounts.entries())
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"));
+
+    list.innerHTML = "";
+
+    if (!entries.length) {
+        summary.textContent = "Nenhuma classe IFC encontrada.";
+        return;
+    }
+
+    summary.textContent = `${entries.length} classe(s) IFC detectada(s). Clique para isolar a classe desejada.`;
+
+    entries.forEach(([type, count]) => {
+        list.appendChild(buildExplorerActionButton({
+            primaryText: type,
+            secondaryText: `${count} objeto(s)`,
+            title: `Isolar classe ${type}`,
+            onClick: () => {
+                focusClassByType(type);
+                setActiveExplorerTab("classes");
+            }
+        }));
+    });
+}
+
+function renderExplorerStoreysTab() {
+    const summary = explorerTabSummaries.get("storeys");
+    if (!summary) {
+        return;
+    }
+
+    const storeys = Object.values(viewer.metaScene?.metaObjects || {}).filter((metaObject) => metaObject?.type === "IfcBuildingStorey");
+    summary.textContent = storeys.length
+        ? `${storeys.length} pavimento(s) IFC encontrado(s). Use a árvore abaixo para isolar o nível desejado.`
+        : "Carregue um modelo com pavimentos IFC para usar esta aba.";
+}
+
+function refreshExplorerPanels() {
+    if (!explorerTabsInitialized) {
+        return;
+    }
+
+    renderExplorerModelsTab();
+    renderExplorerObjectsTab();
+    renderExplorerClassesTab();
+    renderExplorerStoreysTab();
 }
 
 function requestRenderFrame() {
@@ -867,6 +1246,7 @@ function registerModelTransform(model) {
     if (transformModelSelect) {
         syncTransformInputs(transformModelSelect.value);
     }
+    scheduleExplorerRefresh();
 }
 function applyTransformFromUI() {
     if (!transformModelSelect) {
@@ -2566,6 +2946,7 @@ function clearAllLoadedModels() {
     originalTransforms.clear();
     currentModels = [];
     currentModelTransforms = {};
+    scheduleExplorerRefresh(0);
 }
 
 function setIfcUploadStatus(message, isError = false) {
@@ -4801,6 +5182,7 @@ function setupModelIsolateController() {
 
     setupTreeViewFilter();
     setupTreeViewSelectionControls();
+    scheduleExplorerRefresh(120);
 
     modelIsolateController = viewer.scene;
 
@@ -4910,7 +5292,10 @@ function setupTreeViewFilter() {
             item.style.display = shouldShow && !hideIFCARQStorey ? "" : "none";
         });
     };
-    const observer = new MutationObserver(applyFilter);
+    const observer = new MutationObserver(() => {
+        applyFilter();
+        scheduleExplorerRefresh(0);
+    });
     observer.observe(container, { childList: true, subtree: true });
 
     applyFilter();

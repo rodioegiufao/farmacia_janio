@@ -434,7 +434,199 @@ html, body {
     margin: 0;
     padding-left: 15px; 
 }
+#treeViewContainer.explorer-enabled {
+    display: none;
+    overflow: hidden;
+    padding: 10px;
+}
 
+#treeViewContainer.explorer-enabled .tree-view-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+#treeViewContainer.explorer-enabled .tree-view-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#treeViewContainer.explorer-enabled .tree-view-title {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+#treeViewContainer.explorer-enabled .tree-view-subtitle {
+    color: rgba(240, 240, 240, 0.75);
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+#treeViewContainer.explorer-enabled .tree-view-actions button {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.28);
+    color: #f4f4f4;
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+}
+
+#treeViewContainer.explorer-enabled .tree-view-actions button:hover {
+    background: rgba(94, 23, 235, 0.35);
+}
+
+#treeViewContainer.explorer-enabled .explorer-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 4px;
+    border-radius: 10px;
+    background: rgba(7, 5, 12, 0.75);
+}
+
+#treeViewContainer.explorer-enabled .explorer-tab-button {
+    border: 0;
+    border-radius: 8px;
+    padding: 10px 8px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.88);
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+#treeViewContainer.explorer-enabled .explorer-tab-button:hover {
+    background: rgba(123, 73, 255, 0.2);
+}
+
+#treeViewContainer.explorer-enabled .explorer-tab-button.is-active {
+    background: linear-gradient(135deg, #7c3aed, #5b21b6);
+    color: #ffffff;
+    box-shadow: 0 6px 14px rgba(91, 33, 182, 0.32);
+}
+
+#treeViewContainer.explorer-enabled .explorer-content {
+    height: calc(100% - 110px);
+    min-height: 140px;
+}
+
+#treeViewContainer.explorer-enabled .explorer-tab-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: 100%;
+}
+
+#treeViewContainer.explorer-enabled .explorer-tab-panel[hidden] {
+    display: none;
+}
+
+#treeViewContainer.explorer-enabled .explorer-tab-summary {
+    margin: 0;
+    color: rgba(240, 240, 240, 0.76);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+#treeViewContainer.explorer-enabled .explorer-tab-list,
+#treeViewContainer.explorer-enabled #treeViewContent {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+#treeViewContainer.explorer-enabled .explorer-tab-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#treeViewContainer.explorer-enabled .explorer-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+#treeViewContainer.explorer-enabled .explorer-list-item:hover {
+    background: rgba(124, 58, 237, 0.16);
+    border-color: rgba(167, 139, 250, 0.45);
+}
+
+#treeViewContainer.explorer-enabled .explorer-list-item-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+#treeViewContainer.explorer-enabled .explorer-list-item-primary,
+#treeViewContainer.explorer-enabled .explorer-list-item-secondary {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#treeViewContainer.explorer-enabled .explorer-list-item-primary {
+    font-weight: 700;
+    color: #ffffff;
+}
+
+#treeViewContainer.explorer-enabled .explorer-list-item-secondary {
+    font-size: 12px;
+    color: rgba(240, 240, 240, 0.72);
+}
+
+#treeViewContainer.explorer-enabled .explorer-list-item-badge {
+    flex: 0 0 auto;
+    border-radius: 999px;
+    padding: 4px 8px;
+    background: rgba(124, 58, 237, 0.22);
+    color: #d9c7ff;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+#treeViewContainer.explorer-enabled #treeViewContent {
+    padding-top: 2px;
+}
+
+#treeViewContainer.explorer-enabled #treeViewContent::-webkit-scrollbar,
+#treeViewContainer.explorer-enabled .explorer-tab-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+#treeViewContainer.explorer-enabled #treeViewContent::-webkit-scrollbar-thumb,
+#treeViewContainer.explorer-enabled .explorer-tab-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+}
+
+@media (max-width: 640px) {
+    #treeViewContainer.explorer-enabled {
+        width: min(94vw, 360px);
+        min-width: 0;
+    }
+
+    #treeViewContainer.explorer-enabled .explorer-tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
 /* ---------------------------------------------------- */
 /* Estilos da Barra de Ferramentas e Botões */
 /* ---------------------------------------------------- */

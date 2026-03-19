@@ -655,6 +655,26 @@ function getCollisionRadiusMeters() {
     return Math.max(0, radiusMm) / 1000;
 }
 
+function normalizeCollisionRadiusInput() {
+    if (!collisionRadiusInput) {
+        return 0;
+    }
+
+    const radiusMm = Math.max(0, parseNumber(collisionRadiusInput.value, 0));
+    collisionRadiusInput.value = `${radiusMm}`;
+    return radiusMm;
+}
+
+function buildCollisionSummary(collisionsCount, overlapTolerance) {
+    const toleranceMm = Math.round(Math.max(0, overlapTolerance) * 1000);
+
+    if (toleranceMm > 0) {
+        return `${collisionsCount} objeto(s) com colisão (raio mínimo ${toleranceMm} mm).`;
+    }
+
+    return `${collisionsCount} objeto(s) com colisão.`;
+}
+
 function getAllObjectIds() {
     if (!modelIsolateController) {
         return [];
@@ -937,6 +957,10 @@ function setupCollisionPanelControls() {
     runCollisionCheckButton?.addEventListener("click", () => {
         const modelId = collisionModelASelect?.value;
         findAndRenderCollisions(modelId);
+    });
+
+    collisionRadiusInput?.addEventListener("input", () => {
+        normalizeCollisionRadiusInput();
     });
 
     downloadCollisionPdfButton?.addEventListener("click", async () => {
@@ -4273,6 +4297,8 @@ function renderCollisionResults(collisions) {
 }
 
 function findAndRenderCollisions(modelId) {
+    normalizeCollisionRadiusInput();
+
     if (!modelId) {
         collisionSummary.textContent = "Selecione um modelo para iniciar a análise.";
         collisionResultsList.innerHTML = "";
@@ -4334,10 +4360,7 @@ function findAndRenderCollisions(modelId) {
         collidingWith: Array.from(set)
     }));
 
-    const overlapLabel = overlapTolerance > 0
-        ? ` (raio mínimo ${Math.round(overlapTolerance * 1000)} mm)`
-        : "";
-    collisionSummary.textContent = `${collisions.length} objeto(s) do modelo ${modelId} com colisão em outros modelos.${overlapLabel}`;
+    collisionSummary.textContent = buildCollisionSummary(collisions.length, overlapTolerance);
     setCollisionState(collisions, modelId);
     renderCollisionResults(collisions);
 }

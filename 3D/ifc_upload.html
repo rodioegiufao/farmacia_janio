@@ -214,6 +214,17 @@
         <label class="collision-label" for="collisionModelA">Modelo</label>
         <select id="collisionModelA" aria-label="Modelo para analisar"></select>
 
+        <label class="collision-label" for="collisionRadius">Raio de colisão (mm)</label>
+        <input
+            id="collisionRadius"
+            type="number"
+            min="0"
+            step="1"
+            value="0"
+            placeholder="Ex: 5"
+            aria-label="Raio de colisão em milímetros"
+        />
+
         <div class="collision-actions">
             <button type="button" id="runCollisionCheck">Procurar colisões</button>
             <button type="button" id="downloadCollisionPdf" disabled>Baixar PDF das colisões</button>

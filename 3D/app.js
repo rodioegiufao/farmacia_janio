@@ -576,7 +576,8 @@ const EXPLORER_TAB_DEFINITIONS = [
 ];
 const explorerExpandedGroups = {
     objects: new Set(),
-    classes: new Set()
+    classes: new Set(),
+    storeys: new Set()
 };
 let activeExplorerTab = "models";
 let explorerTabsInitialized = false;

@@ -2056,7 +2056,7 @@ const IPER_MODEL_TRANSFORMS = {
     IFC_ALI: { position: [0.15, 0, -0.17] },
     IFC_EST_SQD: { position: [18.655, -0.658, -15.215] },
     IFC_EST_SUB: { position: [27.7, -0.58, -22.4], rotation: [0, -84.1, 0] },
-    IFC_EST_CT: { position: [-15.15, 1.6, -16.47], rotation: [0, 90, 0]  },
+    IFC_EST_CT: { position: [-15.15, 1.44, -16.47], rotation: [0, 90, 0]  },
     IFC_EST_MR: { position: [35.25, 0, 20.2], rotation: [0, 90, 0]  },
     IFC_EST_MRC: { position: [-23, 0.35, 28.88] },
     IFC_EMT_ESC: { position: [0.14, 0.35, -0.15], rotation: [0, 90, 0]  },

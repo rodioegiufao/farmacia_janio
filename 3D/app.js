@@ -1940,7 +1940,7 @@ const IPER_MODELS = [
     { id: "IFC_HID", src: "/3D/iper/modelo-03.xkt" },
     { id: "IFC_ALI", src: "/3D/iper/modelo-04.xkt" },
     { id: "IFC_EST", src: "/3D/iper/modelo-05.xkt" },
-    //{ id: "IFC_ARQ", src: "/3D/iper/modelo-06.xkt" },
+    { id: "IFC_ARQ", src: "/3D/iper/modelo-06.xkt" },
     { id: "IFC_PLU", src: "/3D/iper/modelo-07.xkt" },
     { id: "IFC_SAN", src: "/3D/iper/modelo-08.xkt" },
     { id: "IFC_INC", src: "/3D/iper/modelo-09.xkt" },
@@ -2062,7 +2062,7 @@ const IPER_MODEL_TRANSFORMS = {
     IFC_EMT_ESC: { position: [0.14, 0.35, -0.15], rotation: [0, 90, 0]  },
     IFC_EMT_COB: { position: [0.14, 0, -0.15], rotation: [0, 90, 0]  },
     IFC_ILUX: { position: [-14, 0, 0]},
-    IFC_ARQ: { position: [0.15, 0, -0.17], rotation: [0, 90, 0]  },
+    IFC_ARQ: { position: [0, 0, 0], rotation: [0, 90, 0]  },
     IFC_SDAI: { position: [0.16, 0, -0.19] },
 };
 

@@ -875,6 +875,152 @@ function buildExplorerActionButton({ primaryText, secondaryText, onClick, title 
     button.addEventListener("click", onClick);
     return button;
 }
+
+function getTreeViewRootElement() {
+    const container = treeViewContent ?? treeViewContainer;
+    if (!container) {
+        return null;
+    }
+
+    return container.classList.contains("xeokit-tree-view")
+        ? container
+        : container.querySelector(".xeokit-tree-view") ?? container;
+}
+
+function getTreeViewCheckboxes() {
+    const treeRoot = getTreeViewRootElement();
+    if (!treeRoot) {
+        return [];
+    }
+
+    return Array.from(treeRoot.querySelectorAll("input[type=\"checkbox\"]"));
+}
+
+function getTreeViewModelCheckbox(modelId) {
+    if (!modelId) {
+        return null;
+    }
+
+    return getTreeViewCheckboxes().find((checkbox) => {
+        const item = checkbox.closest(".xeokit-tree-view-item");
+        const title = item
+            ?.querySelector(".xeokit-tree-view-item-title")
+            ?.textContent
+            ?.trim();
+
+        return title === modelId;
+    }) ?? null;
+}
+
+function isModelVisible(modelId) {
+    const checkbox = getTreeViewModelCheckbox(modelId);
+    if (checkbox) {
+        return checkbox.checked;
+    }
+
+    const modelObjectIds = getModelObjectIds(modelId)
+        .filter((id) => isSceneObjectId(id));
+
+    if (!modelObjectIds.length) {
+        return true;
+    }
+
+    const visibleIds = new Set(viewer.scene?.visibleObjectIds || []);
+    return modelObjectIds.some((id) => visibleIds.has(id));
+}
+
+function setModelVisibility(modelId, shouldBeVisible) {
+    if (!modelId) {
+        return false;
+    }
+
+    const checkbox = getTreeViewModelCheckbox(modelId);
+    if (checkbox) {
+        if (checkbox.checked !== shouldBeVisible) {
+            checkbox.click();
+        }
+        scheduleExplorerRefresh(0);
+        return true;
+    }
+
+    if (!modelIsolateController) {
+        return false;
+    }
+
+    const ids = expandHierarchy(
+        getModelObjectIds(modelId).filter((id) => isSceneObjectId(id))
+    );
+
+    if (!ids.length) {
+        return false;
+    }
+
+    modelIsolateController.setObjectsVisible(ids, shouldBeVisible);
+    if (!shouldBeVisible) {
+        modelIsolateController.setObjectsXRayed(ids, false);
+        modelIsolateController.setObjectsHighlighted(ids, false);
+    }
+
+    clearSelection(false);
+    requestRenderFrame();
+    scheduleExplorerRefresh(0);
+    return true;
+}
+
+function toggleModelVisibility(modelId) {
+    return setModelVisibility(modelId, !isModelVisible(modelId));
+}
+
+function buildExplorerModelItem(model) {
+    const objectCount = getModelObjectIds(model.id).filter((id) => isSceneObjectId(id)).length;
+    const label = model.src || model.id;
+    const isVisible = isModelVisible(model.id);
+
+    const item = document.createElement("div");
+    item.className = "explorer-model-item";
+
+    const focusButton = buildExplorerActionButton({
+        primaryText: label,
+        secondaryText: `${model.id} • ${objectCount} objeto(s)`,
+        title: `Isolar modelo ${label}`,
+        onClick: () => {
+            focusModelById(model.id);
+            setActiveExplorerTab("models");
+        }
+    });
+    focusButton.classList.add("explorer-model-focus");
+
+    const toggleButton = document.createElement("button");
+    toggleButton.type = "button";
+    toggleButton.className = `explorer-model-visibility-toggle${isVisible ? " is-active" : ""}`;
+    toggleButton.title = isVisible
+        ? `Desativar IFC ${model.id}`
+        : `Ativar IFC ${model.id}`;
+    toggleButton.setAttribute("aria-pressed", isVisible ? "true" : "false");
+    toggleButton.setAttribute("aria-label", isVisible
+        ? `Desativar IFC ${model.id}`
+        : `Ativar IFC ${model.id}`);
+
+    const toggleIcon = document.createElement("span");
+    toggleIcon.className = "explorer-model-visibility-icon";
+    toggleIcon.textContent = isVisible ? "✓" : "";
+    toggleButton.appendChild(toggleIcon);
+
+    const toggleText = document.createElement("span");
+    toggleText.className = "explorer-model-visibility-text";
+    toggleText.textContent = isVisible ? "Ativo" : "Inativo";
+    toggleButton.appendChild(toggleText);
+
+    toggleButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        toggleModelVisibility(model.id);
+    });
+
+    item.appendChild(focusButton);
+    item.appendChild(toggleButton);
+    return item;
+}
+
 function toggleExplorerGroup(tabId, groupKey) {
     const expandedGroups = explorerExpandedGroups[tabId];
     if (!expandedGroups) {
@@ -975,22 +1121,12 @@ function renderExplorerModelsTab() {
         return;
     }
 
-    summary.textContent = `${models.length} modelo(s) carregado(s). Clique em um item para isolar o modelo.`;
+    summary.textContent = `${models.length} modelo(s) carregado(s). Clique no card para isolar ou use o botão com visto para ativar/desativar cada IFC.`;
 
     models
         .sort((a, b) => String(a.id).localeCompare(String(b.id), "pt-BR"))
         .forEach((model) => {
-            const objectCount = getModelObjectIds(model.id).filter((id) => isSceneObjectId(id)).length;
-            const label = model.src || model.id;
-            list.appendChild(buildExplorerActionButton({
-                primaryText: label,
-                secondaryText: `${model.id} • ${objectCount} objeto(s)`,
-                title: `Isolar modelo ${label}`,
-                onClick: () => {
-                    focusModelById(model.id);
-                    setActiveExplorerTab("models");
-                }
-            }));
+            list.appendChild(buildExplorerModelItem(model));
         });
 }
 
@@ -5661,14 +5797,6 @@ function setupTreeViewSelectionControls() {
         return;
     }
 
-    const getCheckboxes = () => {
-        const treeRoot = container.classList.contains("xeokit-tree-view")
-            ? container
-            : container.querySelector(".xeokit-tree-view") ?? container;
-
-        return Array.from(treeRoot.querySelectorAll("input[type=\"checkbox\"]"));
-    };
-
     let architectureDefaultApplied = false;
 
     const uncheckArchitectureByDefault = () => {
@@ -5676,7 +5804,7 @@ function setupTreeViewSelectionControls() {
             return;
         }
 
-        const architectureCheckbox = getCheckboxes().find((checkbox) => {
+        const architectureCheckbox = getTreeViewCheckboxes().find((checkbox) => {
             const item = checkbox.closest(".xeokit-tree-view-item");
             const title = item
                 ?.querySelector(".xeokit-tree-view-item-title")
@@ -5698,7 +5826,7 @@ function setupTreeViewSelectionControls() {
     };
 
     const updateButtonLabel = () => {
-        const checkboxes = getCheckboxes();
+        const checkboxes = getTreeViewCheckboxes();
         const hasItems = checkboxes.length > 0;
         const allChecked = hasItems && checkboxes.every((checkbox) => checkbox.checked);
 
@@ -5707,7 +5835,7 @@ function setupTreeViewSelectionControls() {
     };
 
     const toggleAllSelections = () => {
-        const checkboxes = getCheckboxes();
+        const checkboxes = getTreeViewCheckboxes();
         if (checkboxes.length === 0) {
             return;
         }

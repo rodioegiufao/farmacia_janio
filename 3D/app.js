@@ -843,10 +843,10 @@ function focusClassByType(type) {
     return true;
 }
 
-function buildExplorerActionButton({ primaryText, secondaryText, onClick, title }) {
+function buildExplorerActionButton({ primaryText, secondaryText, onClick, title, badgeText = "Abrir" }) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "explorer-list-item";
+    button.className = "explorer-list-item-action";
     if (title) {
         button.title = title;
     }
@@ -868,12 +868,70 @@ function buildExplorerActionButton({ primaryText, secondaryText, onClick, title 
 
     const badge = document.createElement("span");
     badge.className = "explorer-list-item-badge";
-    badge.textContent = "Abrir";
+    badge.textContent = badgeText;
 
     button.appendChild(textWrapper);
     button.appendChild(badge);
     button.addEventListener("click", onClick);
     return button;
+}
+
+function buildExplorerVisibilityToggle({ isActive, title, ariaLabel, onClick }) {
+    const toggleButton = document.createElement("button");
+    toggleButton.type = "button";
+    toggleButton.className = `explorer-visibility-toggle${isActive ? " is-active" : ""}`;
+    toggleButton.title = title;
+    toggleButton.setAttribute("aria-pressed", isActive ? "true" : "false");
+    if (ariaLabel) {
+        toggleButton.setAttribute("aria-label", ariaLabel);
+    }
+
+    const toggleIcon = document.createElement("span");
+    toggleIcon.className = "explorer-visibility-icon";
+    toggleIcon.textContent = isActive ? "✓" : "";
+    toggleButton.appendChild(toggleIcon);
+
+    toggleButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        onClick?.(event);
+    });
+
+    return toggleButton;
+}
+
+function buildExplorerToggleCard({
+    primaryText,
+    secondaryText,
+    onAction,
+    actionTitle,
+    badgeText = "Abrir",
+    isActive = true,
+    onToggle,
+    toggleTitle,
+    toggleAriaLabel,
+    className = ""
+}) {
+    const item = document.createElement("div");
+    item.className = `explorer-list-item${className ? ` ${className}` : ""}`;
+
+    const toggleButton = buildExplorerVisibilityToggle({
+        isActive,
+        title: toggleTitle,
+        ariaLabel: toggleAriaLabel,
+        onClick: onToggle
+    });
+
+    const actionButton = buildExplorerActionButton({
+        primaryText,
+        secondaryText,
+        onClick: onAction,
+        title: actionTitle,
+        badgeText
+    });
+
+    item.appendChild(toggleButton);
+    item.appendChild(actionButton);
+    return item;
 }
 
 function getTreeViewRootElement() {
@@ -971,48 +1029,77 @@ function toggleModelVisibility(modelId) {
     return setModelVisibility(modelId, !isModelVisible(modelId));
 }
 
+function areObjectCollectionVisible(ids) {
+    const filteredIds = expandHierarchy((ids || []).filter((id) => isSceneObjectId(id)));
+    if (!filteredIds.length) {
+        return true;
+    }
+
+    const visibleIds = new Set(viewer.scene?.visibleObjectIds || []);
+    return filteredIds.some((id) => visibleIds.has(id));
+}
+
+function setObjectCollectionVisibility(ids, shouldBeVisible) {
+    if (!modelIsolateController) {
+        return false;
+    }
+
+    const filteredIds = expandHierarchy((ids || []).filter((id) => isSceneObjectId(id)));
+    if (!filteredIds.length) {
+        return false;
+    }
+
+    modelIsolateController.setObjectsVisible(filteredIds, shouldBeVisible);
+    if (!shouldBeVisible) {
+        modelIsolateController.setObjectsXRayed(filteredIds, false);
+        modelIsolateController.setObjectsHighlighted(filteredIds, false);
+    }
+
+    clearSelection(false);
+    requestRenderFrame();
+    scheduleExplorerRefresh(0);
+    return true;
+}
+
+function toggleObjectCollectionVisibility(ids) {
+    return setObjectCollectionVisibility(ids, !areObjectCollectionVisible(ids));
+}
+
+function getClassObjectIds(type, modelId) {
+    const baseIds = getObjectIdsByType(type)
+        .filter((id) => isSceneObjectId(id))
+        .filter((id) => !modelId || (getObjectMetaModelId(id) || "SEM_MODELO") === modelId);
+
+    return expandHierarchy(baseIds);
+}
+
+function getStoreyObjectIds(storeyId) {
+    return expandHierarchy(getObjectsByStorey(storeyId).filter((id) => isSceneObjectId(id)));
+}
+
 function buildExplorerModelItem(model) {
     const objectCount = getModelObjectIds(model.id).filter((id) => isSceneObjectId(id)).length;
     const label = model.src || model.id;
     const isVisible = isModelVisible(model.id);
 
-    const item = document.createElement("div");
-    item.className = "explorer-model-item";
-
-    const toggleButton = document.createElement("button");
-    toggleButton.type = "button";
-    toggleButton.className = `explorer-model-visibility-toggle${isVisible ? " is-active" : ""}`;
-    toggleButton.title = isVisible
-        ? `Desativar IFC ${model.id}`
-        : `Ativar IFC ${model.id}`;
-    toggleButton.setAttribute("aria-pressed", isVisible ? "true" : "false");
-    toggleButton.setAttribute("aria-label", isVisible
-        ? `Desativar IFC ${model.id}`
-        : `Ativar IFC ${model.id}`);
-
-    const toggleIcon = document.createElement("span");
-    toggleIcon.className = "explorer-model-visibility-icon";
-    toggleIcon.textContent = isVisible ? "✓" : "";
-    toggleButton.appendChild(toggleIcon);
-
-    toggleButton.addEventListener("click", (event) => {
-        event.stopPropagation();
-        toggleModelVisibility(model.id);
-    });
-
-    const focusButton = buildExplorerActionButton({
+    return buildExplorerToggleCard({
         primaryText: label,
         secondaryText: `${model.id} • ${objectCount} objeto(s)`,
-        title: `Isolar modelo ${label}`,
-        onClick: () => {
+        actionTitle: `Isolar modelo ${label}`,
+        onAction: () => {
             focusModelById(model.id);
             setActiveExplorerTab("models");
-        }
+        },
+        isActive: isVisible,
+        toggleTitle: isVisible
+            ? `Desativar IFC ${model.id}`
+            : `Ativar IFC ${model.id}`,
+        toggleAriaLabel: isVisible
+            ? `Desativar IFC ${model.id}`
+            : `Ativar IFC ${model.id}`,
+        onToggle: () => toggleModelVisibility(model.id),
+        className: "explorer-model-item"
     });
-    focusButton.classList.add("explorer-model-focus");
-    item.appendChild(toggleButton);
-    item.appendChild(focusButton);
-    return item;
 }
 
 function toggleExplorerGroup(tabId, groupKey) {
@@ -1037,55 +1124,40 @@ function buildExplorerCollapsibleGroup({
     metaText,
     countText,
     onHeaderClick,
-    renderChildren
+    renderChildren,
+    isActive = true,
+    onToggleVisibility,
+    toggleTitle,
+    toggleAriaLabel
 }) {
     const isExpanded = explorerExpandedGroups[tabId]?.has(groupKey);
 
     const section = document.createElement("section");
     section.className = `explorer-tree-group${isExpanded ? " is-expanded" : ""}`;
 
-    const header = document.createElement("button");
-    header.type = "button";
-    header.className = "explorer-tree-group-header";
-    header.setAttribute("aria-expanded", isExpanded ? "true" : "false");
-    header.title = titleText;
-
-    const toggle = document.createElement("span");
-    toggle.className = "explorer-tree-group-toggle";
-    toggle.textContent = isExpanded ? "−" : "+";
-    header.appendChild(toggle);
-
-    const textWrapper = document.createElement("span");
-    textWrapper.className = "explorer-tree-group-title-wrapper";
-
-    const title = document.createElement("span");
-    title.className = "explorer-tree-group-title";
-    title.textContent = titleText;
-    textWrapper.appendChild(title);
-
-    if (metaText) {
-        const meta = document.createElement("span");
-        meta.className = "explorer-tree-group-meta";
-        meta.textContent = metaText;
-        textWrapper.appendChild(meta);
-    }
-
-    header.appendChild(textWrapper);
-
-    if (countText) {
-        const count = document.createElement("span");
-        count.className = "explorer-tree-group-count";
-        count.textContent = countText;
-        header.appendChild(count);
-    }
-
-    header.addEventListener("click", () => {
-        toggleExplorerGroup(tabId, groupKey);
-        if (typeof onHeaderClick === "function") {
-            onHeaderClick();
-        }
-        scheduleExplorerRefresh(0);
+    const header = buildExplorerToggleCard({
+        primaryText: titleText,
+        secondaryText: [metaText, countText].filter(Boolean).join(" • "),
+        actionTitle: titleText,
+        badgeText: isExpanded ? "Fechar" : "Abrir",
+        onAction: () => {
+            toggleExplorerGroup(tabId, groupKey);
+            if (typeof onHeaderClick === "function") {
+                onHeaderClick();
+            }
+            scheduleExplorerRefresh(0);
+        },
+        isActive,
+        toggleTitle,
+        toggleAriaLabel,
+        onToggle: onToggleVisibility,
+        className: "explorer-tree-group-header"
     });
+
+    const actionButton = header.querySelector('.explorer-list-item-action');
+    if (actionButton) {
+        actionButton.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+    }
 
     section.appendChild(header);
 
@@ -1182,28 +1254,48 @@ function renderExplorerObjectsTab() {
         .sort((a, b) => a.modelLabel.localeCompare(b.modelLabel, "pt-BR"));
 
     groups.forEach((group) => {
+        const groupIsVisible = isModelVisible(group.modelId);
         list.appendChild(buildExplorerCollapsibleGroup({
             tabId: "objects",
             groupKey: group.modelId,
             titleText: group.modelLabel,
             metaText: group.modelId,
             countText: `${group.items.length} objeto(s)`,
+            isActive: groupIsVisible,
+            toggleTitle: groupIsVisible
+                ? `Desativar objetos do IFC ${group.modelId}`
+                : `Ativar objetos do IFC ${group.modelId}`,
+            toggleAriaLabel: groupIsVisible
+                ? `Desativar objetos do IFC ${group.modelId}`
+                : `Ativar objetos do IFC ${group.modelId}`,
+            onToggleVisibility: () => toggleModelVisibility(group.modelId),
             renderChildren: (children) => {
                 group.items.forEach((entry) => {
-                    const item = buildExplorerActionButton({
+                    const objectId = entry.sceneObjectId;
+                    const objectIsVisible = areObjectCollectionVisible([objectId]);
+
+                    const item = buildExplorerToggleCard({
                         primaryText: entry.name,
-                        secondaryText: `${entry.type} • ${entry.id}`,
-                        title: `Focar objeto ${entry.id}`,
-                        onClick: () => focusObjectById(entry.sceneObjectId || entry.id)
+                        secondaryText: `${entry.type} • ${objectId}`,
+                        actionTitle: `Focar objeto ${objectId}`,
+                        onAction: () => focusObjectById(objectId),
+                        isActive: objectIsVisible,
+                        toggleTitle: objectIsVisible
+                            ? `Desativar objeto ${entry.name}`
+                            : `Ativar objeto ${entry.name}`,
+                        toggleAriaLabel: objectIsVisible
+                            ? `Desativar objeto ${entry.name}`
+                            : `Ativar objeto ${entry.name}`,
+                        onToggle: () => toggleObjectCollectionVisibility([objectId]),
+                        className: "explorer-tree-leaf"
                     });
-                    item.classList.add("explorer-tree-leaf");
                     children.appendChild(item);
                 });
             }
         }));
     });
     
-    summary.textContent = `${metaObjects.length} objeto(s) encontrados em ${groups.length} IFC(s). Expanda o botão + de cada IFC para abrir os objetos.`;
+    summary.textContent = `${metaObjects.length} objeto(s) encontrados em ${groups.length} IFC(s). Use o visto para ativar/desativar e Abrir para focar ou expandir cada grupo.`;
 }
 
 function renderExplorerClassesTab() {
@@ -1260,28 +1352,48 @@ function renderExplorerClassesTab() {
 
     const totalClasses = entries.reduce((sum, group) => sum + group.classEntries.length, 0);
     console.log("[Explorer Classes] classes finais:", totalClasses);
-    summary.textContent = `${totalClasses} classe(s) IFC detectada(s) em ${entries.length} IFC(s). Expanda o botão + de cada IFC para abrir as classes.`;
+    summary.textContent = `${totalClasses} classe(s) IFC detectada(s) em ${entries.length} IFC(s). Use o visto para ativar/desativar e Abrir para isolar ou expandir as classes.`;
 
     entries.forEach((group) => {
         const totalObjects = group.classEntries.reduce((sum, [, entry]) => sum + entry.count, 0);
+        const groupIsVisible = isModelVisible(group.modelId);
         list.appendChild(buildExplorerCollapsibleGroup({
             tabId: "classes",
             groupKey: group.modelId,
             titleText: group.modelLabel,
             metaText: group.modelId,
             countText: `${group.classEntries.length} classe(s) • ${totalObjects} objeto(s)`,
+            isActive: groupIsVisible,
+            toggleTitle: groupIsVisible
+                ? `Desativar classes do IFC ${group.modelId}`
+                : `Ativar classes do IFC ${group.modelId}`,
+            toggleAriaLabel: groupIsVisible
+                ? `Desativar classes do IFC ${group.modelId}`
+                : `Ativar classes do IFC ${group.modelId}`,
+            onToggleVisibility: () => toggleModelVisibility(group.modelId),
             renderChildren: (children) => {
                 group.classEntries.forEach(([type, entry]) => {
-                    const item = buildExplorerActionButton({
+                    const classObjectIds = getClassObjectIds(type, group.modelId);
+                    const classIsVisible = areObjectCollectionVisible(classObjectIds);
+
+                    const item = buildExplorerToggleCard({
                         primaryText: type,
                         secondaryText: `${entry.count} objeto(s)`,
-                        title: `Isolar classe ${type} no IFC ${group.modelId}`,
-                        onClick: () => {
+                        actionTitle: `Isolar classe ${type} no IFC ${group.modelId}`,
+                        onAction: () => {
                             focusClassByTypeAndModel(type, group.modelId) || focusClassByType(type);
                             setActiveExplorerTab("classes");
-                        }
+                        },
+                        isActive: classIsVisible,
+                        toggleTitle: classIsVisible
+                            ? `Desativar classe ${type}`
+                            : `Ativar classe ${type}`,
+                        toggleAriaLabel: classIsVisible
+                            ? `Desativar classe ${type}`
+                            : `Ativar classe ${type}`,
+                        onToggle: () => toggleObjectCollectionVisibility(classObjectIds),
+                        className: "explorer-tree-leaf"
                     });
-                    item.classList.add("explorer-tree-leaf");
                     children.appendChild(item);
                 });
             }
@@ -1333,27 +1445,47 @@ function renderExplorerStoreysTab() {
     }
 
     const totalStoreys = groups.reduce((sum, group) => sum + group.storeys.length, 0);
-    summary.textContent = `${totalStoreys} pavimento(s) IFC encontrado(s) em ${groups.length} IFC(s). Expanda o botão + de cada IFC para abrir os pavimentos.`;
+    summary.textContent = `${totalStoreys} pavimento(s) IFC encontrado(s) em ${groups.length} IFC(s). Use o visto para ativar/desativar e Abrir para isolar ou expandir os pavimentos.`;
 
     groups.forEach((group) => {
+        const groupIsVisible = isModelVisible(group.modelId);
         list.appendChild(buildExplorerCollapsibleGroup({
             tabId: "storeys",
             groupKey: group.modelId,
             titleText: group.modelLabel,
             metaText: group.modelId,
             countText: `${group.storeys.length} pavimento(s)`,
+            isActive: groupIsVisible,
+            toggleTitle: groupIsVisible
+                ? `Desativar pavimentos do IFC ${group.modelId}`
+                : `Ativar pavimentos do IFC ${group.modelId}`,
+            toggleAriaLabel: groupIsVisible
+                ? `Desativar pavimentos do IFC ${group.modelId}`
+                : `Ativar pavimentos do IFC ${group.modelId}`,
+            onToggleVisibility: () => toggleModelVisibility(group.modelId),
             renderChildren: (children) => {
                 group.storeys.forEach((storey) => {
-                    const item = buildExplorerActionButton({
+                    const storeyObjectIds = getStoreyObjectIds(storey.id);
+                    const storeyIsVisible = areObjectCollectionVisible(storeyObjectIds);
+
+                    const item = buildExplorerToggleCard({
                         primaryText: storey.name,
                         secondaryText: storey.id,
-                        title: `Isolar pavimento ${storey.name}`,
-                        onClick: () => {
+                        actionTitle: `Isolar pavimento ${storey.name}`,
+                        onAction: () => {
                             isolateStorey(storey.id);
                             setActiveExplorerTab("storeys");
-                        }
+                        },
+                        isActive: storeyIsVisible,
+                        toggleTitle: storeyIsVisible
+                            ? `Desativar pavimento ${storey.name}`
+                            : `Ativar pavimento ${storey.name}`,
+                        toggleAriaLabel: storeyIsVisible
+                            ? `Desativar pavimento ${storey.name}`
+                            : `Ativar pavimento ${storey.name}`,
+                        onToggle: () => toggleObjectCollectionVisibility(storeyObjectIds),
+                        className: "explorer-tree-leaf"
                     });
-                    item.classList.add("explorer-tree-leaf");
                     children.appendChild(item);
                 });
             }

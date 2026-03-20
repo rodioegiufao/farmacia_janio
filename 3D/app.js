@@ -844,7 +844,7 @@ function focusClassByType(type) {
     return true;
 }
 
-function buildExplorerActionButton({ primaryText, secondaryText, onClick, title, badgeText = "Abrir" }) {
+function buildExplorerActionButton({ primaryText, secondaryText, onClick, title, badgeText = null }) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "explorer-list-item-action";
@@ -906,7 +906,7 @@ function buildExplorerToggleCard({
     secondaryText,
     onAction,
     actionTitle,
-    badgeText = "Abrir",
+    badgeText = null,
     isActive = true,
     onToggle,
     toggleTitle,
@@ -1087,36 +1087,89 @@ function getAllClassObjectIds() {
     return expandHierarchy(Array.from(new Set(classIds)));
 }
 
+function areAllObjectCollectionVisible(ids) {
+    const filteredIds = expandHierarchy((ids || []).filter((id) => isSceneObjectId(id)));
+    if (!filteredIds.length) {
+        return false;
+    }
+
+    const visibleIds = new Set(viewer.scene?.visibleObjectIds || []);
+    return filteredIds.every((id) => visibleIds.has(id));
+}
+
+function getAllExplorerObjectIdsForActiveTab() {
+    switch (activeExplorerTab) {
+        case "objects":
+            return expandHierarchy(
+                getExplorerSceneMetaObjects()
+                    .map((metaObject) => metaObject.sceneObjectId || metaObject.id)
+                    .filter((id) => isSceneObjectId(id))
+            );
+        case "classes":
+            return getAllClassObjectIds();
+        case "storeys": {
+            const storeyIds = Object.values(viewer.metaScene?.metaObjects || {})
+                .filter((metaObject) => metaObject?.type === "IfcBuildingStorey" && metaObject?.id)
+                .map((metaObject) => metaObject.id);
+
+            return expandHierarchy(
+                storeyIds.flatMap((storeyId) => getObjectsByStorey(storeyId).filter((id) => isSceneObjectId(id)))
+            );
+        }
+        default:
+            return [];
+    }
+}
+
+function getExplorerSelectionState() {
+    if (activeExplorerTab === "models") {
+        const modelIds = Array.from(loadedModels.values()).map((model) => model.id);
+        return {
+            hasItems: modelIds.length > 0,
+            allSelected: modelIds.length > 0 && modelIds.every((modelId) => isModelVisible(modelId))
+        };
+    }
+
+    const objectIds = getAllExplorerObjectIdsForActiveTab();
+    return {
+        hasItems: objectIds.length > 0,
+        allSelected: areAllObjectCollectionVisible(objectIds)
+    };
+}
+
 function updateTreeViewSelectionButtonState() {
     if (!toggleTreeViewSelectionButton) {
         return;
     }
 
-    if (activeExplorerTab !== "classes") {
-        toggleTreeViewSelectionButton.hidden = true;
-        toggleTreeViewSelectionButton.disabled = true;
-        toggleTreeViewSelectionButton.textContent = "Selecionar todos";
-        return;
-    }
-
-    const classObjectIds = getAllClassObjectIds();
-    const hasItems = classObjectIds.length > 0;
-    const allVisible = hasItems && areObjectCollectionVisible(classObjectIds);
-
+    const { hasItems, allSelected } = getExplorerSelectionState();
     toggleTreeViewSelectionButton.hidden = false;
     toggleTreeViewSelectionButton.disabled = !hasItems;
-    toggleTreeViewSelectionButton.textContent = allVisible ? "Deselecionar todos" : "Selecionar todos";
+    toggleTreeViewSelectionButton.textContent = allSelected ? "Deselecionar todos" : "Selecionar todos";
 }
 
-function toggleAllExplorerClassesVisibility() {
-    const classObjectIds = getAllClassObjectIds();
-    if (!classObjectIds.length) {
+function toggleAllExplorerActiveTabVisibility() {
+    const { hasItems, allSelected } = getExplorerSelectionState();
+    if (!hasItems) {
         return;
     }
 
-    const shouldBeVisible = !areObjectCollectionVisible(classObjectIds);
-    setObjectCollectionVisibility(classObjectIds, shouldBeVisible);
-    updateTreeViewSelectionButtonState();
+    const shouldBeVisible = !allSelected;
+
+    if (activeExplorerTab === "models") {
+        Array.from(loadedModels.values()).forEach((model) => {
+            setModelVisibility(model.id, shouldBeVisible);
+        });
+        updateTreeViewSelectionButtonState();
+        return;
+    }
+
+    const objectIds = getAllExplorerObjectIdsForActiveTab();
+    if (!objectIds.length) {
+        return;
+    }
+
+    setObjectCollectionVisibility(objectIds, shouldBeVisible);
 }
 function buildExplorerModelItem(model) {
     const objectCount = getModelObjectIds(model.id).filter((id) => isSceneObjectId(id)).length;
@@ -1181,7 +1234,7 @@ function buildExplorerCollapsibleGroup({
         primaryText: titleText,
         secondaryText: [metaText, countText].filter(Boolean).join(" • "),
         actionTitle: titleText,
-        badgeText: badgeText === undefined ? (isExpanded ? "Fechar" : "Abrir") : badgeText,
+        badgeText,
         onAction: () => {
             toggleExplorerGroup(tabId, groupKey);
             if (typeof onHeaderClick === "function") {
@@ -1337,7 +1390,7 @@ function renderExplorerObjectsTab() {
         }));
     });
     
-    summary.textContent = `${metaObjects.length} objeto(s) encontrados em ${groups.length} IFC(s). Use o visto para ativar/desativar e Abrir para focar ou expandir cada grupo.`;
+    summary.textContent = `${metaObjects.length} objeto(s) encontrados em ${groups.length} IFC(s). Use o visto para ativar/desativar, clique no nome do IFC para expandir e clique no objeto para focar.`;
 }
 
 function renderExplorerClassesTab() {
@@ -1491,7 +1544,7 @@ function renderExplorerStoreysTab() {
     }
 
     const totalStoreys = groups.reduce((sum, group) => sum + group.storeys.length, 0);
-    summary.textContent = `${totalStoreys} pavimento(s) IFC encontrado(s) em ${groups.length} IFC(s). Use o visto para ativar/desativar e Abrir para isolar ou expandir os pavimentos.`;
+    summary.textContent = `${totalStoreys} pavimento(s) IFC encontrado(s) em ${groups.length} IFC(s). Use o visto para ativar/desativar, clique no nome do IFC para expandir e clique no pavimento para isolar.`;
 
     groups.forEach((group) => {
         const groupIsVisible = isModelVisible(group.modelId);
@@ -5998,37 +6051,11 @@ function setupTreeViewSelectionControls() {
     };
 
     const updateButtonLabel = () => {
-        if (activeExplorerTab === "classes") {
-            updateTreeViewSelectionButtonState();
-            return;
-        }
-        const checkboxes = getTreeViewCheckboxes();
-        const hasItems = checkboxes.length > 0;
-        const allChecked = hasItems && checkboxes.every((checkbox) => checkbox.checked);
-
-        toggleTreeViewSelectionButton.hidden = false;
-        toggleTreeViewSelectionButton.disabled = !hasItems;
-        toggleTreeViewSelectionButton.textContent = allChecked ? "Deselecionar todos" : "Selecionar todos";
+        updateTreeViewSelectionButtonState();
     };
 
     const toggleAllSelections = () => {
-        if (activeExplorerTab === "classes") {
-            toggleAllExplorerClassesVisibility();
-            return;
-        }
-        const checkboxes = getTreeViewCheckboxes();
-        if (checkboxes.length === 0) {
-            return;
-        }
-
-        const shouldCheck = !checkboxes.every((checkbox) => checkbox.checked);
-        checkboxes.forEach((checkbox) => {
-            if (checkbox.checked !== shouldCheck) {
-                checkbox.click();
-            }
-        });
-
-        updateButtonLabel();
+         toggleAllExplorerActiveTabVisibility();
     };
 
     toggleTreeViewSelectionButton.addEventListener("click", toggleAllSelections);

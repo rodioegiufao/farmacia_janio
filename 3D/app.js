@@ -573,7 +573,8 @@ const EXPLORER_TAB_DEFINITIONS = [
     { id: "objects", label: "Objetos", subtitle: "Objetos disponíveis para foco e inspeção" },
     { id: "classes", label: "Classes", subtitle: "Classes IFC agrupadas para isolamento" },
     { id: "storeys", label: "Pav", subtitle: "Selecione o pavimento para isolar" },
-    { id: "networks", label: "Redes", subtitle: "Organize e isole os IFCs/XKTs por rede" }
+    { id: "networks", label: "Redes", subtitle: "Organize e isole os IFCs/XKTs por rede" },
+    { id: "parts", label: "Peças", subtitle: "Espaço reservado para a futura organização de peças" }
 ];
 const explorerExpandedGroups = {
     objects: new Set(),
@@ -1125,6 +1126,7 @@ function getAllExplorerObjectIdsForActiveTab() {
                     .map((metaObject) => metaObject.sceneObjectId || metaObject.id)
                     .filter((id) => isSceneObjectId(id))
             );
+        case "parts":
         default:
             return [];
     }
@@ -1719,6 +1721,18 @@ function renderExplorerNetworksTab() {
     updateTreeViewSelectionButtonState();
 }
 
+function renderExplorerPartsTab() {
+    const summary = explorerTabSummaries.get("parts");
+    const list = explorerTabLists.get("parts");
+    if (!summary || !list) {
+        return;
+    }
+
+    list.innerHTML = "";
+    summary.textContent = "Este espaço já está reservado para as peças. Quando você adicionar essa estrutura, ela poderá aparecer aqui junto com os demais grupos do Explorer.";
+    updateTreeViewSelectionButtonState();
+}
+
 function refreshExplorerPanels() {
     if (!explorerTabsInitialized) {
         return;
@@ -1729,6 +1743,7 @@ function refreshExplorerPanels() {
     renderExplorerClassesTab();
     renderExplorerStoreysTab();
     renderExplorerNetworksTab();
+    renderExplorerPartsTab();
 }
 
 function requestRenderFrame() {

@@ -85,7 +85,7 @@ function detectViewerCompatibility() {
     if (lowCpuDevice) {
         reasons.push("CPU reduzida");
     }
-    
+
     const enableDataTextures = supportsWebGL2 && !useCompatibilityMode;
     const enableNavCube = supportsWebGL2 && !isTouchDevice;
 
@@ -117,7 +117,7 @@ const viewer = new Viewer({
     pbrEnabled: false,
     dtxEnabled: viewerCompatibility.enableDataTextures,
     backgroundColor: [0.72, 0.77, 0.82],
-    
+
     // CONFIGURAÇÃO DE LOCALIZAÇÃO (NavCube em Português)
     localeService: new LocaleService({
         messages: {
@@ -574,13 +574,14 @@ const EXPLORER_TAB_DEFINITIONS = [
     { id: "classes", label: "Classes", subtitle: "Classes IFC agrupadas para isolamento" },
     { id: "storeys", label: "Pav", subtitle: "Selecione o pavimento para isolar" },
     { id: "networks", label: "Redes", subtitle: "Organize e isole os IFCs/XKTs por rede" },
-    { id: "parts", label: "Peças", subtitle: "Espaço reservado para a futura organização de peças" }
+    { id: "parts", label: "Peças", subtitle: "Organize e isole as peças por Classe, Tipo e Nome" }
 ];
 const explorerExpandedGroups = {
     objects: new Set(),
     classes: new Set(),
     storeys: new Set(),
-    networks: new Set()
+    networks: new Set(),
+    parts: new Set()
 };
 let activeExplorerTab = "models";
 let explorerTabsInitialized = false;
@@ -1127,6 +1128,12 @@ function getAllExplorerObjectIdsForActiveTab() {
                     .filter((id) => isSceneObjectId(id))
             );
         case "parts":
+            return expandHierarchy(
+                getExplorerSceneMetaObjects()
+                    .filter((metaObject) => getMetaObjectPartInfo(metaObject).hasIdentification)
+                    .map((metaObject) => metaObject.sceneObjectId || metaObject.id)
+                    .filter((id) => isSceneObjectId(id))
+            );
         default:
             return [];
     }
@@ -1400,7 +1407,7 @@ function renderExplorerObjectsTab() {
             }
         }));
     });
-    
+
     summary.textContent = `${metaObjects.length} objeto(s) encontrados em ${groups.length} IFC(s). Use o visto para ativar/desativar, clique no nome do IFC para expandir e clique no objeto para focar.`;
 }
 
@@ -1410,7 +1417,7 @@ function renderExplorerClassesTab() {
     if (!summary || !list) {
         return;
     }
-    
+
     const metaObjects = getExplorerSceneMetaObjects();
     const totalMetaObjects = Object.keys(viewer.metaScene?.metaObjects || {}).length;
     const metaObjectsWithType = metaObjects.filter((metaObject) => Boolean(metaObject?.type));
@@ -1728,8 +1735,197 @@ function renderExplorerPartsTab() {
         return;
     }
 
+    const groupedModels = new Map();
+
+    getExplorerSceneMetaObjects().forEach((metaObject) => {
+        const partInfo = getMetaObjectPartInfo(metaObject);
+        if (!partInfo.hasIdentification) {
+            return;
+        }
+
+        const modelId = getObjectMetaModelId(metaObject.id) || "SEM_MODELO";
+        const modelLabel = getExplorerModelLabel(modelId);
+        const objectId = metaObject.sceneObjectId || metaObject.id;
+
+        if (!groupedModels.has(modelId)) {
+            groupedModels.set(modelId, {
+                modelId,
+                modelLabel,
+                classes: new Map(),
+                objectIds: new Set()
+            });
+        }
+
+        const modelEntry = groupedModels.get(modelId);
+        modelEntry.objectIds.add(objectId);
+
+        if (!modelEntry.classes.has(partInfo.className)) {
+            modelEntry.classes.set(partInfo.className, {
+                name: partInfo.className,
+                types: new Map(),
+                objectIds: new Set(),
+                itemCount: 0
+            });
+        }
+
+        const classEntry = modelEntry.classes.get(partInfo.className);
+        classEntry.objectIds.add(objectId);
+        classEntry.itemCount += 1;
+
+        if (!classEntry.types.has(partInfo.typeName)) {
+            classEntry.types.set(partInfo.typeName, {
+                name: partInfo.typeName,
+                parts: new Map(),
+                objectIds: new Set(),
+                itemCount: 0
+            });
+        }
+
+        const typeEntry = classEntry.types.get(partInfo.typeName);
+        typeEntry.objectIds.add(objectId);
+        typeEntry.itemCount += 1;
+
+        if (!typeEntry.parts.has(partInfo.partName)) {
+            typeEntry.parts.set(partInfo.partName, {
+                name: partInfo.partName,
+                objectIds: new Set(),
+                itemCount: 0
+            });
+        }
+
+        const partEntry = typeEntry.parts.get(partInfo.partName);
+        partEntry.objectIds.add(objectId);
+        partEntry.itemCount += 1;
+    });
+
+    const models = Array.from(groupedModels.values())
+        .map((modelEntry) => ({
+            ...modelEntry,
+            classes: Array.from(modelEntry.classes.values())
+                .map((classEntry) => ({
+                    ...classEntry,
+                    types: Array.from(classEntry.types.values())
+                        .map((typeEntry) => ({
+                            ...typeEntry,
+                            parts: Array.from(typeEntry.parts.values())
+                                .map((partEntry) => ({
+                                    ...partEntry,
+                                    objectIds: expandHierarchy(Array.from(partEntry.objectIds))
+                                }))
+                                .sort((a, b) => b.itemCount - a.itemCount || a.name.localeCompare(b.name, "pt-BR")),
+                            objectIds: expandHierarchy(Array.from(typeEntry.objectIds))
+                        }))
+                        .sort((a, b) => b.itemCount - a.itemCount || a.name.localeCompare(b.name, "pt-BR")),
+                    objectIds: expandHierarchy(Array.from(classEntry.objectIds))
+                }))
+                .sort((a, b) => b.itemCount - a.itemCount || a.name.localeCompare(b.name, "pt-BR")),
+            objectIds: expandHierarchy(Array.from(modelEntry.objectIds))
+        }))
+        .sort((a, b) => a.modelLabel.localeCompare(b.modelLabel, "pt-BR"));
+
     list.innerHTML = "";
-    summary.textContent = "Este espaço já está reservado para as peças. Quando você adicionar essa estrutura, ela poderá aparecer aqui junto com os demais grupos do Explorer.";
+
+    if (!models.length) {
+        summary.textContent = "Nenhuma peça com propriedades em Identificação_Elemento foi encontrada. Para usar esta aba, o modelo precisa ter Classe, Tipo ou Nome nesse conjunto.";
+        updateTreeViewSelectionButtonState();
+        return;
+    }
+
+    const totalClasses = models.reduce((sum, modelEntry) => sum + modelEntry.classes.length, 0);
+    const totalTypes = models.reduce((sum, modelEntry) => sum + modelEntry.classes.reduce((classSum, classEntry) => classSum + classEntry.types.length, 0), 0);
+    const totalParts = models.reduce((sum, modelEntry) => sum + modelEntry.classes.reduce((classSum, classEntry) => classSum + classEntry.types.reduce((typeSum, typeEntry) => typeSum + typeEntry.parts.length, 0), 0), 0);
+
+    summary.textContent = `${models.length} IFC(s), ${totalClasses} classe(s), ${totalTypes} tipo(s) e ${totalParts} peça(s) encontradas. Use o visto para ativar/desativar, clique no nome do IFC para expandir e clique na peça para isolar.`;
+
+    models.forEach((modelEntry) => {
+        const modelIsVisible = isModelVisible(modelEntry.modelId);
+        const modelGroupKey = `model:${modelEntry.modelId}`;
+
+        list.appendChild(buildExplorerCollapsibleGroup({
+            tabId: "parts",
+            groupKey: modelGroupKey,
+            titleText: modelEntry.modelLabel,
+            metaText: modelEntry.modelId,
+            countText: `${modelEntry.classes.length} classe(s) • ${modelEntry.objectIds.length} objeto(s)`,
+            isActive: modelIsVisible,
+            toggleTitle: modelIsVisible
+                ? `Desativar peças do IFC ${modelEntry.modelId}`
+                : `Ativar peças do IFC ${modelEntry.modelId}`,
+            toggleAriaLabel: modelIsVisible
+                ? `Desativar peças do IFC ${modelEntry.modelId}`
+                : `Ativar peças do IFC ${modelEntry.modelId}`,
+            onToggleVisibility: () => toggleModelVisibility(modelEntry.modelId),
+            renderChildren: (modelChildren) => {
+                modelEntry.classes.forEach((classEntry) => {
+                    const classGroupKey = `${modelGroupKey}:class:${classEntry.name}`;
+                    const classIsVisible = areObjectCollectionVisible(classEntry.objectIds);
+
+                    modelChildren.appendChild(buildExplorerCollapsibleGroup({
+                        tabId: "parts",
+                        groupKey: classGroupKey,
+                        titleText: classEntry.name,
+                        metaText: `${modelEntry.modelId} • ${classEntry.types.length} tipo(s)`,
+                        countText: `${classEntry.itemCount} objeto(s)`,
+                        isActive: classIsVisible,
+                        toggleTitle: classIsVisible
+                            ? `Desativar classe ${classEntry.name}`
+                            : `Ativar classe ${classEntry.name}`,
+                        toggleAriaLabel: classIsVisible
+                            ? `Desativar classe ${classEntry.name}`
+                            : `Ativar classe ${classEntry.name}`,
+                        onToggleVisibility: () => toggleObjectCollectionVisibility(classEntry.objectIds),
+                        renderChildren: (classChildren) => {
+                            classEntry.types.forEach((typeEntry) => {
+                                const typeGroupKey = `${classGroupKey}:type:${typeEntry.name}`;
+                                const typeIsVisible = areObjectCollectionVisible(typeEntry.objectIds);
+
+                                classChildren.appendChild(buildExplorerCollapsibleGroup({
+                                    tabId: "parts",
+                                    groupKey: typeGroupKey,
+                                    titleText: typeEntry.name,
+                                    metaText: `${modelEntry.modelId} • ${typeEntry.parts.length} peça(s)`,
+                                    countText: `${typeEntry.itemCount} objeto(s)`,
+                                    isActive: typeIsVisible,
+                                    toggleTitle: typeIsVisible
+                                        ? `Desativar tipo ${typeEntry.name}`
+                                        : `Ativar tipo ${typeEntry.name}`,
+                                    toggleAriaLabel: typeIsVisible
+                                        ? `Desativar tipo ${typeEntry.name}`
+                                        : `Ativar tipo ${typeEntry.name}`,
+                                    onToggleVisibility: () => toggleObjectCollectionVisibility(typeEntry.objectIds),
+                                    renderChildren: (typeChildren) => {
+                                        typeEntry.parts.forEach((partEntry) => {
+                                            const partIsVisible = areObjectCollectionVisible(partEntry.objectIds);
+
+                                            typeChildren.appendChild(buildExplorerToggleCard({
+                                                primaryText: partEntry.name,
+                                                secondaryText: `${modelEntry.modelId} • ${partEntry.itemCount} objeto(s)`,
+                                                actionTitle: `Isolar peça ${partEntry.name} no IFC ${modelEntry.modelId}`,
+                                                onAction: () => {
+                                                    focusObjectCollection(partEntry.objectIds);
+                                                    setActiveExplorerTab("parts");
+                                                },
+                                                isActive: partIsVisible,
+                                                toggleTitle: partIsVisible
+                                                    ? `Desativar peça ${partEntry.name}`
+                                                    : `Ativar peça ${partEntry.name}`,
+                                                toggleAriaLabel: partIsVisible
+                                                    ? `Desativar peça ${partEntry.name}`
+                                                    : `Ativar peça ${partEntry.name}`,
+                                                onToggle: () => toggleObjectCollectionVisibility(partEntry.objectIds),
+                                                className: "explorer-tree-leaf"
+                                            }));
+                                        });
+                                    }
+                                }));
+                            });
+                        }
+                    }));
+                });
+            }
+        }));
+    });
+
     updateTreeViewSelectionButtonState();
 }
 
@@ -3105,13 +3301,13 @@ const POLICLINICA_MODELS = [
     { id: "IFC_IRRI", src: "/3D/policlinica/modelo-13.xkt" },
 ];
 
-const CANAA_MODELS = [  
-    { id: "IFC_ELE", src: "/3D/esc_canaa/modelo-01.xkt" }, 
+const CANAA_MODELS = [
+    { id: "IFC_ELE", src: "/3D/esc_canaa/modelo-01.xkt" },
     { id: "IFC_ILUX", src: "/3D/esc_canaa/modelo-02.xkt" },
     { id: "IFC_LOG", src: "/3D/esc_canaa/modelo-03.xkt" },
     { id: "IFC_ALI", src: "/3D/esc_canaa/modelo-04.xkt" },
     { id: "IFC_INC", src: "/3D/esc_canaa/modelo-05.xkt" },
-    { id: "IFC_EST_PP", src: "/3D/esc_canaa/modelo-06.xkt" },    
+    { id: "IFC_EST_PP", src: "/3D/esc_canaa/modelo-06.xkt" },
     { id: "IFC_SUB", src: "/3D/esc_canaa/modelo-07.xkt" },
     { id: "IFC_CLI", src: "/3D/esc_canaa/modelo-08.xkt" },
     { id: "IFC_ILU", src: "/3D/esc_canaa/modelo-09.xkt" },
@@ -4201,7 +4397,7 @@ function mergeAABBs(aabbs) {
     const maxX = Math.max(...valid.map((aabb) => aabb[3]));
     const maxY = Math.max(...valid.map((aabb) => aabb[4]));
     const maxZ = Math.max(...valid.map((aabb) => aabb[5]));
-    
+
     return [minX, minY, minZ, maxX, maxY, maxZ];
 }
 
@@ -4544,6 +4740,32 @@ function getMetaObjectNetworkInfo(metaObject) {
         network: network || "Sem rede"
     };
 }
+
+function getMetaObjectPartInfo(metaObject) {
+    const identificationPropertySetNames = [
+        "Identificação_Elemento",
+        "Identificacao_Elemento",
+        "Identificacao Elemento",
+        "Identificação Elemento"
+    ];
+    const className = getMetaObjectPropertyValue(metaObject, ["Classe", "Class"], {
+        propertySetNames: identificationPropertySetNames
+    });
+    const typeName = getMetaObjectPropertyValue(metaObject, ["Tipo", "Type"], {
+        propertySetNames: identificationPropertySetNames
+    });
+    const partName = getMetaObjectPropertyValue(metaObject, ["Nome", "Name"], {
+        propertySetNames: identificationPropertySetNames
+    });
+
+    return {
+        className: className || "Sem classe",
+        typeName: typeName || "Sem tipo",
+        partName: partName || metaObject?.name || metaObject?.id || "Sem nome",
+        hasIdentification: Boolean(className || typeName || partName)
+    };
+}
+
 
 function getNetworkObjectIds(networkName, modelId = null) {
     const ids = getExplorerSceneMetaObjects()
@@ -5899,7 +6121,7 @@ function findAndRenderCollisions(modelId) {
         }
         collisionsMap.get(base).add(target);
     };
-    
+
     const overlapTolerance = getCollisionRadiusMeters();
 
     for (let i = 0; i < objects.length; i++) {
@@ -5951,7 +6173,7 @@ document.addEventListener("keydown", (event) => {
         openWebBudgetPanel();
         return;
     }
-    
+
     if (key === "r") {
         resetXRay();
         return;
@@ -5998,7 +6220,7 @@ document.addEventListener("keydown", (event) => {
 
     if (key === rotationShortcutKey) {
         const selectedSourceId = resolveRotationTargetId();
-       
+
         if (!selectedSourceId) {
             setSearchStatus("Selecione uma peça (duplo clique), deixe o cursor sobre ela ou informe o ID na busca antes de usar o atalho J.", true);
             return;
@@ -6132,7 +6354,7 @@ function setupModelIsolateController() {
         }
         // Verifica se há alguma entidade associada ao nó
         if (entityId && viewer.scene.getObjectsInSubtree(entityId).length > 0) {
-            
+
             const subtreeIds = viewer.scene.getObjectsInSubtree(entityId);
 
             // Mantém o comportamento existente para nós que não são pavimentos.
@@ -6144,7 +6366,7 @@ function setupModelIsolateController() {
                 aabb: viewer.scene.getAABB(entityId),
                 duration: 0.5
             });
-            
+
             clearSelection();
 
         } else {
@@ -6362,7 +6584,7 @@ function toggleSectionPlane(button) {
         }
 
         scene.sectionPlanes.active = false;
-        
+
         // alguns builds deixam o gizmo em viewer.input._activeCanvasElements
         if (viewer.input && viewer.input._activeCanvasElements) {
             viewer.input._activeCanvasElements.clear?.();
@@ -6423,7 +6645,7 @@ let lastEntity = null;
 
 // Monitora o movimento do mouse sobre o canvas
 viewer.scene.input.on("mousemove", function (coords) {
-    
+
     const hit = viewer.scene.pick({
         canvasPos: coords
     });

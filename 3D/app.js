@@ -1608,7 +1608,7 @@ function renderExplorerNetworksTab() {
         return;
     }
 
-    const groupedNetworks = new Map();
+    const groupedModels = new Map();
 
     getExplorerSceneMetaObjects().forEach((metaObject) => {
         const { network, subnetwork } = getMetaObjectNetworkInfo(metaObject);
@@ -1620,120 +1620,119 @@ function renderExplorerNetworksTab() {
         const modelLabel = getExplorerModelLabel(modelId);
         const objectId = metaObject.sceneObjectId || metaObject.id;
 
-        if (!groupedNetworks.has(network)) {
-            groupedNetworks.set(network, {
-                name: network,
-                models: new Map(),
+        if (!groupedModels.has(modelId)) {
+            groupedModels.set(modelId, {
+                modelId,
+                modelLabel,
+                networks: new Map(),
                 objectIds: new Set()
             });
         }
 
-        const networkEntry = groupedNetworks.get(network);
-        networkEntry.objectIds.add(objectId);
+        const modelEntry = groupedModels.get(modelId);
+        modelEntry.objectIds.add(objectId);
 
-        if (!networkEntry.models.has(modelId)) {
-            networkEntry.models.set(modelId, {
-                modelId,
-                modelLabel,
+        if (!modelEntry.networks.has(network)) {
+            modelEntry.networks.set(network, {
+                name: network,
                 subnetworks: new Map(),
                 objectIds: new Set(),
                 itemCount: 0
             });
         }
 
-        const modelEntry = networkEntry.models.get(modelId);
-        modelEntry.objectIds.add(objectId);
-        modelEntry.itemCount += 1;
+        const networkEntry = modelEntry.networks.get(network);
+        networkEntry.objectIds.add(objectId);
+        networkEntry.itemCount += 1;
 
-        if (!modelEntry.subnetworks.has(subnetwork)) {
-            modelEntry.subnetworks.set(subnetwork, {
+        if (!networkEntry.subnetworks.has(subnetwork)) {
+            networkEntry.subnetworks.set(subnetwork, {
                 name: subnetwork,
                 objectIds: new Set(),
                 itemCount: 0
             });
         }
 
-        const subnetworkEntry = modelEntry.subnetworks.get(subnetwork);
+        const subnetworkEntry = networkEntry.subnetworks.get(subnetwork);
         subnetworkEntry.objectIds.add(objectId);
         subnetworkEntry.itemCount += 1;
     });
 
-    const networks = Array.from(groupedNetworks.values())
-        .map((networkEntry) => ({
-            ...networkEntry,
-            models: Array.from(networkEntry.models.values())
-                .map((modelEntry) => ({
-                    ...modelEntry,
-                    subnetworks: Array.from(modelEntry.subnetworks.values())
+    const models = Array.from(groupedModels.values())
+        .map((modelEntry) => ({
+            ...modelEntry,
+            networks: Array.from(modelEntry.networks.values())
+                .map((networkEntry) => ({
+                    ...networkEntry,
+                    subnetworks: Array.from(networkEntry.subnetworks.values())
                         .map((subnetworkEntry) => ({
                             ...subnetworkEntry,
                             objectIds: expandHierarchy(Array.from(subnetworkEntry.objectIds))
                         }))
                         .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-                    objectIds: expandHierarchy(Array.from(modelEntry.objectIds))
+                    objectIds: expandHierarchy(Array.from(networkEntry.objectIds))
                 }))
-                .sort((a, b) => a.modelLabel.localeCompare(b.modelLabel, "pt-BR")),
-            objectIds: expandHierarchy(Array.from(networkEntry.objectIds))
+                .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+            objectIds: expandHierarchy(Array.from(modelEntry.objectIds))
         }))
-        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+        .sort((a, b) => a.modelLabel.localeCompare(b.modelLabel, "pt-BR"));
 
     list.innerHTML = "";
 
-    if (!networks.length) {
+    if (!models.length) {
         summary.textContent = "Nenhuma propriedade IFC de rede foi encontrada. Para usar esta aba, o modelo precisa ter campos como Rede e, opcionalmente, Sub-rede.";
         updateTreeViewSelectionButtonState();
         return;
     }
 
-    const totalModels = networks.reduce((sum, networkEntry) => sum + networkEntry.models.length, 0);
-    const totalSubnetworks = networks.reduce(
-        (sum, networkEntry) => sum + networkEntry.models.reduce((innerSum, modelEntry) => innerSum + modelEntry.subnetworks.length, 0),
+    const totalNetworks = models.reduce((sum, modelEntry) => sum + modelEntry.networks.length, 0);
+    const totalSubnetworks = models.reduce(
+        (sum, modelEntry) => sum + modelEntry.networks.reduce((innerSum, networkEntry) => innerSum + networkEntry.subnetworks.length, 0),
         0
     );
 
-    summary.textContent = `${networks.length} rede(s), ${totalModels} agrupamento(s) de IFC/XKT e ${totalSubnetworks} sub-rede(s) encontrados. Clique na rede para expandir, depois no IFC/XKT ou na sub-rede para isolar.`;
+    summary.textContent = `${models.length} IFC(s), ${totalNetworks} rede(s) e ${totalSubnetworks} sub-rede(s) encontrados. Use o visto para ativar/desativar, clique no nome do IFC para expandir e clique na rede ou sub-rede para isolar.`;
 
-    networks.forEach((networkEntry) => {
-        const networkIsVisible = areObjectCollectionVisible(networkEntry.objectIds);
-        const networkGroupKey = `network:${networkEntry.name}`;
+    models.forEach((modelEntry) => {
+        const modelIsVisible = isModelVisible(modelEntry.modelId);
+        const modelGroupKey = `model:${modelEntry.modelId}`;
 
         list.appendChild(buildExplorerCollapsibleGroup({
             tabId: "networks",
-            groupKey: networkGroupKey,
-            titleText: networkEntry.name,
-            metaText: `${networkEntry.models.length} IFC/XKT`,
-            countText: `${networkEntry.objectIds.length} objeto(s)`,
-            isActive: networkIsVisible,
-            toggleTitle: networkIsVisible
-                ? `Desativar rede ${networkEntry.name}`
-                : `Ativar rede ${networkEntry.name}`,
-            toggleAriaLabel: networkIsVisible
-                ? `Desativar rede ${networkEntry.name}`
-                : `Ativar rede ${networkEntry.name}`,
-            onToggleVisibility: () => toggleObjectCollectionVisibility(networkEntry.objectIds),
-            onHeaderClick: () => focusNetworkGroup(networkEntry.name),
-            renderChildren: (networkChildren) => {
-                networkEntry.models.forEach((modelEntry) => {
-                    const modelIsVisible = areObjectCollectionVisible(modelEntry.objectIds);
-                    const modelGroupKey = `${networkGroupKey}:model:${modelEntry.modelId}`;
+            groupKey: modelGroupKey,
+            titleText: modelEntry.modelLabel,
+            metaText: modelEntry.modelId,
+            countText: `${modelEntry.networks.length} rede(s) • ${modelEntry.objectIds.length} objeto(s)`,
+            isActive: modelIsVisible,
+            toggleTitle: modelIsVisible
+                ? `Desativar redes do IFC ${modelEntry.modelId}`
+                : `Ativar redes do IFC ${modelEntry.modelId}`,
+            toggleAriaLabel: modelIsVisible
+                ? `Desativar redes do IFC ${modelEntry.modelId}`
+                : `Ativar redes do IFC ${modelEntry.modelId}`,
+            onToggleVisibility: () => toggleModelVisibility(modelEntry.modelId),
+            renderChildren: (modelChildren) => {
+                modelEntry.networks.forEach((networkEntry) => {
+                    const networkIsVisible = areObjectCollectionVisible(networkEntry.objectIds);
+                    const networkGroupKey = `${modelGroupKey}:network:${networkEntry.name}`;
 
-                    networkChildren.appendChild(buildExplorerCollapsibleGroup({
+                    modelChildren.appendChild(buildExplorerCollapsibleGroup({
                         tabId: "networks",
-                        groupKey: modelGroupKey,
-                        titleText: modelEntry.modelLabel,
-                        metaText: `${modelEntry.subnetworks.length} sub-rede(s)`,
-                        countText: `${modelEntry.itemCount} objeto(s)`,
-                        isActive: modelIsVisible,
-                        toggleTitle: modelIsVisible
-                            ? `Desativar agrupamento ${modelEntry.modelLabel} da rede ${networkEntry.name}`
-                            : `Ativar agrupamento ${modelEntry.modelLabel} da rede ${networkEntry.name}`,
-                        toggleAriaLabel: modelIsVisible
-                            ? `Desativar agrupamento ${modelEntry.modelLabel} da rede ${networkEntry.name}`
-                            : `Ativar agrupamento ${modelEntry.modelLabel} da rede ${networkEntry.name}`,
-                        onToggleVisibility: () => toggleObjectCollectionVisibility(modelEntry.objectIds),
+                        groupKey: networkGroupKey,
+                        titleText: networkEntry.name,
+                        metaText: `${networkEntry.subnetworks.length} sub-rede(s)`,
+                        countText: `${networkEntry.itemCount} objeto(s)`,
+                        isActive: networkIsVisible,
+                        toggleTitle: networkIsVisible
+                            ? `Desativar rede ${networkEntry.name} do IFC ${modelEntry.modelId}`
+                            : `Ativar rede ${networkEntry.name} do IFC ${modelEntry.modelId}`,
+                        toggleAriaLabel: networkIsVisible
+                            ? `Desativar rede ${networkEntry.name} do IFC ${modelEntry.modelId}`
+                            : `Ativar rede ${networkEntry.name} do IFC ${modelEntry.modelId}`,
+                        onToggleVisibility: () => toggleObjectCollectionVisibility(networkEntry.objectIds),
                         onHeaderClick: () => focusNetworkGroup(networkEntry.name, null, modelEntry.modelId),
-                        renderChildren: (modelChildren) => {
-                            modelEntry.subnetworks.forEach((subnetworkEntry) => {
+                        renderChildren: (networkChildren) => {
+                            networkEntry.subnetworks.forEach((subnetworkEntry) => {
                                 const subnetworkIsVisible = areObjectCollectionVisible(subnetworkEntry.objectIds);
                                 const item = buildExplorerToggleCard({
                                     primaryText: subnetworkEntry.name,
@@ -1753,7 +1752,7 @@ function renderExplorerNetworksTab() {
                                     onToggle: () => toggleObjectCollectionVisibility(subnetworkEntry.objectIds),
                                     className: "explorer-tree-leaf"
                                 });
-                                modelChildren.appendChild(item);
+                                networkChildren.appendChild(item);
                             });
                         }
                     }));

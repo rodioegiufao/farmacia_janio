@@ -572,12 +572,14 @@ const EXPLORER_TAB_DEFINITIONS = [
     { id: "models", label: "Modelos", subtitle: "Modelos IFC/XKT carregados no visualizador" },
     { id: "objects", label: "Objetos", subtitle: "Objetos disponíveis para foco e inspeção" },
     { id: "classes", label: "Classes", subtitle: "Classes IFC agrupadas para isolamento" },
-    { id: "storeys", label: "Pav", subtitle: "Selecione o pavimento para isolar" }
+    { id: "storeys", label: "Pav", subtitle: "Selecione o pavimento para isolar" },
+    { id: "networks", label: "Redes", subtitle: "Organize e isole os IFCs/XKTs por rede e sub-rede" }
 ];
 const explorerExpandedGroups = {
     objects: new Set(),
     classes: new Set(),
-    storeys: new Set()
+    storeys: new Set(),
+    networks: new Set()
 };
 let activeExplorerTab = "models";
 let explorerTabsInitialized = false;
@@ -1116,6 +1118,13 @@ function getAllExplorerObjectIdsForActiveTab() {
                 storeyIds.flatMap((storeyId) => getObjectsByStorey(storeyId).filter((id) => isSceneObjectId(id)))
             );
         }
+        case "networks":
+            return expandHierarchy(
+                getExplorerSceneMetaObjects()
+                    .filter((metaObject) => getMetaObjectNetworkInfo(metaObject).network !== "Sem rede")
+                    .map((metaObject) => metaObject.sceneObjectId || metaObject.id)
+                    .filter((id) => isSceneObjectId(id))
+            );
         default:
             return [];
     }
@@ -1592,6 +1601,167 @@ function renderExplorerStoreysTab() {
     });
 }
 
+function renderExplorerNetworksTab() {
+    const summary = explorerTabSummaries.get("networks");
+    const list = explorerTabLists.get("networks");
+    if (!summary || !list) {
+        return;
+    }
+
+    const groupedNetworks = new Map();
+
+    getExplorerSceneMetaObjects().forEach((metaObject) => {
+        const { network, subnetwork } = getMetaObjectNetworkInfo(metaObject);
+        if (network === "Sem rede") {
+            return;
+        }
+
+        const modelId = getObjectMetaModelId(metaObject.id) || "SEM_MODELO";
+        const modelLabel = getExplorerModelLabel(modelId);
+
+        if (!groupedNetworks.has(network)) {
+            groupedNetworks.set(network, {
+                name: network,
+                subnetworks: new Map(),
+                objectIds: new Set()
+            });
+        }
+
+        const networkEntry = groupedNetworks.get(network);
+        networkEntry.objectIds.add(metaObject.sceneObjectId || metaObject.id);
+
+        if (!networkEntry.subnetworks.has(subnetwork)) {
+            networkEntry.subnetworks.set(subnetwork, {
+                name: subnetwork,
+                models: new Map(),
+                objectIds: new Set()
+            });
+        }
+
+        const subnetworkEntry = networkEntry.subnetworks.get(subnetwork);
+        subnetworkEntry.objectIds.add(metaObject.sceneObjectId || metaObject.id);
+
+        if (!subnetworkEntry.models.has(modelId)) {
+            subnetworkEntry.models.set(modelId, {
+                modelId,
+                modelLabel,
+                itemCount: 0,
+                objectIds: new Set()
+            });
+        }
+
+        const modelEntry = subnetworkEntry.models.get(modelId);
+        modelEntry.itemCount += 1;
+        modelEntry.objectIds.add(metaObject.sceneObjectId || metaObject.id);
+    });
+
+    const networks = Array.from(groupedNetworks.values())
+        .map((networkEntry) => ({
+            ...networkEntry,
+            subnetworks: Array.from(networkEntry.subnetworks.values())
+                .map((subnetworkEntry) => ({
+                    ...subnetworkEntry,
+                    models: Array.from(subnetworkEntry.models.values())
+                        .map((modelEntry) => ({
+                            ...modelEntry,
+                            objectIds: expandHierarchy(Array.from(modelEntry.objectIds))
+                        }))
+                        .sort((a, b) => a.modelLabel.localeCompare(b.modelLabel, "pt-BR")),
+                    objectIds: expandHierarchy(Array.from(subnetworkEntry.objectIds))
+                }))
+                .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+            objectIds: expandHierarchy(Array.from(networkEntry.objectIds))
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+    list.innerHTML = "";
+
+    if (!networks.length) {
+        summary.textContent = "Nenhuma propriedade IFC de rede foi encontrada. Para usar esta aba, o modelo precisa ter campos como Rede e, opcionalmente, Sub-rede.";
+        updateTreeViewSelectionButtonState();
+        return;
+    }
+
+    const totalSubnetworks = networks.reduce((sum, networkEntry) => sum + networkEntry.subnetworks.length, 0);
+    const totalModels = networks.reduce(
+        (sum, networkEntry) => sum + networkEntry.subnetworks.reduce((innerSum, subnetworkEntry) => innerSum + subnetworkEntry.models.length, 0),
+        0
+    );
+
+    summary.textContent = `${networks.length} rede(s), ${totalSubnetworks} sub-rede(s) e ${totalModels} agrupamento(s) de IFC/XKT encontrados. Clique na rede para expandir, depois na sub-rede ou no modelo para isolar.`;
+
+    networks.forEach((networkEntry) => {
+        const networkIsVisible = areObjectCollectionVisible(networkEntry.objectIds);
+        const networkGroupKey = `network:${networkEntry.name}`;
+
+        list.appendChild(buildExplorerCollapsibleGroup({
+            tabId: "networks",
+            groupKey: networkGroupKey,
+            titleText: networkEntry.name,
+            metaText: `${networkEntry.subnetworks.length} sub-rede(s)`,
+            countText: `${networkEntry.objectIds.length} objeto(s)`,
+            isActive: networkIsVisible,
+            toggleTitle: networkIsVisible
+                ? `Desativar rede ${networkEntry.name}`
+                : `Ativar rede ${networkEntry.name}`,
+            toggleAriaLabel: networkIsVisible
+                ? `Desativar rede ${networkEntry.name}`
+                : `Ativar rede ${networkEntry.name}`,
+            onToggleVisibility: () => toggleObjectCollectionVisibility(networkEntry.objectIds),
+            onHeaderClick: () => focusNetworkGroup(networkEntry.name),
+            renderChildren: (networkChildren) => {
+                networkEntry.subnetworks.forEach((subnetworkEntry) => {
+                    const subnetworkIsVisible = areObjectCollectionVisible(subnetworkEntry.objectIds);
+                    const subnetworkGroupKey = `${networkGroupKey}:subnetwork:${subnetworkEntry.name}`;
+
+                    networkChildren.appendChild(buildExplorerCollapsibleGroup({
+                        tabId: "networks",
+                        groupKey: subnetworkGroupKey,
+                        titleText: subnetworkEntry.name,
+                        metaText: `${subnetworkEntry.models.length} IFC/XKT`,
+                        countText: `${subnetworkEntry.objectIds.length} objeto(s)`,
+                        isActive: subnetworkIsVisible,
+                        toggleTitle: subnetworkIsVisible
+                            ? `Desativar sub-rede ${subnetworkEntry.name}`
+                            : `Ativar sub-rede ${subnetworkEntry.name}`,
+                        toggleAriaLabel: subnetworkIsVisible
+                            ? `Desativar sub-rede ${subnetworkEntry.name}`
+                            : `Ativar sub-rede ${subnetworkEntry.name}`,
+                        onToggleVisibility: () => toggleObjectCollectionVisibility(subnetworkEntry.objectIds),
+                        onHeaderClick: () => focusNetworkGroup(networkEntry.name, subnetworkEntry.name),
+                        renderChildren: (subnetworkChildren) => {
+                            subnetworkEntry.models.forEach((modelEntry) => {
+                                const modelIsVisible = areObjectCollectionVisible(modelEntry.objectIds);
+                                const item = buildExplorerToggleCard({
+                                    primaryText: modelEntry.modelLabel,
+                                    secondaryText: `${modelEntry.modelId} • ${modelEntry.itemCount} objeto(s)`,
+                                    actionTitle: `Isolar ${modelEntry.modelLabel} dentro da sub-rede ${subnetworkEntry.name}`,
+                                    onAction: () => {
+                                        focusNetworkGroup(networkEntry.name, subnetworkEntry.name, modelEntry.modelId);
+                                        setActiveExplorerTab("networks");
+                                    },
+                                    isActive: modelIsVisible,
+                                    toggleTitle: modelIsVisible
+                                        ? `Desativar modelo ${modelEntry.modelId} da sub-rede ${subnetworkEntry.name}`
+                                        : `Ativar modelo ${modelEntry.modelId} da sub-rede ${subnetworkEntry.name}`,
+                                    toggleAriaLabel: modelIsVisible
+                                        ? `Desativar modelo ${modelEntry.modelId} da sub-rede ${subnetworkEntry.name}`
+                                        : `Ativar modelo ${modelEntry.modelId} da sub-rede ${subnetworkEntry.name}`,
+                                    onToggle: () => toggleObjectCollectionVisibility(modelEntry.objectIds),
+                                    className: "explorer-tree-leaf"
+                                });
+                                subnetworkChildren.appendChild(item);
+                            });
+                        }
+                    }));
+                });
+            }
+        }));
+    });
+
+    updateTreeViewSelectionButtonState();
+}
+
 function refreshExplorerPanels() {
     if (!explorerTabsInitialized) {
         return;
@@ -1601,6 +1771,7 @@ function refreshExplorerPanels() {
     renderExplorerObjectsTab();
     renderExplorerClassesTab();
     renderExplorerStoreysTab();
+    renderExplorerNetworksTab();
 }
 
 function requestRenderFrame() {
@@ -4338,6 +4509,81 @@ function formatIfcPropertyValue(value) {
     }
 
     return String(value);
+}
+
+function normalizeIfcPropertyKey(value) {
+    return String(value || "")
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .trim()
+        .toLowerCase();
+}
+
+function getMetaObjectPropertyValue(metaObject, propertyNames = []) {
+    if (!metaObject?.propertySets?.length || !propertyNames.length) {
+        return null;
+    }
+
+    const normalizedNames = propertyNames
+        .map((name) => normalizeIfcPropertyKey(name))
+        .filter(Boolean);
+
+    for (const pset of metaObject.propertySets) {
+        if (!Array.isArray(pset?.properties)) {
+            continue;
+        }
+
+        for (const prop of pset.properties) {
+            const propKey = normalizeIfcPropertyKey(prop?.name || prop?.id || "");
+            if (!propKey || !normalizedNames.includes(propKey)) {
+                continue;
+            }
+
+            const rawValue = formatIfcPropertyValue(prop?.value).trim();
+            if (!rawValue || rawValue === "(vazio)") {
+                continue;
+            }
+
+            return rawValue;
+        }
+    }
+
+    return null;
+}
+
+function getMetaObjectNetworkInfo(metaObject) {
+    const network = getMetaObjectPropertyValue(metaObject, ["Rede", "Network"]);
+    const subnetwork = getMetaObjectPropertyValue(metaObject, ["Sub-rede", "Sub Rede", "Subrede", "Subnetwork", "Sub-Network"]);
+
+    return {
+        network: network || "Sem rede",
+        subnetwork: subnetwork || "Sem sub-rede"
+    };
+}
+
+function getNetworkObjectIds(networkName, subnetworkName = null, modelId = null) {
+    const ids = getExplorerSceneMetaObjects()
+        .filter((metaObject) => {
+            const { network, subnetwork } = getMetaObjectNetworkInfo(metaObject);
+            if (network !== networkName) {
+                return false;
+            }
+            if (subnetworkName !== null && subnetwork !== subnetworkName) {
+                return false;
+            }
+            if (modelId && (getObjectMetaModelId(metaObject.id) || "SEM_MODELO") !== modelId) {
+                return false;
+            }
+            return true;
+        })
+        .map((metaObject) => metaObject.sceneObjectId || metaObject.id)
+        .filter((id) => isSceneObjectId(id));
+
+    return expandHierarchy(Array.from(new Set(ids)));
+}
+
+function focusNetworkGroup(networkName, subnetworkName = null, modelId = null) {
+    return focusObjectCollection(getNetworkObjectIds(networkName, subnetworkName, modelId));
 }
 
 function resolveMetaObject(entityId) {

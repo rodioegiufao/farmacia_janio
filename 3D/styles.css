@@ -490,24 +490,24 @@ html, body {
 }
 
 #treeViewContainer.explorer-enabled .explorer-tab-button {
-    border: 0;
+    border: 1px solid rgba(74, 222, 128, 0.16);
     border-radius: 8px;
     padding: 10px 8px;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.88);
+    background: rgba(22, 163, 74, 0.08);
+    color: rgba(255, 255, 255, 0.92);
     font-weight: 700;
     cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 #treeViewContainer.explorer-enabled .explorer-tab-button:hover {
-    background: rgba(151, 71, 255, 0.18);
+    background: rgba(34, 197, 94, 0.18);
 }
 
 #treeViewContainer.explorer-enabled .explorer-tab-button.is-active {
-    background: linear-gradient(135deg, #7c3aed, #9333ea);
+    background: linear-gradient(135deg, #16a34a, #22c55e);
     color: #ffffff;
-    box-shadow: 0 6px 14px rgba(124, 58, 237, 0.3);
+    box-shadow: 0 6px 14px rgba(34, 197, 94, 0.3);
 }
 
 #treeViewContainer.explorer-enabled .explorer-content {
@@ -564,7 +564,7 @@ html, body {
 
 #treeViewContainer.explorer-enabled .explorer-model-item {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     gap: 10px;
     align-items: stretch;
 }
@@ -576,10 +576,12 @@ html, body {
 #treeViewContainer.explorer-enabled .explorer-model-visibility-toggle {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    width: 60px;
+    min-width: 60px;
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 10px;
-    padding: 10px 12px;
+    padding: 10px;
     background: rgba(255, 255, 255, 0.04);
     color: #ffffff;
     cursor: pointer;
@@ -587,14 +589,14 @@ html, body {
 }
 
 #treeViewContainer.explorer-enabled .explorer-model-visibility-toggle:hover {
-    background: rgba(151, 71, 255, 0.14);
-    border-color: rgba(167, 98, 255, 0.35);
+    background: rgba(34, 197, 94, 0.14);
+    border-color: rgba(74, 222, 128, 0.35);
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
 }
 
 #treeViewContainer.explorer-enabled .explorer-model-visibility-toggle.is-active {
-    border-color: rgba(168, 85, 247, 0.5);
-    background: rgba(124, 58, 237, 0.18);
+    border-color: rgba(34, 197, 94, 0.55);
+    background: rgba(34, 197, 94, 0.18);
 }
 
 #treeViewContainer.explorer-enabled .explorer-model-visibility-icon {
@@ -614,16 +616,9 @@ html, body {
 }
 
 #treeViewContainer.explorer-enabled .explorer-model-visibility-toggle.is-active .explorer-model-visibility-icon {
-    border-color: #a855f7;
-    background: linear-gradient(135deg, #7c3aed, #a855f7);
-    box-shadow: 0 3px 10px rgba(124, 58, 237, 0.28);
-}
-
-#treeViewContainer.explorer-enabled .explorer-model-visibility-text {
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    border-color: #22c55e;
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    box-shadow: 0 3px 10px rgba(34, 197, 94, 0.28);
 }
 
 #treeViewContainer.explorer-enabled .explorer-list-item:hover {
@@ -660,7 +655,7 @@ html, body {
     flex: 0 0 auto;
     border-radius: 999px;
     padding: 4px 10px;
-    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
     color: #ffffff;
     font-size: 11px;
     font-weight: 700;

@@ -979,17 +979,6 @@ function buildExplorerModelItem(model) {
     const item = document.createElement("div");
     item.className = "explorer-model-item";
 
-    const focusButton = buildExplorerActionButton({
-        primaryText: label,
-        secondaryText: `${model.id} • ${objectCount} objeto(s)`,
-        title: `Isolar modelo ${label}`,
-        onClick: () => {
-            focusModelById(model.id);
-            setActiveExplorerTab("models");
-        }
-    });
-    focusButton.classList.add("explorer-model-focus");
-
     const toggleButton = document.createElement("button");
     toggleButton.type = "button";
     toggleButton.className = `explorer-model-visibility-toggle${isVisible ? " is-active" : ""}`;
@@ -1006,18 +995,23 @@ function buildExplorerModelItem(model) {
     toggleIcon.textContent = isVisible ? "✓" : "";
     toggleButton.appendChild(toggleIcon);
 
-    const toggleText = document.createElement("span");
-    toggleText.className = "explorer-model-visibility-text";
-    toggleText.textContent = isVisible ? "Ativo" : "Inativo";
-    toggleButton.appendChild(toggleText);
-
     toggleButton.addEventListener("click", (event) => {
         event.stopPropagation();
         toggleModelVisibility(model.id);
     });
 
-    item.appendChild(focusButton);
+    const focusButton = buildExplorerActionButton({
+        primaryText: label,
+        secondaryText: `${model.id} • ${objectCount} objeto(s)`,
+        title: `Isolar modelo ${label}`,
+        onClick: () => {
+            focusModelById(model.id);
+            setActiveExplorerTab("models");
+        }
+    });
+    focusButton.classList.add("explorer-model-focus");
     item.appendChild(toggleButton);
+    item.appendChild(focusButton);
     return item;
 }
 

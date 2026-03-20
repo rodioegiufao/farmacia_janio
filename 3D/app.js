@@ -2801,7 +2801,8 @@ function setupDraggablePanels() {
     setupDraggablePanel({
         panel: treeViewContainer,
         storageKey: `treeViewPosition:${pathname}`,
-        ignoreSelectors: "input, button, textarea, select, a, .xeokit-tree-view-item, .xeokit-tree-view-item-toggle, .xeokit-tree-view-item-title"
+        ignoreSelectors: "input, button, textarea, select, a, .xeokit-tree-view-item, .xeokit-tree-view-item-toggle, .xeokit-tree-view-item-title",
+        handleSelector: ".tree-view-header"
     });
 
     setupDraggablePanel({

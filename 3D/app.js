@@ -569,10 +569,10 @@ const toggleTreeViewButton = document.getElementById("btnToggleTree");
 const treeViewTitleElement = treeViewContainer?.querySelector(".tree-view-title");
 const treeViewSubtitleElement = treeViewContainer?.querySelector(".tree-view-subtitle");
 const EXPLORER_TAB_DEFINITIONS = [
-    { id: "models", label: "Models", subtitle: "Modelos IFC/XKT carregados no visualizador" },
-    { id: "objects", label: "Objects", subtitle: "Objetos disponíveis para foco e inspeção" },
+    { id: "models", label: "Modelos", subtitle: "Modelos IFC/XKT carregados no visualizador" },
+    { id: "objects", label: "Objetos", subtitle: "Objetos disponíveis para foco e inspeção" },
     { id: "classes", label: "Classes", subtitle: "Classes IFC agrupadas para isolamento" },
-    { id: "storeys", label: "Storeys", subtitle: "Selecione o pavimento para isolar" }
+    { id: "storeys", label: "Pavimentos", subtitle: "Selecione o pavimento para isolar" }
 ];
 const explorerExpandedGroups = {
     objects: new Set(),

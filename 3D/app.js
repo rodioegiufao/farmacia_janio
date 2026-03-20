@@ -4521,7 +4521,7 @@ function normalizeIfcPropertyKey(value) {
         .toLowerCase();
 }
 
-function getMetaObjectPropertyValue(metaObject, propertyNames = []) {
+function getMetaObjectPropertyValue(metaObject, propertyNames = [], options = {}) {
     if (!metaObject?.propertySets?.length || !propertyNames.length) {
         return null;
     }
@@ -4529,10 +4529,20 @@ function getMetaObjectPropertyValue(metaObject, propertyNames = []) {
     const normalizedNames = propertyNames
         .map((name) => normalizeIfcPropertyKey(name))
         .filter(Boolean);
+    const normalizedPropertySetNames = (options.propertySetNames || [])
+        .map((name) => normalizeIfcPropertyKey(name))
+        .filter(Boolean);
 
     for (const pset of metaObject.propertySets) {
         if (!Array.isArray(pset?.properties)) {
             continue;
+        }
+
+        if (normalizedPropertySetNames.length) {
+            const psetKey = normalizeIfcPropertyKey(pset?.name || pset?.id || "");
+            if (!psetKey || !normalizedPropertySetNames.includes(psetKey)) {
+                continue;
+            }
         }
 
         for (const prop of pset.properties) {
@@ -4554,7 +4564,11 @@ function getMetaObjectPropertyValue(metaObject, propertyNames = []) {
 }
 
 function getMetaObjectNetworkInfo(metaObject) {
-    const network = getMetaObjectPropertyValue(metaObject, ["Rede", "Network"]);
+    const network =
+        getMetaObjectPropertyValue(metaObject, ["Rede", "Network"]) ||
+        getMetaObjectPropertyValue(metaObject, ["Elemento"], {
+            propertySetNames: ["AltoQi_Eberick_Elemento"]
+        });
     const subnetwork = getMetaObjectPropertyValue(metaObject, ["Sub-rede", "Sub Rede", "Subrede", "Subnetwork", "Sub-Network"]);
 
     return {

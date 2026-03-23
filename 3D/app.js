@@ -13,6 +13,7 @@ import {
     ContextMenu,
     PointerLens,
     NavCubePlugin,
+    FastNavPlugin,
     TreeViewPlugin,
     SectionPlanesPlugin,
     LineSet,
@@ -40,9 +41,11 @@ let lastCollisionResults = [];
 let lastCollisionModelId = null;
 const ACCESS_PASSWORD = "ribeiro2026";
 const ACCESS_STORAGE_KEY = "farmacia_access_granted";
+const PERFORMANCE_MODE_STORAGE_KEY = "viewer_performance_mode_enabled";
 let explicitLinearMaterials = new Set();
 let explicitLinearMaterialsLoadPromise = null
 let activeProjectKey = null;
+let performanceModeEnabled = false;
 const MAX_MEASUREMENT_HISTORY = 100;
 const measurementUndoStack = [];
 const measurementRedoStack = [];
@@ -107,6 +110,11 @@ function detectViewerCompatibility() {
 }
 
 const viewerCompatibility = detectViewerCompatibility();
+const defaultRenderProfile = Object.freeze({
+    saoEnabled: !viewerCompatibility.disableSAO,
+    edgesEnabled: !viewerCompatibility.disableEdges
+});
+const navCubeCanvasElement = document.getElementById("myNavCubeCanvas");
 
 // -----------------------------------------------------------------------------
 // 1. Configuração do Viewer e Redimensionamento (100% da tela)
@@ -138,6 +146,18 @@ const viewer = new Viewer({
         },
         locale: "pt" // Define o idioma padrão como Português
      })
+});
+
+const fastNavPlugin = new FastNavPlugin(viewer, {
+    hideEdges: true,
+    hideSAO: true,
+    hideColorTexture: true,
+    hidePBR: true,
+    scaleCanvasResolution: false,
+    defaultScaleCanvasResolutionFactor: 1,
+    scaleCanvasResolutionFactor: 0.6,
+    delayBeforeRestore: true,
+    delayBeforeRestoreSeconds: 0.35
 });
 
 if (!viewerCompatibility.supportsWebGL) {
@@ -588,6 +608,7 @@ const accessMessage = document.getElementById("accessGateMessage");
 const helpPanel = document.getElementById("helpPanel");
 const helpPanelToggleButton = document.getElementById("btnHelp");
 const closeHelpPanelButton = document.getElementById("closeHelpPanel");
+const performanceModeToggleButton = document.getElementById("btnPerformanceMode");
 const treeViewContainer = document.getElementById("treeViewContainer");
 const treeViewContent = document.getElementById("treeViewContent");
 const closeTreeViewButton = document.getElementById("closeTreeView");
@@ -676,6 +697,8 @@ setupCollisionPanelControls();
 setupMaterialsPanelControls();
 setupSearchControls();
 setupDraggablePanels();
+performanceModeToggleButton?.addEventListener("click", () => togglePerformanceMode());
+applyPerformanceMode(getStoredPerformanceModePreference(), { persist: false });
 /**
  * Reseta a visibilidade de todos os objetos e remove qualquer destaque ou raio-x.
  */
@@ -2023,6 +2046,93 @@ function requestRenderFrame() {
     }
 }
 
+function getStoredPerformanceModePreference() {
+    return sessionStorage.getItem(PERFORMANCE_MODE_STORAGE_KEY) === "true";
+}
+
+function syncNavCubeVisibility() {
+    if (!navCubeCanvasElement) {
+        return;
+    }
+
+    navCubeCanvasElement.style.display = viewerCompatibility.enableNavCube && !performanceModeEnabled ? "" : "none";
+}
+
+function updatePerformanceModeButton() {
+    if (!performanceModeToggleButton) {
+        return;
+    }
+
+    performanceModeToggleButton.classList.toggle("active", performanceModeEnabled);
+    performanceModeToggleButton.setAttribute("aria-pressed", performanceModeEnabled ? "true" : "false");
+    performanceModeToggleButton.title = performanceModeEnabled
+        ? "Desativar modo leve e restaurar a renderização completa"
+        : "Ativar modo leve para reduzir a renderização 3D";
+
+    const label = performanceModeToggleButton.querySelector(".tool-label");
+    if (label) {
+        label.textContent = performanceModeEnabled ? "Modo leve · ON" : "Modo leve";
+    }
+}
+
+function applyModelRenderProfile(model) {
+    if (!model) {
+        return;
+    }
+
+    const edgesEnabled = performanceModeEnabled ? false : defaultRenderProfile.edgesEnabled;
+    const saoEnabled = performanceModeEnabled ? false : defaultRenderProfile.saoEnabled;
+
+    if ("edges" in model) {
+        model.edges = edgesEnabled;
+    }
+
+    if ("edgesEnabled" in model) {
+        model.edgesEnabled = edgesEnabled;
+    }
+
+    if ("saoEnabled" in model) {
+        model.saoEnabled = saoEnabled;
+    }
+
+    if ("sao" in model) {
+        model.sao = saoEnabled;
+    }
+}
+
+function applyPerformanceMode(enabled, { persist = true } = {}) {
+    performanceModeEnabled = Boolean(enabled);
+
+    if (persist) {
+        sessionStorage.setItem(PERFORMANCE_MODE_STORAGE_KEY, performanceModeEnabled ? "true" : "false");
+    }
+
+    if (viewer.scene?.sao && "enabled" in viewer.scene.sao) {
+        viewer.scene.sao.enabled = performanceModeEnabled ? false : defaultRenderProfile.saoEnabled;
+    }
+
+    fastNavPlugin.scaleCanvasResolution = performanceModeEnabled;
+    fastNavPlugin.defaultScaleCanvasResolutionFactor = performanceModeEnabled ? 0.8 : 1;
+    fastNavPlugin.scaleCanvasResolutionFactor = performanceModeEnabled ? 0.55 : 0.6;
+    fastNavPlugin.hideEdges = performanceModeEnabled;
+    fastNavPlugin.hideSAO = performanceModeEnabled;
+    fastNavPlugin.hideColorTexture = performanceModeEnabled;
+    fastNavPlugin.hidePBR = performanceModeEnabled;
+
+    loadedModels.forEach((model) => {
+        applyModelRenderProfile(model);
+    });
+
+    syncNavCubeVisibility();
+    updatePerformanceModeButton();
+    requestRenderFrame();
+}
+
+function togglePerformanceMode(forceState) {
+    const nextState = typeof forceState === "boolean" ? forceState : !performanceModeEnabled;
+    applyPerformanceMode(nextState);
+}
+
 function parseNumber(value, fallback = 0) {
     const parsed = parseFloat(value);
     return Number.isFinite(parsed) ? parsed : fallback;
@@ -3283,7 +3393,8 @@ async function loadDefaultModel({ id, src }) {
         const model = xktLoader.load({
             id,
             src,
-            edges: !viewerCompatibility.disableEdges,
+            edges: performanceModeEnabled ? false : defaultRenderProfile.edgesEnabled,
+            saoEnabled: performanceModeEnabled ? false : defaultRenderProfile.saoEnabled,
             dtxEnabled: viewerCompatibility.enableDataTextures
         });
 
@@ -3981,6 +4092,7 @@ function finalizeUploadedModelLoad(model, { modelId, fileName, formatLabel, obje
 
     model.on("loaded", () => {
         currentModels = [...currentModels, { id: modelId, src: fileName }];
+        applyModelRenderProfile(model);
         registerModelTransform(model);
         adjustCameraOnLoad();
         viewer.cameraFlight.jumpTo(viewer.scene);
@@ -4009,12 +4121,13 @@ async function loadIfcUpload(file, uploadContext = {}) {
     const baseIfcLoadOptions = {
         id: modelId,
         cacheBuster: false,
-        edges: !viewerCompatibility.disableEdges,
+        edges: performanceModeEnabled ? false : defaultRenderProfile.edgesEnabled,
         loadMetadata: true,
         loadMetadataPropertySets: true,
         excludeTypes: ["IfcSpace", "IfcOpeningElement"],
         origin: [0, 0, 0],
         position: [0, 0, 0],
+        saoEnabled: performanceModeEnabled ? false : defaultRenderProfile.saoEnabled,
         dtxEnabled: viewerCompatibility.enableDataTextures
     };
 
@@ -4106,7 +4219,8 @@ function loadXktUpload(file, uploadContext = {}) {
             id: modelId,
             src: normalizeBlobUrl(objectUrl),
             cacheBuster: false,
-            edges: !viewerCompatibility.disableEdges,
+            edges: performanceModeEnabled ? false : defaultRenderProfile.edgesEnabled,
+            saoEnabled: performanceModeEnabled ? false : defaultRenderProfile.saoEnabled,
             dtxEnabled: viewerCompatibility.enableDataTextures
         });
     } catch (error) {
@@ -6608,6 +6722,11 @@ document.addEventListener("keydown", (event) => {
         return;
     }
 
+    if (key === "g") {
+        togglePerformanceMode();
+        return;
+    }
+
     if (key === "l") {
         if (materialsPanel) {
             materialsPanel.hidden = false;
@@ -6746,13 +6865,9 @@ if (viewerCompatibility.enableNavCube) {
         bottomMargin: 20,
         rightMargin: 20
     });
-} else {
-    const navCubeCanvas = document.getElementById("myNavCubeCanvas");
-
-    if (navCubeCanvas) {
-        navCubeCanvas.style.display = "none";
-    }
 }
+
+syncNavCubeVisibility();
 
 // -----------------------------------------------------------------------------
 // 6. TreeViewPlugin e Lógica de Isolamento (MANTIDO)

@@ -43,6 +43,10 @@ const ACCESS_STORAGE_KEY = "farmacia_access_granted";
 let explicitLinearMaterials = new Set();
 let explicitLinearMaterialsLoadPromise = null
 let activeProjectKey = null;
+const MAX_MEASUREMENT_HISTORY = 100;
+const measurementUndoStack = [];
+const measurementRedoStack = [];
+let isApplyingMeasurementHistory = false;
 
 function detectViewerCompatibility() {
     const tempCanvas = document.createElement("canvas");
@@ -193,6 +197,29 @@ function setupHelpPanel() {
 
     helpPanelToggleButton.addEventListener("click", () => togglePanel());
     closeHelpPanelButton.addEventListener("click", () => togglePanel(false));
+    injectMeasurementShortcutHelp();
+}
+
+function injectMeasurementShortcutHelp() {
+    if (!helpPanel) {
+        return;
+    }
+
+    const generalHelpList = helpPanel.querySelector(".help-section .help-list");
+    if (!generalHelpList || generalHelpList.querySelector("[data-measurement-history-shortcuts='true']")) {
+        return;
+    }
+
+    const undoShortcutItem = document.createElement("li");
+    undoShortcutItem.dataset.measurementHistoryShortcuts = "true";
+    undoShortcutItem.innerHTML = "<kbd>Ctrl</kbd> + <kbd>Z</kbd> — Desfazer última medição";
+
+    const redoShortcutItem = document.createElement("li");
+    redoShortcutItem.dataset.measurementHistoryShortcuts = "true";
+    redoShortcutItem.innerHTML = "<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> / <kbd>Ctrl</kbd> + <kbd>Y</kbd> — Refazer medição";
+
+    generalHelpList.appendChild(undoShortcutItem);
+    generalHelpList.appendChild(redoShortcutItem);
 }
 function setupAccessGate() {
     if (!accessGate || !accessForm || !accessInput) {
@@ -4178,6 +4205,323 @@ const distanceMeasurementsMouseControl = new DistanceMeasurementsMouseControl(di
 });
 distanceMeasurementsMouseControl.deactivate();
 
+function trimMeasurementHistory(stack) {
+    while (stack.length > MAX_MEASUREMENT_HISTORY) {
+        stack.shift();
+    }
+}
+
+function getMeasurementPluginByKind(kind) {
+    return kind === "angle" ? angleMeasurementsPlugin : distanceMeasurementsPlugin;
+}
+
+function cloneWorldPos(worldPos) {
+    return Array.isArray(worldPos) ? [...worldPos] : null;
+}
+
+function getSceneEntityById(entityId) {
+    if (!entityId) {
+        return null;
+    }
+
+    return viewer.scene?.objects?.[entityId] || null;
+}
+
+function getMeasurementKind(measurement) {
+    if (!measurement) {
+        return null;
+    }
+
+    return measurement.corner ? "angle" : "distance";
+}
+
+function serializeMeasurement(measurement) {
+    const kind = getMeasurementKind(measurement);
+    if (!kind || !measurement?.id) {
+        return null;
+    }
+
+    if (kind === "angle") {
+        const originEntityId = measurement.origin?.entity?.id;
+        const cornerEntityId = measurement.corner?.entity?.id;
+        const targetEntityId = measurement.target?.entity?.id;
+
+        if (!originEntityId || !cornerEntityId || !targetEntityId) {
+            return null;
+        }
+
+        return {
+            kind,
+            id: measurement.id,
+            color: measurement.color,
+            visible: measurement.visible,
+            originVisible: measurement.originVisible,
+            cornerVisible: measurement.cornerVisible,
+            targetVisible: measurement.targetVisible,
+            originWireVisible: measurement.originWireVisible,
+            targetWireVisible: measurement.targetWireVisible,
+            angleVisible: measurement.angleVisible,
+            origin: {
+                entityId: originEntityId,
+                worldPos: cloneWorldPos(measurement.origin?.worldPos)
+            },
+            corner: {
+                entityId: cornerEntityId,
+                worldPos: cloneWorldPos(measurement.corner?.worldPos)
+            },
+            target: {
+                entityId: targetEntityId,
+                worldPos: cloneWorldPos(measurement.target?.worldPos)
+            }
+        };
+    }
+
+    const originEntityId = measurement.origin?.entity?.id;
+    const targetEntityId = measurement.target?.entity?.id;
+
+    if (!originEntityId || !targetEntityId) {
+        return null;
+    }
+
+    return {
+        kind,
+        id: measurement.id,
+        color: measurement.color,
+        visible: measurement.visible,
+        axisVisible: measurement.axisVisible,
+        originVisible: measurement.originVisible,
+        targetVisible: measurement.targetVisible,
+        wireVisible: measurement.wireVisible,
+        origin: {
+            entityId: originEntityId,
+            worldPos: cloneWorldPos(measurement.origin?.worldPos)
+        },
+        target: {
+            entityId: targetEntityId,
+            worldPos: cloneWorldPos(measurement.target?.worldPos)
+        }
+    };
+}
+
+function restoreMeasurement(snapshot) {
+    if (!snapshot?.kind || !snapshot?.id) {
+        return null;
+    }
+
+    const plugin = getMeasurementPluginByKind(snapshot.kind);
+    if (!plugin) {
+        return null;
+    }
+
+    if (plugin.measurements?.[snapshot.id]) {
+        return plugin.measurements[snapshot.id];
+    }
+
+    const originEntity = getSceneEntityById(snapshot.origin?.entityId);
+    const targetEntity = getSceneEntityById(snapshot.target?.entityId);
+
+    if (!originEntity || !targetEntity) {
+        return null;
+    }
+
+    if (snapshot.kind === "angle") {
+        const cornerEntity = getSceneEntityById(snapshot.corner?.entityId);
+        if (!cornerEntity) {
+            return null;
+        }
+
+        const measurement = plugin.createMeasurement({
+            id: snapshot.id,
+            visible: snapshot.visible,
+            origin: {
+                entity: originEntity,
+                worldPos: cloneWorldPos(snapshot.origin?.worldPos)
+            },
+            corner: {
+                entity: cornerEntity,
+                worldPos: cloneWorldPos(snapshot.corner?.worldPos)
+            },
+            target: {
+                entity: targetEntity,
+                worldPos: cloneWorldPos(snapshot.target?.worldPos)
+            }
+        });
+
+        if (typeof snapshot.color !== "undefined") {
+            measurement.color = snapshot.color;
+        }
+        if (typeof snapshot.originVisible !== "undefined") {
+            measurement.originVisible = snapshot.originVisible;
+        }
+        if (typeof snapshot.cornerVisible !== "undefined") {
+            measurement.cornerVisible = snapshot.cornerVisible;
+        }
+        if (typeof snapshot.targetVisible !== "undefined") {
+            measurement.targetVisible = snapshot.targetVisible;
+        }
+        if (typeof snapshot.originWireVisible !== "undefined") {
+            measurement.originWireVisible = snapshot.originWireVisible;
+        }
+        if (typeof snapshot.targetWireVisible !== "undefined") {
+            measurement.targetWireVisible = snapshot.targetWireVisible;
+        }
+        if (typeof snapshot.angleVisible !== "undefined") {
+            measurement.angleVisible = snapshot.angleVisible;
+        }
+
+        return measurement;
+    }
+
+    const measurement = plugin.createMeasurement({
+        id: snapshot.id,
+        color: snapshot.color,
+        visible: snapshot.visible,
+        axisVisible: snapshot.axisVisible,
+        originVisible: snapshot.originVisible,
+        targetVisible: snapshot.targetVisible,
+        wireVisible: snapshot.wireVisible,
+        origin: {
+            entity: originEntity,
+            worldPos: cloneWorldPos(snapshot.origin?.worldPos)
+        },
+        target: {
+            entity: targetEntity,
+            worldPos: cloneWorldPos(snapshot.target?.worldPos)
+        }
+    });
+
+    if (typeof snapshot.color !== "undefined") {
+        measurement.color = snapshot.color;
+    }
+    if (typeof snapshot.axisVisible !== "undefined") {
+        measurement.axisVisible = snapshot.axisVisible;
+    }
+    if (typeof snapshot.originVisible !== "undefined") {
+        measurement.originVisible = snapshot.originVisible;
+    }
+    if (typeof snapshot.targetVisible !== "undefined") {
+        measurement.targetVisible = snapshot.targetVisible;
+    }
+    if (typeof snapshot.wireVisible !== "undefined") {
+        measurement.wireVisible = snapshot.wireVisible;
+    }
+
+    return measurement;
+}
+
+function destroyMeasurementSnapshot(snapshot) {
+    if (!snapshot?.kind || !snapshot?.id) {
+        return false;
+    }
+
+    const plugin = getMeasurementPluginByKind(snapshot.kind);
+    const measurement = plugin?.measurements?.[snapshot.id];
+    if (!measurement) {
+        return false;
+    }
+
+    measurement.destroy();
+    return true;
+}
+
+function pushMeasurementAction(actionType, measurement) {
+    if (isApplyingMeasurementHistory) {
+        return;
+    }
+
+    const snapshot = serializeMeasurement(measurement);
+    if (!snapshot) {
+        return;
+    }
+
+    measurementUndoStack.push({
+        type: actionType,
+        snapshot
+    });
+    trimMeasurementHistory(measurementUndoStack);
+    measurementRedoStack.length = 0;
+}
+
+function withMeasurementHistoryLock(callback) {
+    isApplyingMeasurementHistory = true;
+
+    try {
+        return callback();
+    } finally {
+        isApplyingMeasurementHistory = false;
+    }
+}
+
+function announceMeasurementHistory(message, isError = false) {
+    if (typeof setSearchStatus === "function") {
+        setSearchStatus(message, isError);
+        return;
+    }
+
+    const logger = isError ? console.warn : console.info;
+    logger(message);
+}
+
+function undoMeasurementAction() {
+    const action = measurementUndoStack.pop();
+    if (!action) {
+        announceMeasurementHistory("Nada para desfazer nas medições.", true);
+        return false;
+    }
+
+    const succeeded = withMeasurementHistoryLock(() => {
+        if (action.type === "create") {
+            return destroyMeasurementSnapshot(action.snapshot);
+        }
+
+        if (action.type === "destroy") {
+            return Boolean(restoreMeasurement(action.snapshot));
+        }
+
+        return false;
+    });
+
+    if (!succeeded) {
+        announceMeasurementHistory("Não foi possível desfazer a medição porque o elemento original não está mais disponível.", true);
+        return false;
+    }
+
+    measurementRedoStack.push(action);
+    trimMeasurementHistory(measurementRedoStack);
+    announceMeasurementHistory("Última medição desfeita.");
+    return true;
+}
+
+function redoMeasurementAction() {
+    const action = measurementRedoStack.pop();
+    if (!action) {
+        announceMeasurementHistory("Nada para refazer nas medições.", true);
+        return false;
+    }
+
+    const succeeded = withMeasurementHistoryLock(() => {
+        if (action.type === "create") {
+            return Boolean(restoreMeasurement(action.snapshot));
+        }
+
+        if (action.type === "destroy") {
+            return destroyMeasurementSnapshot(action.snapshot);
+        }
+
+        return false;
+    });
+
+    if (!succeeded) {
+        announceMeasurementHistory("Não foi possível refazer a medição porque o elemento original não está mais disponível.", true);
+        return false;
+    }
+
+    measurementUndoStack.push(action);
+    trimMeasurementHistory(measurementUndoStack);
+    announceMeasurementHistory("Medição refeita.");
+    return true;
+}
+
 // -----------------------------------------------------------------------------
 // Suporte a toque para medições (ângulo e distância)
 // -----------------------------------------------------------------------------
@@ -6156,10 +6500,29 @@ function findAndRenderCollisions(modelId) {
 
 document.addEventListener("keydown", (event) => {
     const key = event.key?.toLowerCase();
+    const hasModifier = event.ctrlKey || event.metaKey;
 
     // Evita atalhos quando o usuário está digitando em inputs ou textareas
     const isTyping = ["INPUT", "TEXTAREA"].includes(event.target?.nodeName) || event.target?.isContentEditable;
     if (isTyping && key !== "escape") {
+        return;
+    }
+
+    if (hasModifier && key === "z") {
+        event.preventDefault();
+
+        if (event.shiftKey) {
+            redoMeasurementAction();
+            return;
+        }
+
+        undoMeasurementAction();
+        return;
+    }
+
+    if (hasModifier && key === "y") {
+        event.preventDefault();
+        redoMeasurementAction();
         return;
     }
 
@@ -6281,6 +6644,14 @@ const contextMenu = new ContextMenu({
 });
 
 function setupMeasurementEvents(plugin) {
+    plugin.on("measurementCreated", (measurement) => {
+        pushMeasurementAction("create", measurement);
+    });
+
+    plugin.on("measurementDestroyed", (measurement) => {
+        pushMeasurementAction("destroy", measurement);
+    });
+
     plugin.on("contextMenu", (e) => {
         const measurement = e.angleMeasurement || e.distanceMeasurement;
         contextMenu.context = { measurement: measurement };

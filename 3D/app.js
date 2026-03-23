@@ -617,8 +617,11 @@ let explorerTabPanels = new Map();
 let explorerTabSummaries = new Map();
 let explorerTabLists = new Map();
 let explorerRefreshHandle = null;
+let explorerSceneMetaObjectsCache = null;
+let explorerMetaInfoCache = new Map();
 let objectModelIdLookup = new Map();
 let normalizedSceneObjectIdLookup = new Map();
+const EXPLORER_HOVER_THROTTLE_MS = 40;
 const transformPanel = document.getElementById("transformPanel");
 const transformPanelToggleButton = document.getElementById("btnTransformPanel");
 const closeTransformPanelButton = document.getElementById("closeTransformPanel");
@@ -792,7 +795,7 @@ function setActiveExplorerTab(tabId) {
     scheduleExplorerRefresh(0);
 }
 
-function scheduleExplorerRefresh(delay = 80) {
+function scheduleExplorerRefresh(delay = 160) {
     if (!explorerTabsInitialized) {
         return;
     }
@@ -803,7 +806,15 @@ function scheduleExplorerRefresh(delay = 80) {
     }, delay);
 }
 
+function invalidateExplorerCaches() {
+    explorerSceneMetaObjectsCache = null;
+    explorerMetaInfoCache.clear();
+}
+
 function getExplorerSceneMetaObjects() {
+    if (explorerSceneMetaObjectsCache) {
+        return explorerSceneMetaObjectsCache;
+    }
     const metaObjects = viewer.metaScene?.metaObjects || {};
     const entries = [];
 
@@ -818,7 +829,40 @@ function getExplorerSceneMetaObjects() {
         });
     }
 
-    return entries;
+    explorerSceneMetaObjectsCache = entries;
+    return explorerSceneMetaObjectsCache;
+}
+
+function getCachedExplorerMetaInfo(metaObject) {
+    if (!metaObject?.id) {
+        return {
+            modelId: "SEM_MODELO",
+            modelLabel: getExplorerModelLabel("SEM_MODELO"),
+            networkInfo: { network: "Sem rede", subnetwork: "Sem subrede" },
+            partInfo: {
+                className: "Sem classe",
+                typeName: "Sem tipo",
+                partName: metaObject?.name || metaObject?.id || "Sem nome",
+                hasIdentification: false
+            }
+        };
+    }
+
+    const cached = explorerMetaInfoCache.get(metaObject.id);
+    if (cached) {
+        return cached;
+    }
+
+    const modelId = getObjectMetaModelId(metaObject.id) || "SEM_MODELO";
+    const info = {
+        modelId,
+        modelLabel: getExplorerModelLabel(modelId),
+        networkInfo: getMetaObjectNetworkInfo(metaObject),
+        partInfo: getMetaObjectPartInfo(metaObject)
+    };
+
+    explorerMetaInfoCache.set(metaObject.id, info);
+    return info;
 }
 
 function focusModelById(modelId) {
@@ -1353,13 +1397,13 @@ function renderExplorerObjectsTab() {
 
     const metaObjects = getExplorerSceneMetaObjects()
         .map((metaObject) => {
-            const modelId = getObjectMetaModelId(metaObject.id) || "SEM_MODELO";
+            const { modelId, modelLabel } = getCachedExplorerMetaInfo(metaObject);
             return {
                 sceneObjectId: metaObject.sceneObjectId || metaObject.id,
                 name: metaObject.name || metaObject.id,
                 type: metaObject.type || "Sem classe",
                 modelId,
-                modelLabel: getExplorerModelLabel(modelId)
+                modelLabel
             };
         })
         .sort((a, b) => {
@@ -1446,15 +1490,12 @@ function renderExplorerClassesTab() {
     }
 
     const metaObjects = getExplorerSceneMetaObjects();
-    const totalMetaObjects = Object.keys(viewer.metaScene?.metaObjects || {}).length;
     const metaObjectsWithType = metaObjects.filter((metaObject) => Boolean(metaObject?.type));
 
     const groupedClasses = new Map();
-    console.log("[Explorer Classes] total metaObjects:", totalMetaObjects);
-    console.log("[Explorer Classes] metaObjects com type:", metaObjectsWithType.length);
 
     metaObjectsWithType.forEach((metaObject) => {
-        const modelId = getObjectMetaModelId(metaObject.id) || "SEM_MODELO";
+        const { modelId } = getCachedExplorerMetaInfo(metaObject);
         if (!groupedClasses.has(modelId)) {
             groupedClasses.set(modelId, {
                 modelId,
@@ -1469,11 +1510,6 @@ function renderExplorerClassesTab() {
         modelEntry.classes.set(type, classEntry);
     });
 
-    groupedClasses.forEach((group, modelId) => {
-        const filteredByModel = Array.from(group.classes.values()).reduce((sum, entry) => sum + entry.count, 0);
-        console.log(`[Explorer Classes] metaObjects filtrados para o modelo ${modelId}:`, filteredByModel);
-    });
-
     const entries = Array.from(groupedClasses.values())
         .map((group) => ({
             ...group,
@@ -1485,14 +1521,12 @@ function renderExplorerClassesTab() {
     list.innerHTML = "";
 
     if (!entries.length) {
-        console.log("[Explorer Classes] classes finais:", 0);
         summary.textContent = "Nenhuma classe IFC encontrada.";
         updateTreeViewSelectionButtonState();
         return;
     }
 
     const totalClasses = entries.reduce((sum, group) => sum + group.classEntries.length, 0);
-    console.log("[Explorer Classes] classes finais:", totalClasses);
     summary.textContent = `${totalClasses} classe(s) IFC detectada(s) em ${entries.length} IFC(s). Use o visto para ativar/desativar, clique no nome do IFC para expandir e clique na classe para isolar.`;
 
     entries.forEach((group) => {
@@ -1559,7 +1593,7 @@ function renderExplorerStoreysTab() {
             return;
         }
 
-        const modelId = getObjectMetaModelId(metaObject.id) || "SEM_MODELO";
+        const { modelId } = getCachedExplorerMetaInfo(metaObject);
         if (!groupedStoreys.has(modelId)) {
             groupedStoreys.set(modelId, {
                 modelId,
@@ -1647,13 +1681,12 @@ function renderExplorerNetworksTab() {
     const groupedModels = new Map();
 
     getExplorerSceneMetaObjects().forEach((metaObject) => {
-        const { network } = getMetaObjectNetworkInfo(metaObject);
+        const { networkInfo, modelId, modelLabel } = getCachedExplorerMetaInfo(metaObject);
+        const { network } = networkInfo;
         if (network === "Sem rede") {
             return;
         }
 
-        const modelId = getObjectMetaModelId(metaObject.id) || "SEM_MODELO";
-        const modelLabel = getExplorerModelLabel(modelId);
         const objectId = metaObject.sceneObjectId || metaObject.id;
 
         if (!groupedModels.has(modelId)) {
@@ -1765,13 +1798,11 @@ function renderExplorerPartsTab() {
     const groupedModels = new Map();
 
     getExplorerSceneMetaObjects().forEach((metaObject) => {
-        const partInfo = getMetaObjectPartInfo(metaObject);
+        const { partInfo, modelId, modelLabel } = getCachedExplorerMetaInfo(metaObject);
         if (!partInfo.hasIdentification) {
             return;
         }
 
-        const modelId = getObjectMetaModelId(metaObject.id) || "SEM_MODELO";
-        const modelLabel = getExplorerModelLabel(modelId);
         const objectId = metaObject.sceneObjectId || metaObject.id;
 
         if (!groupedModels.has(modelId)) {
@@ -1961,12 +1992,27 @@ function refreshExplorerPanels() {
         return;
     }
 
-    renderExplorerModelsTab();
-    renderExplorerObjectsTab();
-    renderExplorerClassesTab();
-    renderExplorerStoreysTab();
-    renderExplorerNetworksTab();
-    renderExplorerPartsTab();
+    switch (activeExplorerTab) {
+        case "objects":
+            renderExplorerObjectsTab();
+            break;
+        case "classes":
+            renderExplorerClassesTab();
+            break;
+        case "storeys":
+            renderExplorerStoreysTab();
+            break;
+        case "networks":
+            renderExplorerNetworksTab();
+            break;
+        case "parts":
+            renderExplorerPartsTab();
+            break;
+        case "models":
+        default:
+            renderExplorerModelsTab();
+            break;
+    }
 }
 
 function requestRenderFrame() {
@@ -2180,7 +2226,7 @@ function syncTransformInputs(modelId) {
 function registerModelTransform(model) {
     loadedModels.set(model.id, model);
     objectModelIdLookup.clear();
-    normalizedSceneObjectIdLookup.clear();
+    invalidateExplorerCaches();
 
     if (!originalTransforms.has(model.id)) {
         originalTransforms.set(model.id, {
@@ -3901,6 +3947,7 @@ function clearAllLoadedModels() {
     loadedModels.clear();
     objectModelIdLookup.clear();
     normalizedSceneObjectIdLookup.clear();
+    invalidateExplorerCaches();
     originalTransforms.clear();
     currentModels = [];
     currentModelTransforms = {};
@@ -4672,6 +4719,7 @@ function getModelObjectIds(modelId) {
 
 function rebuildObjectModelIdLookup() {
     objectModelIdLookup.clear();
+    invalidateExplorerCaches();
 
     loadedModels.forEach((model, modelId) => {
         if (!Array.isArray(model?.objectIds)) {
@@ -5295,6 +5343,7 @@ function buildSceneObjectIdCandidates(objectId) {
 
 function rebuildSceneObjectIdLookup() {
     normalizedSceneObjectIdLookup.clear();
+    invalidateExplorerCaches();
 
     const sceneObjectIds = new Set();
     Object.keys(viewer.scene?.objects || {}).forEach((id) => {
@@ -6834,8 +6883,9 @@ function setupTreeViewFilter() {
         });
     };
     const observer = new MutationObserver(() => {
+        invalidateExplorerCaches();
         applyFilter();
-        scheduleExplorerRefresh(0);
+        scheduleExplorerRefresh(120);
     });
     observer.observe(container, { childList: true, subtree: true });
 
@@ -7025,33 +7075,54 @@ window.toggleSectionPlane = toggleSectionPlane;
 // -----------------------------------------------------------------------------
 
 let lastEntity = null;
+let pendingHoverCoords = null;
+let hoverFrameHandle = null;
+let lastHoverPickAt = 0;
 
-// Monitora o movimento do mouse sobre o canvas
-viewer.scene.input.on("mousemove", function (coords) {
+function clearHoverHighlight() {
+    if (lastEntity) {
+        lastEntity.highlighted = false;
+        lastEntity = null;
+    }
+}
+
+function processHoverHighlight() {
+    hoverFrameHandle = null;
+
+    if (!pendingHoverCoords) {
+        clearHoverHighlight();
+        return;
+    }
+
+    const now = performance.now();
+    const elapsed = now - lastHoverPickAt;
+    if (elapsed < EXPLORER_HOVER_THROTTLE_MS) {
+        hoverFrameHandle = window.requestAnimationFrame(processHoverHighlight);
+        return;
+    }
 
     const hit = viewer.scene.pick({
-        canvasPos: coords
+        canvasPos: pendingHoverCoords
     });
 
     if (hit && hit.entity && hit.entity.isObject) {
-
-        // Se for um novo objeto, troca o destaque
         if (!lastEntity || hit.entity.id !== lastEntity.id) {
 
-            if (lastEntity) {
-                lastEntity.highlighted = false;
-            }
-
+            clearHoverHighlight();
             lastEntity = hit.entity;
             hit.entity.highlighted = true;
         }
+        return;
+    }
+    clearHoverHighlight();
+}
 
-    } else {
-        // Saiu de qualquer entidade: remove o highlight
-        if (lastEntity) {
-            lastEntity.highlighted = false;
-            lastEntity = null;
-        }
+// Monitora o movimento do mouse sobre o canvas
+viewer.scene.input.on("mousemove", function (coords) {
+    pendingHoverCoords = coords;
+
+    if (!hoverFrameHandle) {
+        hoverFrameHandle = window.requestAnimationFrame(processHoverHighlight);
     }
 });
 

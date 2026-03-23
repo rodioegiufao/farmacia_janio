@@ -6889,6 +6889,24 @@ function isolateEntitySubnetwork(entity) {
     focusObjectCollection(idsToShow);
 }
 
+function hideEntitySubnetwork(entity) {
+    const scene = viewer.scene;
+
+    if (!scene || !entity?.isObject) {
+        return;
+    }
+
+    const visibleIds = new Set(toArraySafe(scene.visibleObjectIds));
+    const idsToHide = getSubnetworkObjectIdsForEntity(entity).filter((id) => visibleIds.has(id));
+
+    if (!idsToHide.length) {
+        return;
+    }
+
+    scene.setObjectsSelected(scene.selectedObjectIds, false);
+    scene.setObjectsVisible(idsToHide, false);
+}
+
 function isolateEntity(entity) {
     const scene = viewer.scene;
     const metaObject = resolveMetaObject(entity?.id);
@@ -7050,6 +7068,13 @@ const materialContextMenu = new ContextMenu({
                 title: "Isolar Similares",
                 doAction: (context) => {
                     isolateSimilarEntities(context.entity);
+                }
+            },
+            {
+                title: "Ocultar Subrede",
+                getEnabled: (context) => getSubnetworkObjectIdsForEntity(context.entity).length > 0,
+                doAction: (context) => {
+                    hideEntitySubnetwork(context.entity);
                 }
             },
             {

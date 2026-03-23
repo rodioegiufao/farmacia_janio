@@ -4730,14 +4730,16 @@ function getMetaObjectPropertyValue(metaObject, propertyNames = [], options = {}
 }
 
 function getMetaObjectNetworkInfo(metaObject) {
-    const network =
-        getMetaObjectPropertyValue(metaObject, ["Rede", "Network"]) ||
+    const network = getMetaObjectPropertyValue(metaObject, ["Rede", "Network"]);
+    const subnetwork =
+        getMetaObjectPropertyValue(metaObject, ["Subrede", "Sub-rede", "Sub Rede", "Subnetwork", "SubNetwork"]) ||
         getMetaObjectPropertyValue(metaObject, ["Elemento"], {
             propertySetNames: ["AltoQi_Eberick_Elemento"]
         });
 
     return {
-        network: network || "Sem rede"
+        network: network || subnetwork || "Sem rede",
+        subnetwork: subnetwork || network || "Sem subrede"
     };
 }
 
@@ -6752,6 +6754,98 @@ function collectEntityMaterialTokens(entity) {
     return Array.from(tokens);
 }
 
+function getPartObjectIdsForEntity(entity) {
+    const metaObject = resolveMetaObject(entity?.id);
+    if (!metaObject) {
+        return [];
+    }
+
+    const partInfo = getMetaObjectPartInfo(metaObject);
+    if (!partInfo.hasIdentification) {
+        return [];
+    }
+
+    const modelId = getObjectMetaModelId(metaObject.id) || "SEM_MODELO";
+    const ids = getExplorerSceneMetaObjects()
+        .filter((candidateMetaObject) => {
+            if ((getObjectMetaModelId(candidateMetaObject.id) || "SEM_MODELO") !== modelId) {
+                return false;
+            }
+
+            const candidatePartInfo = getMetaObjectPartInfo(candidateMetaObject);
+            if (!candidatePartInfo.hasIdentification) {
+                return false;
+            }
+
+            return candidatePartInfo.className === partInfo.className
+                && candidatePartInfo.typeName === partInfo.typeName
+                && candidatePartInfo.partName === partInfo.partName;
+        })
+        .map((candidateMetaObject) => candidateMetaObject.sceneObjectId || candidateMetaObject.id)
+        .filter((id) => isSceneObjectId(id));
+
+    return expandHierarchy(Array.from(new Set(ids)));
+}
+
+function getFallbackSimilarObjectIds(entity) {
+    const scene = viewer.scene;
+
+    if (!scene || !entity?.isObject) {
+        return [];
+    }
+
+    const tokens = collectEntityMaterialTokens(entity);
+    const ids = new Set();
+
+    for (const token of tokens) {
+        const matchingIds = findMaterialObjectIds(token, { activeOnly: false });
+        for (const id of matchingIds) {
+            ids.add(id);
+        }
+    }
+
+    if (entity.id) {
+        ids.add(entity.id);
+    }
+
+    return Array.from(ids);
+}
+
+function getSimilarEntityObjectIds(entity) {
+    const partObjectIds = getPartObjectIdsForEntity(entity);
+    if (partObjectIds.length) {
+        return partObjectIds;
+    }
+
+    return getFallbackSimilarObjectIds(entity);
+}
+
+function getSubnetworkObjectIdsForEntity(entity) {
+    const metaObject = resolveMetaObject(entity?.id);
+    if (!metaObject) {
+        return [];
+    }
+
+    const { subnetwork } = getMetaObjectNetworkInfo(metaObject);
+    if (!subnetwork || subnetwork === "Sem subrede") {
+        return [];
+    }
+
+    const modelId = getObjectMetaModelId(metaObject.id) || null;
+    const ids = getExplorerSceneMetaObjects()
+        .filter((candidateMetaObject) => {
+            if (modelId && getObjectMetaModelId(candidateMetaObject.id) !== modelId) {
+                return false;
+            }
+
+            return getMetaObjectNetworkInfo(candidateMetaObject).subnetwork === subnetwork;
+        })
+        .map((candidateMetaObject) => candidateMetaObject.sceneObjectId || candidateMetaObject.id)
+        .filter((id) => isSceneObjectId(id));
+
+    return expandHierarchy(Array.from(new Set(ids)));
+}
+
 function hideSimilarEntities(entity) {
     const scene = viewer.scene;
 
@@ -6760,28 +6854,14 @@ function hideSimilarEntities(entity) {
     }
 
     const visibleIds = new Set(toArraySafe(scene.visibleObjectIds));
-    const tokens = collectEntityMaterialTokens(entity);
-    const idsToHide = new Set();
+    const idsToHide = getSimilarEntityObjectIds(entity).filter((id) => visibleIds.has(id));
 
-    for (const token of tokens) {
-        const matchingIds = findMaterialObjectIds(token, { activeOnly: false });
-        for (const id of matchingIds) {
-            if (visibleIds.has(id)) {
-                idsToHide.add(id);
-            }
-        }
-    }
-
-    if (entity.id && visibleIds.has(entity.id)) {
-        idsToHide.add(entity.id);
-    }
-
-    if (!idsToHide.size) {
+    if (!idsToHide.length) {
         return;
     }
 
     scene.setObjectsSelected(scene.selectedObjectIds, false);
-    scene.setObjectsVisible(Array.from(idsToHide), false);
+    scene.setObjectsVisible(idsToHide, false);
 }
 
 function isolateSimilarEntities(entity) {
@@ -6791,28 +6871,22 @@ function isolateSimilarEntities(entity) {
         return;
     }
 
-    const tokens = collectEntityMaterialTokens(entity);
-    const idsToShow = new Set();
+    const idsToShow = getSimilarEntityObjectIds(entity);
 
-    for (const token of tokens) {
-        const matchingIds = findMaterialObjectIds(token, { activeOnly: false });
-        for (const id of matchingIds) {
-            idsToShow.add(id);
-        }
-    }
-
-    if (entity.id) {
-        idsToShow.add(entity.id);
-    }
-
-    if (!idsToShow.size) {
+    if (!idsToShow.length) {
         return;
     }
 
-    scene.setObjectsVisible(scene.objectIds, false);
-    scene.setObjectsXRayed(scene.xrayedObjectIds, false);
-    scene.setObjectsSelected(scene.selectedObjectIds, false);
-    scene.setObjectsVisible(Array.from(idsToShow), true);
+    focusObjectCollection(idsToShow);
+}
+
+function isolateEntitySubnetwork(entity) {
+    const idsToShow = getSubnetworkObjectIdsForEntity(entity);
+    if (!idsToShow.length) {
+        return;
+    }
+
+    focusObjectCollection(idsToShow);
 }
 
 function isolateEntity(entity) {
@@ -6976,6 +7050,13 @@ const materialContextMenu = new ContextMenu({
                 title: "Isolar Similares",
                 doAction: (context) => {
                     isolateSimilarEntities(context.entity);
+                }
+            },
+            {
+                title: "Isolar Subrede",
+                getEnabled: (context) => getSubnetworkObjectIdsForEntity(context.entity).length > 0,
+                doAction: (context) => {
+                    isolateEntitySubnetwork(context.entity);
                 }
             },
             {

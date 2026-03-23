@@ -2070,9 +2070,6 @@ function updatePerformanceModeButton() {
         : "Ativar modo leve para reduzir a renderização 3D";
 
     const label = performanceModeToggleButton.querySelector(".tool-label");
-    if (label) {
-        label.textContent = performanceModeEnabled ? "Modo leve · ON" : "Modo leve";
-    }
 }
 
 function applyModelRenderProfile(model) {

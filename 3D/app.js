@@ -6498,17 +6498,27 @@ function findAndRenderCollisions(modelId) {
     renderCollisionResults(collisions);
 }
 
+function isEditableKeyboardTarget(target) {
+    return target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable;
+}
+
 document.addEventListener("keydown", (event) => {
     const key = event.key?.toLowerCase();
     const hasModifier = event.ctrlKey || event.metaKey;
+    const isTyping = isEditableKeyboardTarget(event.target);
 
-    // Evita atalhos quando o usuário está digitando em inputs ou textareas
-    const isTyping = ["INPUT", "TEXTAREA"].includes(event.target?.nodeName) || event.target?.isContentEditable;
     if (isTyping && key !== "escape") {
         return;
     }
 
-    if (hasModifier && key === "z") {
+    if (event.repeat) {
+        return;
+    }
+
+    if (hasModifier && !event.altKey && key === "z") {
         event.preventDefault();
 
         if (event.shiftKey) {
@@ -6520,7 +6530,7 @@ document.addEventListener("keydown", (event) => {
         return;
     }
 
-    if (hasModifier && key === "y") {
+    if (hasModifier && !event.altKey && !event.shiftKey && key === "y") {
         event.preventDefault();
         redoMeasurementAction();
         return;

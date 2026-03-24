@@ -2083,21 +2083,39 @@ function applyModelRenderProfile(model) {
     const edgesEnabled = performanceModeEnabled ? false : defaultRenderProfile.edgesEnabled;
     const saoEnabled = performanceModeEnabled ? false : defaultRenderProfile.saoEnabled;
 
-    if ("edges" in model) {
-        model.edges = edgesEnabled;
-    }
+    const setBooleanFlag = (target, key, value) => {
+        if (!target || !(key in target)) {
+            return;
+        }
 
-    if ("edgesEnabled" in model) {
-        model.edgesEnabled = edgesEnabled;
-    }
+        let current = target;
 
-    if ("saoEnabled" in model) {
-        model.saoEnabled = saoEnabled;
-    }
+        while (current) {
+            const descriptor = Object.getOwnPropertyDescriptor(current, key);
 
-    if ("sao" in model) {
-        model.sao = saoEnabled;
-    }
+            if (descriptor) {
+                if (typeof descriptor.set === "function") {
+                    descriptor.set.call(target, value);
+                    return;
+                }
+
+                if (descriptor.writable) {
+                    target[key] = value;
+                }
+
+                return;
+            }
+
+            current = Object.getPrototypeOf(current);
+        }
+
+        target[key] = value;
+    };
+
+    setBooleanFlag(model, "edges", edgesEnabled);
+    setBooleanFlag(model, "edgesEnabled", edgesEnabled);
+    setBooleanFlag(model, "saoEnabled", saoEnabled);
+    setBooleanFlag(model, "sao", saoEnabled);
 }
 
 function applyPerformanceMode(enabled, { persist = true } = {}) {

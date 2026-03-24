@@ -7799,13 +7799,12 @@ function createQuadroSummaryHtml(result) {
             <div class="property-panel-section-title">Resumo do quadro ${result.quadro}</div>
             <div class="quadro-summary-total">${result.rows.length} circuito(s) • ${formatPowerWatts(totalGeral)}${subtitleCurrent}</div>
             <table class="property-panel-table quadro-summary-table">
-                <thead>
+                 <thead>
                     <tr>
                         <th>Quadro</th>
                         <th>Pavimento</th>
                         <th>Circuito</th>
                         <th>Potência total</th>
-                        <th>Corrente</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -7815,7 +7814,6 @@ function createQuadroSummaryHtml(result) {
                             <td>${row.pavimento || "-"}</td>
                             <td>${row.circuito}</td>
                             <td>${formatPowerWatts(row.potenciaTotalW)}</td>
-                            <td>${formatCurrentAmpere(row.correnteA)}</td>
                         </tr>
                     `).join("")}
                 </tbody>

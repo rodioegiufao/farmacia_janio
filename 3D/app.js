@@ -5926,17 +5926,31 @@ function normalizeMaterialName(name) {
 const CAIXA_GORDURA_DUPLA_DESCRICAO = "CAIXA DE GORDURA DUPLA (CAPACIDADE: 126 L), RETANGULAR, EM ALVENARIA COM TIJOLOS CERÂMICOS MACIÇOS, DIMENSÕES INTERNAS = 0,4X0,7 M, ALTURA INTERNA = 0,8 M. AF_12/2020";
 const CAIXA_GORDURA_SIMPLES_DESCRICAO = "CAIXA DE GORDURA SIMPLES (CAPACIDADE: 36L), RETANGULAR, EM ALVENARIA COM TIJOLOS CERÂMICOS MACIÇOS, DIMENSÕES INTERNAS = 0,2X0,4 M, ALTURA INTERNA = 0,8 M. AF_12/2020";
 
+function getAltoQiBuilderTipoCaixa(metaObject) {
+    const altoQiBuilderSet = getMetaObjectPropertySetByName(metaObject, "AltoQi_Builder");
+    if (!altoQiBuilderSet || !Array.isArray(altoQiBuilderSet.properties)) {
+        return "";
+    }
+
+    const tipoCaixaProperty = altoQiBuilderSet.properties.find((prop) => {
+        const propName = String(prop?.name || prop?.id || "");
+        return normalizeIfcPropertyKey(propName) === normalizeIfcPropertyKey("Tipo de caixa");
+    });
+
+    if (!tipoCaixaProperty) {
+        return "";
+    }
+
+    return normalizeSearchText(formatIfcPropertyValue(tipoCaixaProperty.value));
+}
+
 function resolveCaixaGorduraMaterialName(metaObject, rawMaterialName) {
     const normalizedMaterialName = normalizeMaterialName(rawMaterialName);
     if (normalizedMaterialName !== "cgd") {
         return rawMaterialName;
     }
 
-    const tipoCaixa = normalizeSearchText(
-        getMetaObjectPropertyValue(metaObject, ["Tipo de caixa"], {
-            propertySetNames: ["AltoQi_Builder"]
-        }) || ""
-    );
+    const tipoCaixa = getAltoQiBuilderTipoCaixa(metaObject);
 
     if (tipoCaixa.includes("dupla")) {
         return CAIXA_GORDURA_DUPLA_DESCRICAO;

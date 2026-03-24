@@ -5926,27 +5926,41 @@ function normalizeMaterialName(name) {
 const CAIXA_GORDURA_DUPLA_DESCRICAO = "CAIXA DE GORDURA DUPLA (CAPACIDADE: 126 L), RETANGULAR, EM ALVENARIA COM TIJOLOS CERÂMICOS MACIÇOS, DIMENSÕES INTERNAS = 0,4X0,7 M, ALTURA INTERNA = 0,8 M. AF_12/2020";
 const CAIXA_GORDURA_SIMPLES_DESCRICAO = "CAIXA DE GORDURA SIMPLES (CAPACIDADE: 36L), RETANGULAR, EM ALVENARIA COM TIJOLOS CERÂMICOS MACIÇOS, DIMENSÕES INTERNAS = 0,2X0,4 M, ALTURA INTERNA = 0,8 M. AF_12/2020";
 
-function getAltoQiBuilderTipoCaixa(metaObject) {
+function getAltoQiBuilderPropertyValue(metaObject, propertyNames = []) {
     const altoQiBuilderSet = getMetaObjectPropertySetByName(metaObject, "AltoQi_Builder");
     if (!altoQiBuilderSet || !Array.isArray(altoQiBuilderSet.properties)) {
         return "";
     }
 
-    const tipoCaixaProperty = altoQiBuilderSet.properties.find((prop) => {
+    const normalizedPropertyNames = propertyNames.map((name) => normalizeIfcPropertyKey(name));
+    const matchedProperty = altoQiBuilderSet.properties.find((prop) => {
         const propName = String(prop?.name || prop?.id || "");
-        return normalizeIfcPropertyKey(propName) === normalizeIfcPropertyKey("Tipo de caixa");
+        return normalizedPropertyNames.includes(normalizeIfcPropertyKey(propName));
     });
 
-    if (!tipoCaixaProperty) {
+    if (!matchedProperty) {
         return "";
     }
 
-    return normalizeSearchText(formatIfcPropertyValue(tipoCaixaProperty.value));
+    return normalizeSearchText(formatIfcPropertyValue(matchedProperty.value));
+}
+
+function getAltoQiBuilderTipoCaixa(metaObject) {
+    return getAltoQiBuilderPropertyValue(metaObject, ["Tipo de caixa"]);
+}
+
+function isEsgotoNetworkObject(metaObject) {
+    const network = normalizeSearchText(getMetaObjectPropertyValue(metaObject, ["Rede", "Network"]));
+    return network === "esgoto";
 }
 
 function resolveCaixaGorduraMaterialName(metaObject, rawMaterialName) {
     const normalizedMaterialName = normalizeMaterialName(rawMaterialName);
     if (normalizedMaterialName !== "cgd") {
+        return rawMaterialName;
+    }
+
+    if (!isEsgotoNetworkObject(metaObject)) {
         return rawMaterialName;
     }
 
@@ -5956,7 +5970,7 @@ function resolveCaixaGorduraMaterialName(metaObject, rawMaterialName) {
         return CAIXA_GORDURA_DUPLA_DESCRICAO;
     }
 
-    if (tipoCaixa.includes("simples")) {
+    if (tipoCaixa.includes("simples") || tipoCaixa.includes("direta")) {
         return CAIXA_GORDURA_SIMPLES_DESCRICAO;
     }
 

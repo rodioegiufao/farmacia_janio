@@ -7773,7 +7773,19 @@ function showMaterialProperties(entity) {
             </div>
         `;
     }
-    propriedades += `</div>`;
+    // --- Cria bloco de ação do quadro logo abaixo das coordenadas ---
+    const quadroName = metaObject?.name || "";
+    const showGenerateQuadroButton = isQuadroName(quadroName);
+    if (showGenerateQuadroButton) {
+        propriedades += `
+            <div class="property-panel-actions">
+                <button id="generateQuadroSummaryButton" class="property-panel-generate-button" type="button">
+                    Gerar quadro
+                </button>
+            </div>
+            <div id="quadroSummaryContainer"></div>
+        `;
+    }
 
     // --- Varre todos os conjuntos de propriedades IFC ---
     if (metaObject.propertySets && metaObject.propertySets.length > 0) {
@@ -7794,6 +7806,7 @@ function showMaterialProperties(entity) {
     } else {
         propriedades += `<div class="property-panel-empty">Nenhum conjunto de propriedades encontrado.</div>`;
     }
+    propriedades += `</div>`;
 
     // --- Cria ou atualiza o painel flutuante ---
     let painel = document.getElementById("propertyPanel");
@@ -7805,9 +7818,6 @@ function showMaterialProperties(entity) {
     }
 
     // 🟢 Adiciona botão X para fechar
-    const quadroName = metaObject?.name || "";
-    const showGenerateQuadroButton = isQuadroName(quadroName);
-
     painel.innerHTML = `
         <div class="property-panel-header">
             <div class="property-panel-title">
@@ -7822,14 +7832,6 @@ function showMaterialProperties(entity) {
         </div>
         </div>
         <div class="property-panel-body">
-            ${showGenerateQuadroButton ? `
-                <div class="property-panel-actions">
-                    <button id="generateQuadroSummaryButton" class="property-panel-generate-button" type="button">
-                        Gerar quadro
-                    </button>
-                </div>
-                <div id="quadroSummaryContainer"></div>
-            ` : ""}
             ${propriedades}
         </div>
     `;

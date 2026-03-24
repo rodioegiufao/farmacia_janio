@@ -7661,7 +7661,7 @@ function extractElectricalPointEntries(metaObject) {
     return entries;
 }
 
-function generatePanelScheduleForQuadro(quadroName) {
+function generatePanelScheduleForQuadro(quadroName, electricalConfig = null) {
     const normalizedQuadro = String(quadroName || "").trim().toUpperCase();
     const groupedByCircuit = new Map();
     const allMetaObjects = viewer.metaScene?.metaObjects || {};
@@ -7678,10 +7678,14 @@ function generatePanelScheduleForQuadro(quadroName) {
                 quadro: entry.quadro,
                 pavimento: entry.pavimento,
                 circuito: entry.circuito,
-                potenciaTotalW: 0
+                potenciaTotalW: 0,
+                correnteA: null
             };
 
             current.potenciaTotalW += entry.potenciaCalculadaW;
+            if (electricalConfig?.divisorCorrente) {
+                current.correnteA = current.potenciaTotalW / electricalConfig.divisorCorrente;
+            }
             groupedByCircuit.set(key, current);
         });
     }
@@ -7696,7 +7700,8 @@ function generatePanelScheduleForQuadro(quadroName) {
 
     return {
         quadro: normalizedQuadro,
-        rows
+        rows,
+        electricalConfig
     };
 }
 
@@ -7707,17 +7712,92 @@ function formatPowerWatts(value) {
     })} VA`;
 }
 
+function formatCurrentAmpere(value) {
+    if (!Number.isFinite(value)) {
+        return "-";
+    }
+
+    return `${Number(value).toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    })} A`;
+}
+
+function normalizeElectricalLabel(text) {
+    return String(text || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, "")
+        .toUpperCase();
+}
+
+function resolveCurrentDivisor(esquema, tensao) {
+    const normalizedEsquema = normalizeElectricalLabel(esquema);
+    const normalizedTensao = normalizeElectricalLabel(tensao);
+
+    if (!normalizedEsquema || !normalizedTensao) {
+        return null;
+    }
+
+    const tensionMatch = normalizedTensao.match(/^(\d+)\//);
+    const tensaoLinha = tensionMatch ? Number(tensionMatch[1]) : null;
+    if (!Number.isFinite(tensaoLinha) || tensaoLinha <= 0) {
+        return null;
+    }
+
+    if (normalizedEsquema === "F+N") {
+        return tensaoLinha / Math.sqrt(3);
+    }
+
+    if (normalizedEsquema === "2F+N") {
+        return tensaoLinha;
+    }
+
+    if (normalizedEsquema === "3F+N") {
+        return tensaoLinha * Math.sqrt(3);
+    }
+
+    return null;
+}
+
+function getQuadroElectricalConfig(metaObject) {
+    const altoQiBuilderSet = getMetaObjectPropertySetByName(metaObject, "AltoQi_Builder");
+    if (!altoQiBuilderSet) {
+        return null;
+    }
+
+    const esquema = getPropertyTextValue(altoQiBuilderSet, "Esquema", "");
+    const tensao = getPropertyTextValue(altoQiBuilderSet, "Tensão", "");
+    const divisorCorrente = resolveCurrentDivisor(esquema, tensao);
+
+    if (!divisorCorrente) {
+        return null;
+    }
+
+    return {
+        esquema,
+        tensao,
+        divisorCorrente
+    };
+}
+
 function createQuadroSummaryHtml(result) {
     if (!result?.rows?.length) {
         return `<div class="property-panel-empty">Nenhum ponto vinculado ao quadro ${result?.quadro || ""} foi encontrado.</div>`;
     }
 
     const totalGeral = result.rows.reduce((sum, row) => sum + row.potenciaTotalW, 0);
+    const correnteTotal = result?.electricalConfig?.divisorCorrente
+        ? totalGeral / result.electricalConfig.divisorCorrente
+        : null;
+    const subtitleCurrent = Number.isFinite(correnteTotal)
+        ? ` • ${formatCurrentAmpere(correnteTotal)}`
+        : "";
 
     return `
         <div class="property-panel-section">
             <div class="property-panel-section-title">Resumo do quadro ${result.quadro}</div>
-            <div class="quadro-summary-total">${result.rows.length} circuito(s) • ${formatPowerWatts(totalGeral)}</div>
+            <div class="quadro-summary-total">${result.rows.length} circuito(s) • ${formatPowerWatts(totalGeral)}${subtitleCurrent}</div>
             <table class="property-panel-table quadro-summary-table">
                 <thead>
                     <tr>
@@ -7725,6 +7805,7 @@ function createQuadroSummaryHtml(result) {
                         <th>Pavimento</th>
                         <th>Circuito</th>
                         <th>Potência total</th>
+                        <th>Corrente</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -7734,6 +7815,7 @@ function createQuadroSummaryHtml(result) {
                             <td>${row.pavimento || "-"}</td>
                             <td>${row.circuito}</td>
                             <td>${formatPowerWatts(row.potenciaTotalW)}</td>
+                            <td>${formatCurrentAmpere(row.correnteA)}</td>
                         </tr>
                     `).join("")}
                 </tbody>
@@ -7844,7 +7926,8 @@ function showMaterialProperties(entity) {
         const summaryContainer = document.getElementById("quadroSummaryContainer");
         if (generateButton && summaryContainer) {
             generateButton.onclick = () => {
-                const result = generatePanelScheduleForQuadro(quadroName);
+                const electricalConfig = getQuadroElectricalConfig(metaObject);
+                const result = generatePanelScheduleForQuadro(quadroName, electricalConfig);
                 summaryContainer.innerHTML = createQuadroSummaryHtml(result);
             };
         }

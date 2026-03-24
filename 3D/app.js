@@ -7544,6 +7544,204 @@ function closePropertyPanel() {
     }
 }
 
+function normalizeIfcPropertyLabel(value) {
+    return String(value || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isQuadroName(value) {
+    return /^QD\d+$/i.test(String(value || "").trim());
+}
+
+function getMetaObjectPropertySetByName(metaObject, targetName) {
+    if (!metaObject?.propertySets?.length) {
+        return null;
+    }
+
+    const normalizedTarget = normalizeIfcPropertyLabel(targetName);
+
+    return metaObject.propertySets.find((pset) => {
+        const psetName = pset?.name || pset?.id || "";
+        return normalizeIfcPropertyLabel(psetName) === normalizedTarget;
+    }) || null;
+}
+
+function getPropertyFromSet(pset, propertyName) {
+    if (!pset?.properties?.length) {
+        return null;
+    }
+
+    return pset.properties.find((prop) => String(prop?.name || prop?.id || "").trim() === propertyName) || null;
+}
+
+function getPropertyValueFromSet(pset, propertyName) {
+    const property = getPropertyFromSet(pset, propertyName);
+    return property ? property.value : null;
+}
+
+function getPropertyTextValue(pset, propertyName, fallback = "") {
+    const value = getPropertyValueFromSet(pset, propertyName);
+    if (value === null || value === undefined) {
+        return fallback;
+    }
+
+    if (typeof value === "string") {
+        return value.trim();
+    }
+
+    if (typeof value === "object") {
+        const candidates = [value.value, value.nominalValue, value.rawValue, value.label, value.name];
+        for (const candidate of candidates) {
+            if (candidate !== null && candidate !== undefined) {
+                return String(candidate).trim();
+            }
+        }
+    }
+
+    return String(value).trim();
+}
+
+function extractElectricalPointEntries(metaObject) {
+    if (!metaObject) {
+        return [];
+    }
+
+    const pointSet = getMetaObjectPropertySetByName(metaObject, "AltoQi_Builder-Ponto1");
+    const circuitoSet = getMetaObjectPropertySetByName(metaObject, "Circuito");
+
+    if (!pointSet || !circuitoSet) {
+        return [];
+    }
+
+    const potencia = extractNumericPropertyValue(getPropertyValueFromSet(pointSet, "Potência (W)"));
+    const rendimento = extractNumericPropertyValue(getPropertyValueFromSet(pointSet, "Rendimento (%)"));
+    const fatorPotencia = extractNumericPropertyValue(getPropertyValueFromSet(pointSet, "Fator de potência (%)"));
+    const quantidade = extractNumericPropertyValue(getPropertyValueFromSet(pointSet, "Quantidade")) ?? 1;
+
+    if (!Number.isFinite(potencia) || !Number.isFinite(rendimento) || !Number.isFinite(fatorPotencia) || fatorPotencia === 0) {
+        return [];
+    }
+
+    const properties = Array.isArray(circuitoSet.properties) ? circuitoSet.properties : [];
+    const indexes = new Set();
+
+    properties.forEach((prop) => {
+        const propName = String(prop?.name || prop?.id || "").trim();
+        const match = propName.match(/_(\d+)$/);
+        if (match) {
+            indexes.add(Number(match[1]));
+        }
+    });
+
+    const totalIndexes = indexes.size || 1;
+    const multiplicadorQuantidade = totalIndexes === 1 ? quantidade : 1;
+    const entries = [];
+
+    indexes.forEach((index) => {
+        const quadro = getPropertyTextValue(circuitoSet, `Quadro_${index}`, "");
+        const pavimento = getPropertyTextValue(circuitoSet, `Pavimento_do_circuito_${index}`, "");
+        const circuito = getPropertyTextValue(circuitoSet, `Circuito_${index}`, "");
+
+        if (!quadro || !circuito) {
+            return;
+        }
+
+        const potenciaCalculada = potencia * multiplicadorQuantidade * (rendimento / 100) / (fatorPotencia / 100);
+        entries.push({
+            quadro: quadro.trim(),
+            pavimento: pavimento.trim(),
+            circuito: circuito.trim(),
+            potenciaCalculadaW: potenciaCalculada
+        });
+    });
+
+    return entries;
+}
+
+function generatePanelScheduleForQuadro(quadroName) {
+    const normalizedQuadro = String(quadroName || "").trim().toUpperCase();
+    const groupedByCircuit = new Map();
+    const allMetaObjects = viewer.metaScene?.metaObjects || {};
+
+    for (const metaObject of Object.values(allMetaObjects)) {
+        const entries = extractElectricalPointEntries(metaObject);
+        entries.forEach((entry) => {
+            if (String(entry.quadro || "").trim().toUpperCase() !== normalizedQuadro) {
+                return;
+            }
+
+            const key = `${entry.quadro}__${entry.pavimento}__${entry.circuito}`;
+            const current = groupedByCircuit.get(key) || {
+                quadro: entry.quadro,
+                pavimento: entry.pavimento,
+                circuito: entry.circuito,
+                potenciaTotalW: 0
+            };
+
+            current.potenciaTotalW += entry.potenciaCalculadaW;
+            groupedByCircuit.set(key, current);
+        });
+    }
+
+    const rows = Array.from(groupedByCircuit.values()).sort((a, b) => {
+        const pavCompare = String(a.pavimento || "").localeCompare(String(b.pavimento || ""), "pt-BR");
+        if (pavCompare !== 0) {
+            return pavCompare;
+        }
+        return String(a.circuito || "").localeCompare(String(b.circuito || ""), "pt-BR", { numeric: true });
+    });
+
+    return {
+        quadro: normalizedQuadro,
+        rows
+    };
+}
+
+function formatPowerWatts(value) {
+    return `${Number(value || 0).toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    })} W`;
+}
+
+function createQuadroSummaryHtml(result) {
+    if (!result?.rows?.length) {
+        return `<div class="property-panel-empty">Nenhum ponto vinculado ao quadro ${result?.quadro || ""} foi encontrado.</div>`;
+    }
+
+    const totalGeral = result.rows.reduce((sum, row) => sum + row.potenciaTotalW, 0);
+
+    return `
+        <div class="property-panel-section">
+            <div class="property-panel-section-title">Resumo do quadro ${result.quadro}</div>
+            <div class="quadro-summary-total">${result.rows.length} circuito(s) • ${formatPowerWatts(totalGeral)}</div>
+            <table class="property-panel-table quadro-summary-table">
+                <thead>
+                    <tr>
+                        <th>Quadro</th>
+                        <th>Pavimento</th>
+                        <th>Circuito</th>
+                        <th>Potência total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${result.rows.map((row) => `
+                        <tr>
+                            <td>${row.quadro}</td>
+                            <td>${row.pavimento || "-"}</td>
+                            <td>${row.circuito}</td>
+                            <td>${formatPowerWatts(row.potenciaTotalW)}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
 function showMaterialProperties(entity) {
     if (!entity?.id) {
         alert("Nenhuma entidade selecionada.");
@@ -7607,6 +7805,9 @@ function showMaterialProperties(entity) {
     }
 
     // 🟢 Adiciona botão X para fechar
+    const quadroName = metaObject?.name || "";
+    const showGenerateQuadroButton = isQuadroName(quadroName);
+
     painel.innerHTML = `
         <div class="property-panel-header">
             <div class="property-panel-title">
@@ -7619,13 +7820,33 @@ function showMaterialProperties(entity) {
                 ✖
             </button>
         </div>
+        </div>
         <div class="property-panel-body">
+            ${showGenerateQuadroButton ? `
+                <div class="property-panel-actions">
+                    <button id="generateQuadroSummaryButton" class="property-panel-generate-button" type="button">
+                        Gerar quadro
+                    </button>
+                </div>
+                <div id="quadroSummaryContainer"></div>
+            ` : ""}
             ${propriedades}
         </div>
     `;
 
     // 🟢 Evento do botão X
     document.getElementById("closePropertyPanel").onclick = closePropertyPanel;
+
+    if (showGenerateQuadroButton) {
+        const generateButton = document.getElementById("generateQuadroSummaryButton");
+        const summaryContainer = document.getElementById("quadroSummaryContainer");
+        if (generateButton && summaryContainer) {
+            generateButton.onclick = () => {
+                const result = generatePanelScheduleForQuadro(quadroName);
+                summaryContainer.innerHTML = createQuadroSummaryHtml(result);
+            };
+        }
+    }
 
     setupDraggablePanel({
         panel: painel,

@@ -4122,8 +4122,8 @@ async function loadIfcUpload(file, uploadContext = {}) {
         id: modelId,
         cacheBuster: false,
         edges: performanceModeEnabled ? false : defaultRenderProfile.edgesEnabled,
-        loadMetadata: false,
-        loadMetadataPropertySets: false,
+        loadMetadata: true,
+        loadMetadataPropertySets: true,
         excludeTypes: ["IfcSpace", "IfcOpeningElement"],
         origin: [0, 0, 0],
         position: [0, 0, 0],
@@ -4131,19 +4131,70 @@ async function loadIfcUpload(file, uploadContext = {}) {
         dtxEnabled: viewerCompatibility.enableDataTextures
     };
 
-    try {
-        const fileArrayBuffer = await file.arrayBuffer();
-        const webIfcLoader = await getIfcLoader();
-        const loadMethod = resolveIfcLoadMethod(webIfcLoader);
+    const [fileText, fileArrayBuffer] = await Promise.all([
+        file.text(),
+        file.arrayBuffer()
+    ]);
 
-        if (!webIfcLoader || !loadMethod) {
-            throw new Error("Carregador IFC indisponível no momento.");
+    const tryLoadWithResolvedMethod = async (loader) => {
+        const loadMethod = resolveIfcLoadMethod(loader);
+
+        if (!loadMethod) {
+            throw new Error("Não foi possível identificar o método de carregamento IFC.");
         }
 
-        const model = webIfcLoader[loadMethod]({
-            ...baseIfcLoadOptions,
-            data: fileArrayBuffer
-        });
+        const attempts = [
+            async () => loader[loadMethod]({
+                ...baseIfcLoadOptions,
+                text: fileText
+            }),
+            async () => loader[loadMethod]({
+                ...baseIfcLoadOptions,
+                data: fileArrayBuffer
+            }),
+            async () => loader[loadMethod](fileText, {
+                ...baseIfcLoadOptions
+            }),
+            async () => loader[loadMethod](fileArrayBuffer, {
+                ...baseIfcLoadOptions
+            })
+        ];
+
+        const errors = [];
+
+        for (const attempt of attempts) {
+            try {
+                const result = await attempt();
+                return typeof result?.then === "function" ? await result : result;
+            } catch (error) {
+                errors.push(error);
+            }
+        }
+        const lastError = errors[errors.length - 1];
+        throw new Error(lastError?.message || errors[0]?.message || "Falha desconhecida ao carregar IFC.");
+    };
+
+    try {
+        let model = null;
+        let ifcOpenShellError = null;
+
+        try {
+            const openShellLoader = await getIfcOpenShellLoader();
+            model = await tryLoadWithResolvedMethod(openShellLoader);
+        } catch (error) {
+            ifcOpenShellError = error;
+            console.warn("Falha ao carregar IFC com IFCOpenShellLoaderPlugin. Tentando WebIFCLoaderPlugin.", error);
+        }
+
+        if (!model) {
+            const webIfcLoader = await getIfcLoader();
+
+            if (!webIfcLoader) {
+                throw ifcOpenShellError || new Error("Carregador IFC indisponível no momento.");
+            }
+
+            model = await tryLoadWithResolvedMethod(webIfcLoader);
+        }
 
         finalizeUploadedModelLoad(model, {
             ...uploadContext,
@@ -4225,21 +4276,15 @@ function setupIfcUploadInput() {
                 : `Adicionando ${files[0].name} ao cenário...`
         );
 
-        const ifcUploadTasks = [];
-
         for (const file of files) {
             const lowerCaseFileName = file.name.toLowerCase();
 
             if (lowerCaseFileName.endsWith(".ifc")) {
-                ifcUploadTasks.push(loadIfcUpload(file, uploadContext));
+                await loadIfcUpload(file, uploadContext);
                 continue;
             }
 
             loadXktUpload(file, uploadContext);
-        }
-
-        if (ifcUploadTasks.length) {
-            await Promise.allSettled(ifcUploadTasks);
         }
 
         ifcUploadInput.value = "";

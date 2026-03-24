@@ -5923,6 +5923,32 @@ function normalizeMaterialName(name) {
     return (name || "").trim().toLowerCase();
 }
 
+const CAIXA_GORDURA_DUPLA_DESCRICAO = "CAIXA DE GORDURA DUPLA (CAPACIDADE: 126 L), RETANGULAR, EM ALVENARIA COM TIJOLOS CERÂMICOS MACIÇOS, DIMENSÕES INTERNAS = 0,4X0,7 M, ALTURA INTERNA = 0,8 M. AF_12/2020";
+const CAIXA_GORDURA_SIMPLES_DESCRICAO = "CAIXA DE GORDURA SIMPLES (CAPACIDADE: 36L), RETANGULAR, EM ALVENARIA COM TIJOLOS CERÂMICOS MACIÇOS, DIMENSÕES INTERNAS = 0,2X0,4 M, ALTURA INTERNA = 0,8 M. AF_12/2020";
+
+function resolveCaixaGorduraMaterialName(metaObject, rawMaterialName) {
+    const normalizedMaterialName = normalizeMaterialName(rawMaterialName);
+    if (normalizedMaterialName !== "cgd") {
+        return rawMaterialName;
+    }
+
+    const tipoCaixa = normalizeSearchText(
+        getMetaObjectPropertyValue(metaObject, ["Tipo de caixa"], {
+            propertySetNames: ["AltoQi_Builder"]
+        }) || ""
+    );
+
+    if (tipoCaixa.includes("dupla")) {
+        return CAIXA_GORDURA_DUPLA_DESCRICAO;
+    }
+
+    if (tipoCaixa.includes("simples")) {
+        return CAIXA_GORDURA_SIMPLES_DESCRICAO;
+    }
+
+    return rawMaterialName;
+}
+
 function normalizeMaterialComparisonText(value) {
     return normalizeSearchText(value).replace(/\s+/g, " ").trim();
 }
@@ -6053,8 +6079,15 @@ function findMaterialObjectIds(materialName, { activeOnly = true } = {}) {
                 }
 
                 const normalizedValue = normalizeMaterialToken(prop?.value);
+                const resolvedName = resolveCaixaGorduraMaterialName(metaObject, name);
+                const resolvedValue = resolveCaixaGorduraMaterialName(metaObject, normalizedValue);
 
-                if (materialNamesMatch(targetName, name) || materialNamesMatch(targetName, normalizedValue)) {
+                if (
+                    materialNamesMatch(targetName, name) ||
+                    materialNamesMatch(targetName, normalizedValue) ||
+                    materialNamesMatch(targetName, resolvedName) ||
+                    materialNamesMatch(targetName, resolvedValue)
+                ) {
                     hasMaterial = true;
                     break;
                 }
@@ -6266,13 +6299,14 @@ function collectQuantitativeMaterials() {
             }
 
             for (const prop of pset.properties) {
-                const name = (prop?.name || prop?.id || "").trim();
-                if (!name) {
+                const rawName = (prop?.name || prop?.id || "").trim();
+                if (!rawName) {
                     continue;
                 }
 
                 const numericValue = extractNumericPropertyValue(prop?.value);
                 const normalized = normalizeQuantityByIfcType(prop, numericValue);
+                const name = resolveCaixaGorduraMaterialName(metaObject, rawName);
 
                 if (normalized.quantity === null) {
                     continue;

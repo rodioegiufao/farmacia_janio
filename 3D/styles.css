@@ -1216,6 +1216,39 @@ html, body {
     font-style: italic;
 }
 
+.property-panel-actions {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.property-panel-generate-button {
+    border: 1px solid rgba(125, 211, 252, 0.5);
+    background: rgba(14, 116, 144, 0.25);
+    color: #e0f2fe;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.property-panel-generate-button:hover {
+    background: rgba(14, 116, 144, 0.4);
+}
+
+.quadro-summary-total {
+    margin-bottom: 8px;
+    color: rgba(245, 245, 245, 0.9);
+    font-size: 12px;
+}
+
+.quadro-summary-table thead th {
+    text-align: left;
+    color: rgba(245, 245, 245, 0.75);
+    font-weight: 600;
+    padding-bottom: 6px;
+}
+
 /* ---------------------------------------------------- */
 /* MELHORIA: Estilos do Menu de Contexto (ContextMenu) do xeokit */
 /* ---------------------------------------------------- */

@@ -2635,7 +2635,7 @@ function hideBudgetPanel() {
 }
 
 function hideTreeViewPanel() {
-    if (!treeViewContainer || treeViewContainer.style.display === "none") {
+    if (!isTreeViewVisible()) {
         return;
     }
 
@@ -7073,6 +7073,19 @@ function setupTreeViewSelectionControls() {
     });
     selectionObserver.observe(container, { childList: true, subtree: true });
 }
+
+function getTreeViewDisplayMode() {
+    return treeViewContainer?.classList.contains("explorer-enabled") ? "flex" : "block";
+}
+
+function isTreeViewVisible() {
+    if (!treeViewContainer) {
+        return false;
+    }
+
+    return window.getComputedStyle(treeViewContainer).display !== "none";
+}
+
 /**
  * Alterna a visibilidade do contêiner do TreeView sem alterar o estado atual de visibilidade.
  */
@@ -7081,11 +7094,11 @@ function toggleTreeView(button) {
         return;
     }
 
-    if (treeViewContainer.style.display === 'block') {
+    if (isTreeViewVisible()) {
         treeViewContainer.style.display = 'none';
         button?.classList.remove('active');
     } else {
-        treeViewContainer.style.display = 'block';
+        treeViewContainer.style.display = getTreeViewDisplayMode();
         button?.classList.add('active');
     }
 }

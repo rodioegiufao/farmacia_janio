@@ -5925,6 +5925,57 @@ function normalizeMaterialName(name) {
 
 const CAIXA_GORDURA_DUPLA_DESCRICAO = "CAIXA DE GORDURA DUPLA (CAPACIDADE: 126 L), RETANGULAR, EM ALVENARIA COM TIJOLOS CERÂMICOS MACIÇOS, DIMENSÕES INTERNAS = 0,4X0,7 M, ALTURA INTERNA = 0,8 M. AF_12/2020";
 const CAIXA_GORDURA_SIMPLES_DESCRICAO = "CAIXA DE GORDURA SIMPLES (CAPACIDADE: 36L), RETANGULAR, EM ALVENARIA COM TIJOLOS CERÂMICOS MACIÇOS, DIMENSÕES INTERNAS = 0,2X0,4 M, ALTURA INTERNA = 0,8 M. AF_12/2020";
+const CAIXA_GORDURA_VALOR_MATERIAL_MAP = Object.freeze({
+    "0.192265": CAIXA_GORDURA_DUPLA_DESCRICAO,
+    "0.094248": CAIXA_GORDURA_SIMPLES_DESCRICAO
+});
+
+function normalizeNumericComparisonValue(value) {
+    const normalized = String(value ?? "")
+        .trim()
+        .replace(",", ".");
+    const parsed = Number.parseFloat(normalized);
+    if (!Number.isFinite(parsed)) {
+        return "";
+    }
+
+    return parsed.toFixed(6);
+}
+
+function getUnidadeTratamentoConcretoValue(metaObject) {
+    if (!metaObject?.propertySets?.length) {
+        return "";
+    }
+
+    for (const pset of metaObject.propertySets) {
+        const psetName = normalizeIfcPropertyKey(pset?.name || pset?.id || "");
+        if (!psetName.includes("unidades de tratamento")) {
+            continue;
+        }
+
+        for (const prop of pset.properties || []) {
+            const propName = normalizeIfcPropertyKey(prop?.name || prop?.id || "");
+            if (!propName.includes("concreto") || !propName.includes("-")) {
+                continue;
+            }
+
+            const normalizedValue = normalizeNumericComparisonValue(formatIfcPropertyValue(prop?.value));
+            if (normalizedValue) {
+                return normalizedValue;
+            }
+        }
+    }
+
+    const fallbackValue = getMetaObjectPropertyValue(
+        metaObject,
+        [
+            "Unidades de tratamento - Concreto - Concreto",
+            "Unidades de Tratamento - Concreto - Concreto",
+            "Concreto - Concreto"
+        ]
+    );
+    return normalizeNumericComparisonValue(fallbackValue);
+}
 
 function getAltoQiBuilderPropertyValue(metaObject, propertyNames = []) {
     const altoQiBuilderSet = getMetaObjectPropertySetByName(metaObject, "AltoQi_Builder");
@@ -5964,17 +6015,8 @@ function resolveCaixaGorduraMaterialName(metaObject, rawMaterialName) {
         return rawMaterialName;
     }
 
-    const tipoCaixa = getAltoQiBuilderTipoCaixa(metaObject);
-
-    if (tipoCaixa.includes("dupla")) {
-        return CAIXA_GORDURA_DUPLA_DESCRICAO;
-    }
-
-    if (tipoCaixa.includes("simples") || tipoCaixa.includes("direta")) {
-        return CAIXA_GORDURA_SIMPLES_DESCRICAO;
-    }
-
-    return rawMaterialName;
+    const concretoValue = getUnidadeTratamentoConcretoValue(metaObject);
+    return CAIXA_GORDURA_VALOR_MATERIAL_MAP[concretoValue] || rawMaterialName;
 }
 
 function normalizeMaterialComparisonText(value) {

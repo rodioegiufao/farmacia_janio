@@ -2922,7 +2922,7 @@ function buildWebBudgetMaterials(materials, associationDefinitions) {
                 sourceMaterialNames: []
             };
 
-            current.quantidade += modelQuantity;
+            current.quantidade += adjustBudgetQuantityForAssociation(modelQuantity, association);
             matchData?.sourceMaterialNames?.forEach((materialName) => {
                 if (!current.sourceMaterialNames.includes(materialName)) {
                     current.sourceMaterialNames.push(materialName);
@@ -3686,6 +3686,9 @@ const PROJECT_BUDGET_DATA_URLS = {
 
 const BUDGET_COLUMN_COUNT = 10;
 const BUDGET_NUMBER_COLUMNS = new Set([5, 6, 7, 8, 9]);
+const HALF_QUANTITY_BUDGET_DESCRIPTIONS = new Set([
+    'incendio - mangueiras - 1.1/2 " 15 m'
+]);
 const budgetAssociationsByCode = new Map();
 const budgetAssociationsByDescription = new Map();
 
@@ -3735,6 +3738,19 @@ function computeBudgetTotalIfNeeded(rowValues) {
     const updatedRow = [...rowValues];
     updatedRow[8] = formatBudgetNumber(quantity * unitToUse);
     return updatedRow;
+}
+
+function adjustBudgetQuantityForAssociation(modelQuantity, association) {
+    if (!Number.isFinite(modelQuantity)) {
+        return 0;
+    }
+
+    const normalizedDescription = normalizeSearchText(association?.descricao || "").replace(/\s+/g, " ");
+    if (HALF_QUANTITY_BUDGET_DESCRIPTIONS.has(normalizedDescription)) {
+        return modelQuantity / 2;
+    }
+
+    return modelQuantity;
 }
 
 function normalizeCompositionCode(rawCode) {

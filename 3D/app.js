@@ -5947,15 +5947,17 @@ function getUnidadeTratamentoConcretoValue(metaObject) {
         return "";
     }
 
-    for (const pset of metaObject.propertySets) {
-        const psetName = normalizeIfcPropertyKey(pset?.name || pset?.id || "");
-        if (!psetName.includes("unidades de tratamento")) {
-            continue;
-        }
+    const targetPropNames = [
+        "unidades de tratamento - concreto - concreto",
+        "unidades de tratamento- concreto - concreto",
+        "unidades de tratamento - concreto- concreto",
+        "concreto - concreto"
+    ].map((name) => normalizeIfcPropertyKey(name));
 
+    for (const pset of metaObject.propertySets) {
         for (const prop of pset.properties || []) {
             const propName = normalizeIfcPropertyKey(prop?.name || prop?.id || "");
-            if (!propName.includes("concreto") || !propName.includes("-")) {
+            if (!targetPropNames.includes(propName)) {
                 continue;
             }
 
@@ -5966,15 +5968,7 @@ function getUnidadeTratamentoConcretoValue(metaObject) {
         }
     }
 
-    const fallbackValue = getMetaObjectPropertyValue(
-        metaObject,
-        [
-            "Unidades de tratamento - Concreto - Concreto",
-            "Unidades de Tratamento - Concreto - Concreto",
-            "Concreto - Concreto"
-        ]
-    );
-    return normalizeNumericComparisonValue(fallbackValue);
+    return "";
 }
 
 function getAltoQiBuilderPropertyValue(metaObject, propertyNames = []) {

@@ -59,24 +59,27 @@ class PDFProcessor {
         }
     }
 
-    // Extrai o valor do campo "FOLHA" por posição visual no carimbo (canto inferior direito)
+    // Extrai o valor do campo "FOLHA" por posição visual na célula inferior direita do carimbo
     extrairFolhaPorRegiao(textContent, viewport) {
         if (!textContent?.items?.length || !viewport) return null;
 
         const pageWidth = viewport.width;
         const pageHeight = viewport.height;
 
-        // Região aproximada do carimbo no canto inferior direito
-        const xMin = pageWidth * 0.74;
-        const xMax = pageWidth * 0.995;
-        const yMin = pageHeight * 0.03;
-        const yMax = pageHeight * 0.30;
+        // Recorte focado apenas na célula FOLHA para evitar capturar outros números do carimbo
+        const xMin = pageWidth * 0.905;
+        const xMax = pageWidth * 0.992;
+        const yMin = pageHeight * 0.015;
+        const yMax = pageHeight * 0.105;
 
         const itensNaRegiao = textContent.items.filter(item => {
             if (!item?.transform || item.transform.length < 6) return false;
-            const tx = item.transform[4];
-            const ty = item.transform[5];
-            return tx >= xMin && tx <= xMax && ty >= yMin && ty <= yMax;
+
+            const x = item.transform[4];
+            const y = item.transform[5];
+            const str = (item.str || '').trim();
+
+            return str && x >= xMin && x <= xMax && y >= yMin && y <= yMax;
         });
 
         if (!itensNaRegiao.length) return null;
@@ -90,6 +93,7 @@ class PDFProcessor {
 
         const textoRegiao = itensNaRegiao.map(item => item.str).join(' ');
         const match = textoRegiao.match(/\b(\d{1,3}\s*\/\s*\d{1,3})\b/);
+
         return match ? match[1].replace(/\s+/g, '') : null;
     }
 
@@ -187,15 +191,16 @@ class PDFProcessor {
                 
                 // Verificar se o número da prancha especificamente no campo FOLHA do carimbo
                 if (checkSheetNumber && numeroPrancha) {
-                    const folhaExtraidaPagina =
-                        this.extrairFolhaPorRegiao(textContent, viewport) ||
-                        this.extrairFolhaPorAnchor(textContent, viewport);
+                    const folhaExtraidaPagina = this.extrairFolhaPorRegiao(textContent, viewport);
 
                     if (folhaExtraidaPagina) {
                         folhaCarimbo = folhaExtraidaPagina;
                         pranchaEncontrada = (
                             folhaExtraidaPagina.replace(/\s+/g, '') === numeroPrancha.replace(/\s+/g, '')
                         );
+                    } else {
+                        folhaCarimbo = null;
+                        pranchaEncontrada = false;
                     }
                 }
                 

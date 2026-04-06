@@ -59,18 +59,87 @@ class PDFProcessor {
         }
     }
 
-    // Extrai o valor do campo "FOLHA" do carimbo (ex: 03/04)
-    extrairFolhaDoCarimbo(texto) {
-        if (!texto) return null;
+    // Extrai o valor do campo "FOLHA" por posição visual no carimbo (canto inferior direito)
+    extrairFolhaPorRegiao(textContent, viewport) {
+        if (!textContent?.items?.length || !viewport) return null;
 
-        const textoLimpo = texto.replace(/\s+/g, ' ').toUpperCase();
-        const match = textoLimpo.match(/FOLHA\s*:?\s*(\d{1,3}\s*\/\s*\d{1,3})/i);
+        const pageWidth = viewport.width;
+        const pageHeight = viewport.height;
 
-        if (match) {
-            return match[1].replace(/\s+/g, '');
-        }
+        // Região aproximada do carimbo no canto inferior direito
+        const xMin = pageWidth * 0.74;
+        const xMax = pageWidth * 0.995;
+        const yMin = pageHeight * 0.03;
+        const yMax = pageHeight * 0.30;
 
-        return null;
+        const itensNaRegiao = textContent.items.filter(item => {
+            if (!item?.transform || item.transform.length < 6) return false;
+            const tx = item.transform[4];
+            const ty = item.transform[5];
+            return tx >= xMin && tx <= xMax && ty >= yMin && ty <= yMax;
+        });
+
+        if (!itensNaRegiao.length) return null;
+
+        // Ordena visualmente (de cima para baixo e da esquerda para direita)
+        itensNaRegiao.sort((a, b) => {
+            const dy = b.transform[5] - a.transform[5];
+            if (Math.abs(dy) > 2) return dy;
+            return a.transform[4] - b.transform[4];
+        });
+
+        const textoRegiao = itensNaRegiao.map(item => item.str).join(' ');
+        const match = textoRegiao.match(/\b(\d{1,3}\s*\/\s*\d{1,3})\b/);
+        return match ? match[1].replace(/\s+/g, '') : null;
+    }
+
+    // Fallback: tenta localizar o rótulo "FOLHA" e lê os itens logo abaixo dele
+    extrairFolhaPorAnchor(textContent, viewport) {
+        const items = textContent?.items || [];
+        if (!items.length || !viewport) return null;
+
+        const pageWidth = viewport.width;
+        const pageHeight = viewport.height;
+
+        const candidatos = items.filter(item => {
+            if (!item?.transform || item.transform.length < 6) return false;
+            const str = (item.str || '').toUpperCase().trim();
+            const x = item.transform[4];
+            const y = item.transform[5];
+
+            return str.includes('FOLHA') && x >= pageWidth * 0.68 && y <= pageHeight * 0.38;
+        });
+
+        if (!candidatos.length) return null;
+
+        const folhaLabel = candidatos.sort((a, b) => b.transform[5] - a.transform[5])[0];
+        const labelX = folhaLabel.transform[4];
+        const labelY = folhaLabel.transform[5];
+
+        const abaixo = items.filter(item => {
+            if (!item?.transform || item.transform.length < 6) return false;
+            const x = item.transform[4];
+            const y = item.transform[5];
+            const str = (item.str || '').trim();
+
+            return (
+                str &&
+                x >= labelX - 30 &&
+                x <= labelX + 170 &&
+                y <= labelY - 2 &&
+                y >= labelY - 90
+            );
+        });
+
+        abaixo.sort((a, b) => {
+            const dy = b.transform[5] - a.transform[5];
+            if (Math.abs(dy) > 2) return dy;
+            return a.transform[4] - b.transform[4];
+        });
+
+        const texto = abaixo.map(item => item.str).join(' ');
+        const match = texto.match(/\b(\d{1,3}\s*\/\s*\d{1,3})\b/);
+        return match ? match[1].replace(/\s+/g, '') : null;
     }
 
     // CORREÇÃO: Usar window.MAPEAMENTO_PROJETOS
@@ -109,6 +178,7 @@ class PDFProcessor {
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
+                const viewport = page.getViewport({ scale: 1 });
                 const textoExtraido = textContent.items.map(item => item.str).join(' ').replace(/\n/g, ' ');
                 // Verificar se o nome do arquivo está no texto da página
                 if (checkFilename && nomeSemAssinado && textoExtraido.includes(nomeSemAssinado)) {
@@ -117,7 +187,9 @@ class PDFProcessor {
                 
                 // Verificar se o número da prancha especificamente no campo FOLHA do carimbo
                 if (checkSheetNumber && numeroPrancha) {
-                    const folhaExtraidaPagina = this.extrairFolhaDoCarimbo(textoExtraido);
+                    const folhaExtraidaPagina =
+                        this.extrairFolhaPorRegiao(textContent, viewport) ||
+                        this.extrairFolhaPorAnchor(textContent, viewport);
 
                     if (folhaExtraidaPagina) {
                         folhaCarimbo = folhaExtraidaPagina;

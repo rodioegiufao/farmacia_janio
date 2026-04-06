@@ -186,7 +186,7 @@ class PDFProcessor {
     }
 
     extrairFolhaPorTextoCompleto(textoExtraido) {
-        const texto = this.normalizarTexto(textoExtraido);
+        const texto = (textoExtraido || '').replace(/\s+/g, ' ').trim().toUpperCase();
         if (!texto) return null;
 
         const matchFolha = texto.match(/FOLHA\s*:?\s*(\d{1,3}\s*\/\s*\d{1,3})/i);
@@ -194,10 +194,33 @@ class PDFProcessor {
             return matchFolha[1].replace(/\s+/g, '');
         }
 
-        const matches = [...texto.matchAll(/\b(\d{1,3}\s*\/\s*\d{1,3})\b/g)];
-        if (!matches.length) return null;
+        return null;
+    }
 
-        return matches[matches.length - 1][1].replace(/\s+/g, '');
+    validarFolhaContraEsperada(folhaLida, numeroPranchaEsperado) {
+        const folha = this.normalizarNumeroFolha(folhaLida);
+        const esperada = this.normalizarNumeroFolha(numeroPranchaEsperado);
+
+        if (!folha || !esperada) return null;
+
+        const matchFolha = folha.match(/^(\d{1,3})\/(\d{1,3})$/);
+        const matchEsperada = esperada.match(/^(\d{1,3})\/(\d{1,3})$/);
+
+        if (!matchFolha || !matchEsperada) return null;
+
+        const atualLida = Number.parseInt(matchFolha[1], 10);
+        const totalLido = Number.parseInt(matchFolha[2], 10);
+        const totalEsperado = Number.parseInt(matchEsperada[2], 10);
+
+        if (Number.isNaN(atualLida) || Number.isNaN(totalLido) || Number.isNaN(totalEsperado)) {
+            return null;
+        }
+
+        // Rejeita valores incompatíveis com uma paginação de prancha
+        if (atualLida > totalLido) return null;
+        if (totalLido > totalEsperado * 3) return null;
+
+        return folha;
     }
 
     corrigirFolhaParcial(folhaLida, numeroPranchaEsperado) {
@@ -481,6 +504,11 @@ class PDFProcessor {
                     if (!folhaExtraidaPagina && formatoPrancha === 'A0') {
                         folhaExtraidaPagina = await this.extrairFolhaPorImagem(page, 'A0');
                     }
+
+                    folhaExtraidaPagina = this.validarFolhaContraEsperada(
+                        folhaExtraidaPagina,
+                        numeroPrancha
+                    );
 
                     folhaExtraidaPagina = this.corrigirFolhaParcial(
                         folhaExtraidaPagina,

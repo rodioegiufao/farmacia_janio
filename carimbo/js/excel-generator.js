@@ -39,6 +39,7 @@ class ExcelGenerator {
                     dados.dados_carimbo.join(', ') : "Nenhuma",
                 "Nome do Arquivo": nomeArquivo,
                 "Número da Prancha": dados.numero_prancha || "Não identificado",
+                "Tamanho da Prancha": dados.tamanho_prancha || "Não identificado",
                 "Nome encontrado": dados.nome_arquivo_encontrado ? "Sim" : "Não",
                 "Prancha encontrada": dados.prancha_encontrada ? "Sim" : "Não",
                 "Arquivo assinado": dados.assinado_pelo_nome ? "Sim" : "Não",

@@ -59,18 +59,17 @@ class PDFProcessor {
         }
     }
 
-    // Extrai o valor do campo "FOLHA" por posição visual na célula inferior direita do carimbo
-    extrairFolhaPorRegiao(textContent, viewport) {
-        if (!textContent?.items?.length || !viewport) return null;
+    // Extrai o valor do campo "FOLHA" usando um recorte relativo da prancha
+    extrairFolhaPorCaixa(textContent, viewport, box) {
+        if (!textContent?.items?.length || !viewport || !box) return null;
 
         const pageWidth = viewport.width;
         const pageHeight = viewport.height;
 
-        // Recorte focado apenas na célula FOLHA para evitar capturar outros números do carimbo
-        const xMin = pageWidth * 0.905;
-        const xMax = pageWidth * 0.992;
-        const yMin = pageHeight * 0.015;
-        const yMax = pageHeight * 0.105;
+        const xMin = pageWidth * box.xMin;
+        const xMax = pageWidth * box.xMax;
+        const yMin = pageHeight * box.yMin;
+        const yMax = pageHeight * box.yMax;
 
         const itensNaRegiao = textContent.items.filter(item => {
             if (!item?.transform || item.transform.length < 6) return false;
@@ -97,6 +96,67 @@ class PDFProcessor {
         return match ? match[1].replace(/\s+/g, '') : null;
     }
 
+    getBoxesFolha() {
+        return {
+            A1_A2: {
+                xMin: 0.905,
+                xMax: 0.992,
+                yMin: 0.015,
+                yMax: 0.105
+            },
+            A0: {
+                xMin: 0.900,
+                xMax: 0.992,
+                yMin: 0.010,
+                yMax: 0.145
+            }
+        };
+    }
+
+    detectarFormatoPrancha(textoExtraido, viewport) {
+        const texto = (textoExtraido || '').toUpperCase();
+
+        if (texto.includes('FORMATO A0')) return 'A0';
+        if (texto.includes('FORMATO A1+')) return 'A1_A2';
+        if (texto.includes('FORMATO A2+')) return 'A1_A2';
+        if (!viewport?.width || !viewport?.height) return 'A1_A2';
+
+        const proporcao = viewport.width / viewport.height;
+
+        if (proporcao < 1.55) return 'A0';
+        return 'A1_A2';
+    }
+
+    extrairFolhaComFallback(textContent, viewport, textoExtraido) {
+        const boxes = this.getBoxesFolha();
+        const formato = this.detectarFormatoPrancha(textoExtraido, viewport);
+
+        let folha = null;
+
+        // 1) tenta recorte do formato detectado
+        if (formato === 'A0') {
+            folha = this.extrairFolhaPorCaixa(textContent, viewport, boxes.A0);
+            if (folha) return folha;
+        } else {
+            folha = this.extrairFolhaPorCaixa(textContent, viewport, boxes.A1_A2);
+            if (folha) return folha;
+        }
+
+        // 2) se não achou, tenta recorte alternativo
+        if (formato === 'A0') {
+            folha = this.extrairFolhaPorCaixa(textContent, viewport, boxes.A1_A2);
+            if (folha) return folha;
+        } else {
+            folha = this.extrairFolhaPorCaixa(textContent, viewport, boxes.A0);
+            if (folha) return folha;
+        }
+
+        // 3) fallback por âncora de texto
+        folha = this.extrairFolhaPorAnchor(textContent, viewport);
+        if (folha) return folha;
+
+        return null;
+    }
     // Fallback: tenta localizar o rótulo "FOLHA" e lê os itens logo abaixo dele
     extrairFolhaPorAnchor(textContent, viewport) {
         const items = textContent?.items || [];
@@ -191,7 +251,11 @@ class PDFProcessor {
                 
                 // Verificar se o número da prancha especificamente no campo FOLHA do carimbo
                 if (checkSheetNumber && numeroPrancha) {
-                    const folhaExtraidaPagina = this.extrairFolhaPorRegiao(textContent, viewport);
+                    const folhaExtraidaPagina = this.extrairFolhaComFallback(
+                        textContent,
+                        viewport,
+                        textoExtraido
+                    );
 
                     if (folhaExtraidaPagina) {
                         folhaCarimbo = folhaExtraidaPagina;

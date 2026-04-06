@@ -108,12 +108,32 @@ class PDFProcessor {
                 yMin: 0.015,
                 yMax: 0.105
             },
-            A0_CARIMBO: {
-                xMin: 0.72,
-                xMax: 0.995,
-                yMin: 0.00,
-                yMax: 0.20
+            A0: {
+                xMin: 0.905,
+                xMax: 0.992,
+                yMin: 0.010,
+                yMax: 0.075
             }
+        };
+    }
+
+    getBoxFolhaProporcional(formato) {
+        const boxes = this.getBoxesFolha();
+        const base = boxes.A1_A2;
+
+        if (formato !== 'A0') return base;
+
+        // Converte a caixa calibrada em A1+ (1189x594) para A0 (1189x841)
+        const refAltura = 594;
+        const a0Altura = 841;
+        const yMinMm = base.yMin * refAltura;
+        const yMaxMm = base.yMax * refAltura;
+
+        return {
+            xMin: base.xMin,
+            xMax: base.xMax,
+            yMin: yMinMm / a0Altura,
+            yMax: yMaxMm / a0Altura
         };
     }
 
@@ -133,7 +153,7 @@ class PDFProcessor {
 
     extrairFolhaDoCarimboA0(textContent, viewport) {
         const boxes = this.getBoxesFolha();
-        const itens = this.extrairItensPorCaixa(textContent, viewport, boxes.A0_CARIMBO);
+        const itens = this.extrairItensPorCaixa(textContent, viewport, boxes.A0);
 
         if (!itens.length) return null;
 
@@ -180,22 +200,10 @@ class PDFProcessor {
     }
 
     extrairFolhaComFallback(textContent, viewport, textoExtraido) {
-        const boxes = this.getBoxesFolha();
         const formato = this.detectarFormatoPrancha(textoExtraido, viewport);
+        const boxPrincipal = this.getBoxFolhaProporcional(formato);
 
-        let folha = null;
-
-        if (formato === 'A0') {
-            folha = this.extrairFolhaDoCarimboA0(textContent, viewport);
-            if (folha) return folha;
-
-            folha = this.extrairFolhaPorCaixa(textContent, viewport, boxes.A1_A2);
-            if (folha) return folha;
-
-            return null;
-        }
-
-        folha = this.extrairFolhaPorCaixa(textContent, viewport, boxes.A1_A2);
+        let folha = this.extrairFolhaPorCaixa(textContent, viewport, boxPrincipal);
         if (folha) return folha;
 
         folha = this.extrairFolhaPorAnchor(textContent, viewport);

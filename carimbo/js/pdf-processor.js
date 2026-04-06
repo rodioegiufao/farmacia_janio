@@ -193,7 +193,7 @@ class PDFProcessor {
         if (posFolha === -1) return null;
 
         // Limita a busca para evitar falsos positivos distantes do campo FOLHA
-        const trechoDepoisFolha = texto.slice(posFolha, posFolha + 2500);
+        const trechoDepoisFolha = texto.slice(posFolha, posFolha + 800);
 
         // Captura a primeira paginação válida dentro da janela
         const matches = [
@@ -512,7 +512,7 @@ class PDFProcessor {
                         folhaExtraidaPagina = await this.extrairFolhaPorImagem(page, 'A0');
                     }
 
-                    folhaExtraidaPagina = this.validarFolhaContraEsperada(
+                    folhaExtraidaPagina = this.corrigirFolhaParcial(
                         folhaExtraidaPagina,
                         numeroPrancha
                     );

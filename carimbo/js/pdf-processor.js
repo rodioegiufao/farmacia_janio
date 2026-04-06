@@ -29,6 +29,21 @@ class PDFProcessor {
         return `${atual}/${total}`;
     }
 
+    escaparRegex(texto) {
+        return `${texto}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    criarRegexNumeroFolhaExato(numeroFolha) {
+        if (!numeroFolha || !numeroFolha.includes('/')) return null;
+
+        const [atual, total] = numeroFolha.split('/').map(parte => `${parte}`.trim());
+        if (!atual || !total) return null;
+
+        return new RegExp(
+            `(?<!\\d)${this.escaparRegex(atual)}\\s*\\/\\s*${this.escaparRegex(total)}(?!\\d)`
+        );
+    }
+
     // Função para extrair o número da prancha do nome do arquivo
     extrairNumeroPrancha(nomeArquivo) {
         try {
@@ -474,6 +489,7 @@ class PDFProcessor {
             const assinadoPeloNome = this.verificarAssinaturaNome(file.name);
             const nomeSemAssinado = nomeArquivo.replace(/_assinado/i, '');
             const numeroPrancha = this.extrairNumeroPrancha(file.name);
+            const regexNumeroPrancha = this.criarRegexNumeroFolhaExato(numeroPrancha);
             const codigoProjeto = this.extrairCodigoProjeto(file.name);
             
             // CORREÇÃO: Usar window.MAPEAMENTO_PROJETOS
@@ -509,6 +525,12 @@ class PDFProcessor {
                 }
                 
                 if (checkSheetNumber && numeroPrancha) {
+                    if (regexNumeroPrancha && regexNumeroPrancha.test(textoExtraido)) {
+                        folhaCarimbo = numeroPrancha;
+                        pranchaEncontrada = true;
+                        continue;
+                    }
+
                     const formatoPrancha = this.detectarFormatoPrancha(textoExtraido, viewport);
                     let folhaFallback = this.extrairFolhaComFallback(
                         textContent,

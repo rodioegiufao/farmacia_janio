@@ -259,6 +259,83 @@ class PDFProcessor {
         return match ? match[1].replace(/\s+/g, '') : null;
     }
 
+
+    getCropBoxImagem(formato, width, height) {
+        if (!width || !height) return null;
+
+        if (formato === 'A0') {
+            return {
+                x: Math.round(width * 0.875),
+                y: Math.round(height * 0.905),
+                width: Math.round(width * 0.110),
+                height: Math.round(height * 0.085)
+            };
+        }
+
+        return {
+            x: Math.round(width * 0.885),
+            y: Math.round(height * 0.865),
+            width: Math.round(width * 0.120),
+            height: Math.round(height * 0.120)
+        };
+    }
+
+    async extrairFolhaPorImagem(page, formato) {
+        try {
+            if (!page || typeof Tesseract === 'undefined') {
+                return null;
+            }
+
+            const scale = 2.5;
+            const viewport = page.getViewport({ scale });
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+            if (!ctx) return null;
+
+            canvas.width = Math.floor(viewport.width);
+            canvas.height = Math.floor(viewport.height);
+
+            await page.render({
+                canvasContext: ctx,
+                viewport
+            }).promise;
+
+            const cropBox = this.getCropBoxImagem(formato, canvas.width, canvas.height);
+            if (!cropBox) return null;
+
+            const cropCanvas = document.createElement('canvas');
+            const cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
+            if (!cropCtx) return null;
+
+            cropCanvas.width = cropBox.width;
+            cropCanvas.height = cropBox.height;
+
+            cropCtx.drawImage(
+                canvas,
+                cropBox.x,
+                cropBox.y,
+                cropBox.width,
+                cropBox.height,
+                0,
+                0,
+                cropBox.width,
+                cropBox.height
+            );
+
+            const { data: { text } } = await Tesseract.recognize(cropCanvas, 'eng', {
+                logger: () => {}
+            });
+
+            const match = (text || '').match(/\b(\d{1,3}\s*\/\s*\d{1,3})\b/);
+            return match ? match[1].replace(/\s+/g, '') : null;
+        } catch (error) {
+            console.warn('OCR da célula FOLHA falhou:', error);
+            return null;
+        }
+    }
+
     // CORREÇÃO: Usar window.MAPEAMENTO_PROJETOS
     async processarPDF(file, palavrasChave, opcoes) {
         try {
@@ -304,11 +381,16 @@ class PDFProcessor {
                 
                 // Verificar se o número da prancha especificamente no campo FOLHA do carimbo
                 if (checkSheetNumber && numeroPrancha) {
-                    const folhaExtraidaPagina = this.extrairFolhaComFallback(
+                    const formatoPrancha = this.detectarFormatoPrancha(textoExtraido, viewport);
+                    let folhaExtraidaPagina = this.extrairFolhaComFallback(
                         textContent,
                         viewport,
                         textoExtraido
                     );
+
+                    if (!folhaExtraidaPagina && formatoPrancha === 'A0') {
+                        folhaExtraidaPagina = await this.extrairFolhaPorImagem(page, 'A0');
+                    }
 
                     if (folhaExtraidaPagina) {
                         folhaCarimbo = folhaExtraidaPagina;

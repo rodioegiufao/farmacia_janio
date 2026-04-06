@@ -66,15 +66,31 @@ class ExcelGenerator {
         
         // Criar estilos - Similar aos PatternFill do Python
         const estiloVerde = { 
-            fill: { 
-                fgColor: { rgb: "00FF00" } 
-            } 
+            fill: {
+                patternType: "solid",
+                fgColor: { rgb: "FF00B050" }
+            },
+            font: {
+                color: { rgb: "FFFFFFFF" },
+                bold: true
+            },
+            alignment: {
+                horizontal: "center"
+            }
         };
         
         const estiloVermelho = { 
-            fill: { 
-                fgColor: { rgb: "FF2C2B" } 
-            } 
+            fill: {
+                patternType: "solid",
+                fgColor: { rgb: "FFFF0000" }
+            },
+            font: {
+                color: { rgb: "FFFFFFFF" },
+                bold: true
+            },
+            alignment: {
+                horizontal: "center"
+            }
         };
 
         // Aplicar formatação para cada coluna
@@ -86,9 +102,11 @@ class ExcelGenerator {
                     const cell = ws[cellAddress];
                     
                     if (cell) {
-                        if (cell.v === "Sim") {
+                        const valorCelula = String(cell.v).trim().toLowerCase();
+
+                        if (valorCelula === "sim") {
                             cell.s = estiloVerde;
-                        } else if (cell.v === "Não") {
+                        } else if (valorCelula === "não" || valorCelula === "nao") {
                             cell.s = estiloVermelho;
                         }
                     }

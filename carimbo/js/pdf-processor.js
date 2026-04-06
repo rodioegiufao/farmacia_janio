@@ -59,6 +59,20 @@ class PDFProcessor {
         }
     }
 
+    // Extrai o valor do campo "FOLHA" do carimbo (ex: 03/04)
+    extrairFolhaDoCarimbo(texto) {
+        if (!texto) return null;
+
+        const textoLimpo = texto.replace(/\s+/g, ' ').toUpperCase();
+        const match = textoLimpo.match(/FOLHA\s*:?\s*(\d{1,3}\s*\/\s*\d{1,3})/i);
+
+        if (match) {
+            return match[1].replace(/\s+/g, '');
+        }
+
+        return null;
+    }
+
     // CORREÇÃO: Usar window.MAPEAMENTO_PROJETOS
     async processarPDF(file, palavrasChave, opcoes) {
         try {
@@ -84,6 +98,7 @@ class PDFProcessor {
             const dadosCarimbo = [];
             let nomeArquivoEncontrado = false;
             let pranchaEncontrada = false;
+            let folhaCarimbo = null;
             let projetoEncontrado = false;
 
             // Carregar PDF usando pdf.js
@@ -95,18 +110,20 @@ class PDFProcessor {
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
                 const textoExtraido = textContent.items.map(item => item.str).join(' ').replace(/\n/g, ' ');
-                const textoNormalizado = this.normalizarTexto(textoExtraido);
-                
                 // Verificar se o nome do arquivo está no texto da página
                 if (checkFilename && nomeSemAssinado && textoExtraido.includes(nomeSemAssinado)) {
                     nomeArquivoEncontrado = true;
                 }
                 
-                // Verificar se o número da prancha está no texto
+                // Verificar se o número da prancha especificamente no campo FOLHA do carimbo
                 if (checkSheetNumber && numeroPrancha) {
-                    const pranchaNormalizada = this.normalizarTexto(numeroPrancha);
-                    if (textoNormalizado.includes(pranchaNormalizada)) {
-                        pranchaEncontrada = true;
+                    const folhaExtraidaPagina = this.extrairFolhaDoCarimbo(textoExtraido);
+
+                    if (folhaExtraidaPagina) {
+                        folhaCarimbo = folhaExtraidaPagina;
+                        pranchaEncontrada = (
+                            folhaExtraidaPagina.replace(/\s+/g, '') === numeroPrancha.replace(/\s+/g, '')
+                        );
                     }
                 }
                 
@@ -139,6 +156,7 @@ class PDFProcessor {
                 dados_carimbo: dadosCarimbo,
                 nome_arquivo_encontrado: nomeArquivoEncontrado,
                 prancha_encontrada: pranchaEncontrada,
+                folha_carimbo: folhaCarimbo,
                 assinado_pelo_nome: assinadoPeloNome,
                 projeto_encontrado: projetoEncontrado,
                 codigo_projeto: codigoProjeto,
@@ -187,6 +205,7 @@ class PDFProcessor {
                     dados_carimbo: [],
                     nome_arquivo_encontrado: false,
                     prancha_encontrada: false,
+                    folha_carimbo: null,
                     assinado_pelo_nome: false,
                     projeto_encontrado: false,
                     codigo_projeto: null,

@@ -371,11 +371,22 @@ class PDFAnalyzerApp {
         
         for (const [fileName, dados] of Object.entries(this.resultados)) {
             const row = document.createElement('tr');
+            const analise = dados.analise_consistencia;
+            const severidade = analise?.severidade || 'n/a';
+            const classeConsistencia = severidade === 'ok'
+                ? 'success'
+                : (severidade === 'n/a' ? '' : 'error');
+            const scoreConsistencia = analise ? `${analise.score}/100` : 'N/A';
+            const alertasConsistencia = analise?.alertas?.length
+                ? analise.alertas.join(' ')
+                : 'Sem alertas';
             
             row.innerHTML = `
                 <td>${dados.numero_prancha || 'Não identificado'}</td>
                 <td>${dados.codigo_projeto || 'Não identificado'}</td>
                 <td>${dados.descricao_projeto}</td>
+                <td class="${classeConsistencia}">${severidade.toUpperCase()} (${scoreConsistencia})</td>
+                <td title="${alertasConsistencia}">${alertasConsistencia}</td>
                 <td>${dados.dados_carimbo.length > 0 ? dados.dados_carimbo.join(', ') : 'Nenhuma'}</td>
                 <td class="${dados.nome_arquivo_encontrado ? 'success' : 'error'}">
                     ${dados.nome_arquivo_encontrado ? 'Sim' : 'Não'}

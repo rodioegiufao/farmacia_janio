@@ -385,8 +385,6 @@ class PDFAnalyzerApp {
                 <td>${dados.numero_prancha || 'Não identificado'}</td>
                 <td>${dados.codigo_projeto || 'Não identificado'}</td>
                 <td>${dados.descricao_projeto}</td>
-                <td class="${classeConsistencia}">${severidade.toUpperCase()} (${scoreConsistencia})</td>
-                <td title="${alertasConsistencia}">${alertasConsistencia}</td>
                 <td>${dados.dados_carimbo.length > 0 ? dados.dados_carimbo.join(', ') : 'Nenhuma'}</td>
                 <td class="${dados.nome_arquivo_encontrado ? 'success' : 'error'}">
                     ${dados.nome_arquivo_encontrado ? 'Sim' : 'Não'}
@@ -400,6 +398,8 @@ class PDFAnalyzerApp {
                 <td class="${dados.projeto_encontrado ? 'success' : 'error'}">
                     ${dados.projeto_encontrado ? 'Sim' : 'Não'}
                 </td>
+                <td class="${classeConsistencia}">${severidade.toUpperCase()} (${scoreConsistencia})</td>
+                <td title="${alertasConsistencia}">${alertasConsistencia}</td>
             `;
             
             tbody.appendChild(row);

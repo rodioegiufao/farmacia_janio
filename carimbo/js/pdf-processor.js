@@ -8,6 +8,14 @@ class PDFProcessor {
         }
     }
 
+    normalizarTexto(texto) {
+        return (texto || '')
+            .replace(/\s+/g, ' ')
+            .replace(/[_\-\/]+/g, '/')
+            .trim()
+            .toUpperCase();
+    }
+
     // Função para extrair o número da prancha do nome do arquivo
     extrairNumeroPrancha(nomeArquivo) {
         try {
@@ -24,7 +32,7 @@ class PDFProcessor {
             for (const padrao of padroes) {
                 const correspondencia = nomeSemExt.match(padrao);
                 if (correspondencia) {
-                    return `${correspondencia[1]} ${correspondencia[2]}`;
+                    return `${correspondencia[1]}/${correspondencia[2]}`;
                 }
             }
         } catch (error) {
@@ -87,6 +95,7 @@ class PDFProcessor {
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
                 const textoExtraido = textContent.items.map(item => item.str).join(' ').replace(/\n/g, ' ');
+                const textoNormalizado = this.normalizarTexto(textoExtraido);
                 
                 // Verificar se o nome do arquivo está no texto da página
                 if (checkFilename && nomeSemAssinado && textoExtraido.includes(nomeSemAssinado)) {
@@ -95,12 +104,8 @@ class PDFProcessor {
                 
                 // Verificar se o número da prancha está no texto
                 if (checkSheetNumber && numeroPrancha) {
-                    const variacoesPrancha = [
-                        numeroPrancha,
-                        numeroPrancha.replace(' ', '_'),
-                        numeroPrancha.replace(' ', '-')
-                    ];
-                    if (variacoesPrancha.some(variacao => textoExtraido.includes(variacao))) {
+                    const pranchaNormalizada = this.normalizarTexto(numeroPrancha);
+                    if (textoNormalizado.includes(pranchaNormalizada)) {
                         pranchaEncontrada = true;
                     }
                 }

@@ -222,9 +222,15 @@ class PDFProcessor {
         const matches = [
             ...trechoDepoisFolha.matchAll(/\b(\d{1,3}\s*\/\s*\d{1,3})\b/g)
         ];
-        if (!matches.length) return null;
+        if (matches.length) {
+            return matches[0][1].replace(/\s+/g, '');
+        }
 
-        return matches[0][1].replace(/\s+/g, '');
+        // Fallback sem barra: busca dois números em sequência separados apenas por espaço
+        const matchEspaco = trechoDepoisFolha.match(/\b(\d{1,3})\s+(\d{1,3})\b/);
+        if (!matchEspaco) return null;
+
+        return `${matchEspaco[1]}/${matchEspaco[2]}`;
     }
 
     validarFolhaContraEsperada(folhaLida, numeroPranchaEsperado) {

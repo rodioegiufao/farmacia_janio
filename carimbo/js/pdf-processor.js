@@ -201,7 +201,7 @@ class PDFProcessor {
         ];
         if (!matches.length) return null;
 
-        return matches[matches.length - 1][1].replace(/\s+/g, '');
+        return matches[0][1].replace(/\s+/g, '');
     }
 
     validarFolhaContraEsperada(folhaLida, numeroPranchaEsperado) {

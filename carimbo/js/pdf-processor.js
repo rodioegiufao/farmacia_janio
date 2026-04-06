@@ -61,25 +61,7 @@ class PDFProcessor {
 
     // Extrai o valor do campo "FOLHA" usando um recorte relativo da prancha
     extrairFolhaPorCaixa(textContent, viewport, box) {
-        if (!textContent?.items?.length || !viewport || !box) return null;
-
-        const pageWidth = viewport.width;
-        const pageHeight = viewport.height;
-
-        const xMin = pageWidth * box.xMin;
-        const xMax = pageWidth * box.xMax;
-        const yMin = pageHeight * box.yMin;
-        const yMax = pageHeight * box.yMax;
-
-        const itensNaRegiao = textContent.items.filter(item => {
-            if (!item?.transform || item.transform.length < 6) return false;
-
-            const x = item.transform[4];
-            const y = item.transform[5];
-            const str = (item.str || '').trim();
-
-            return str && x >= xMin && x <= xMax && y >= yMin && y <= yMax;
-        });
+        const itensNaRegiao = this.extrairItensPorCaixa(textContent, viewport, box);
 
         if (!itensNaRegiao.length) return null;
 
@@ -96,6 +78,28 @@ class PDFProcessor {
         return match ? match[1].replace(/\s+/g, '') : null;
     }
 
+    extrairItensPorCaixa(textContent, viewport, box) {
+        if (!textContent?.items?.length || !viewport || !box) return [];
+
+        const pageWidth = viewport.width;
+        const pageHeight = viewport.height;
+
+        const xMin = pageWidth * box.xMin;
+        const xMax = pageWidth * box.xMax;
+        const yMin = pageHeight * box.yMin;
+        const yMax = pageHeight * box.yMax;
+
+        return textContent.items.filter(item => {
+            if (!item?.transform || item.transform.length < 6) return false;
+
+            const x = item.transform[4];
+            const y = item.transform[5];
+            const str = (item.str || '').trim();
+
+            return str && x >= xMin && x <= xMax && y >= yMin && y <= yMax;
+        });
+    }
+
     getBoxesFolha() {
         return {
             A1_A2: {
@@ -104,11 +108,11 @@ class PDFProcessor {
                 yMin: 0.015,
                 yMax: 0.105
             },
-            A0: {
-                xMin: 0.900,
-                xMax: 0.992,
-                yMin: 0.010,
-                yMax: 0.145
+            A0_CARIMBO: {
+                xMin: 0.72,
+                xMax: 0.995,
+                yMin: 0.00,
+                yMax: 0.20
             }
         };
     }
@@ -127,34 +131,75 @@ class PDFProcessor {
         return 'A1_A2';
     }
 
+    extrairFolhaDoCarimboA0(textContent, viewport) {
+        const boxes = this.getBoxesFolha();
+        const itens = this.extrairItensPorCaixa(textContent, viewport, boxes.A0_CARIMBO);
+
+        if (!itens.length) return null;
+
+        const candidatosFolha = itens.filter(item => {
+            const str = (item.str || '').toUpperCase().trim();
+            return str.includes('FOLHA');
+        });
+
+        if (!candidatosFolha.length) return null;
+
+        const folhaLabel = candidatosFolha.sort((a, b) => {
+            const dy = b.transform[5] - a.transform[5];
+            if (Math.abs(dy) > 2) return dy;
+            return a.transform[4] - b.transform[4];
+        })[0];
+
+        const labelX = folhaLabel.transform[4];
+        const labelY = folhaLabel.transform[5];
+
+        const abaixo = itens.filter(item => {
+            const str = (item.str || '').trim();
+            const x = item.transform[4];
+            const y = item.transform[5];
+
+            return (
+                str &&
+                x >= labelX - 20 &&
+                x <= labelX + 180 &&
+                y <= labelY - 2 &&
+                y >= labelY - 130
+            );
+        });
+
+        abaixo.sort((a, b) => {
+            const dy = b.transform[5] - a.transform[5];
+            if (Math.abs(dy) > 2) return dy;
+            return a.transform[4] - b.transform[4];
+        });
+
+        const texto = abaixo.map(i => i.str).join(' ');
+        const match = texto.match(/\b(\d{1,3}\s*\/\s*\d{1,3})\b/);
+
+        return match ? match[1].replace(/\s+/g, '') : null;
+    }
+
     extrairFolhaComFallback(textContent, viewport, textoExtraido) {
         const boxes = this.getBoxesFolha();
         const formato = this.detectarFormatoPrancha(textoExtraido, viewport);
 
         let folha = null;
 
-        // 1) tenta recorte do formato detectado
         if (formato === 'A0') {
-            folha = this.extrairFolhaPorCaixa(textContent, viewport, boxes.A0);
+            folha = this.extrairFolhaDoCarimboA0(textContent, viewport);
             if (folha) return folha;
-        } else {
+
             folha = this.extrairFolhaPorCaixa(textContent, viewport, boxes.A1_A2);
             if (folha) return folha;
+
+            return null;
         }
 
-        // 2) se não achou, tenta recorte alternativo
-        if (formato === 'A0') {
-            folha = this.extrairFolhaPorCaixa(textContent, viewport, boxes.A1_A2);
-            if (folha) return folha;
-        } else {
-            folha = this.extrairFolhaPorCaixa(textContent, viewport, boxes.A0);
-            if (folha) return folha;
-        }
-
-        // 3) fallback por âncora de texto
-        folha = this.extrairFolhaPorAnchor(textContent, viewport);
+        folha = this.extrairFolhaPorCaixa(textContent, viewport, boxes.A1_A2);
         if (folha) return folha;
 
+        folha = this.extrairFolhaPorAnchor(textContent, viewport);
+        if (folha) return folha;
         return null;
     }
     // Fallback: tenta localizar o rótulo "FOLHA" e lê os itens logo abaixo dele

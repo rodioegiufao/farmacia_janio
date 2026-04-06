@@ -39,8 +39,6 @@ class ExcelGenerator {
             dadosTabela.push({
                 "Código Projeto": dados.codigo_projeto || "Não identificado",
                 "Descrição Projeto": dados.descricao_projeto,
-                "Consistência": `${severidade.toUpperCase()} (${score})`,
-                "Alertas de consistência": alertas,
                 "Palavras-chave encontradas": dados.dados_carimbo.length > 0 ? 
                     dados.dados_carimbo.join(', ') : "Nenhuma",
                 "Nome do Arquivo": nomeArquivo,
@@ -49,7 +47,9 @@ class ExcelGenerator {
                 "Nome encontrado": dados.nome_arquivo_encontrado ? "Sim" : "Não",
                 "Prancha encontrada": dados.prancha_encontrada ? "Sim" : "Não",
                 "Arquivo assinado": dados.assinado_pelo_nome ? "Sim" : "Não",
-                "Projeto encontrado": dados.projeto_encontrado ? "Sim" : "Não"
+                "Projeto encontrado": dados.projeto_encontrado ? "Sim" : "Não",
+                "Consistência": `${severidade.toUpperCase()} (${score})`,
+                "Alertas de consistência": alertas
             });
         }
 

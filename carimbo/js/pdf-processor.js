@@ -496,6 +496,9 @@ class PDFProcessor {
             const descricaoProjeto = window.MAPEAMENTO_PROJETOS && window.MAPEAMENTO_PROJETOS[codigoProjeto] 
                 ? window.MAPEAMENTO_PROJETOS[codigoProjeto] 
                 : 'Desconhecido';
+            const termoBuscaProjeto = window.MAPEAMENTO_BUSCA_PROJETOS && window.MAPEAMENTO_BUSCA_PROJETOS[codigoProjeto]
+                ? window.MAPEAMENTO_BUSCA_PROJETOS[codigoProjeto]
+                : descricaoProjeto;
 
             // Inicializar resultados
             const dadosCarimbo = [];
@@ -588,8 +591,8 @@ class PDFProcessor {
                 }
                 
                 // Verificar se a descrição do projeto está no texto
-                if (checkProjeto && codigoProjeto && descricaoProjeto !== 'Desconhecido') {
-                    if (textoExtraido.includes(descricaoProjeto)) {
+                if (checkProjeto && codigoProjeto && termoBuscaProjeto !== 'Desconhecido') {
+                    if (textoExtraido.includes(termoBuscaProjeto)) {
                         projetoEncontrado = true;
                     }
                 }

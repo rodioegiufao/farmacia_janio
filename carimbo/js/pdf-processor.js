@@ -175,12 +175,61 @@ class PDFProcessor {
         if (texto.includes('FORMATO A0')) return 'A0';
         if (texto.includes('FORMATO A1+')) return 'A1_A2';
         if (texto.includes('FORMATO A2+')) return 'A1_A2';
+        if (texto.includes('FORMATO A1')) return 'A1_A2';
+        if (texto.includes('FORMATO A2')) return 'A1_A2';
         if (!viewport?.width || !viewport?.height) return 'A1_A2';
 
         const proporcao = viewport.width / viewport.height;
 
         if (proporcao < 1.55) return 'A0';
         return 'A1_A2';
+    }
+
+    extrairFolhaPorTextoCompleto(textoExtraido) {
+        const texto = this.normalizarTexto(textoExtraido);
+        if (!texto) return null;
+
+        const matchFolha = texto.match(/FOLHA\s*:?\s*(\d{1,3}\s*\/\s*\d{1,3})/i);
+        if (matchFolha?.[1]) {
+            return matchFolha[1].replace(/\s+/g, '');
+        }
+
+        const matches = [...texto.matchAll(/\b(\d{1,3}\s*\/\s*\d{1,3})\b/g)];
+        if (!matches.length) return null;
+
+        return matches[matches.length - 1][1].replace(/\s+/g, '');
+    }
+
+    corrigirFolhaParcial(folhaLida, numeroPranchaEsperado) {
+        const folhaNorm = this.normalizarNumeroFolha(folhaLida);
+        const esperadaNorm = this.normalizarNumeroFolha(numeroPranchaEsperado);
+
+        if (!folhaLida || !numeroPranchaEsperado || !esperadaNorm) {
+            return folhaNorm || folhaLida || null;
+        }
+
+        if (folhaNorm === esperadaNorm) return folhaNorm;
+
+        const matchLida = `${folhaLida}`.match(/(\d{1,3})\s*\/\s*(\d{1,3})/);
+        const matchEsperada = `${numeroPranchaEsperado}`.match(/(\d{1,3})\s*\/\s*(\d{1,3})/);
+
+        if (!matchLida || !matchEsperada) return folhaNorm || folhaLida;
+
+        const atualLida = Number.parseInt(matchLida[1], 10);
+        const totalLidoRaw = matchLida[2];
+        const atualEsperada = Number.parseInt(matchEsperada[1], 10);
+        const totalEsperadoRaw = matchEsperada[2];
+        const totalEsperado = Number.parseInt(totalEsperadoRaw, 10);
+
+        if (
+            atualLida === atualEsperada &&
+            totalEsperadoRaw.startsWith(totalLidoRaw) &&
+            !Number.isNaN(totalEsperado)
+        ) {
+            return `${atualEsperada}/${totalEsperado}`;
+        }
+
+        return folhaNorm || folhaLida;
     }
 
     extrairFolhaDoCarimboA0(textContent, viewport) {
@@ -425,9 +474,18 @@ class PDFProcessor {
                         textoExtraido
                     );
 
+                    if (!folhaExtraidaPagina) {
+                        folhaExtraidaPagina = this.extrairFolhaPorTextoCompleto(textoExtraido);
+                    }
+
                     if (!folhaExtraidaPagina && formatoPrancha === 'A0') {
                         folhaExtraidaPagina = await this.extrairFolhaPorImagem(page, 'A0');
                     }
+
+                    folhaExtraidaPagina = this.corrigirFolhaParcial(
+                        folhaExtraidaPagina,
+                        numeroPrancha
+                    );
 
                     if (folhaExtraidaPagina) {
                         folhaCarimbo = folhaExtraidaPagina;

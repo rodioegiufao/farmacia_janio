@@ -512,7 +512,7 @@ class PDFProcessor {
                         folhaExtraidaPagina = await this.extrairFolhaPorImagem(page, 'A0');
                     }
 
-                    folhaExtraidaPagina = this.corrigirFolhaParcial(
+                    folhaExtraidaPagina = this.validarFolhaContraEsperada(
                         folhaExtraidaPagina,
                         numeroPrancha
                     );

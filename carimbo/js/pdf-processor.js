@@ -335,7 +335,7 @@ class PDFProcessor {
             const x = item.transform[4];
             const y = item.transform[5];
 
-            return str.includes('FOLHA') && x >= pageWidth * 0.68 && y <= pageHeight * 0.38;
+            return str.includes('FOLHA') && x >= pageWidth * 0.5 && y <= pageHeight * 0.5;
         });
 
         if (!candidatos.length) return null;

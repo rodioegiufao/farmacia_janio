@@ -32,9 +32,15 @@ class ExcelGenerator {
         const dadosTabela = [];
 
         for (const [nomeArquivo, dados] of Object.entries(resultados)) {
+            const analise = dados.analise_consistencia;
+            const severidade = analise?.severidade || 'n/a';
+            const score = analise?.score ?? 'N/A';
+            const alertas = analise?.alertas?.length ? analise.alertas.join(' | ') : 'Sem alertas';
             dadosTabela.push({
                 "Código Projeto": dados.codigo_projeto || "Não identificado",
                 "Descrição Projeto": dados.descricao_projeto,
+                "Consistência": `${severidade.toUpperCase()} (${score})`,
+                "Alertas de consistência": alertas,
                 "Palavras-chave encontradas": dados.dados_carimbo.length > 0 ? 
                     dados.dados_carimbo.join(', ') : "Nenhuma",
                 "Nome do Arquivo": nomeArquivo,

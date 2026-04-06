@@ -193,7 +193,7 @@ class PDFProcessor {
         if (posFolha === -1) return null;
 
         // Limita a busca para evitar falsos positivos distantes do campo FOLHA
-        const trechoDepoisFolha = texto.slice(posFolha, posFolha + 800);
+        const trechoDepoisFolha = texto.slice(posFolha, posFolha + 2500);
 
         // Captura a primeira paginação válida dentro da janela
         const matches = [
@@ -201,7 +201,7 @@ class PDFProcessor {
         ];
         if (!matches.length) return null;
 
-        return matches[0][1].replace(/\s+/g, '');
+        return matches[matches.length - 1][1].replace(/\s+/g, '');
     }
 
     validarFolhaContraEsperada(folhaLida, numeroPranchaEsperado) {
@@ -512,7 +512,7 @@ class PDFProcessor {
                         folhaExtraidaPagina = await this.extrairFolhaPorImagem(page, 'A0');
                     }
 
-                    folhaExtraidaPagina = this.validarFolhaContraEsperada(
+                    folhaExtraidaPagina = this.corrigirFolhaParcial(
                         folhaExtraidaPagina,
                         numeroPrancha
                     );

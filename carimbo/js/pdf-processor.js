@@ -189,12 +189,19 @@ class PDFProcessor {
         const texto = (textoExtraido || '').replace(/\s+/g, ' ').trim().toUpperCase();
         if (!texto) return null;
 
-        const matchFolha = texto.match(/FOLHA\s*:?\s*(\d{1,3}\s*\/\s*\d{1,3})/i);
-        if (matchFolha?.[1]) {
-            return matchFolha[1].replace(/\s+/g, '');
-        }
+        const posFolha = texto.indexOf('FOLHA');
+        if (posFolha === -1) return null;
 
-        return null;
+        // Limita a busca para evitar falsos positivos distantes do campo FOLHA
+        const trechoDepoisFolha = texto.slice(posFolha, posFolha + 800);
+
+        // Captura a primeira paginação válida dentro da janela
+        const matches = [
+            ...trechoDepoisFolha.matchAll(/\b(\d{1,3}\s*\/\s*\d{1,3})\b/g)
+        ];
+        if (!matches.length) return null;
+
+        return matches[0][1].replace(/\s+/g, '');
     }
 
     validarFolhaContraEsperada(folhaLida, numeroPranchaEsperado) {
@@ -510,7 +517,7 @@ class PDFProcessor {
                         numeroPrancha
                     );
 
-                    folhaExtraidaPagina = this.corrigirFolhaParcial(
+                    folhaExtraidaPagina = this.validarFolhaContraEsperada(
                         folhaExtraidaPagina,
                         numeroPrancha
                     );

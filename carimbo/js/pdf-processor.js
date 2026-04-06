@@ -16,6 +16,14 @@ class PDFProcessor {
             .toUpperCase();
     }
 
+    normalizarTextoComparacao(texto) {
+        return (texto || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ')
+            .toUpperCase();
+    }
+
     normalizarNumeroFolha(valorFolha) {
         if (!valorFolha) return null;
 
@@ -475,6 +483,69 @@ class PDFProcessor {
         }
     }
 
+    contarOcorrencias(texto, termo) {
+        if (!texto || !termo) return 0;
+        const regex = new RegExp(`\\b${this.escaparRegex(termo)}\\b`, 'g');
+        return (texto.match(regex) || []).length;
+    }
+
+    analisarCompatibilidadeDisciplina(codigoProjeto, textosPaginas) {
+        const regra = window.REGRAS_COMPATIBILIDADE_DISCIPLINA?.[codigoProjeto];
+        if (!regra) return null;
+
+        const textoCombinado = this.normalizarTextoComparacao((textosPaginas || []).join(' '));
+        if (!textoCombinado) return null;
+
+        const obrigatoriosEncontrados = regra.obrigatorios.filter(termo =>
+            textoCombinado.includes(termo)
+        );
+        const suspeitosEncontrados = regra.suspeitos.filter(termo =>
+            textoCombinado.includes(termo)
+        );
+
+        const totalOcorrenciasSuspeitos = suspeitosEncontrados.reduce((total, termo) => (
+            total + this.contarOcorrencias(textoCombinado, termo)
+        ), 0);
+
+        const padraoContextoCritico = /(LEGENDA|SIMBOLO|QUADRO|CIRCUITO|NOTAS?)/;
+        const contextoCriticoComSuspeito = suspeitosEncontrados.some(termo => {
+            const regex = new RegExp(`(LEGENDA|SIMBOLO|QUADRO|CIRCUITO|NOTAS?).{0,80}${this.escaparRegex(termo)}`);
+            return regex.test(textoCombinado) || (padraoContextoCritico.test(textoCombinado) && totalOcorrenciasSuspeitos >= 2);
+        });
+
+        let severidade = 'ok';
+        let score = 0;
+        const alertas = [];
+
+        if (obrigatoriosEncontrados.length === 0) {
+            score += 20;
+            alertas.push(`Termos esperados da disciplina ${codigoProjeto} não foram encontrados.`);
+        }
+
+        if (suspeitosEncontrados.length > 0) {
+            severidade = 'aviso';
+            score += Math.min(totalOcorrenciasSuspeitos * 12, 45);
+            alertas.push(
+                `Encontrados termos potencialmente incompatíveis com ${codigoProjeto}: ${suspeitosEncontrados.join(', ')}.`
+            );
+        }
+
+        if (totalOcorrenciasSuspeitos >= 3 || contextoCriticoComSuspeito) {
+            severidade = 'erro';
+            score += contextoCriticoComSuspeito ? 45 : 30;
+            alertas.push('Os termos suspeitos aparecem com frequência ou em contexto técnico (legenda/quadro/notas).');
+        }
+
+        return {
+            severidade,
+            score: Math.min(score, 100),
+            obrigatorios_encontrados: obrigatoriosEncontrados,
+            termos_suspeitos: suspeitosEncontrados,
+            total_ocorrencias_suspeitos: totalOcorrenciasSuspeitos,
+            alertas
+        };
+    }
+
     // CORREÇÃO: Usar window.MAPEAMENTO_PROJETOS
     async processarPDF(file, palavrasChave, opcoes) {
         try {
@@ -507,6 +578,7 @@ class PDFProcessor {
             let folhaCarimbo = null;
             let projetoEncontrado = false;
             let tamanhoPrancha = null;
+            const textosPaginas = [];
 
             // Carregar PDF usando pdf.js
             const arrayBuffer = await file.arrayBuffer();
@@ -518,6 +590,7 @@ class PDFProcessor {
                 const textContent = await page.getTextContent();
                 const viewport = page.getViewport({ scale: 1 });
                 const textoExtraido = textContent.items.map(item => item.str).join(' ').replace(/\n/g, ' ');
+                textosPaginas.push(textoExtraido);
 
                 if (!tamanhoPrancha) {
                     tamanhoPrancha = this.extrairFormatoPrancha(textoExtraido);
@@ -614,6 +687,8 @@ class PDFProcessor {
                 }
             }
 
+            const analiseConsistencia = this.analisarCompatibilidadeDisciplina(codigoProjeto, textosPaginas);
+
             // Retornar estrutura idêntica ao Python
             return {
                 dados_carimbo: dadosCarimbo,
@@ -626,7 +701,8 @@ class PDFProcessor {
                 descricao_projeto: descricaoProjeto,
                 numero_prancha: numeroPrancha,
                 tamanho_prancha: tamanhoPrancha,
-                nome_arquivo: nomeArquivo
+                nome_arquivo: nomeArquivo,
+                analise_consistencia: analiseConsistencia
             };
 
         } catch (error) {
@@ -676,7 +752,8 @@ class PDFProcessor {
                     descricao_projeto: 'Erro no processamento',
                     numero_prancha: null,
                     tamanho_prancha: null,
-                    nome_arquivo: file.name.replace(/\.pdf$/i, '')
+                    nome_arquivo: file.name.replace(/\.pdf$/i, ''),
+                    analise_consistencia: null
                 };
             }
 

@@ -528,63 +528,62 @@ class PDFProcessor {
                     if (regexNumeroPrancha && regexNumeroPrancha.test(textoExtraido)) {
                         folhaCarimbo = numeroPrancha;
                         pranchaEncontrada = true;
-                        continue;
-                    }
-
-                    const formatoPrancha = this.detectarFormatoPrancha(textoExtraido, viewport);
-                    let folhaFallback = this.extrairFolhaComFallback(
-                        textContent,
-                        viewport,
-                        textoExtraido
-                    );
-                    let folhaTextoCompleto = null;
-                    let folhaOCR = null;
-                    let folhaExtraidaPagina = folhaFallback;
-
-                    if (!folhaExtraidaPagina) {
-                        folhaTextoCompleto = this.extrairFolhaPorTextoCompleto(textoExtraido);
-                        folhaExtraidaPagina = folhaTextoCompleto;
-                    }
-
-                    if (!folhaExtraidaPagina && formatoPrancha === 'A0') {
-                        folhaOCR = await this.extrairFolhaPorImagem(page, 'A0');
-                        folhaExtraidaPagina = folhaOCR;
-                    }
-
-                    const folhaCorrigida = this.corrigirFolhaParcial(
-                        folhaExtraidaPagina,
-                        numeroPrancha
-                    );
-                    folhaExtraidaPagina = folhaCorrigida;
-
-                    const folhaValidada = this.validarFolhaContraEsperada(
-                        folhaExtraidaPagina,
-                        numeroPrancha
-                    );
-                    folhaExtraidaPagina = folhaValidada;
-
-                    this.logLeituraPrancha(file.name, pageNum, {
-                        textoExtraido,
-                        formatoPrancha,
-                        folhaFallback,
-                        folhaTextoCompleto,
-                        folhaOCR,
-                        folhaCorrigida,
-                        folhaValidada
-                    });
-
-                    if (folhaExtraidaPagina) {
-                        folhaCarimbo = folhaExtraidaPagina;
-                        const folhaNormalizada = this.normalizarNumeroFolha(folhaExtraidaPagina);
-                        const numeroPranchaNormalizado = this.normalizarNumeroFolha(numeroPrancha);
-                        pranchaEncontrada = (
-                            !!folhaNormalizada &&
-                            !!numeroPranchaNormalizado &&
-                            folhaNormalizada === numeroPranchaNormalizado
-                        );
                     } else {
-                        folhaCarimbo = null;
-                        pranchaEncontrada = false;
+                        const formatoPrancha = this.detectarFormatoPrancha(textoExtraido, viewport);
+                        let folhaFallback = this.extrairFolhaComFallback(
+                            textContent,
+                            viewport,
+                            textoExtraido
+                        );
+                        let folhaTextoCompleto = null;
+                        let folhaOCR = null;
+                        let folhaExtraidaPagina = folhaFallback;
+
+                        if (!folhaExtraidaPagina) {
+                            folhaTextoCompleto = this.extrairFolhaPorTextoCompleto(textoExtraido);
+                            folhaExtraidaPagina = folhaTextoCompleto;
+                        }
+
+                        if (!folhaExtraidaPagina && formatoPrancha === 'A0') {
+                            folhaOCR = await this.extrairFolhaPorImagem(page, 'A0');
+                            folhaExtraidaPagina = folhaOCR;
+                        }
+
+                        const folhaCorrigida = this.corrigirFolhaParcial(
+                            folhaExtraidaPagina,
+                            numeroPrancha
+                        );
+                        folhaExtraidaPagina = folhaCorrigida;
+
+                        const folhaValidada = this.validarFolhaContraEsperada(
+                            folhaExtraidaPagina,
+                            numeroPrancha
+                        );
+                        folhaExtraidaPagina = folhaValidada;
+
+                        this.logLeituraPrancha(file.name, pageNum, {
+                            textoExtraido,
+                            formatoPrancha,
+                            folhaFallback,
+                            folhaTextoCompleto,
+                            folhaOCR,
+                            folhaCorrigida,
+                            folhaValidada
+                        });
+
+                        if (folhaExtraidaPagina) {
+                            folhaCarimbo = folhaExtraidaPagina;
+                            const folhaNormalizada = this.normalizarNumeroFolha(folhaExtraidaPagina);
+                            const numeroPranchaNormalizado = this.normalizarNumeroFolha(numeroPrancha);
+                            pranchaEncontrada = (
+                                !!folhaNormalizada &&
+                                !!numeroPranchaNormalizado &&
+                                folhaNormalizada === numeroPranchaNormalizado
+                            );
+                        } else {
+                            folhaCarimbo = null;
+                            pranchaEncontrada = false;
+                        }
                     }
                 }
                 

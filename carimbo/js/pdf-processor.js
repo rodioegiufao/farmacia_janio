@@ -16,6 +16,19 @@ class PDFProcessor {
             .toUpperCase();
     }
 
+    normalizarNumeroFolha(valorFolha) {
+        if (!valorFolha) return null;
+
+        const match = `${valorFolha}`.match(/(\d{1,3})\s*\/\s*(\d{1,3})/);
+        if (!match) return null;
+
+        const atual = Number.parseInt(match[1], 10);
+        const total = Number.parseInt(match[2], 10);
+
+        if (Number.isNaN(atual) || Number.isNaN(total)) return null;
+        return `${atual}/${total}`;
+    }
+
     // Função para extrair o número da prancha do nome do arquivo
     extrairNumeroPrancha(nomeArquivo) {
         try {
@@ -394,8 +407,12 @@ class PDFProcessor {
 
                     if (folhaExtraidaPagina) {
                         folhaCarimbo = folhaExtraidaPagina;
+                        const folhaNormalizada = this.normalizarNumeroFolha(folhaExtraidaPagina);
+                        const numeroPranchaNormalizado = this.normalizarNumeroFolha(numeroPrancha);
                         pranchaEncontrada = (
-                            folhaExtraidaPagina.replace(/\s+/g, '') === numeroPrancha.replace(/\s+/g, '')
+                            !!folhaNormalizada &&
+                            !!numeroPranchaNormalizado &&
+                            folhaNormalizada === numeroPranchaNormalizado
                         );
                     } else {
                         folhaCarimbo = null;

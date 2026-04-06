@@ -262,6 +262,19 @@ class PDFProcessor {
         return folhaNorm || folhaLida;
     }
 
+    logLeituraPrancha(fileName, pageNum, dadosLeitura) {
+        const titulo = `🔎 [Leitura da prancha] ${fileName} - página ${pageNum}`;
+        console.groupCollapsed(titulo);
+        console.log('Texto completo extraído da página:', dadosLeitura.textoExtraido || '(vazio)');
+        console.log('Formato detectado:', dadosLeitura.formatoPrancha || 'Não identificado');
+        console.log('Folha por caixa/anchor:', dadosLeitura.folhaFallback || 'Não encontrada');
+        console.log('Folha por texto completo:', dadosLeitura.folhaTextoCompleto || 'Não encontrada');
+        console.log('Folha por OCR:', dadosLeitura.folhaOCR || 'Não encontrada');
+        console.log('Folha após correção:', dadosLeitura.folhaCorrigida || 'Não encontrada');
+        console.log('Folha após validação:', dadosLeitura.folhaValidada || 'Não encontrada');
+        console.groupEnd();
+    }
+
     extrairFolhaDoCarimboA0(textContent, viewport) {
         const boxes = this.getBoxesFolha();
         const itens = this.extrairItensPorCaixa(textContent, viewport, boxes.A0);
@@ -335,7 +348,7 @@ class PDFProcessor {
             const x = item.transform[4];
             const y = item.transform[5];
 
-            return str.includes('FOLHA') && x >= pageWidth * 0.5 && y <= pageHeight * 0.6;
+            return str.includes('FOLHA') && x >= pageWidth * 0.5 && y <= pageHeight * 0.5;
         });
 
         if (!candidatos.length) return null;
@@ -495,32 +508,48 @@ class PDFProcessor {
                     nomeArquivoEncontrado = true;
                 }
                 
-                // Verificar se o número da prancha especificamente no campo FOLHA do carimbo
                 if (checkSheetNumber && numeroPrancha) {
                     const formatoPrancha = this.detectarFormatoPrancha(textoExtraido, viewport);
-                    let folhaExtraidaPagina = this.extrairFolhaComFallback(
+                    let folhaFallback = this.extrairFolhaComFallback(
                         textContent,
                         viewport,
                         textoExtraido
                     );
+                    let folhaTextoCompleto = null;
+                    let folhaOCR = null;
+                    let folhaExtraidaPagina = folhaFallback;
 
                     if (!folhaExtraidaPagina) {
-                        folhaExtraidaPagina = this.extrairFolhaPorTextoCompleto(textoExtraido);
+                        folhaTextoCompleto = this.extrairFolhaPorTextoCompleto(textoExtraido);
+                        folhaExtraidaPagina = folhaTextoCompleto;
                     }
 
                     if (!folhaExtraidaPagina && formatoPrancha === 'A0') {
-                        folhaExtraidaPagina = await this.extrairFolhaPorImagem(page, 'A0');
+                        folhaOCR = await this.extrairFolhaPorImagem(page, 'A0');
+                        folhaExtraidaPagina = folhaOCR;
                     }
 
-                    folhaExtraidaPagina = this.corrigirFolhaParcial(
+                    const folhaCorrigida = this.corrigirFolhaParcial(
                         folhaExtraidaPagina,
                         numeroPrancha
                     );
+                    folhaExtraidaPagina = folhaCorrigida;
 
-                    folhaExtraidaPagina = this.validarFolhaContraEsperada(
+                    const folhaValidada = this.validarFolhaContraEsperada(
                         folhaExtraidaPagina,
                         numeroPrancha
                     );
+                    folhaExtraidaPagina = folhaValidada;
+
+                    this.logLeituraPrancha(file.name, pageNum, {
+                        textoExtraido,
+                        formatoPrancha,
+                        folhaFallback,
+                        folhaTextoCompleto,
+                        folhaOCR,
+                        folhaCorrigida,
+                        folhaValidada
+                    });
 
                     if (folhaExtraidaPagina) {
                         folhaCarimbo = folhaExtraidaPagina;

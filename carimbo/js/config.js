@@ -48,6 +48,29 @@ window.MAPEAMENTO_BUSCA_PROJETOS = {
     "ECX": "PROJETO ELÉTRICO DE EXAUSTÃO E",
 };
 
+window.REGRAS_COMPATIBILIDADE_DISCIPLINA = {
+    ILU: {
+        obrigatorios: ["ILUMINACAO", "LUMINARIA", "INTERRUPTOR", "PONTO DE LUZ"],
+        suspeitos: ["TOMADA", "TUG", "TUE", "2P+T", "TOMADA BAIXA", "TOMADA MEDIA"]
+    },
+    TUG: {
+        obrigatorios: ["TOMADA", "TUG", "TUE", "2P+T"],
+        suspeitos: ["LUMINARIA", "ILUMINACAO", "INTERRUPTOR", "PONTO DE LUZ"]
+    },
+    CFTV: {
+        obrigatorios: ["CFTV", "CAMERA", "NVR", "DVR"],
+        suspeitos: ["TOMADA", "LUMINARIA", "INTERRUPTOR", "TELEFONIA"]
+    },
+    CAB: {
+        obrigatorios: ["CABEAMENTO", "DADOS", "RACK", "PATCH PANEL"],
+        suspeitos: ["LUMINARIA", "TUG", "CAMERA", "TELEFONIA"]
+    },
+    TEF: {
+        obrigatorios: ["TELEFONIA", "VOZ", "TELEFONE", "PABX"],
+        suspeitos: ["LUMINARIA", "TUG", "CAMERA", "CFTV"]
+    }
+};
+
 window.PALAVRAS_CHAVE_PADRAO = [
     "CONSTRUÇÃO DE UMA CRECHE E PRÉ-ESCOLAR PADRÃO FNDE TIPO 1 - PROINFÂNCIA NO BAIRRO NOVA CANAÃ, ",
     "NO MUNICÍPIO DE BOA VISTA/RR",
@@ -80,10 +103,6 @@ window.PALAVRAS_CHAVE_ENGENHEIROS = (() => {
 console.log('✅ Configurações carregadas:', {
     engenheiros: Object.keys(window.ENGENHEIROS_CREAS_FIXOS).length,
     projetos: Object.keys(window.MAPEAMENTO_PROJETOS).length,
-    palavrasChave: window.PALAVRAS_CHAVE_ENGENHEIROS.length
+    palavrasChave: window.PALAVRAS_CHAVE_ENGENHEIROS.length,
+    regrasCompatibilidade: Object.keys(window.REGRAS_COMPATIBILIDADE_DISCIPLINA || {}).length
 });
-
-
-
-
-

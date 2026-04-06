@@ -150,6 +150,25 @@ class PDFProcessor {
         };
     }
 
+    extrairFormatoPrancha(textoExtraido) {
+        const texto = this.normalizarTexto(textoExtraido);
+        if (!texto) return null;
+
+        const padroes = [
+            /FORMATO\s+([A-Z0-9+]+)/,
+            /FORMATO\s*[:\-]\s*([A-Z0-9+]+)/
+        ];
+
+        for (const padrao of padroes) {
+            const match = texto.match(padrao);
+            if (match?.[1]) {
+                return match[1];
+            }
+        }
+
+        return null;
+    }
+
     detectarFormatoPrancha(textoExtraido, viewport) {
         const texto = (textoExtraido || '').toUpperCase();
 
@@ -376,6 +395,7 @@ class PDFProcessor {
             let pranchaEncontrada = false;
             let folhaCarimbo = null;
             let projetoEncontrado = false;
+            let tamanhoPrancha = null;
 
             // Carregar PDF usando pdf.js
             const arrayBuffer = await file.arrayBuffer();
@@ -387,6 +407,10 @@ class PDFProcessor {
                 const textContent = await page.getTextContent();
                 const viewport = page.getViewport({ scale: 1 });
                 const textoExtraido = textContent.items.map(item => item.str).join(' ').replace(/\n/g, ' ');
+
+                if (!tamanhoPrancha) {
+                    tamanhoPrancha = this.extrairFormatoPrancha(textoExtraido);
+                }
                 // Verificar se o nome do arquivo está no texto da página
                 if (checkFilename && nomeSemAssinado && textoExtraido.includes(nomeSemAssinado)) {
                     nomeArquivoEncontrado = true;
@@ -455,6 +479,7 @@ class PDFProcessor {
                 codigo_projeto: codigoProjeto,
                 descricao_projeto: descricaoProjeto,
                 numero_prancha: numeroPrancha,
+                tamanho_prancha: tamanhoPrancha,
                 nome_arquivo: nomeArquivo
             };
 
@@ -504,6 +529,7 @@ class PDFProcessor {
                     codigo_projeto: null,
                     descricao_projeto: 'Erro no processamento',
                     numero_prancha: null,
+                    tamanho_prancha: null,
                     nome_arquivo: file.name.replace(/\.pdf$/i, '')
                 };
             }

@@ -3578,15 +3578,15 @@ const IPER_MODEL_TRANSFORMS = {
 };
 
 const FARMACIA_MODEL_TRANSFORMS = {
-    IFC_EST: { position: [2.22, 0.1, 2.61] },
+    IFC_EST: { position: [2.22, 0, 2.61] },
     IFC_SAN: { position: [14.09, 0, 0] },
-    IFC_HID: { position: [0, 0.1, 0] },
+    IFC_HID: { position: [0, 0, 0] },
     //IFC_INC: { position: [14.09, 0, 0] },
     IFC_ILUX: { position: [14.09, 0, 0] },
     IFC_ALI: { position: [14.09, 0, 0] },
     IFC_FOT: { position: [14.09, 0, 0] },
     IFC_ARQ: { position: [14.09, 0, 0] },
-    IFC_CLI: { position: [14.09, 0.05, 0] },
+    IFC_CLI: { position: [14.09, 0, 0] },
     //IFC_EXA: { position: [14.09, 0, 0] },
     //IFC_ELE: { position: [14.09, 0, 0] },
     IFC_LOG_TEF: { position: [14.09, 0, 0] },

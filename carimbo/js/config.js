@@ -110,3 +110,13 @@ console.log('✅ Configurações carregadas:', {
     palavrasChave: window.PALAVRAS_CHAVE_ENGENHEIROS.length,
     regrasCompatibilidade: Object.keys(window.REGRAS_COMPATIBILIDADE_DISCIPLINA || {}).length
 });
+
+window.ROBOFLOW_CONFIG = {
+    enabled: true,
+    publishableKey: 'rf_x8t9CtJKNVZN7hgVjTQemZ8NmHF3',
+    model: 'comodos',
+    version: 9,
+    confidenceMin: 0.45,
+    analyzeAllPages: true,
+    imageScale: 1.8
+};

@@ -120,5 +120,7 @@ window.ROBOFLOW_CONFIG = {
     analyzeAllPages: true,
     imageScale: 1,
     inferenceWidth: 640,
-    inferenceHeight: 640
+    inferenceHeight: 640,
+    modelLoadTimeoutMs: 45000,
+    inferenceTimeoutMs: 30000
 };

@@ -6,6 +6,117 @@ class PDFProcessor {
         if (this.pdfjsLib && !this.pdfjsLib.GlobalWorkerOptions.workerSrc) {
             this.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
+        this.roboflowModelPromise = null;
+    }
+
+    async carregarModeloComodos() {
+        const cfg = window.ROBOFLOW_CONFIG;
+
+        if (!cfg?.enabled || !cfg?.publishableKey) return null;
+        if (!window.roboflow) {
+            throw new Error('Biblioteca do Roboflow não foi carregada.');
+        }
+
+        if (!this.roboflowModelPromise) {
+            this.roboflowModelPromise = window.roboflow
+                .auth({
+                    publishable_key: cfg.publishableKey
+                })
+                .load({
+                    model: cfg.model,
+                    version: cfg.version
+                });
+        }
+
+        return this.roboflowModelPromise;
+    }
+
+    async renderizarPaginaParaCanvas(page, scale = 1.8) {
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        if (!ctx) {
+            throw new Error('Não foi possível criar o canvas para análise da página.');
+        }
+
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+
+        await page.render({
+            canvasContext: ctx,
+            viewport
+        }).promise;
+
+        return canvas;
+    }
+
+    normalizarPredicoesComodos(predictions, pageNum) {
+        if (!Array.isArray(predictions)) return [];
+
+        return predictions.map((pred, index) => ({
+            id: index + 1,
+            pagina_pdf: pageNum,
+            comodo: pred.class || pred.label || pred.prediction || 'Desconhecido',
+            confianca: Number(pred.confidence || 0),
+            x: pred.x ?? null,
+            y: pred.y ?? null,
+            width: pred.width ?? null,
+            height: pred.height ?? null,
+            points: Array.isArray(pred.points) ? pred.points.length : 0
+        }));
+    }
+
+    gerarResumoComodos(deteccoes) {
+        const mapa = {};
+
+        for (const item of deteccoes) {
+            const chave = item.comodo;
+
+            if (!mapa[chave]) {
+                mapa[chave] = {
+                    comodo: chave,
+                    quantidade: 0,
+                    somaConfianca: 0,
+                    confiancaMax: 0,
+                    paginas: new Set()
+                };
+            }
+
+            mapa[chave].quantidade += 1;
+            mapa[chave].somaConfianca += item.confianca;
+            mapa[chave].confiancaMax = Math.max(mapa[chave].confiancaMax, item.confianca);
+            mapa[chave].paginas.add(item.pagina_pdf);
+        }
+
+        return Object.values(mapa)
+            .map(item => ({
+                comodo: item.comodo,
+                quantidade: item.quantidade,
+                confianca_media: item.quantidade > 0 ? item.somaConfianca / item.quantidade : 0,
+                confianca_max: item.confiancaMax,
+                paginas: Array.from(item.paginas).sort((a, b) => a - b).join(', ')
+            }))
+            .sort((a, b) => b.quantidade - a.quantidade || a.comodo.localeCompare(b.comodo));
+    }
+
+    async detectarComodosNaPagina(page, pageNum) {
+        try {
+            const cfg = window.ROBOFLOW_CONFIG;
+            if (!cfg?.enabled) return [];
+
+            const model = await this.carregarModeloComodos();
+            if (!model) return [];
+
+            const canvas = await this.renderizarPaginaParaCanvas(page, cfg.imageScale || 1.8);
+            const predictions = await model.detect(canvas);
+            const normalizadas = this.normalizarPredicoesComodos(predictions, pageNum);
+
+            return normalizadas.filter(item => item.confianca >= (cfg.confidenceMin ?? 0.45));
+        } catch (error) {
+            console.warn(`Falha ao detectar cômodos na página ${pageNum}:`, error);
+            return [];
+        }
     }
 
     normalizarTexto(texto) {
@@ -558,7 +669,8 @@ class PDFProcessor {
             const {
                 checkFilename = true,
                 checkSheetNumber = true,
-                checkProjeto = true
+                checkProjeto = true,
+                checkComodos = false
             } = opcoes;
 
             // Extrair informações do nome do arquivo
@@ -585,6 +697,7 @@ class PDFProcessor {
             let projetoEncontrado = false;
             let tamanhoPrancha = null;
             const textosPaginas = [];
+            const deteccoesComodos = []
 
             // Carregar PDF usando pdf.js
             const arrayBuffer = await file.arrayBuffer();
@@ -597,6 +710,15 @@ class PDFProcessor {
                 const viewport = page.getViewport({ scale: 1 });
                 const textoExtraido = textContent.items.map(item => item.str).join(' ').replace(/\n/g, ' ');
                 textosPaginas.push(textoExtraido);
+
+                const deveAnalisarComodos = checkComodos &&
+                    window.ROBOFLOW_CONFIG?.enabled &&
+                    (window.ROBOFLOW_CONFIG?.analyzeAllPages || pageNum === 1);
+
+                if (deveAnalisarComodos) {
+                    const comodosPagina = await this.detectarComodosNaPagina(page, pageNum);
+                    deteccoesComodos.push(...comodosPagina);
+                }
 
                 if (!tamanhoPrancha) {
                     tamanhoPrancha = this.extrairFormatoPrancha(textoExtraido);
@@ -694,6 +816,7 @@ class PDFProcessor {
             }
 
             const analiseConsistencia = this.analisarCompatibilidadeDisciplina(codigoProjeto, textosPaginas);
+            const resumoComodos = this.gerarResumoComodos(deteccoesComodos);
 
             // Retornar estrutura idêntica ao Python
             return {
@@ -708,7 +831,12 @@ class PDFProcessor {
                 numero_prancha: numeroPrancha,
                 tamanho_prancha: tamanhoPrancha,
                 nome_arquivo: nomeArquivo,
-                analise_consistencia: analiseConsistencia
+                analise_consistencia: analiseConsistencia,
+                comodos_ia: {
+                    total_deteccoes: deteccoesComodos.length,
+                    deteccoes: deteccoesComodos,
+                    resumo_por_classe: resumoComodos
+                }
             };
 
         } catch (error) {
@@ -759,7 +887,12 @@ class PDFProcessor {
                     numero_prancha: null,
                     tamanho_prancha: null,
                     nome_arquivo: file.name.replace(/\.pdf$/i, ''),
-                    analise_consistencia: null
+                    analise_consistencia: null,
+                    comodos_ia: {
+                        total_deteccoes: 0,
+                        deteccoes: [],
+                        resumo_por_classe: []
+                    }
                 };
             }
 

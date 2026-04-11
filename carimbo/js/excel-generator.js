@@ -8,6 +8,7 @@ class ExcelGenerator {
     gerarExcel(resultados) {
         // Preparar dados para a tabela - Similar ao DataFrame do Python
         const dadosTabela = this.prepararDadosTabela(resultados);
+        const dadosComodos = this.prepararDadosTabelaComodos(resultados);
 
         // Criar workbook - Similar ao Workbook do openpyxl
         const wb = this.XLSX.utils.book_new();
@@ -23,6 +24,10 @@ class ExcelGenerator {
         
         // Ajustar largura das colunas - Similar ao adjustment do Python
         this.ajustarLarguraColunas(ws);
+
+        const wsComodos = this.XLSX.utils.json_to_sheet(dadosComodos);
+        this.XLSX.utils.book_append_sheet(wb, wsComodos, "Cômodos IA");
+        this.ajustarLarguraColunas(wsComodos);
 
         return wb;
     }
@@ -48,12 +53,55 @@ class ExcelGenerator {
                 "Prancha encontrada": dados.prancha_encontrada ? "Sim" : "Não",
                 "Arquivo assinado": dados.assinado_pelo_nome ? "Sim" : "Não",
                 "Projeto encontrado": dados.projeto_encontrado ? "Sim" : "Não",
+                "Qtd. Cômodos IA": dados.comodos_ia?.total_deteccoes ?? 0,
                 "Consistência": `${severidade.toUpperCase()} (${score})`,
                 "Alertas de consistência": alertas
             });
         }
 
         return dadosTabela;
+    }
+
+    prepararDadosTabelaComodos(resultados) {
+        const linhas = [];
+
+        for (const [nomeArquivo, dados] of Object.entries(resultados)) {
+            const numeroPrancha = dados.numero_prancha || 'Não identificado';
+            const codigoProjeto = dados.codigo_projeto || 'Não identificado';
+            const descricaoProjeto = dados.descricao_projeto || 'Não identificado';
+            const resumo = dados.comodos_ia?.resumo_por_classe || [];
+
+            if (resumo.length === 0) {
+                linhas.push({
+                    'Nome do Arquivo': nomeArquivo,
+                    'Número da Prancha': numeroPrancha,
+                    'Código Projeto': codigoProjeto,
+                    'Descrição Projeto': descricaoProjeto,
+                    Cômodo: 'Nenhum detectado',
+                    Quantidade: 0,
+                    'Confiança média (%)': '',
+                    'Confiança máxima (%)': '',
+                    'Página(s)': ''
+                });
+                continue;
+            }
+
+            for (const item of resumo) {
+                linhas.push({
+                    'Nome do Arquivo': nomeArquivo,
+                    'Número da Prancha': numeroPrancha,
+                    'Código Projeto': codigoProjeto,
+                    'Descrição Projeto': descricaoProjeto,
+                    Cômodo: item.comodo,
+                    Quantidade: item.quantidade,
+                    'Confiança média (%)': (item.confianca_media * 100).toFixed(2),
+                    'Confiança máxima (%)': (item.confianca_max * 100).toFixed(2),
+                    'Página(s)': item.paginas
+                });
+            }
+        }
+
+        return linhas;
     }
 
     // Aplicar formatação condicional - Baseado no PatternFill do Python

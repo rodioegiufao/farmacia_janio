@@ -10,6 +10,23 @@ class PDFProcessor {
         this.roboflowLibPromise = null;
     }
 
+    withTimeout(promise, timeoutMs, timeoutMessage) {
+        if (!timeoutMs || timeoutMs <= 0) return promise;
+
+        let timeoutId = null;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+                reject(new Error(timeoutMessage));
+            }, timeoutMs);
+        });
+
+        return Promise.race([promise, timeoutPromise]).finally(() => {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        });
+    }
+
     carregarScriptExterno(src) {
         return new Promise((resolve, reject) => {
             const scriptExistente = document.querySelector(`script[src="${src}"]`);
@@ -70,7 +87,12 @@ class PDFProcessor {
         const cfg = window.ROBOFLOW_CONFIG;
 
         if (!cfg?.enabled || !cfg?.publishableKey) return null;
-        await this.garantirBibliotecaRoboflow();
+        const timeoutCarregamentoModeloMs = cfg.modelLoadTimeoutMs ?? 45000;
+        await this.withTimeout(
+            this.garantirBibliotecaRoboflow(),
+            timeoutCarregamentoModeloMs,
+            'Timeout ao carregar biblioteca do Roboflow.'
+        );
         if (!window.roboflow) throw new Error('Biblioteca do Roboflow não foi carregada.');
 
         if (!this.roboflowModelPromise) {
@@ -84,7 +106,11 @@ class PDFProcessor {
                 });
         }
 
-        return this.roboflowModelPromise;
+        return this.withTimeout(
+            this.roboflowModelPromise,
+            timeoutCarregamentoModeloMs,
+            'Timeout ao carregar modelo de IA (Roboflow).'
+        );
     }
 
     async renderizarPaginaParaCanvas(page, scale = 1.8) {
@@ -194,7 +220,12 @@ class PDFProcessor {
             const larguraInferencia = cfg.inferenceWidth ?? 640;
             const alturaInferencia = cfg.inferenceHeight ?? 640;
             const canvasInferencia = this.redimensionarCanvas(canvasPagina, larguraInferencia, alturaInferencia);
-            const predictions = await model.detect(canvasInferencia);
+            const timeoutInferenciaMs = cfg.inferenceTimeoutMs ?? 30000;
+            const predictions = await this.withTimeout(
+                model.detect(canvasInferencia),
+                timeoutInferenciaMs,
+                `Timeout na inferência da IA na página ${pageNum}.`
+            );
             const normalizadas = this.normalizarPredicoesComodos(predictions, pageNum);
 
             return normalizadas.filter(item => item.confianca >= (cfg.confidenceMin ?? 0.45));

@@ -113,7 +113,10 @@ console.log('✅ Configurações carregadas:', {
 
 window.ROBOFLOW_CONFIG = {
     enabled: true,
+    // Chave publicável para SDK no navegador.
     publishableKey: 'rf_x8t9CtJKNVZN7hgVjTQemZ8NmHF3',
+    // Para fallback REST (/detect), use uma chave privada (idealmente via backend) e NÃO comite em produção.
+    apiKey: null,
     model: 'comodos',
     version: 9,
     confidenceMin: 0.45,

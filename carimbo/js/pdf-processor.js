@@ -133,11 +133,12 @@ class PDFProcessor {
     }
 
     async detectarComodosViaApi(canvasInferencia, pageNum, cfg) {
-        if (!cfg?.publishableKey || !cfg?.model || !cfg?.version) return [];
+        const apiKey = this.obterApiKeyFallback(cfg);
+        if (!apiKey || !cfg?.model || !cfg?.version) return [];
 
         const confidence = Math.round((cfg.confidenceMin ?? 0.45) * 100);
         const timeoutMs = cfg.inferenceTimeoutMs ?? 30000;
-        const url = `https://detect.roboflow.com/${encodeURIComponent(cfg.model)}/${encodeURIComponent(cfg.version)}?api_key=${encodeURIComponent(cfg.publishableKey)}&confidence=${confidence}`;
+        const url = `https://detect.roboflow.com/${encodeURIComponent(cfg.model)}/${encodeURIComponent(cfg.version)}?api_key=${encodeURIComponent(apiKey)}&confidence=${confidence}`;
         const base64Image = canvasInferencia.toDataURL('image/jpeg', 0.9).split(',')[1];
         const controller = new AbortController();
         const timerId = setTimeout(() => controller.abort(), timeoutMs);
@@ -153,6 +154,9 @@ class PDFProcessor {
             });
 
             if (!response.ok) {
+                if (response.status === 401 || response.status === 403) {
+                    throw new Error('Roboflow API retornou HTTP 403/401. Configure ROBOFLOW_CONFIG.apiKey com uma chave privada válida (server-side).');
+                }
                 throw new Error(`Roboflow API retornou HTTP ${response.status}.`);
             }
 
@@ -161,6 +165,19 @@ class PDFProcessor {
         } finally {
             clearTimeout(timerId);
         }
+    }
+
+    obterApiKeyFallback(cfg) {
+        if (!cfg) return null;
+        // Usa chave dedicada para fallback por API quando disponível.
+        const apiKey = cfg.apiKey || null;
+
+        // Chaves publicáveis (`rf_x...`) funcionam no SDK, mas geralmente não no endpoint /detect.
+        if (!apiKey && cfg.publishableKey && cfg.publishableKey.startsWith('rf_x')) {
+            return null;
+        }
+
+        return apiKey || cfg.publishableKey || null;
     }
 
     async renderizarPaginaParaCanvas(page, scale = 1.8) {
@@ -282,6 +299,13 @@ class PDFProcessor {
                 }
             } catch (sdkError) {
                 console.warn(`Falha ao detectar cômodos com SDK na página ${pageNum}. Tentando fallback por API...`, sdkError);
+            }
+
+            if (!this.obterApiKeyFallback(cfg)) {
+                console.warn(
+                    `Fallback por API desativado na página ${pageNum}: ROBOFLOW_CONFIG.apiKey não configurada (ou apenas publishableKey rf_x).`
+                );
+                return [];
             }
 
             const viaApi = await this.detectarComodosViaApi(canvasInferencia, pageNum, cfg);

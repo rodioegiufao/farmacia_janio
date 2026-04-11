@@ -28,17 +28,38 @@ class PDFProcessor {
         });
     }
 
-    carregarScriptExterno(src) {
+    carregarScriptExterno(src, timeoutMs = 12000) {
         return new Promise((resolve, reject) => {
+            let finalizado = false;
+            let timerId = null;
+            const finalizar = (callback) => {
+                if (finalizado) return;
+                finalizado = true;
+                if (timerId) {
+                    clearTimeout(timerId);
+                }
+                callback();
+            };
+
+            timerId = setTimeout(() => {
+                finalizar(() => reject(new Error(`Timeout ao carregar ${src}`)));
+            }, timeoutMs);
+
             const scriptExistente = document.querySelector(`script[src="${src}"]`);
             if (scriptExistente) {
-                if (scriptExistente.dataset.loaded === 'true') {
-                    resolve();
+                if (scriptExistente.dataset.loaded === 'true' || window.roboflow) {
+                    finalizar(() => resolve());
                     return;
                 }
 
-                scriptExistente.addEventListener('load', () => resolve(), { once: true });
-                scriptExistente.addEventListener('error', () => reject(new Error(`Falha ao carregar ${src}`)), { once: true });
+                const estado = scriptExistente.readyState;
+                if (estado === 'complete' && !window.roboflow) {
+                    finalizar(() => reject(new Error(`Script ${src} já finalizado, mas window.roboflow não foi exposto.`)));
+                    return;
+                }
+
+                scriptExistente.addEventListener('load', () => finalizar(() => resolve()), { once: true });
+                scriptExistente.addEventListener('error', () => finalizar(() => reject(new Error(`Falha ao carregar ${src}`))), { once: true });
                 return;
             }
 
@@ -49,9 +70,9 @@ class PDFProcessor {
             script.crossOrigin = 'anonymous';
             script.addEventListener('load', () => {
                 script.dataset.loaded = 'true';
-                resolve();
+                finalizar(() => resolve());
             }, { once: true });
-            script.addEventListener('error', () => reject(new Error(`Falha ao carregar ${src}`)), { once: true });
+            script.addEventListener('error', () => finalizar(() => reject(new Error(`Falha ao carregar ${src}`))), { once: true });
             document.head.appendChild(script);
         });
     }

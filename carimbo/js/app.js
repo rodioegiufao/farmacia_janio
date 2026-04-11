@@ -308,7 +308,8 @@ class PDFAnalyzerApp {
         const opcoes = {
             checkFilename: document.getElementById('checkFilename').checked,
             checkSheetNumber: document.getElementById('checkSheetNumber').checked,
-            checkProjeto: document.getElementById('checkProjeto').checked
+            checkProjeto: document.getElementById('checkProjeto').checked,
+            checkComodos: document.getElementById('checkComodos').checked
         };
         
         console.log('Opções:', opcoes);

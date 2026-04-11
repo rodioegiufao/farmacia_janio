@@ -107,6 +107,32 @@ class PDFProcessor {
         return canvas;
     }
 
+    redimensionarCanvas(canvasOrigem, larguraDestino = 640, alturaDestino = 640) {
+        const canvasDestino = document.createElement('canvas');
+        const ctxDestino = canvasDestino.getContext('2d', { willReadFrequently: true });
+
+        if (!ctxDestino) {
+            throw new Error('Não foi possível criar o canvas de redimensionamento para IA.');
+        }
+
+        canvasDestino.width = Math.max(1, Math.floor(larguraDestino));
+        canvasDestino.height = Math.max(1, Math.floor(alturaDestino));
+
+        ctxDestino.drawImage(
+            canvasOrigem,
+            0,
+            0,
+            canvasOrigem.width,
+            canvasOrigem.height,
+            0,
+            0,
+            canvasDestino.width,
+            canvasDestino.height
+        );
+
+        return canvasDestino;
+    }
+
     normalizarPredicoesComodos(predictions, pageNum) {
         if (!Array.isArray(predictions)) return [];
 
@@ -164,8 +190,11 @@ class PDFProcessor {
             const model = await this.carregarModeloComodos();
             if (!model) return [];
 
-            const canvas = await this.renderizarPaginaParaCanvas(page, cfg.imageScale || 1.8);
-            const predictions = await model.detect(canvas);
+            const canvasPagina = await this.renderizarPaginaParaCanvas(page, cfg.imageScale || 1);
+            const larguraInferencia = cfg.inferenceWidth ?? 640;
+            const alturaInferencia = cfg.inferenceHeight ?? 640;
+            const canvasInferencia = this.redimensionarCanvas(canvasPagina, larguraInferencia, alturaInferencia);
+            const predictions = await model.detect(canvasInferencia);
             const normalizadas = this.normalizarPredicoesComodos(predictions, pageNum);
 
             return normalizadas.filter(item => item.confianca >= (cfg.confidenceMin ?? 0.45));

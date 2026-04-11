@@ -118,5 +118,7 @@ window.ROBOFLOW_CONFIG = {
     version: 9,
     confidenceMin: 0.45,
     analyzeAllPages: true,
-    imageScale: 1.8
+    imageScale: 1,
+    inferenceWidth: 640,
+    inferenceHeight: 640
 };

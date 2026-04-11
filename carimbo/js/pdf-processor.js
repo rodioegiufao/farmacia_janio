@@ -7,15 +7,71 @@ class PDFProcessor {
             this.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
         this.roboflowModelPromise = null;
+        this.roboflowLibPromise = null;
+    }
+
+    carregarScriptExterno(src) {
+        return new Promise((resolve, reject) => {
+            const scriptExistente = document.querySelector(`script[src="${src}"]`);
+            if (scriptExistente) {
+                if (scriptExistente.dataset.loaded === 'true') {
+                    resolve();
+                    return;
+                }
+
+                scriptExistente.addEventListener('load', () => resolve(), { once: true });
+                scriptExistente.addEventListener('error', () => reject(new Error(`Falha ao carregar ${src}`)), { once: true });
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = true;
+            script.defer = true;
+            script.crossOrigin = 'anonymous';
+            script.addEventListener('load', () => {
+                script.dataset.loaded = 'true';
+                resolve();
+            }, { once: true });
+            script.addEventListener('error', () => reject(new Error(`Falha ao carregar ${src}`)), { once: true });
+            document.head.appendChild(script);
+        });
+    }
+
+    async garantirBibliotecaRoboflow() {
+        if (window.roboflow) return;
+
+        if (!this.roboflowLibPromise) {
+            this.roboflowLibPromise = (async () => {
+                const fontes = [
+                    'https://roboflow.com/releases/roboflow.js',
+                    'https://cdn.jsdelivr.net/npm/@roboflow/js@latest',
+                    'https://unpkg.com/@roboflow/js@latest'
+                ];
+
+                let ultimoErro = null;
+                for (const src of fontes) {
+                    try {
+                        await this.carregarScriptExterno(src);
+                        if (window.roboflow) return;
+                    } catch (error) {
+                        ultimoErro = error;
+                    }
+                }
+
+                throw ultimoErro || new Error('Não foi possível carregar a biblioteca do Roboflow.');
+            })();
+        }
+
+        await this.roboflowLibPromise;
     }
 
     async carregarModeloComodos() {
         const cfg = window.ROBOFLOW_CONFIG;
 
         if (!cfg?.enabled || !cfg?.publishableKey) return null;
-        if (!window.roboflow) {
-            throw new Error('Biblioteca do Roboflow não foi carregada.');
-        }
+        await this.garantirBibliotecaRoboflow();
+        if (!window.roboflow) throw new Error('Biblioteca do Roboflow não foi carregada.');
 
         if (!this.roboflowModelPromise) {
             this.roboflowModelPromise = window.roboflow

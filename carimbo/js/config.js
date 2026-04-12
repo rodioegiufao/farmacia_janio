@@ -149,3 +149,18 @@ window.ROBOFLOW_CONFIG = {
     modelLoadTimeoutMs: 45000,
     inferenceTimeoutMs: 30000
 };
+
+window.ROBOFLOW_LUMINARIAS_CONFIG = {
+    enabled: true,
+    useBackend: true,
+    backendEndpoint: '/api/detect-luminarias',
+    publishableKey: 'rf_x8t9CtJKNVZN7hgVjTQemZ8NmHF3',
+    apiKey: null,
+    model: 'luminarias-n8sqp',
+    version: 1,
+    confidenceMin: 0.45,
+    analyzeAllPages: true,
+    inferenceWidth: 1280,
+    inferenceHeight: 1280,
+    inferenceTimeoutMs: 30000
+};

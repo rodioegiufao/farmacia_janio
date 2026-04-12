@@ -113,10 +113,12 @@ console.log('✅ Configurações carregadas:', {
 
 window.ROBOFLOW_CONFIG = {
     enabled: true,
-    // Serviço de detecção centralizado em carimbo/js/detect-comodos.js.
-    useBackend: false,
+    // Em produção, manter true para não expor a chave privada no navegador.
+    useBackend: true,
+    // Endpoint do backend/proxy (Vercel Function).
+    backendEndpoint: '/api/detect-comodos'
     publishableKey: 'rf_x8t9CtJKNVZN7hgVjTQemZ8NmHF3',
-    // Necessária chave privada para detectar via endpoint /detect.
+    // Mantida nula por segurança quando useBackend=true.
     apiKey: null,
     model: 'comodos',
     version: 9,

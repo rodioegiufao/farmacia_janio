@@ -34,7 +34,16 @@
             body: JSON.stringify(payload)
         });
 
-        const data = await response.json().catch(() => ({}));
+        const rawBody = await response.text();
+        let data = {};
+
+        if (rawBody) {
+            try {
+                data = JSON.parse(rawBody);
+            } catch (error) {
+                data = { error: rawBody.trim() };
+            }
+        }
 
         if (!response.ok) {
             throw new Error(data?.error || `Backend retornou HTTP ${response.status}.`);

@@ -69,34 +69,36 @@ class ExcelGenerator {
             const numeroPrancha = dados.numero_prancha || 'Não identificado';
             const codigoProjeto = dados.codigo_projeto || 'Não identificado';
             const descricaoProjeto = dados.descricao_projeto || 'Não identificado';
-            const resumo = dados.comodos_ia?.resumo_por_classe || [];
+            const deteccoes = dados.comodos_ia?.deteccoes || [];
 
-            if (resumo.length === 0) {
+            if (deteccoes.length === 0) {
                 linhas.push({
                     'Nome do Arquivo': nomeArquivo,
                     'Número da Prancha': numeroPrancha,
                     'Código Projeto': codigoProjeto,
                     'Descrição Projeto': descricaoProjeto,
+                    'Página PDF': '',
                     Cômodo: 'Nenhum detectado',
-                    Quantidade: 0,
-                    'Confiança média (%)': '',
-                    'Confiança máxima (%)': '',
-                    'Página(s)': ''
+                    'Confiança Cômodo (%)': '',
+                    'ID Planta': '',
+                    'Classe Planta': '',
+                    'Confiança Planta (%)': ''
                 });
                 continue;
             }
 
-            for (const item of resumo) {
+            for (const item of deteccoes) {
                 linhas.push({
                     'Nome do Arquivo': nomeArquivo,
                     'Número da Prancha': numeroPrancha,
                     'Código Projeto': codigoProjeto,
                     'Descrição Projeto': descricaoProjeto,
+                    'Página PDF': item.pagina_pdf ?? '',
                     Cômodo: item.comodo,
-                    Quantidade: item.quantidade,
-                    'Confiança média (%)': (item.confianca_media * 100).toFixed(2),
-                    'Confiança máxima (%)': (item.confianca_max * 100).toFixed(2),
-                    'Página(s)': item.paginas
+                    'Confiança Cômodo (%)': item.confianca ? (item.confianca * 100).toFixed(2) : '0.00',
+                    'ID Planta': item.planta_id ?? '',
+                    'Classe Planta': item.planta_classe ?? '',
+                    'Confiança Planta (%)': item.planta_confianca ? (item.planta_confianca * 100).toFixed(2) : ''
                 });
             }
         }

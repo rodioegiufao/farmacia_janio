@@ -1,108 +1,97 @@
-// Serviço de detecção de cômodos.
-// Quando `ROBOFLOW_CONFIG.useBackend` estiver ativo, delega para /api/detect-comodos
-// para evitar exposição da chave privada no navegador.
-(function inicializarServicoDeteccaoComodos() {
-    function obterBackendUrl(cfg = {}) {
-        const fallback = '/api/detect-comodos';
-        const endpoint = (cfg.backendEndpoint || '').trim();
+const DEFAULT_MODEL = 'comodos';
+const DEFAULT_VERSION = 9;
+const DEFAULT_CONFIDENCE = 45;
+const DEFAULT_TIMEOUT_MS = 30000;
 
-        if (!endpoint) {
-            return fallback;
-        }
+function json(res, statusCode, payload) {
+    res.status(statusCode).json(payload);
+}
 
-        if (endpoint.endsWith('.js')) {
-            console.warn(`⚠️ backendEndpoint inválido (${endpoint}). Usando ${fallback}.`);
-            return fallback;
-        }
+function obterApiKeyPrivada() {
+    return process.env.ROBOFLOW_API_KEY || process.env.ROBOFLOW_PRIVATE_API_KEY || null;
+}
 
-        return endpoint;
+function sanitizarPayload(body = {}) {
+    const image = typeof body.image === 'string' ? body.image : '';
+    const model = typeof body.model === 'string' && body.model.trim() ? body.model.trim() : DEFAULT_MODEL;
+    const version = Number.isFinite(Number(body.version)) ? Number(body.version) : DEFAULT_VERSION;
+    const confidence = Number.isFinite(Number(body.confidence)) ? Number(body.confidence) : DEFAULT_CONFIDENCE;
+    const timeoutMs = Number.isFinite(Number(body.timeoutMs)) ? Number(body.timeoutMs) : DEFAULT_TIMEOUT_MS;
+
+    return {
+        image,
+        model,
+        version,
+        confidence,
+        timeoutMs: Math.max(1000, Math.min(timeoutMs, 120000))
+    };
+}
+
+module.exports = async function detectComodosHandler(req, res) {
+    if (req.method !== 'POST') {
+        res.setHeader('Allow', 'POST');
+        return json(res, 405, { error: 'Método não permitido. Use POST.' });
     }
 
-    function validarImagemBase64(image) {
-        if (!image || typeof image !== 'string' || !image.includes(',')) {
-            throw new Error('Imagem inválida para detecção de cômodos.');
-        }
+    const apiKey = obterApiKeyPrivada();
+    console.log('ROBOFLOW key exists?', !!apiKey);
+    console.log('ROBOFLOW key prefix:', apiKey ? apiKey.slice(0, 2) : 'null');
+
+    if (!apiKey || apiKey.startsWith('rf_x')) {
+        return json(res, 500, {
+            error: 'ROBOFLOW_API_KEY não configurada no backend.'
+        });
     }
 
-    async function chamarBackend(payload, cfg) {
-        const url = obterBackendUrl(cfg);
+    const payload = sanitizarPayload(req.body);
+    if (!payload.image || !payload.image.includes(',')) {
+        return json(res, 400, { error: 'Campo image inválido. Envie Data URL base64.' });
+    }
+
+    const base64Image = payload.image.split(',')[1];
+    const url = `https://detect.roboflow.com/${encodeURIComponent(payload.model)}/${encodeURIComponent(payload.version)}?api_key=${encodeURIComponent(apiKey)}&confidence=${encodeURIComponent(payload.confidence)}`;
+
+    console.log('Chamando Roboflow:', {
+        model: payload.model,
+        version: payload.version,
+        confidence: payload.confidence,
+        imageLength: base64Image.length
+    });
+
+    const controller = new AbortController();
+    const timerId = setTimeout(() => controller.abort(), payload.timeoutMs);
+
+    try {
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: JSON.stringify(payload)
+            body: base64Image,
+            signal: controller.signal
         });
 
-        const rawBody = await response.text();
-        let data = {};
-
-        if (rawBody) {
-            try {
-                data = JSON.parse(rawBody);
-            } catch (error) {
-                data = { error: rawBody.trim() };
-            }
-        }
+        const data = await response.json().catch(() => ({}));
+        console.log('Roboflow status:', response.status, data);
 
         if (!response.ok) {
-            throw new Error(data?.error || `Backend retornou HTTP ${response.status}.`);
-        }
-
-        return data;
-    }
-
-    async function chamarRoboflowDireto(payload, cfg) {
-        const apiKey = cfg.apiKey || null;
-        if (!apiKey || apiKey.startsWith('rf_x')) {
-            throw new Error('ROBOFLOW_CONFIG.apiKey (privada) não configurada para detectar cômodos.');
-        }
-
-        const base64Image = payload.image.split(',')[1];
-        const url = `https://detect.roboflow.com/${encodeURIComponent(payload.model)}/${encodeURIComponent(payload.version)}?api_key=${encodeURIComponent(apiKey)}&confidence=${encodeURIComponent(payload.confidence)}`;
-        const controller = new AbortController();
-        const timerId = setTimeout(() => controller.abort(), payload.timeoutMs);
-
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: base64Image,
-                signal: controller.signal
+            return json(res, response.status, {
+                error: data?.error || `Roboflow retornou HTTP ${response.status}.`,
+                details: data
             });
-
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data?.error || `Roboflow retornou HTTP ${response.status}.`);
-            }
-
-            return data;
-        } finally {
-            clearTimeout(timerId);
-        }
-    }
-
-    async function detectarComodos(payload = {}) {
-        const cfg = window.ROBOFLOW_CONFIG || {};
-        const requestPayload = {
-            image: payload.image,
-            model: payload.model || cfg.model || 'comodos',
-            version: payload.version || cfg.version || 9,
-            confidence: payload.confidence ?? Math.round((cfg.confidenceMin ?? 0.45) * 100),
-            timeoutMs: payload.timeoutMs ?? cfg.inferenceTimeoutMs ?? 30000,
-            pageNum: payload.pageNum ?? null
-        };
-
-        validarImagemBase64(requestPayload.image);
-
-        if (cfg.useBackend) {
-            return chamarBackend(requestPayload, cfg);
         }
 
-        return chamarRoboflowDireto(requestPayload, cfg);
-    }
+        return json(res, 200, data);
+    } catch (error) {
+        const isAbort = error?.name === 'AbortError';
+        console.error('Erro ao consultar Roboflow:', error);
 
-    window.detectarComodosServico = detectarComodos;
-})();
+        return json(res, isAbort ? 504 : 502, {
+            error: isAbort
+                ? 'Timeout ao consultar o Roboflow.'
+                : `Falha ao consultar o Roboflow: ${error.message || 'erro desconhecido'}`
+        });
+    } finally {
+        clearTimeout(timerId);
+    }
+};

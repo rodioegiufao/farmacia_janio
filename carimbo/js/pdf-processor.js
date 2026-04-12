@@ -59,6 +59,23 @@ class PDFProcessor {
         return this.normalizarPredicoesPlantas(data?.predictions || [], pageNum);
     }
 
+    async detectarLuminariasViaServico(canvasInferencia, pageNum, cfg) {
+        if (typeof window.detectarLuminariasServico !== 'function') {
+            throw new Error('Serviço de detecção de luminárias não carregado (carimbo/js/detect-luminarias.js).');
+        }
+
+        const data = await window.detectarLuminariasServico({
+            image: canvasInferencia.toDataURL('image/jpeg', 0.9),
+            model: cfg?.model,
+            version: cfg?.version,
+            confidence: Math.round((cfg?.confidenceMin ?? 0.45) * 100),
+            timeoutMs: cfg?.inferenceTimeoutMs ?? 30000,
+            pageNum
+        });
+
+        return this.normalizarPredicoesLuminarias(data?.predictions || [], pageNum);
+    }
+
     async renderizarPaginaParaCanvas(page, scale = 1.8) {
         const viewport = page.getViewport({ scale });
         const canvas = document.createElement('canvas');
@@ -133,6 +150,22 @@ class PDFProcessor {
             y: pred.y ?? null,
             width: pred.width ?? null,
             height: pred.height ?? null
+        }));
+    }
+
+    normalizarPredicoesLuminarias(predictions, pageNum) {
+        if (!Array.isArray(predictions)) return [];
+
+        return predictions.map((pred, index) => ({
+            id: index + 1,
+            pagina_pdf: pageNum,
+            luminaria: pred.class || pred.label || pred.prediction || 'Luminária',
+            confianca: Number(pred.confidence || 0),
+            x: pred.x ?? null,
+            y: pred.y ?? null,
+            width: pred.width ?? null,
+            height: pred.height ?? null,
+            points: Array.isArray(pred.points) ? pred.points.length : 0
         }));
     }
 
@@ -212,36 +245,56 @@ class PDFProcessor {
             .sort((a, b) => b.quantidade - a.quantidade || a.comodo.localeCompare(b.comodo));
     }
 
-    async detectarComodosNaPagina(page, pageNum) {
+
+    gerarResumoLuminarias(deteccoes) {
+        const mapa = {};
+
+        for (const item of deteccoes) {
+            const chave = item.luminaria;
+
+            if (!mapa[chave]) {
+                mapa[chave] = {
+                    luminaria: chave,
+                    quantidade: 0,
+                    somaConfianca: 0,
+                    confiancaMax: 0,
+                    paginas: new Set()
+                };
+            }
+
+            mapa[chave].quantidade += 1;
+            mapa[chave].somaConfianca += item.confianca;
+            mapa[chave].confiancaMax = Math.max(mapa[chave].confiancaMax, item.confianca);
+            mapa[chave].paginas.add(item.pagina_pdf);
+        }
+
+        return Object.values(mapa)
+            .map(item => ({
+                luminaria: item.luminaria,
+                quantidade: item.quantidade,
+                confianca_media: item.quantidade > 0 ? item.somaConfianca / item.quantidade : 0,
+                confianca_max: item.confiancaMax,
+                paginas: Array.from(item.paginas).sort((a, b) => a - b).join(', ')
+            }))
+            .sort((a, b) => b.quantidade - a.quantidade || a.luminaria.localeCompare(b.luminaria));
+    }
+
+    async detectarElementosNaPagina(page, pageNum) {
         const cfgComodos = window.ROBOFLOW_CONFIG;
         const cfgPlantas = window.ROBOFLOW_PLANTAS_CONFIG;
+        const cfgLuminarias = window.ROBOFLOW_LUMINARIAS_CONFIG;
 
-        if (!cfgComodos?.enabled) {
+        if (!cfgComodos?.enabled && !cfgLuminarias?.enabled) {
             return {
-                deteccoes: [],
+                comodos: [],
+                luminarias: [],
                 status: 'desabilitado',
-                mensagem: 'Análise de cômodos desabilitada na configuração.'
+                mensagem: 'Análises de cômodos e luminárias desabilitadas.'
             };
         }
 
         try {
             const canvasPagina = await this.renderizarPaginaParaCanvas(page, cfgPlantas?.imageScale || 1.5);
-
-            if (!cfgPlantas?.enabled) {
-                const canvasComodosInferencia = this.redimensionarCanvas(
-                    canvasPagina,
-                    cfgComodos?.inferenceWidth ?? 640,
-                    cfgComodos?.inferenceHeight ?? 640
-                );
-
-                const viaServico = await this.detectarComodosViaServico(canvasComodosInferencia, pageNum, cfgComodos);
-                const filtradas = viaServico.filter(item => item.confianca >= (cfgComodos?.confidenceMin ?? 0.45));
-                return {
-                    deteccoes: filtradas,
-                    status: 'sucesso_sem_plantas',
-                    mensagem: 'Detecção de plantas desabilitada. Cômodos analisados na página inteira.'
-                };
-            }
 
             const canvasPlantasInferencia = this.redimensionarCanvas(
                 canvasPagina,
@@ -260,13 +313,15 @@ class PDFProcessor {
 
             if (plantasFiltradas.length === 0) {
                 return {
-                    deteccoes: [],
+                    comodos: [],
+                    luminarias: [],
                     status: 'sem_plantas',
                     mensagem: 'Nenhuma planta detectada na página.'
                 };
             }
 
-            const deteccoesTotais = [];
+            const comodosTotais = [];
+            const luminariasTotais = [];
             const margem = cfgPlantas?.margemRecortePx ?? 20;
 
             for (const planta of plantasFiltradas) {
@@ -278,37 +333,63 @@ class PDFProcessor {
                 );
 
                 const canvasRecorte = this.recortarCanvas(canvasPagina, bboxOriginal);
-                const canvasComodosInferencia = this.redimensionarCanvas(
-                    canvasRecorte,
-                    cfgComodos?.inferenceWidth ?? 640,
-                    cfgComodos?.inferenceHeight ?? 640
-                );
 
-                const comodos = await this.detectarComodosViaServico(canvasComodosInferencia, pageNum, cfgComodos);
+                if (cfgComodos?.enabled) {
+                    const canvasComodosInferencia = this.redimensionarCanvas(
+                        canvasRecorte,
+                        cfgComodos?.inferenceWidth ?? 640,
+                        cfgComodos?.inferenceHeight ?? 640
+                    );
 
-                const comodosFiltrados = comodos
-                    .filter(item => item.confianca >= (cfgComodos?.confidenceMin ?? 0.45))
-                    .map(item => ({
-                        ...item,
-                        planta_id: planta.id,
-                        planta_classe: planta.classe,
-                        planta_confianca: planta.confianca
-                    }));
+                    const comodos = await this.detectarComodosViaServico(canvasComodosInferencia, pageNum, cfgComodos);
 
-                deteccoesTotais.push(...comodosFiltrados);
+                    const comodosFiltrados = comodos
+                        .filter(item => item.confianca >= (cfgComodos?.confidenceMin ?? 0.45))
+                        .map(item => ({
+                            ...item,
+                            planta_id: planta.id,
+                            planta_classe: planta.classe,
+                            planta_confianca: planta.confianca
+                        }));
+
+                    comodosTotais.push(...comodosFiltrados);
+                }
+
+                if (cfgLuminarias?.enabled) {
+                    const canvasLuminariasInferencia = this.redimensionarCanvas(
+                        canvasRecorte,
+                        cfgLuminarias?.inferenceWidth ?? 1280,
+                        cfgLuminarias?.inferenceHeight ?? 1280
+                    );
+
+                    const luminarias = await this.detectarLuminariasViaServico(canvasLuminariasInferencia, pageNum, cfgLuminarias);
+
+                    const luminariasFiltradas = luminarias
+                        .filter(item => item.confianca >= (cfgLuminarias?.confidenceMin ?? 0.45))
+                        .map(item => ({
+                            ...item,
+                            planta_id: planta.id,
+                            planta_classe: planta.classe,
+                            planta_confianca: planta.confianca
+                        }));
+
+                    luminariasTotais.push(...luminariasFiltradas);
+                }
             }
 
             return {
-                deteccoes: deteccoesTotais,
+                comodos: comodosTotais,
+                luminarias: luminariasTotais,
                 status: 'sucesso',
                 mensagem: `${plantasFiltradas.length} planta(s) detectada(s) e analisada(s).`
             };
         } catch (error) {
-            console.warn(`Falha ao detectar plantas/cômodos na página ${pageNum}:`, error);
+            console.warn(`Falha ao detectar plantas/cômodos/luminárias na página ${pageNum}:`, error);
             return {
-                deteccoes: [],
+                comodos: [],
+                luminarias: [],
                 status: 'erro_backend',
-                mensagem: error.message || 'Falha ao executar pipeline de plantas + cômodos.'
+                mensagem: error.message || 'Falha ao executar pipeline de plantas + cômodos + luminárias.'
             };
         }
     }
@@ -892,6 +973,7 @@ class PDFProcessor {
             let tamanhoPrancha = null;
             const textosPaginas = [];
             const deteccoesComodos = [];
+            const deteccoesLuminarias = [];
             const diagnosticoComodos = {
                 status: checkComodos ? 'nao_executado' : 'desabilitado',
                 mensagem: checkComodos ? 'Análise de cômodos não executada.' : 'Opção de análise de cômodos desativada pelo usuário.',
@@ -914,20 +996,27 @@ class PDFProcessor {
                 const deveAnalisarComodos = checkComodos &&
                     window.ROBOFLOW_CONFIG?.enabled &&
                     (window.ROBOFLOW_CONFIG?.analyzeAllPages || pageNum === 1);
+                const deveAnalisarLuminarias = checkComodos &&
+                    window.ROBOFLOW_LUMINARIAS_CONFIG?.enabled &&
+                    (window.ROBOFLOW_LUMINARIAS_CONFIG?.analyzeAllPages || pageNum === 1);
 
-                if (deveAnalisarComodos) {
-                    const resultadoComodosPagina = await this.detectarComodosNaPagina(page, pageNum);
-                    const comodosPagina = resultadoComodosPagina?.deteccoes || [];
+                if (deveAnalisarComodos || deveAnalisarLuminarias) {
+                    const resultadoPagina = await this.detectarElementosNaPagina(page, pageNum);
+
+                    const comodosPagina = resultadoPagina?.comodos || [];
+                    const luminariasPagina = resultadoPagina?.luminarias || [];
+
                     deteccoesComodos.push(...comodosPagina);
+                    deteccoesLuminarias.push(...luminariasPagina);
                     diagnosticoComodos.paginas_analisadas += 1;
 
-                    if (resultadoComodosPagina?.status === 'erro_backend') {
+                    if (resultadoPagina?.status === 'erro_backend') {
                         diagnosticoComodos.paginas_com_erro += 1;
                         diagnosticoComodos.status = 'erro_carregamento_modelo';
-                        diagnosticoComodos.mensagem = resultadoComodosPagina?.mensagem || 'Falha ao executar IA de cômodos no backend.';
+                        diagnosticoComodos.mensagem = resultadoPagina?.mensagem || 'Falha ao executar IA de cômodos/luminárias no backend.';
                     } else if (diagnosticoComodos.status !== 'erro_carregamento_modelo') {
                         diagnosticoComodos.status = 'sucesso';
-                        diagnosticoComodos.mensagem = 'Inferência de cômodos executada com sucesso.';
+                        diagnosticoComodos.mensagem = 'Inferência de cômodos/luminárias executada com sucesso.';
                     }
                 }
 
@@ -1028,13 +1117,14 @@ class PDFProcessor {
 
             const analiseConsistencia = this.analisarCompatibilidadeDisciplina(codigoProjeto, textosPaginas);
             const resumoComodos = this.gerarResumoComodos(deteccoesComodos);
+            const resumoLuminarias = this.gerarResumoLuminarias(deteccoesLuminarias);
             if (checkComodos && diagnosticoComodos.paginas_analisadas === 0) {
                 if (!window.ROBOFLOW_CONFIG?.enabled) {
                     diagnosticoComodos.status = 'desabilitado_config';
-                    diagnosticoComodos.mensagem = 'ROBOFLOW_CONFIG.enabled está desativado.';
+                    diagnosticoComodos.mensagem = 'ROBOFLOW_CONFIG.enabled e ROBOFLOW_LUMINARIAS_CONFIG.enabled estão desativados.';
                 } else {
                     diagnosticoComodos.status = 'nao_executado';
-                    diagnosticoComodos.mensagem = 'Nenhuma página elegível para análise de cômodos.';
+                    diagnosticoComodos.mensagem = 'Nenhuma página elegível para análise de cômodos/luminárias.';
                 }
             }
 
@@ -1060,6 +1150,15 @@ class PDFProcessor {
                     total_deteccoes: deteccoesComodos.length,
                     deteccoes: deteccoesComodos,
                     resumo_por_classe: resumoComodos
+                },
+                luminarias_ia: {
+                    status: diagnosticoComodos.status,
+                    mensagem: diagnosticoComodos.mensagem,
+                    paginas_analisadas: diagnosticoComodos.paginas_analisadas,
+                    paginas_com_erro: diagnosticoComodos.paginas_com_erro,
+                    total_deteccoes: deteccoesLuminarias.length,
+                    deteccoes: deteccoesLuminarias,
+                    resumo_por_classe: resumoLuminarias
                 }
             };
 
@@ -1113,6 +1212,15 @@ class PDFProcessor {
                     nome_arquivo: file.name.replace(/\.pdf$/i, ''),
                     analise_consistencia: null,
                     comodos_ia: {
+                        status: 'erro_processamento_pdf',
+                        mensagem: error.message,
+                        paginas_analisadas: 0,
+                        paginas_com_erro: 0,
+                        total_deteccoes: 0,
+                        deteccoes: [],
+                        resumo_por_classe: []
+                    },
+                    luminarias_ia: {
                         status: 'erro_processamento_pdf',
                         mensagem: error.message,
                         paginas_analisadas: 0,

@@ -111,6 +111,25 @@ console.log('✅ Configurações carregadas:', {
     regrasCompatibilidade: Object.keys(window.REGRAS_COMPATIBILIDADE_DISCIPLINA || {}).length
 });
 
+
+window.ROBOFLOW_PLANTAS_CONFIG = {
+    enabled: true,
+    useBackend: true,
+    backendEndpoint: '/api/detect-plantas',
+    publishableKey: 'rf_x8t9CtJKNVZN7hgVjTQemZ8NmHF3',
+    apiKey: null,
+    model: 'plantas-4eu8q',
+    version: 2,
+    confidenceMin: 0.55,
+    analyzeAllPages: true,
+    imageScale: 1.5,
+    inferenceWidth: 1280,
+    inferenceHeight: 1280,
+    inferenceTimeoutMs: 30000,
+    margemRecortePx: 20,
+    minAreaDeteccao: 20000
+};
+
 window.ROBOFLOW_CONFIG = {
     enabled: true,
     // Em produção, manter true para não expor a chave privada no navegador.

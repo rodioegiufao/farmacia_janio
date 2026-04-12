@@ -9,6 +9,7 @@ class ExcelGenerator {
         // Preparar dados para a tabela - Similar ao DataFrame do Python
         const dadosTabela = this.prepararDadosTabela(resultados);
         const dadosComodos = this.prepararDadosTabelaComodos(resultados);
+        const dadosLuminarias = this.prepararDadosTabelaLuminarias(resultados);
 
         // Criar workbook - Similar ao Workbook do openpyxl
         const wb = this.XLSX.utils.book_new();
@@ -28,6 +29,10 @@ class ExcelGenerator {
         const wsComodos = this.XLSX.utils.json_to_sheet(dadosComodos);
         this.XLSX.utils.book_append_sheet(wb, wsComodos, "Cômodos IA");
         this.ajustarLarguraColunas(wsComodos);
+
+        const wsLuminarias = this.XLSX.utils.json_to_sheet(dadosLuminarias);
+        this.XLSX.utils.book_append_sheet(wb, wsLuminarias, "Luminárias IA");
+        this.ajustarLarguraColunas(wsLuminarias);
 
         return wb;
     }
@@ -96,6 +101,50 @@ class ExcelGenerator {
                     'Página PDF': item.pagina_pdf ?? '',
                     Cômodo: item.comodo,
                     'Confiança Cômodo (%)': item.confianca ? (item.confianca * 100).toFixed(2) : '0.00',
+                    'ID Planta': item.planta_id ?? '',
+                    'Classe Planta': item.planta_classe ?? '',
+                    'Confiança Planta (%)': item.planta_confianca ? (item.planta_confianca * 100).toFixed(2) : ''
+                });
+            }
+        }
+
+        return linhas;
+    }
+
+    prepararDadosTabelaLuminarias(resultados) {
+        const linhas = [];
+
+        for (const [nomeArquivo, dados] of Object.entries(resultados)) {
+            const numeroPrancha = dados.numero_prancha || 'Não identificado';
+            const codigoProjeto = dados.codigo_projeto || 'Não identificado';
+            const descricaoProjeto = dados.descricao_projeto || 'Não identificado';
+            const deteccoes = dados.luminarias_ia?.deteccoes || [];
+
+            if (deteccoes.length === 0) {
+                linhas.push({
+                    'Nome do Arquivo': nomeArquivo,
+                    'Número da Prancha': numeroPrancha,
+                    'Código Projeto': codigoProjeto,
+                    'Descrição Projeto': descricaoProjeto,
+                    'Página PDF': '',
+                    Luminária: 'Nenhuma detectada',
+                    'Confiança Luminária (%)': '',
+                    'ID Planta': '',
+                    'Classe Planta': '',
+                    'Confiança Planta (%)': ''
+                });
+                continue;
+            }
+
+            for (const item of deteccoes) {
+                linhas.push({
+                    'Nome do Arquivo': nomeArquivo,
+                    'Número da Prancha': numeroPrancha,
+                    'Código Projeto': codigoProjeto,
+                    'Descrição Projeto': descricaoProjeto,
+                    'Página PDF': item.pagina_pdf ?? '',
+                    Luminária: item.luminaria,
+                    'Confiança Luminária (%)': item.confianca ? (item.confianca * 100).toFixed(2) : '0.00',
                     'ID Planta': item.planta_id ?? '',
                     'Classe Planta': item.planta_classe ?? '',
                     'Confiança Planta (%)': item.planta_confianca ? (item.planta_confianca * 100).toFixed(2) : ''

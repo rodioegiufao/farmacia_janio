@@ -113,9 +113,10 @@ console.log('✅ Configurações carregadas:', {
 
 window.ROBOFLOW_CONFIG = {
     enabled: true,
-    // Chave publicável para SDK no navegador.
+    // Serviço de detecção centralizado em carimbo/js/detect-comodos.js.
+    useBackend: false,
     publishableKey: 'rf_x8t9CtJKNVZN7hgVjTQemZ8NmHF3',
-    // Para fallback REST (/detect), use uma chave privada (idealmente via backend) e NÃO comite em produção.
+    // Necessária chave privada para detectar via endpoint /detect.
     apiKey: null,
     model: 'comodos',
     version: 9,

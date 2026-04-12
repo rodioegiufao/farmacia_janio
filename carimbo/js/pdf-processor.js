@@ -6,9 +6,6 @@ class PDFProcessor {
         if (this.pdfjsLib && !this.pdfjsLib.GlobalWorkerOptions.workerSrc) {
             this.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
-        this.roboflowModelPromise = null;
-        this.roboflowLibPromise = null;
-        this.roboflowLibIndisponivel = false;
     }
 
     withTimeout(promise, timeoutMs, timeoutMessage) {
@@ -28,177 +25,21 @@ class PDFProcessor {
         });
     }
 
-    carregarScriptExterno(src, timeoutMs = 12000) {
-        return new Promise((resolve, reject) => {
-            let finalizado = false;
-            let timerId = null;
-            const finalizar = (callback) => {
-                if (finalizado) return;
-                finalizado = true;
-                if (timerId) {
-                    clearTimeout(timerId);
-                }
-                callback();
-            };
+    async detectarComodosViaServico(canvasInferencia, pageNum, cfg) {
+        if (typeof window.detectarComodosServico !== 'function') {
+            throw new Error('Serviço de detecção não carregado (carimbo/js/detect-comodos.js).');
+        }
 
-            timerId = setTimeout(() => {
-                finalizar(() => reject(new Error(`Timeout ao carregar ${src}`)));
-            }, timeoutMs);
-
-            const scriptExistente = document.querySelector(`script[src="${src}"]`);
-            if (scriptExistente) {
-                if (scriptExistente.dataset.loaded === 'true' || window.roboflow) {
-                    finalizar(() => resolve());
-                    return;
-                }
-
-                const estado = scriptExistente.readyState;
-                if (estado === 'complete' && !window.roboflow) {
-                    finalizar(() => reject(new Error(`Script ${src} já finalizado, mas window.roboflow não foi exposto.`)));
-                    return;
-                }
-
-                scriptExistente.addEventListener('load', () => finalizar(() => resolve()), { once: true });
-                scriptExistente.addEventListener('error', () => finalizar(() => reject(new Error(`Falha ao carregar ${src}`))), { once: true });
-                return;
-            }
-
-            const script = document.createElement('script');
-            script.src = src;
-            script.async = true;
-            script.defer = true;
-            script.crossOrigin = 'anonymous';
-            script.addEventListener('load', () => {
-                script.dataset.loaded = 'true';
-                finalizar(() => resolve());
-            }, { once: true });
-            script.addEventListener('error', () => finalizar(() => reject(new Error(`Falha ao carregar ${src}`))), { once: true });
-            document.head.appendChild(script);
+        const data = await window.detectarComodosServico({
+            image: canvasInferencia.toDataURL('image/jpeg', 0.9),
+            model: cfg?.model,
+            version: cfg?.version,
+            confidence: Math.round((cfg?.confidenceMin ?? 0.45) * 100),
+            timeoutMs: cfg?.inferenceTimeoutMs ?? 30000,
+            pageNum
         });
-    }
 
-    async garantirBibliotecaRoboflow() {
-        if (window.roboflow) return;
-
-        if (!this.roboflowLibPromise) {
-            this.roboflowLibPromise = (async () => {
-                const fontes = [
-                    'https://roboflow.com/releases/roboflow.js',
-                    'https://cdn.roboflow.com/roboflow.js',
-                    'https://cdn.jsdelivr.net/npm/@roboflow/js@latest',
-                    'https://unpkg.com/@roboflow/js@latest'
-                ];
-
-                let ultimoErro = null;
-                for (const src of fontes) {
-                    try {
-                        await this.carregarScriptExterno(src);
-                        await this.aguardarRoboflowDisponivel();
-                        if (window.roboflow) return;
-                    } catch (error) {
-                        ultimoErro = error;
-                    }
-                }
-
-                throw ultimoErro || new Error('Não foi possível carregar a biblioteca do Roboflow.');
-            })();
-        }
-
-        await this.roboflowLibPromise;
-    }
-
-    async aguardarRoboflowDisponivel(timeoutMs = 5000) {
-        if (window.roboflow) return;
-
-        const inicio = Date.now();
-        while (!window.roboflow && (Date.now() - inicio) < timeoutMs) {
-            // Biblioteca pode demorar alguns ciclos para registrar no window.
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-    }
-
-    async carregarModeloComodos() {
-        const cfg = window.ROBOFLOW_CONFIG;
-
-        if (!cfg?.enabled || !cfg?.publishableKey) return null;
-        if (this.roboflowLibIndisponivel) return null;
-        const timeoutCarregamentoModeloMs = cfg.modelLoadTimeoutMs ?? 45000;
-        try {
-            await this.withTimeout(
-                this.garantirBibliotecaRoboflow(),
-                timeoutCarregamentoModeloMs,
-                'Timeout ao carregar biblioteca do Roboflow.'
-            );
-        } catch (error) {
-            this.roboflowLibIndisponivel = true;
-            throw error;
-        }
-        if (!window.roboflow) throw new Error('Biblioteca do Roboflow não foi carregada.');
-
-        if (!this.roboflowModelPromise) {
-            this.roboflowModelPromise = window.roboflow
-                .auth({
-                    publishable_key: cfg.publishableKey
-                })
-                .load({
-                    model: cfg.model,
-                    version: cfg.version
-                });
-        }
-
-        return this.withTimeout(
-            this.roboflowModelPromise,
-            timeoutCarregamentoModeloMs,
-            'Timeout ao carregar modelo de IA (Roboflow).'
-        );
-    }
-
-    async detectarComodosViaApi(canvasInferencia, pageNum, cfg) {
-        const apiKey = this.obterApiKeyFallback(cfg);
-        if (!apiKey || !cfg?.model || !cfg?.version) return [];
-
-        const confidence = Math.round((cfg.confidenceMin ?? 0.45) * 100);
-        const timeoutMs = cfg.inferenceTimeoutMs ?? 30000;
-        const url = `https://detect.roboflow.com/${encodeURIComponent(cfg.model)}/${encodeURIComponent(cfg.version)}?api_key=${encodeURIComponent(apiKey)}&confidence=${confidence}`;
-        const base64Image = canvasInferencia.toDataURL('image/jpeg', 0.9).split(',')[1];
-        const controller = new AbortController();
-        const timerId = setTimeout(() => controller.abort(), timeoutMs);
-
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: base64Image,
-                signal: controller.signal
-            });
-
-            if (!response.ok) {
-                if (response.status === 401 || response.status === 403) {
-                    throw new Error('Roboflow API retornou HTTP 403/401. Configure ROBOFLOW_CONFIG.apiKey com uma chave privada válida (server-side).');
-                }
-                throw new Error(`Roboflow API retornou HTTP ${response.status}.`);
-            }
-
-            const data = await response.json();
-            return this.normalizarPredicoesComodos(data?.predictions || [], pageNum);
-        } finally {
-            clearTimeout(timerId);
-        }
-    }
-
-    obterApiKeyFallback(cfg) {
-        if (!cfg) return null;
-        // Usa chave dedicada para fallback por API quando disponível.
-        const apiKey = cfg.apiKey || null;
-
-        // Chaves publicáveis (`rf_x...`) funcionam no SDK, mas geralmente não no endpoint /detect.
-        if (!apiKey && cfg.publishableKey && cfg.publishableKey.startsWith('rf_x')) {
-            return null;
-        }
-
-        return apiKey || cfg.publishableKey || null;
+        return this.normalizarPredicoesComodos(data?.predictions || [], pageNum);
     }
 
     async renderizarPaginaParaCanvas(page, scale = 1.8) {
@@ -298,42 +139,21 @@ class PDFProcessor {
 
     async detectarComodosNaPagina(page, pageNum) {
         const cfg = window.ROBOFLOW_CONFIG;
-        if (!cfg?.enabled) return [];
+        if (!cfg?.enabled) {
+            return { deteccoes: [], status: 'desabilitado', mensagem: 'Análise de cômodos desabilitada na configuração.' };
+        }
 
         try {
             const canvasPagina = await this.renderizarPaginaParaCanvas(page, cfg.imageScale || 1);
             const larguraInferencia = cfg.inferenceWidth ?? 640;
             const alturaInferencia = cfg.inferenceHeight ?? 640;
             const canvasInferencia = this.redimensionarCanvas(canvasPagina, larguraInferencia, alturaInferencia);
-
-            try {
-                const model = await this.carregarModeloComodos();
-                if (model) {
-                    const timeoutInferenciaMs = cfg.inferenceTimeoutMs ?? 30000;
-                    const predictions = await this.withTimeout(
-                        model.detect(canvasInferencia),
-                        timeoutInferenciaMs,
-                        `Timeout na inferência da IA na página ${pageNum}.`
-                    );
-                    const normalizadas = this.normalizarPredicoesComodos(predictions, pageNum);
-                    return normalizadas.filter(item => item.confianca >= (cfg.confidenceMin ?? 0.45));
-                }
-            } catch (sdkError) {
-                console.warn(`Falha ao detectar cômodos com SDK na página ${pageNum}. Tentando fallback por API...`, sdkError);
-            }
-
-            if (!this.obterApiKeyFallback(cfg)) {
-                console.warn(
-                    `Fallback por API desativado na página ${pageNum}: ROBOFLOW_CONFIG.apiKey não configurada (ou apenas publishableKey rf_x).`
-                );
-                return [];
-            }
-
-            const viaApi = await this.detectarComodosViaApi(canvasInferencia, pageNum, cfg);
-            return viaApi.filter(item => item.confianca >= (cfg.confidenceMin ?? 0.45));
+            const viaServico = await this.detectarComodosViaServico(canvasInferencia, pageNum, cfg);
+            const filtradas = viaServico.filter(item => item.confianca >= (cfg.confidenceMin ?? 0.45));
+            return { deteccoes: filtradas, status: 'sucesso', mensagem: null };
         } catch (error) {
             console.warn(`Falha ao detectar cômodos na página ${pageNum}:`, error);
-            return [];
+            return { deteccoes: [], status: 'erro_backend', mensagem: error.message || 'Falha ao executar inferência de cômodos.' };
         }
     }
 
@@ -915,7 +735,13 @@ class PDFProcessor {
             let projetoEncontrado = false;
             let tamanhoPrancha = null;
             const textosPaginas = [];
-            const deteccoesComodos = []
+            const deteccoesComodos = [];
+            const diagnosticoComodos = {
+                status: checkComodos ? 'nao_executado' : 'desabilitado',
+                mensagem: checkComodos ? 'Análise de cômodos não executada.' : 'Opção de análise de cômodos desativada pelo usuário.',
+                paginas_analisadas: 0,
+                paginas_com_erro: 0
+            };
 
             // Carregar PDF usando pdf.js
             const arrayBuffer = await file.arrayBuffer();
@@ -934,8 +760,19 @@ class PDFProcessor {
                     (window.ROBOFLOW_CONFIG?.analyzeAllPages || pageNum === 1);
 
                 if (deveAnalisarComodos) {
-                    const comodosPagina = await this.detectarComodosNaPagina(page, pageNum);
+                    const resultadoComodosPagina = await this.detectarComodosNaPagina(page, pageNum);
+                    const comodosPagina = resultadoComodosPagina?.deteccoes || [];
                     deteccoesComodos.push(...comodosPagina);
+                    diagnosticoComodos.paginas_analisadas += 1;
+
+                    if (resultadoComodosPagina?.status === 'erro_backend') {
+                        diagnosticoComodos.paginas_com_erro += 1;
+                        diagnosticoComodos.status = 'erro_carregamento_modelo';
+                        diagnosticoComodos.mensagem = resultadoComodosPagina?.mensagem || 'Falha ao executar IA de cômodos no backend.';
+                    } else if (diagnosticoComodos.status !== 'erro_carregamento_modelo') {
+                        diagnosticoComodos.status = 'sucesso';
+                        diagnosticoComodos.mensagem = 'Inferência de cômodos executada com sucesso.';
+                    }
                 }
 
                 if (!tamanhoPrancha) {
@@ -1035,6 +872,15 @@ class PDFProcessor {
 
             const analiseConsistencia = this.analisarCompatibilidadeDisciplina(codigoProjeto, textosPaginas);
             const resumoComodos = this.gerarResumoComodos(deteccoesComodos);
+            if (checkComodos && diagnosticoComodos.paginas_analisadas === 0) {
+                if (!window.ROBOFLOW_CONFIG?.enabled) {
+                    diagnosticoComodos.status = 'desabilitado_config';
+                    diagnosticoComodos.mensagem = 'ROBOFLOW_CONFIG.enabled está desativado.';
+                } else {
+                    diagnosticoComodos.status = 'nao_executado';
+                    diagnosticoComodos.mensagem = 'Nenhuma página elegível para análise de cômodos.';
+                }
+            }
 
             // Retornar estrutura idêntica ao Python
             return {
@@ -1051,6 +897,10 @@ class PDFProcessor {
                 nome_arquivo: nomeArquivo,
                 analise_consistencia: analiseConsistencia,
                 comodos_ia: {
+                    status: diagnosticoComodos.status,
+                    mensagem: diagnosticoComodos.mensagem,
+                    paginas_analisadas: diagnosticoComodos.paginas_analisadas,
+                    paginas_com_erro: diagnosticoComodos.paginas_com_erro,
                     total_deteccoes: deteccoesComodos.length,
                     deteccoes: deteccoesComodos,
                     resumo_por_classe: resumoComodos
@@ -1107,6 +957,10 @@ class PDFProcessor {
                     nome_arquivo: file.name.replace(/\.pdf$/i, ''),
                     analise_consistencia: null,
                     comodos_ia: {
+                        status: 'erro_processamento_pdf',
+                        mensagem: error.message,
+                        paginas_analisadas: 0,
+                        paginas_com_erro: 0,
                         total_deteccoes: 0,
                         deteccoes: [],
                         resumo_por_classe: []

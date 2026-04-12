@@ -156,7 +156,7 @@ window.ROBOFLOW_LUMINARIAS_CONFIG = {
     backendEndpoint: '/api/detect-luminarias',
     publishableKey: 'rf_x8t9CtJKNVZN7hgVjTQemZ8NmHF3',
     apiKey: null,
-    model: 'luminarias-n8sqp',
+    model: 'luminarias-n8sqb',
     version: 1,
     confidenceMin: 0.45,
     analyzeAllPages: true,

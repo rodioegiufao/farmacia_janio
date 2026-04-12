@@ -34,6 +34,9 @@ module.exports = async function detectComodosHandler(req, res) {
     }
 
     const apiKey = obterApiKeyPrivada();
+    console.log('ROBOFLOW key exists?', !!apiKey);
+    console.log('ROBOFLOW key prefix:', apiKey ? apiKey.slice(0, 2) : 'null');
+
     if (!apiKey || apiKey.startsWith('rf_x')) {
         return json(res, 500, {
             error: 'ROBOFLOW_API_KEY não configurada no backend.'
@@ -47,6 +50,14 @@ module.exports = async function detectComodosHandler(req, res) {
 
     const base64Image = payload.image.split(',')[1];
     const url = `https://detect.roboflow.com/${encodeURIComponent(payload.model)}/${encodeURIComponent(payload.version)}?api_key=${encodeURIComponent(apiKey)}&confidence=${encodeURIComponent(payload.confidence)}`;
+
+    console.log('Chamando Roboflow:', {
+        model: payload.model,
+        version: payload.version,
+        confidence: payload.confidence,
+        imageLength: base64Image.length
+    });
+
     const controller = new AbortController();
     const timerId = setTimeout(() => controller.abort(), payload.timeoutMs);
 
@@ -61,15 +72,20 @@ module.exports = async function detectComodosHandler(req, res) {
         });
 
         const data = await response.json().catch(() => ({}));
+        console.log('Roboflow status:', response.status, data);
+
         if (!response.ok) {
             return json(res, response.status, {
-                error: data?.error || `Roboflow retornou HTTP ${response.status}.`
+                error: data?.error || `Roboflow retornou HTTP ${response.status}.`,
+                details: data
             });
         }
 
         return json(res, 200, data);
     } catch (error) {
         const isAbort = error?.name === 'AbortError';
+        console.error('Erro ao consultar Roboflow:', error);
+
         return json(res, isAbort ? 504 : 502, {
             error: isAbort
                 ? 'Timeout ao consultar o Roboflow.'

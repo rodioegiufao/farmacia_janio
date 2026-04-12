@@ -52,10 +52,17 @@
         return data;
     }
 
+    function obterChaveRoboflow(cfg = {}) {
+        const chavePrivada = cfg.apiKey || null;
+        const chavePublica = cfg.publishableKey || null;
+
+        return chavePrivada || chavePublica;
+    }
+
     async function chamarRoboflowDireto(payload, cfg) {
-        const apiKey = cfg.apiKey || null;
-        if (!apiKey || apiKey.startsWith('rf_x')) {
-            throw new Error('ROBOFLOW_LUMINARIAS_CONFIG.apiKey (privada) não configurada para detectar luminárias.');
+        const apiKey = obterChaveRoboflow(cfg);
+        if (!apiKey) {
+            throw new Error('Configure ROBOFLOW_LUMINARIAS_CONFIG.apiKey ou publishableKey para detectar luminárias.');
         }
 
         const base64Image = payload.image.split(',')[1];
@@ -98,7 +105,20 @@
         validarImagemBase64(requestPayload.image);
 
         if (cfg.useBackend) {
-            return chamarBackend(requestPayload, cfg);
+            try {
+                return await chamarBackend(requestPayload, cfg);
+            } catch (error) {
+                const mensagemErro = String(error?.message || '');
+                const chaveFallback = obterChaveRoboflow(cfg);
+                const backendBloqueado = /HTTP 401|HTTP 403|HTTP 404/i.test(mensagemErro);
+
+                if (backendBloqueado && chaveFallback) {
+                    console.warn(`⚠️ Falha no backend de luminárias (${mensagemErro}). Tentando Roboflow direto.`);
+                    return chamarRoboflowDireto(requestPayload, cfg);
+                }
+
+                throw error;
+            }
         }
 
         return chamarRoboflowDireto(requestPayload, cfg);

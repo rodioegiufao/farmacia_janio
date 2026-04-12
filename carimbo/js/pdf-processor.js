@@ -42,6 +42,23 @@ class PDFProcessor {
         return this.normalizarPredicoesComodos(data?.predictions || [], pageNum);
     }
 
+    async detectarPlantasViaServico(canvasInferencia, pageNum, cfg) {
+        if (typeof window.detectarPlantasServico !== 'function') {
+            throw new Error('Serviço de detecção de plantas não carregado (carimbo/js/detect-plantas.js).');
+        }
+
+        const data = await window.detectarPlantasServico({
+            image: canvasInferencia.toDataURL('image/jpeg', 0.9),
+            model: cfg?.model,
+            version: cfg?.version,
+            confidence: Math.round((cfg?.confidenceMin ?? 0.55) * 100),
+            timeoutMs: cfg?.inferenceTimeoutMs ?? 30000,
+            pageNum
+        });
+
+        return this.normalizarPredicoesPlantas(data?.predictions || [], pageNum);
+    }
+
     async renderizarPaginaParaCanvas(page, scale = 1.8) {
         const viewport = page.getViewport({ scale });
         const canvas = document.createElement('canvas');
@@ -104,6 +121,64 @@ class PDFProcessor {
         }));
     }
 
+    normalizarPredicoesPlantas(predictions, pageNum) {
+        if (!Array.isArray(predictions)) return [];
+
+        return predictions.map((pred, index) => ({
+            id: index + 1,
+            pagina_pdf: pageNum,
+            classe: pred.class || pred.label || 'planta',
+            confianca: Number(pred.confidence || 0),
+            x: pred.x ?? null,
+            y: pred.y ?? null,
+            width: pred.width ?? null,
+            height: pred.height ?? null
+        }));
+    }
+
+    mapearBBoxParaCanvasOriginal(pred, canvasOriginal, canvasInferencia, margemPx = 20) {
+        const escalaX = canvasOriginal.width / canvasInferencia.width;
+        const escalaY = canvasOriginal.height / canvasInferencia.height;
+
+        const x = (pred.x - pred.width / 2) * escalaX;
+        const y = (pred.y - pred.height / 2) * escalaY;
+        const w = pred.width * escalaX;
+        const h = pred.height * escalaY;
+
+        const xFinal = Math.max(0, Math.floor(x - margemPx));
+        const yFinal = Math.max(0, Math.floor(y - margemPx));
+        const wFinal = Math.min(canvasOriginal.width - xFinal, Math.ceil(w + margemPx * 2));
+        const hFinal = Math.min(canvasOriginal.height - yFinal, Math.ceil(h + margemPx * 2));
+
+        return { x: xFinal, y: yFinal, width: wFinal, height: hFinal };
+    }
+
+    recortarCanvas(canvasOrigem, box) {
+        const canvasDestino = document.createElement('canvas');
+        const ctx = canvasDestino.getContext('2d', { willReadFrequently: true });
+
+        if (!ctx) {
+            throw new Error('Não foi possível criar canvas de recorte.');
+        }
+
+        canvasDestino.width = box.width;
+        canvasDestino.height = box.height;
+
+        ctx.drawImage(
+            canvasOrigem,
+            box.x,
+            box.y,
+            box.width,
+            box.height,
+            0,
+            0,
+            box.width,
+            box.height
+        );
+
+        return canvasDestino;
+    }
+
     gerarResumoComodos(deteccoes) {
         const mapa = {};
 
@@ -138,22 +213,103 @@ class PDFProcessor {
     }
 
     async detectarComodosNaPagina(page, pageNum) {
-        const cfg = window.ROBOFLOW_CONFIG;
-        if (!cfg?.enabled) {
-            return { deteccoes: [], status: 'desabilitado', mensagem: 'Análise de cômodos desabilitada na configuração.' };
+        const cfgComodos = window.ROBOFLOW_CONFIG;
+        const cfgPlantas = window.ROBOFLOW_PLANTAS_CONFIG;
+
+        if (!cfgComodos?.enabled) {
+            return {
+                deteccoes: [],
+                status: 'desabilitado',
+                mensagem: 'Análise de cômodos desabilitada na configuração.'
+            };
         }
 
         try {
-            const canvasPagina = await this.renderizarPaginaParaCanvas(page, cfg.imageScale || 1);
-            const larguraInferencia = cfg.inferenceWidth ?? 640;
-            const alturaInferencia = cfg.inferenceHeight ?? 640;
-            const canvasInferencia = this.redimensionarCanvas(canvasPagina, larguraInferencia, alturaInferencia);
-            const viaServico = await this.detectarComodosViaServico(canvasInferencia, pageNum, cfg);
-            const filtradas = viaServico.filter(item => item.confianca >= (cfg.confidenceMin ?? 0.45));
-            return { deteccoes: filtradas, status: 'sucesso', mensagem: null };
+            const canvasPagina = await this.renderizarPaginaParaCanvas(page, cfgPlantas?.imageScale || 1.5);
+
+            if (!cfgPlantas?.enabled) {
+                const canvasComodosInferencia = this.redimensionarCanvas(
+                    canvasPagina,
+                    cfgComodos?.inferenceWidth ?? 640,
+                    cfgComodos?.inferenceHeight ?? 640
+                );
+
+                const viaServico = await this.detectarComodosViaServico(canvasComodosInferencia, pageNum, cfgComodos);
+                const filtradas = viaServico.filter(item => item.confianca >= (cfgComodos?.confidenceMin ?? 0.45));
+                return {
+                    deteccoes: filtradas,
+                    status: 'sucesso_sem_plantas',
+                    mensagem: 'Detecção de plantas desabilitada. Cômodos analisados na página inteira.'
+                };
+            }
+
+            const canvasPlantasInferencia = this.redimensionarCanvas(
+                canvasPagina,
+                cfgPlantas?.inferenceWidth ?? 1280,
+                cfgPlantas?.inferenceHeight ?? 1280
+            );
+
+            const plantas = await this.detectarPlantasViaServico(canvasPlantasInferencia, pageNum, cfgPlantas);
+
+            const areaMinima = cfgPlantas?.minAreaDeteccao ?? 20000;
+            const plantasFiltradas = plantas.filter(item => {
+                const confOk = item.confianca >= (cfgPlantas?.confidenceMin ?? 0.55);
+                const area = (item.width || 0) * (item.height || 0);
+                return confOk && area >= areaMinima;
+            });
+
+            if (plantasFiltradas.length === 0) {
+                return {
+                    deteccoes: [],
+                    status: 'sem_plantas',
+                    mensagem: 'Nenhuma planta detectada na página.'
+                };
+            }
+
+            const deteccoesTotais = [];
+            const margem = cfgPlantas?.margemRecortePx ?? 20;
+
+            for (const planta of plantasFiltradas) {
+                const bboxOriginal = this.mapearBBoxParaCanvasOriginal(
+                    planta,
+                    canvasPagina,
+                    canvasPlantasInferencia,
+                    margem
+                );
+
+                const canvasRecorte = this.recortarCanvas(canvasPagina, bboxOriginal);
+                const canvasComodosInferencia = this.redimensionarCanvas(
+                    canvasRecorte,
+                    cfgComodos?.inferenceWidth ?? 640,
+                    cfgComodos?.inferenceHeight ?? 640
+                );
+
+                const comodos = await this.detectarComodosViaServico(canvasComodosInferencia, pageNum, cfgComodos);
+
+                const comodosFiltrados = comodos
+                    .filter(item => item.confianca >= (cfgComodos?.confidenceMin ?? 0.45))
+                    .map(item => ({
+                        ...item,
+                        planta_id: planta.id,
+                        planta_classe: planta.classe,
+                        planta_confianca: planta.confianca
+                    }));
+
+                deteccoesTotais.push(...comodosFiltrados);
+            }
+
+            return {
+                deteccoes: deteccoesTotais,
+                status: 'sucesso',
+                mensagem: `${plantasFiltradas.length} planta(s) detectada(s) e analisada(s).`
+            };
         } catch (error) {
-            console.warn(`Falha ao detectar cômodos na página ${pageNum}:`, error);
-            return { deteccoes: [], status: 'erro_backend', mensagem: error.message || 'Falha ao executar inferência de cômodos.' };
+            console.warn(`Falha ao detectar plantas/cômodos na página ${pageNum}:`, error);
+            return {
+                deteccoes: [],
+                status: 'erro_backend',
+                mensagem: error.message || 'Falha ao executar pipeline de plantas + cômodos.'
+            };
         }
     }
 

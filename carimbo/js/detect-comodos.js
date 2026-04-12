@@ -3,7 +3,19 @@
 // para evitar exposição da chave privada no navegador.
 (function inicializarServicoDeteccaoComodos() {
     function obterBackendUrl(cfg = {}) {
-        return cfg.backendEndpoint || '/api/detect-comodos';
+        const fallback = '/api/detect-comodos';
+        const endpoint = (cfg.backendEndpoint || '').trim();
+
+        if (!endpoint) {
+            return fallback;
+        }
+
+        if (endpoint.endsWith('.js')) {
+            console.warn(`⚠️ backendEndpoint inválido (${endpoint}). Usando ${fallback}.`);
+            return fallback;
+        }
+
+        return endpoint;
     }
 
     function validarImagemBase64(image) {

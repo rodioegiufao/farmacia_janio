@@ -116,7 +116,7 @@ window.ROBOFLOW_CONFIG = {
     // Em produção, manter true para não expor a chave privada no navegador.
     useBackend: true,
     // Endpoint do backend/proxy (Vercel Function).
-    backendEndpoint: '/api/detect-comodos',
+    backendEndpoint: 'detect-comodos',
     publishableKey: 'rf_x8t9CtJKNVZN7hgVjTQemZ8NmHF3',
     // Mantida nula por segurança quando useBackend=true.
     apiKey: null,

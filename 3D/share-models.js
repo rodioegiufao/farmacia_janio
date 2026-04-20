@@ -57,6 +57,22 @@ function resolveRequestOrigin(req) {
     return host ? `${proto}://${host}` : "";
 }
 
+function sanitizeShareCode(rawShareCode) {
+    if (typeof rawShareCode !== "string") {
+        return "";
+    }
+
+    let shareCode = rawShareCode.trim();
+    if (!shareCode) {
+        return "";
+    }
+
+    shareCode = shareCode.replace(/^[\["'(]+/, "").replace(/[\]"')]+$/, "");
+    shareCode = shareCode.replace(/[.,;!?]+$/, "");
+
+    return shareCode;
+}
+
 module.exports = function shareModelsHandler(req, res) {
     cleanupExpiredShares();
 
@@ -103,7 +119,8 @@ module.exports = function shareModelsHandler(req, res) {
     }
 
     if (req.method === "GET") {
-        const shareCode = typeof req.query?.share === "string" ? req.query.share : "";
+        const rawShareCode = typeof req.query?.share === "string" ? req.query.share : "";
+        const shareCode = sanitizeShareCode(rawShareCode);
         if (!shareCode) {
             sendJson(res, 400, { error: "Código de compartilhamento não informado." });
             return;

@@ -195,6 +195,14 @@ body[data-mode="mobile"] #helpPanel {
     max-width: none;
 }
 
+body[data-mode="mobile"] #shareUploadPanel {
+    top: 20px;
+    right: 20px;
+    left: 20px;
+    width: auto;
+    max-width: none;
+}
+
 body[data-mode="mobile"] #transformPanel {
     top: auto;
     bottom: 20px;

@@ -10,6 +10,7 @@ if (!bridge) {
 } else {
     const ifcUploadInput = document.getElementById("ifcUploadInput");
     const ifcUploadPanel = document.getElementById("ifcUploadPanel");
+    const ifcUploadIntro = document.getElementById("ifcUploadIntro");
     const ifcUploadDropzone = document.querySelector(".ifc-upload-dropzone");
 
     let ifcLoader = null;
@@ -230,6 +231,12 @@ if (!bridge) {
     function hideUploadPanel() {
         if (ifcUploadPanel) {
             ifcUploadPanel.hidden = true;
+        }
+    }
+
+    function hideUploadIntro() {
+        if (ifcUploadIntro) {
+            ifcUploadIntro.hidden = true;
         }
     }
 
@@ -474,6 +481,7 @@ if (!bridge) {
 
             isUploadSessionLocked = true;
             setUploadInputEnabled(false);
+            hideUploadIntro();
             bridge.setUploadStatus(
                 files.length > 1
                     ? `Adicionando ${files.length} arquivos ao cenário...`

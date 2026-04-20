@@ -19,6 +19,10 @@ if (!bridge) {
     const shareCodeElement = document.getElementById("shareUploadCode");
     const copyShareLinkButton = document.getElementById("copyShareUploadLink");
     const addMoreFilesButton = document.getElementById("addMoreIfcFiles");
+    const shareApiEndpoint = "/api/share-models";
+    const shareableFiles = [];
+    const shareableFileKeys = new Set();
+    let processSelectedFiles = async () => {};
 
     let ifcLoader = null;
     let ifcOpenShellLoader = null;
@@ -288,24 +292,123 @@ if (!bridge) {
         }
     }
 
-    function buildShareCode() {
-        if (window?.crypto?.randomUUID) {
-            return window.crypto.randomUUID();
-        }
-
-        return `share-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+    function buildShareableFileKey(file) {
+        const lastModified = Number.isFinite(file.lastModified) ? file.lastModified : 0;
+        return `${file.name}::${file.size}::${lastModified}`;
     }
 
-    function generateTemporaryShareLink() {
-        const shareCode = buildShareCode();
-        const expiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000));
-        const shareLink = `${window.location.origin}/3D/ifc_upload?share=${encodeURIComponent(shareCode)}`;
+    function registerShareableFiles(files = []) {
+        files.forEach((file) => {
+            const key = buildShareableFileKey(file);
+            if (shareableFileKeys.has(key)) {
+                return;
+            }
 
-        return {
-            shareCode,
-            shareLink,
-            expiresAt
-        };
+            shareableFileKeys.add(key);
+            shareableFiles.push(file);
+        });
+    }
+
+    function arrayBufferToBase64(arrayBuffer) {
+        const bytes = new Uint8Array(arrayBuffer);
+        const chunkSize = 0x8000;
+        let binary = "";
+
+        for (let index = 0; index < bytes.length; index += chunkSize) {
+            const chunk = bytes.subarray(index, index + chunkSize);
+            binary += String.fromCharCode(...chunk);
+        }
+
+        return btoa(binary);
+    }
+
+    function base64ToUint8Array(base64Content) {
+        const binary = atob(base64Content);
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index += 1) {
+            bytes[index] = binary.charCodeAt(index);
+        }
+        return bytes;
+    }
+
+    async function createShareSnapshot(files = []) {
+        const serializedFiles = await Promise.all(
+            files.map(async (file) => {
+                const fileBuffer = await file.arrayBuffer();
+                return {
+                    name: file.name,
+                    type: file.type || "application/octet-stream",
+                    contentBase64: arrayBufferToBase64(fileBuffer)
+                };
+            })
+        );
+
+        const response = await fetch(shareApiEndpoint, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ files: serializedFiles })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Falha HTTP ${response.status} ao gerar link compartilhável.`);
+        }
+
+        const payload = await response.json();
+        if (!payload?.shareCode || !payload?.shareLink || !payload?.expiresAt) {
+            throw new Error("Resposta inválida ao gerar compartilhamento.");
+        }
+
+        return payload;
+    }
+
+    async function loadModelsFromShareCode(shareCode) {
+        const response = await fetch(`${shareApiEndpoint}?share=${encodeURIComponent(shareCode)}`);
+
+        if (response.status === 404) {
+            bridge.setUploadStatus("Link compartilhado expirado ou não encontrado. Gere um novo link no dispositivo original.", true);
+            return;
+        }
+
+        if (!response.ok) {
+            throw new Error(`Falha HTTP ${response.status} ao recuperar modelos compartilhados.`);
+        }
+
+        const payload = await response.json();
+        const sharedFiles = Array.isArray(payload?.files) ? payload.files : [];
+
+        if (!sharedFiles.length) {
+            bridge.setUploadStatus("Esse link não possui modelos anexados.", true);
+            return;
+        }
+
+        const restoredFiles = sharedFiles.map((sharedFile) => {
+            const fileBytes = base64ToUint8Array(sharedFile.contentBase64 || "");
+            return new File([fileBytes], sharedFile.name || "modelo-compartilhado.ifc", {
+                type: sharedFile.type || "application/octet-stream"
+            });
+        });
+
+        registerShareableFiles(restoredFiles);
+        bridge.setUploadStatus(`Carregando ${restoredFiles.length} arquivo(s) compartilhado(s)...`);
+        await processSelectedFiles(restoredFiles);
+    }
+
+    async function tryLoadSharedModelsFromUrl() {
+        const currentUrl = new URL(window.location.href);
+        const shareCode = currentUrl.searchParams.get("share");
+
+        if (!shareCode) {
+            return;
+        }
+
+        try {
+            await loadModelsFromShareCode(shareCode);
+        } catch (error) {
+            console.error("Falha ao carregar modelos compartilhados:", error);
+            bridge.setUploadStatus(`Não foi possível carregar o compartilhamento: ${error?.message || error}.`, true);
+        }
     }
 
     function setupSharePanel() {
@@ -319,16 +422,34 @@ if (!bridge) {
             shareButton.setAttribute("aria-expanded", open ? "true" : "false");
         };
 
-        shareButton.addEventListener("click", () => {
+        shareButton.addEventListener("click", async () => {
             if (isUploadInProgress) {
                 bridge.setUploadStatus("Aguarde o término do upload para gerar um link temporário.");
                 return;
             }
 
-            const { shareCode, shareLink, expiresAt } = generateTemporaryShareLink();
-            shareLinkInput.value = shareLink;
-            shareCodeElement.textContent = `Código: ${shareCode} • expira em ${expiresAt.toLocaleString("pt-BR")}`;
-            setPanelState(sharePanel.hidden);
+            if (!shareableFiles.length) {
+                bridge.setUploadStatus("Adicione pelo menos um modelo antes de compartilhar.", true);
+                setPanelState(true);
+                shareLinkInput.value = "";
+                shareCodeElement.textContent = "Nenhum modelo disponível para compartilhar.";
+                return;
+            }
+
+            shareCodeElement.textContent = "Gerando link temporário...";
+            setPanelState(true);
+
+            try {
+                const { shareCode, shareLink, expiresAt } = await createShareSnapshot(shareableFiles);
+                shareLinkInput.value = shareLink;
+                shareCodeElement.textContent = `Código: ${shareCode} • expira em ${new Date(expiresAt).toLocaleString("pt-BR")}`;
+                bridge.setUploadStatus("Link temporário gerado com os modelos anexados.");
+            } catch (error) {
+                console.error("Falha ao gerar link compartilhável:", error);
+                shareLinkInput.value = "";
+                shareCodeElement.textContent = "Não foi possível gerar o link temporário.";
+                bridge.setUploadStatus(`Erro ao gerar link: ${error?.message || error}.`, true);
+            }
         });
 
         closeSharePanelButton?.addEventListener("click", () => setPanelState(false));
@@ -529,7 +650,7 @@ if (!bridge) {
             ifcUploadInput.click();
         };
 
-        const handleSelectedFiles = async (fileList) => {
+        processSelectedFiles = async (fileList) => {
             const files = Array.from(fileList || []);
 
             if (!files.length) {
@@ -551,6 +672,7 @@ if (!bridge) {
                 return;
             }
 
+            registerShareableFiles(files);
             bridge.updateExpectedModels(files.length);
 
             const loadedFilesRef = { count: 0 };
@@ -593,7 +715,7 @@ if (!bridge) {
         addMoreFilesButton?.addEventListener("click", openFilePicker);
 
         ifcUploadInput.addEventListener("change", async () => {
-            await handleSelectedFiles(ifcUploadInput.files);
+            await processSelectedFiles(ifcUploadInput.files);
         });
 
         if (!ifcUploadDropzone) {
@@ -632,11 +754,12 @@ if (!bridge) {
                 return;
             }
 
-            await handleSelectedFiles(event.dataTransfer?.files);
+            await processSelectedFiles(event.dataTransfer?.files);
         });
     }
 
-  setupSharePanel();
+    setupSharePanel();
     setupIfcUploadInput();
+    tryLoadSharedModelsFromUrl();
     document.body.classList.add("ifc-upload-active");
 }

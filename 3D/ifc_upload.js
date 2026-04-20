@@ -232,6 +232,8 @@ if (!bridge) {
         if (ifcUploadPanel) {
             ifcUploadPanel.hidden = true;
         }
+
+        document.body.classList.remove("ifc-upload-active");
     }
 
     function hideUploadIntro() {
@@ -546,5 +548,6 @@ if (!bridge) {
         });
     }
 
-    setupIfcUploadInput();
+  setupIfcUploadInput();
+    document.body.classList.add("ifc-upload-active");
 }

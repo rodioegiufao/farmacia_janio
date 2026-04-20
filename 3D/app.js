@@ -3661,6 +3661,7 @@ const selectPrivateProject = document.getElementById("selectPrivateProject");
 const projectFromDataset = document.body?.dataset?.project;
 const ifcUploadInput = document.getElementById("ifcUploadInput");
 const ifcUploadStatus = document.getElementById("ifcUploadStatus");
+const ifcUploadDropzone = document.querySelector(".ifc-upload-dropzone");
 
 const PROJECT_CONFIGS = {
     iper: { models: IPER_MODELS, transforms: IPER_MODEL_TRANSFORMS },
@@ -4278,8 +4279,8 @@ function setupIfcUploadInput() {
         return;
     }
 
-    ifcUploadInput.addEventListener("change", async () => {
-        const files = Array.from(ifcUploadInput.files || []);
+    const handleSelectedFiles = async (fileList) => {
+        const files = Array.from(fileList || []);
 
         if (!files.length) {
             return;
@@ -4322,6 +4323,43 @@ function setupIfcUploadInput() {
         }
 
         ifcUploadInput.value = "";
+    };
+
+    ifcUploadInput.addEventListener("change", async () => {
+        await handleSelectedFiles(ifcUploadInput.files);
+    });
+
+    if (!ifcUploadDropzone) {
+        return;
+    }
+
+    const preventDropDefaults = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
+    ifcUploadDropzone.addEventListener("dragenter", (event) => {
+        preventDropDefaults(event);
+        ifcUploadDropzone.classList.add("is-dragover");
+    });
+
+    ifcUploadDropzone.addEventListener("dragover", (event) => {
+        preventDropDefaults(event);
+        ifcUploadDropzone.classList.add("is-dragover");
+    });
+
+    ifcUploadDropzone.addEventListener("dragleave", (event) => {
+        preventDropDefaults(event);
+
+        if (!ifcUploadDropzone.contains(event.relatedTarget)) {
+            ifcUploadDropzone.classList.remove("is-dragover");
+        }
+    });
+
+    ifcUploadDropzone.addEventListener("drop", async (event) => {
+        preventDropDefaults(event);
+        ifcUploadDropzone.classList.remove("is-dragover");
+        await handleSelectedFiles(event.dataTransfer?.files);
     });
 }
 

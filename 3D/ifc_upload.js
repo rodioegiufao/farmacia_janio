@@ -331,6 +331,22 @@ if (!bridge) {
         return bytes;
     }
 
+    function sanitizeShareCode(rawShareCode) {
+        if (typeof rawShareCode !== "string") {
+            return "";
+        }
+
+        let shareCode = rawShareCode.trim();
+        if (!shareCode) {
+            return "";
+        }
+
+        shareCode = shareCode.replace(/^[\["'(]+/, "").replace(/[\]"')]+$/, "");
+        shareCode = shareCode.replace(/[.,;!?]+$/, "");
+
+        return shareCode;
+    }
+
     async function createShareSnapshot(files = []) {
         const serializedFiles = await Promise.all(
             files.map(async (file) => {
@@ -397,7 +413,8 @@ if (!bridge) {
 
     async function tryLoadSharedModelsFromUrl() {
         const currentUrl = new URL(window.location.href);
-        const shareCode = currentUrl.searchParams.get("share");
+        const rawShareCode = currentUrl.searchParams.get("share");
+        const shareCode = sanitizeShareCode(rawShareCode);
 
         if (!shareCode) {
             return;

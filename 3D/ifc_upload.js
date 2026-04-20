@@ -299,7 +299,7 @@ if (!bridge) {
     function generateTemporaryShareLink() {
         const shareCode = buildShareCode();
         const expiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000));
-        const shareLink = `${window.location.origin}/3D/ifc_upload/${shareCode}`;
+        const shareLink = `${window.location.origin}/3D/ifc_upload?share=${encodeURIComponent(shareCode)}`;
 
         return {
             shareCode,

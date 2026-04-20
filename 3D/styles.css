@@ -2468,6 +2468,92 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
     text-align: center;
 }
 
+.share-upload-panel {
+    position: fixed;
+    top: 92px;
+    right: 20px;
+    z-index: 100004;
+    width: min(560px, calc(100vw - 40px));
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(129, 140, 248, 0.45);
+    background: linear-gradient(145deg, rgba(11, 18, 41, 0.94), rgba(24, 16, 47, 0.94));
+    box-shadow: 0 20px 52px rgba(9, 10, 32, 0.55);
+    backdrop-filter: blur(8px);
+    color: #f8fafc;
+}
+
+.share-upload-panel[hidden] {
+    display: none !important;
+}
+
+.share-upload-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.share-upload-panel-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.share-upload-panel-subtitle {
+    margin-top: 2px;
+    font-size: 0.82rem;
+    color: #c7d2fe;
+}
+
+.share-upload-panel-header button,
+.share-upload-actions button,
+.share-upload-link-row button {
+    border: 1px solid rgba(129, 140, 248, 0.55);
+    background: rgba(30, 27, 75, 0.72);
+    color: #e5e7eb;
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.share-upload-panel-header button:hover,
+.share-upload-actions button:hover,
+.share-upload-link-row button:hover {
+    background: rgba(55, 48, 163, 0.84);
+}
+
+.share-upload-link-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.share-upload-link-row input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.38);
+    background: rgba(15, 23, 42, 0.9);
+    color: #f8fafc;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+}
+
+.share-upload-code {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #dbeafe;
+}
+
+.share-upload-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
 @media (max-width: 640px) {
     .ifc-upload-panel {
         top: auto;
@@ -2478,5 +2564,13 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
         width: auto;
         padding: 18px 16px;
         border-radius: 16px;
+    }
+
+    .share-upload-panel {
+        top: 16px;
+        left: 16px;
+        right: 16px;
+        width: auto;
+        padding: 14px;
     }
 }

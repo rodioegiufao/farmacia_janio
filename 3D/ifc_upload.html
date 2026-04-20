@@ -127,6 +127,16 @@
             <span style="font-size: 1.2em;">❔</span>
             Ajuda
         </button>
+        <button
+            id="btnShareUploadLink"
+            class="tool-button"
+            title="Gerar link temporário para compartilhar"
+            aria-haspopup="dialog"
+            aria-expanded="false"
+        >
+            <span style="font-size: 1.2em;">🔗</span>
+            Compartilhar
+        </button>
     </div>
     <div id="searchBar" class="search-bar" aria-label="Buscar peça por ID ou nome" hidden>
         <div class="search-panel-header">
@@ -218,6 +228,23 @@
                 <li><kbd>J</kbd> — Rotacionar a peça selecionada em 90°</li>
             </ul>
             <p class="help-note">Para selecionar um objeto, clique duas vezes.</p>
+        </div>
+    </div>
+    <div id="shareUploadPanel" class="share-upload-panel" role="dialog" aria-modal="true" aria-labelledby="shareUploadTitle" hidden>
+        <div class="share-upload-panel-header">
+            <div>
+                <div id="shareUploadTitle" class="share-upload-panel-title">Compartilhar modelos</div>
+                <div class="share-upload-panel-subtitle">Link temporário válido por 1 dia</div>
+            </div>
+            <button id="closeShareUploadPanel" type="button" aria-label="Fechar painel">✕</button>
+        </div>
+        <div class="share-upload-link-row">
+            <input id="shareUploadLinkInput" type="text" readonly aria-label="Link temporário de compartilhamento" />
+            <button id="copyShareUploadLink" type="button">Copiar</button>
+        </div>
+        <p id="shareUploadCode" class="share-upload-code"></p>
+        <div class="share-upload-actions">
+            <button id="addMoreIfcFiles" type="button">Adicionar modelos</button>
         </div>
     </div>
     <div id="collisionPanel" hidden>

@@ -309,6 +309,8 @@ if (!bridge) {
         });
     }
 
+    const MAX_SHARE_REQUEST_BYTES = 4 * 1024 * 1024;
+
     function arrayBufferToBase64(arrayBuffer) {
         const bytes = new Uint8Array(arrayBuffer);
         const chunkSize = 0x8000;
@@ -320,6 +322,37 @@ if (!bridge) {
         }
 
         return btoa(binary);
+    }
+
+    async function compressArrayBufferWithGzip(arrayBuffer) {
+        if (typeof CompressionStream !== "function") {
+            return null;
+        }
+
+        const compressionStream = new CompressionStream("gzip");
+        const writer = compressionStream.writable.getWriter();
+        writer.write(new Uint8Array(arrayBuffer));
+        writer.close();
+
+        const compressedResponse = new Response(compressionStream.readable);
+        return compressedResponse.arrayBuffer();
+    }
+
+    async function decompressGzipBase64(base64Content) {
+        const compressedBytes = base64ToUint8Array(base64Content || "");
+
+        if (typeof DecompressionStream !== "function") {
+            throw new Error("Seu navegador não suporta descompressão GZIP para abrir esse compartilhamento.");
+        }
+
+        const decompressionStream = new DecompressionStream("gzip");
+        const writer = decompressionStream.writable.getWriter();
+        writer.write(compressedBytes);
+        writer.close();
+
+        const decompressedResponse = new Response(decompressionStream.readable);
+        const decompressedBuffer = await decompressedResponse.arrayBuffer();
+        return new Uint8Array(decompressedBuffer);
     }
 
     function base64ToUint8Array(base64Content) {
@@ -351,20 +384,35 @@ if (!bridge) {
         const serializedFiles = await Promise.all(
             files.map(async (file) => {
                 const fileBuffer = await file.arrayBuffer();
+                const compressedBuffer = await compressArrayBufferWithGzip(fileBuffer);
+                const shouldUseCompression =
+                    compressedBuffer && compressedBuffer.byteLength > 0 && compressedBuffer.byteLength < fileBuffer.byteLength;
+
                 return {
                     name: file.name,
                     type: file.type || "application/octet-stream",
-                    contentBase64: arrayBufferToBase64(fileBuffer)
+                    encoding: shouldUseCompression ? "gzip+base64" : "base64",
+                    contentBase64: arrayBufferToBase64(shouldUseCompression ? compressedBuffer : fileBuffer)
                 };
             })
         );
+
+        const payloadBody = JSON.stringify({ files: serializedFiles });
+        const payloadSize = new TextEncoder().encode(payloadBody).length;
+
+        if (payloadSize > MAX_SHARE_REQUEST_BYTES) {
+            const payloadSizeMb = (payloadSize / (1024 * 1024)).toFixed(2);
+            throw new Error(
+                `Os arquivos selecionados geram ${payloadSizeMb} MB no link e excedem o limite permitido. Remova alguns arquivos e tente novamente.`
+            );
+        }
 
         const response = await fetch(shareApiEndpoint, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({ files: serializedFiles })
+            body: payloadBody
         });
 
         if (!response.ok) {
@@ -399,12 +447,19 @@ if (!bridge) {
             return;
         }
 
-        const restoredFiles = sharedFiles.map((sharedFile) => {
-            const fileBytes = base64ToUint8Array(sharedFile.contentBase64 || "");
-            return new File([fileBytes], sharedFile.name || "modelo-compartilhado.ifc", {
-                type: sharedFile.type || "application/octet-stream"
-            });
-        });
+        const restoredFiles = await Promise.all(
+            sharedFiles.map(async (sharedFile) => {
+                const encoding = sharedFile?.encoding === "gzip+base64" ? "gzip+base64" : "base64";
+                const fileBytes =
+                    encoding === "gzip+base64"
+                        ? await decompressGzipBase64(sharedFile.contentBase64 || "")
+                        : base64ToUint8Array(sharedFile.contentBase64 || "");
+
+                return new File([fileBytes], sharedFile.name || "modelo-compartilhado.ifc", {
+                    type: sharedFile.type || "application/octet-stream"
+                });
+            })
+        );
 
         registerShareableFiles(restoredFiles);
         bridge.setUploadStatus(`Carregando ${restoredFiles.length} arquivo(s) compartilhado(s)...`);

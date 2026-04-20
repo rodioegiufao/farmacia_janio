@@ -130,8 +130,7 @@ if (!bridge) {
 
         const { ifcopenshell, ifcopenshellGeom } = await setupIfcOpenShellRuntime();
 
-        ifcOpenShellLoader = new IFCOpenShellLoaderPlugin({
-            viewer: bridge.viewer,
+        ifcOpenShellLoader = new IFCOpenShellLoaderPlugin(bridge.viewer, {
             ifcopenshell,
             ifcopenshell_geom: ifcopenshellGeom
         });
@@ -171,8 +170,7 @@ if (!bridge) {
 
         for (const wasmPath of wasmPaths) {
             try {
-                const loader = new WebIFCLoaderPlugin({
-                    viewer: bridge.viewer,
+                const loader = new WebIFCLoaderPlugin(bridge.viewer, {
                     dataSource: ifcUploadDataSource,
                     wasmPath,
                     wasmDir: wasmPath,

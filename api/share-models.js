@@ -76,6 +76,7 @@ module.exports = function shareModelsHandler(req, res) {
                     typeof file?.type === "string" && file.type.trim()
                         ? file.type
                         : "application/octet-stream",
+                encoding: file?.encoding === "gzip+base64" ? "gzip+base64" : "base64",
                 contentBase64: typeof file?.contentBase64 === "string" ? file.contentBase64 : ""
             }))
             .filter((file) => file.contentBase64.length > 0);

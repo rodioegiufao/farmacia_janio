@@ -12,12 +12,19 @@ if (!bridge) {
     const ifcUploadPanel = document.getElementById("ifcUploadPanel");
     const ifcUploadIntro = document.getElementById("ifcUploadIntro");
     const ifcUploadDropzone = document.querySelector(".ifc-upload-dropzone");
+    const shareButton = document.getElementById("btnShareUploadLink");
+    const sharePanel = document.getElementById("shareUploadPanel");
+    const closeSharePanelButton = document.getElementById("closeShareUploadPanel");
+    const shareLinkInput = document.getElementById("shareUploadLinkInput");
+    const shareCodeElement = document.getElementById("shareUploadCode");
+    const copyShareLinkButton = document.getElementById("copyShareUploadLink");
+    const addMoreFilesButton = document.getElementById("addMoreIfcFiles");
 
     let ifcLoader = null;
     let ifcOpenShellLoader = null;
     let pyodideSetupPromise = null;
     let uploadModelSequence = 0;
-    let isUploadSessionLocked = false;
+    let isUploadInProgress = false;
 
     const IFC_OPEN_SHELL_WHEEL_URL = "https://ifcopenshell.github.io/wasm-wheels/ifcopenshell-0.8.3+34a1bc6-cp313-cp313-emscripten_4_0_9_wasm32.whl";
 
@@ -246,7 +253,8 @@ if (!bridge) {
         const {
             totalFiles = 1,
             completedFilesRef = { count: 0 },
-            successfulFilesRef = { count: 0 }
+            successfulFilesRef = { count: 0 },
+            onBatchComplete = null
         } = uploadContext;
 
         completedFilesRef.count += 1;
@@ -261,19 +269,85 @@ if (!bridge) {
         const successfulFiles = successfulFilesRef.count;
 
         if (successfulFiles > 0) {
-            isUploadSessionLocked = true;
             hideUploadPanel();
             bridge.setUploadStatus(
                 totalFiles > 1
                     ? `Upload concluído com ${successfulFiles}/${totalFiles} arquivo(s) carregado(s).`
                     : `Upload concluído: ${fileName}.`
             );
+            if (typeof onBatchComplete === "function") {
+                onBatchComplete({ hasSuccess: true });
+            }
             return;
         }
 
-        isUploadSessionLocked = false;
         setUploadInputEnabled(true);
         bridge.setUploadStatus("Nenhum arquivo foi carregado. Tente novamente.", true);
+        if (typeof onBatchComplete === "function") {
+            onBatchComplete({ hasSuccess: false });
+        }
+    }
+
+    function buildShareCode() {
+        if (window?.crypto?.randomUUID) {
+            return window.crypto.randomUUID();
+        }
+
+        return `share-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+    }
+
+    function generateTemporaryShareLink() {
+        const shareCode = buildShareCode();
+        const expiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000));
+        const shareLink = `${window.location.origin}/3D/ifc_upload/${shareCode}`;
+
+        return {
+            shareCode,
+            shareLink,
+            expiresAt
+        };
+    }
+
+    function setupSharePanel() {
+        if (!shareButton || !sharePanel || !shareLinkInput || !shareCodeElement) {
+            return;
+        }
+
+        const setPanelState = (open) => {
+            sharePanel.hidden = !open;
+            shareButton.classList.toggle("active", open);
+            shareButton.setAttribute("aria-expanded", open ? "true" : "false");
+        };
+
+        shareButton.addEventListener("click", () => {
+            if (isUploadInProgress) {
+                bridge.setUploadStatus("Aguarde o término do upload para gerar um link temporário.");
+                return;
+            }
+
+            const { shareCode, shareLink, expiresAt } = generateTemporaryShareLink();
+            shareLinkInput.value = shareLink;
+            shareCodeElement.textContent = `Código: ${shareCode} • expira em ${expiresAt.toLocaleString("pt-BR")}`;
+            setPanelState(sharePanel.hidden);
+        });
+
+        closeSharePanelButton?.addEventListener("click", () => setPanelState(false));
+
+        copyShareLinkButton?.addEventListener("click", async () => {
+            const linkValue = shareLinkInput.value.trim();
+            if (!linkValue) {
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(linkValue);
+                bridge.setUploadStatus("Link temporário copiado para a área de transferência.");
+            } catch (_error) {
+                shareLinkInput.focus();
+                shareLinkInput.select();
+                bridge.setUploadStatus("Não foi possível copiar automaticamente. Use Ctrl+C para copiar.");
+            }
+        });
     }
 
     function finalizeUploadedModelLoad(model, uploadContext = {}) {
@@ -447,6 +521,14 @@ if (!bridge) {
             return;
         }
 
+        const openFilePicker = () => {
+            if (!ifcUploadInput || isUploadInProgress) {
+                return;
+            }
+
+            ifcUploadInput.click();
+        };
+
         const handleSelectedFiles = async (fileList) => {
             const files = Array.from(fileList || []);
 
@@ -454,8 +536,8 @@ if (!bridge) {
                 return;
             }
 
-            if (isUploadSessionLocked) {
-                bridge.setUploadStatus("Upload já concluído. Para carregar vários IFCs, selecione todos de uma vez.", true);
+            if (isUploadInProgress) {
+                bridge.setUploadStatus("Um upload já está em andamento. Aguarde terminar para adicionar novos modelos.", true);
                 return;
             }
 
@@ -478,10 +560,14 @@ if (!bridge) {
                 totalFiles: files.length,
                 loadedFilesRef,
                 completedFilesRef,
-                successfulFilesRef
+                successfulFilesRef,
+                onBatchComplete: () => {
+                    isUploadInProgress = false;
+                    setUploadInputEnabled(true);
+                }
             };
 
-            isUploadSessionLocked = true;
+            isUploadInProgress = true;
             setUploadInputEnabled(false);
             hideUploadIntro();
             bridge.setUploadStatus(
@@ -503,6 +589,8 @@ if (!bridge) {
 
             ifcUploadInput.value = "";
         };
+
+        addMoreFilesButton?.addEventListener("click", openFilePicker);
 
         ifcUploadInput.addEventListener("change", async () => {
             await handleSelectedFiles(ifcUploadInput.files);
@@ -539,8 +627,8 @@ if (!bridge) {
             preventDropDefaults(event);
             ifcUploadDropzone.classList.remove("is-dragover");
 
-            if (isUploadSessionLocked) {
-                bridge.setUploadStatus("Upload já concluído. Para carregar vários IFCs, selecione todos de uma vez.", true);
+            if (isUploadInProgress) {
+                bridge.setUploadStatus("Um upload já está em andamento. Aguarde terminar para adicionar novos modelos.", true);
                 return;
             }
 
@@ -548,6 +636,7 @@ if (!bridge) {
         });
     }
 
-  setupIfcUploadInput();
+  setupSharePanel();
+    setupIfcUploadInput();
     document.body.classList.add("ifc-upload-active");
 }

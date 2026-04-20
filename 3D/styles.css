@@ -2391,57 +2391,6 @@ body[data-project="ifc_upload"]::before {
     pointer-events: none;
 }
 
-.ifc-upload-topbar {
-    position: fixed;
-    top: 14px;
-    left: 14px;
-    right: 14px;
-    z-index: 10004;
-    height: 58px;
-    padding: 0 16px;
-    border-radius: 18px;
-    border: 1px solid rgba(118, 92, 255, 0.4);
-    background: linear-gradient(120deg, rgba(20, 24, 48, 0.95), rgba(39, 22, 67, 0.88));
-    box-shadow: 0 10px 30px rgba(13, 10, 33, 0.4);
-    backdrop-filter: blur(9px);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.ifc-upload-topbar-brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    color: #f8fafc;
-}
-
-.ifc-upload-brand-logo {
-    color: #8b5cf6;
-    font-size: 1.2rem;
-}
-
-.ifc-upload-brand-text {
-    text-transform: lowercase;
-    letter-spacing: 0.02em;
-    font-size: 1.25rem;
-    font-weight: 600;
-}
-
-.ifc-upload-brand-text strong {
-    color: #7c3aed;
-}
-
-.ifc-upload-topbar-cta {
-    border: 1px solid rgba(139, 92, 246, 0.6);
-    background: linear-gradient(180deg, #7c3aed, #6d28d9);
-    color: #fff;
-    border-radius: 11px;
-    padding: 10px 16px;
-    font-weight: 700;
-    cursor: pointer;
-}
-
 .ifc-upload-panel h1 {
     margin: 0;
     text-align: center;
@@ -2508,17 +2457,6 @@ body[data-project="ifc_upload"]::before {
 }
 
 @media (max-width: 640px) {
-    .ifc-upload-topbar {
-        height: auto;
-        padding: 12px;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .ifc-upload-brand-text {
-        font-size: 1.05rem;
-    }
-
     .ifc-upload-panel {
         top: auto;
         bottom: 16px;

@@ -2379,10 +2379,14 @@ html, body {
     gap: 14px;
     width: min(640px, calc(100vw - 48px));
     backdrop-filter: blur(8px);
-    box-shadow: 0 20px 60px rgba(9, 10, 32, 0.55);
+   box-shadow: 0 20px 60px rgba(9, 10, 32, 0.55);
 }
 
-body[data-project="ifc_upload"]::before {
+.ifc-upload-panel[hidden] {
+    display: none !important;
+}
+
+body[data-project="ifc_upload"].ifc-upload-active::before {
     content: "";
     position: fixed;
     inset: 0;

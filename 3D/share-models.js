@@ -33,11 +33,18 @@ function cleanupExpiredShares() {
 }
 
 function buildShareCode() {
-    return globalThis.crypto?.randomUUID?.() || `share-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+    if (globalThis.crypto?.randomUUID) {
+        return globalThis.crypto.randomUUID();
+    }
+
+    return `share-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 }
 
 function sendJson(res, statusCode, payload) {
-    res.status(statusCode).setHeader("Content-Type", "application/json; charset=utf-8").send(JSON.stringify(payload));
+    res
+        .status(statusCode)
+        .setHeader("Content-Type", "application/json; charset=utf-8")
+        .send(JSON.stringify(payload));
 }
 
 function resolveRequestOrigin(req) {
@@ -50,7 +57,7 @@ function resolveRequestOrigin(req) {
     return host ? `${proto}://${host}` : "";
 }
 
-export default function handler(req, res) {
+module.exports = function shareModelsHandler(req, res) {
     cleanupExpiredShares();
 
     if (req.method === "POST") {
@@ -65,7 +72,10 @@ export default function handler(req, res) {
         const normalizedFiles = files
             .map((file) => ({
                 name: typeof file?.name === "string" ? file.name : "modelo-compartilhado.ifc",
-                type: typeof file?.type === "string" && file.type.trim() ? file.type : "application/octet-stream",
+                type:
+                    typeof file?.type === "string" && file.type.trim()
+                        ? file.type
+                        : "application/octet-stream",
                 contentBase64: typeof file?.contentBase64 === "string" ? file.contentBase64 : ""
             }))
             .filter((file) => file.contentBase64.length > 0);
@@ -113,4 +123,4 @@ export default function handler(req, res) {
     }
 
     sendJson(res, 405, { error: "Método não suportado." });
-}
+};

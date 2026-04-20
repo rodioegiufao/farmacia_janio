@@ -9,12 +9,14 @@ if (!bridge) {
     console.warn("ifcUploadBridge não encontrado. Upload IFC/XKT não foi inicializado.");
 } else {
     const ifcUploadInput = document.getElementById("ifcUploadInput");
+    const ifcUploadPanel = document.getElementById("ifcUploadPanel");
     const ifcUploadDropzone = document.querySelector(".ifc-upload-dropzone");
 
     let ifcLoader = null;
     let ifcOpenShellLoader = null;
     let pyodideSetupPromise = null;
     let uploadModelSequence = 0;
+    let isUploadSessionLocked = false;
 
     const IFC_OPEN_SHELL_WHEEL_URL = "https://ifcopenshell.github.io/wasm-wheels/ifcopenshell-0.8.3+34a1bc6-cp313-cp313-emscripten_4_0_9_wasm32.whl";
 
@@ -214,12 +216,75 @@ if (!bridge) {
         return `${prefix}_${Date.now()}_${uploadModelSequence}`;
     }
 
-    function finalizeUploadedModelLoad(model, { modelId, fileName, formatLabel, objectUrl = null, totalFiles = 1, loadedFilesRef = { count: 0 } }) {
+    function setUploadInputEnabled(isEnabled) {
+        if (!ifcUploadInput) {
+            return;
+        }
+
+        ifcUploadInput.disabled = !isEnabled;
+
+        if (ifcUploadDropzone) {
+            ifcUploadDropzone.classList.toggle("is-disabled", !isEnabled);
+            ifcUploadDropzone.setAttribute("aria-disabled", String(!isEnabled));
+        }
+    }
+
+    function hideUploadPanel() {
+        if (ifcUploadPanel) {
+            ifcUploadPanel.hidden = true;
+        }
+    }
+
+    function finalizeUploadBatch(uploadContext = {}, { succeeded = false, fileName = "" } = {}) {
+        const {
+            totalFiles = 1,
+            completedFilesRef = { count: 0 },
+            successfulFilesRef = { count: 0 }
+        } = uploadContext;
+
+        completedFilesRef.count += 1;
+        if (succeeded) {
+            successfulFilesRef.count += 1;
+        }
+
+        if (completedFilesRef.count < totalFiles) {
+            return;
+        }
+
+        const successfulFiles = successfulFilesRef.count;
+
+        if (successfulFiles > 0) {
+            isUploadSessionLocked = true;
+            hideUploadPanel();
+            bridge.setUploadStatus(
+                totalFiles > 1
+                    ? `Upload concluído com ${successfulFiles}/${totalFiles} arquivo(s) carregado(s).`
+                    : `Upload concluído: ${fileName}.`
+            );
+            return;
+        }
+
+        isUploadSessionLocked = false;
+        setUploadInputEnabled(true);
+        bridge.setUploadStatus("Nenhum arquivo foi carregado. Tente novamente.", true);
+    }
+
+    function finalizeUploadedModelLoad(model, uploadContext = {}) {
+        const {
+            modelId,
+            fileName,
+            formatLabel,
+            objectUrl = null,
+            totalFiles = 1,
+            loadedFilesRef = { count: 0 }
+        } = uploadContext;
+
         if (!model || typeof model.on !== "function") {
             if (objectUrl) {
                 URL.revokeObjectURL(objectUrl);
             }
             bridge.setUploadStatus(`Formato de resposta inesperado ao carregar ${formatLabel}.`, true);
+            finalizeUploadBatch(uploadContext, { succeeded: false, fileName });
             return;
         }
 
@@ -238,6 +303,7 @@ if (!bridge) {
                 ? `${loadedCount}/${totalFiles} arquivo(s) carregado(s). Último: ${fileName}.`
                 : `${formatLabel} carregado: ${fileName}.`;
             bridge.setUploadStatus(statusMessage);
+            finalizeUploadBatch(uploadContext, { succeeded: true, fileName });
         });
 
         model.on("error", (error) => {
@@ -246,6 +312,7 @@ if (!bridge) {
             }
             bridge.setUploadStatus(`Falha ao carregar ${fileName}.`, true);
             console.error(`Erro ao carregar ${formatLabel}:`, error);
+            finalizeUploadBatch(uploadContext, { succeeded: false, fileName });
         });
     }
 
@@ -329,6 +396,7 @@ if (!bridge) {
         } catch (error) {
             bridge.setUploadStatus(`Falha ao iniciar o carregamento do IFC: ${error?.message || error}.`, true);
             console.error("Erro ao iniciar carregamento IFC:", error);
+            finalizeUploadBatch(uploadContext, { succeeded: false, fileName: file.name });
         }
     }
 
@@ -354,6 +422,7 @@ if (!bridge) {
             URL.revokeObjectURL(objectUrl);
             bridge.setUploadStatus(`Falha ao iniciar o carregamento do XKT: ${error?.message || error}.`, true);
             console.error("Erro ao iniciar carregamento XKT:", error);
+            finalizeUploadBatch(uploadContext, { succeeded: false, fileName: file.name });
             return;
         }
 
@@ -378,6 +447,11 @@ if (!bridge) {
                 return;
             }
 
+            if (isUploadSessionLocked) {
+                bridge.setUploadStatus("Upload já concluído. Para carregar vários IFCs, selecione todos de uma vez.", true);
+                return;
+            }
+
             const invalidFile = files.find((file) => {
                 const lowerCaseFileName = file.name.toLowerCase();
                 return !lowerCaseFileName.endsWith(".xkt") && !lowerCaseFileName.endsWith(".ifc");
@@ -391,11 +465,17 @@ if (!bridge) {
             bridge.updateExpectedModels(files.length);
 
             const loadedFilesRef = { count: 0 };
+            const completedFilesRef = { count: 0 };
+            const successfulFilesRef = { count: 0 };
             const uploadContext = {
                 totalFiles: files.length,
-                loadedFilesRef
+                loadedFilesRef,
+                completedFilesRef,
+                successfulFilesRef
             };
 
+            isUploadSessionLocked = true;
+            setUploadInputEnabled(false);
             bridge.setUploadStatus(
                 files.length > 1
                     ? `Adicionando ${files.length} arquivos ao cenário...`
@@ -450,6 +530,12 @@ if (!bridge) {
         ifcUploadDropzone.addEventListener("drop", async (event) => {
             preventDropDefaults(event);
             ifcUploadDropzone.classList.remove("is-dragover");
+
+            if (isUploadSessionLocked) {
+                bridge.setUploadStatus("Upload já concluído. Para carregar vários IFCs, selecione todos de uma vez.", true);
+                return;
+            }
+
             await handleSelectedFiles(event.dataTransfer?.files);
         });
     }

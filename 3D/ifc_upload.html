@@ -144,9 +144,23 @@
         <span id="searchFeedback" class="search-feedback" aria-live="polite"></span>
     </div>
 
+    <header class="ifc-upload-topbar" aria-label="Barra principal do visualizador BIM">
+        <div class="ifc-upload-topbar-brand">
+            <span class="ifc-upload-brand-logo" aria-hidden="true">⬢</span>
+            <span class="ifc-upload-brand-text">farmácia <strong>janio</strong></span>
+        </div>
+        <button type="button" class="ifc-upload-topbar-cta">Fale conosco</button>
+    </header>
     <div id="ifcUploadPanel" class="ifc-upload-panel" aria-label="Carregar arquivo XKT ou IFC">
-        <label for="ifcUploadInput"><strong>Carregar arquivo XKT ou IFC</strong></label>
-        <input id="ifcUploadInput" type="file" accept=".xkt,.ifc" multiple />
+        <h1>Bem-vindo ao Visualizador BIM</h1>
+        <p class="ifc-upload-panel-subtitle">Carregue seu modelo IFC/XKT para iniciar a análise 3D.</p>
+        <label class="ifc-upload-dropzone" for="ifcUploadInput">
+            <span class="ifc-upload-dropzone-icon" aria-hidden="true">📦</span>
+            <span class="ifc-upload-dropzone-title">Selecionar arquivo</span>
+            <span class="ifc-upload-dropzone-helper">ou arraste e solte aqui</span>
+            <span class="ifc-upload-dropzone-formats">.ifc, .xkt</span>
+            <input id="ifcUploadInput" type="file" accept=".xkt,.ifc" multiple />
+        </label>
         <p id="ifcUploadStatus">Selecione um arquivo .xkt ou .ifc para visualizar.</p>
     </div>
     <button id="mobileToolbarToggle" type="button" aria-label="Mostrar todas as ferramentas" title="Mostrar todas as ferramentas" hidden>

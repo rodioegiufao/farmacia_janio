@@ -2627,13 +2627,14 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    padding: 16px;
-    border-radius: 16px;
-    border: 1px solid rgba(129, 140, 248, 0.45);
-    background: linear-gradient(145deg, rgba(11, 18, 41, 0.94), rgba(24, 16, 47, 0.94));
-    box-shadow: 0 20px 52px rgba(9, 10, 32, 0.55);
-    backdrop-filter: blur(8px);
-    color: #f8fafc;
+    padding: 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(33, 33, 33, 0.88);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(6px);
+    color: #f7f7f7;
+    font-family: Arial, sans-serif;
 }
 
 .share-upload-panel[hidden] {
@@ -2648,32 +2649,34 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
 }
 
 .share-upload-panel-title {
-    font-size: 1.1rem;
+    font-size: 16px;
     font-weight: 700;
 }
 
 .share-upload-panel-subtitle {
     margin-top: 2px;
-    font-size: 0.82rem;
-    color: #c7d2fe;
+    font-size: 12px;
+    color: #cfd8dc;
 }
 
 .share-upload-panel-header button,
 .share-upload-actions button,
 .share-upload-link-row button {
-    border: 1px solid rgba(129, 140, 248, 0.55);
-    background: rgba(30, 27, 75, 0.72);
-    color: #e5e7eb;
-    border-radius: 8px;
+    border: none;
+    background: rgba(255, 255, 255, 0.06);
+    color: #f0f0f0;
+    border-radius: 6px;
     padding: 8px 12px;
     cursor: pointer;
     font-weight: 600;
+    transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
 .share-upload-panel-header button:hover,
 .share-upload-actions button:hover,
 .share-upload-link-row button:hover {
-    background: rgba(55, 48, 163, 0.84);
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-1px);
 }
 
 .share-upload-link-row {
@@ -2685,18 +2688,18 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
 .share-upload-link-row input {
     flex: 1 1 auto;
     min-width: 0;
-    border-radius: 8px;
-    border: 1px solid rgba(148, 163, 184, 0.38);
-    background: rgba(15, 23, 42, 0.9);
-    color: #f8fafc;
-    padding: 10px 12px;
-    font-size: 0.95rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.6);
+    color: #f1f1f1;
+    padding: 8px 10px;
+    font-size: 14px;
 }
 
 .share-upload-code {
     margin: 0;
-    font-size: 0.85rem;
-    color: #dbeafe;
+    font-size: 12px;
+    color: #cfd8dc;
 }
 
 .share-upload-actions {
@@ -2714,8 +2717,8 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
 
 .share-upload-files-empty {
     margin: 0;
-    font-size: 0.82rem;
-    color: #cbd5e1;
+    font-size: 12px;
+    color: #cfd8dc;
 }
 
 .share-upload-file-item {
@@ -2723,16 +2726,16 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding: 8px 10px;
-    border: 1px solid rgba(148, 163, 184, 0.32);
-    border-radius: 10px;
-    background: rgba(15, 23, 42, 0.75);
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
 }
 
 .share-upload-file-name {
     min-width: 0;
-    font-size: 0.85rem;
-    color: #e2e8f0;
+    font-size: 13px;
+    color: #f3f4f6;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2743,14 +2746,16 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
     border: 1px solid rgba(248, 113, 113, 0.65);
     background: rgba(127, 29, 29, 0.35);
     color: #fecaca;
-    border-radius: 8px;
-    font-size: 0.8rem;
+    border-radius: 6px;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
 .share-upload-file-remove:hover {
     background: rgba(153, 27, 27, 0.58);
+    transform: translateY(-1px);
 }
 
 @media (max-width: 640px) {

@@ -226,6 +226,20 @@ if (!bridge) {
         return `${prefix}_${Date.now()}_${uploadModelSequence}`;
     }
 
+    function getFileDisplayName(fileName = "") {
+        const trimmedFileName = String(fileName || "").trim();
+        if (!trimmedFileName) {
+            return "";
+        }
+
+        const extensionIndex = trimmedFileName.lastIndexOf(".");
+        if (extensionIndex <= 0) {
+            return trimmedFileName;
+        }
+
+        return trimmedFileName.slice(0, extensionIndex).trim() || trimmedFileName;
+    }
+    
     function setUploadInputEnabled(isEnabled) {
         if (!ifcUploadInput) {
             return;
@@ -563,6 +577,11 @@ if (!bridge) {
         }
 
         model.on("loaded", () => {
+            const displayName = getFileDisplayName(fileName);
+            if (displayName) {
+                model.displayName = displayName;
+                model.src = displayName;
+            }
             bridge.addUploadedModelRecord(modelId, fileName);
             bridge.applyModelRenderProfile(model);
             bridge.registerModelTransform(model);

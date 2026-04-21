@@ -2679,6 +2679,27 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
     transform: translateY(-1px);
 }
 
+#generateShareUploadLink,
+#addMoreIfcFiles {
+    background-color: #00a86b;
+    color: #fff;
+}
+
+#generateShareUploadLink:hover,
+#addMoreIfcFiles:hover {
+    background-color: #00c47a;
+}
+
+#copyShareUploadLink {
+    background: linear-gradient(135deg, #2d8cff, #007bff);
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(0, 123, 255, 0.35);
+}
+
+#copyShareUploadLink:hover {
+    background: linear-gradient(135deg, #3e97ff, #0a86ff);
+}
+
 .share-upload-link-row {
     display: flex;
     gap: 8px;

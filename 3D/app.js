@@ -1082,7 +1082,7 @@ function toggleAllExplorerActiveTabVisibility() {
 }
 function buildExplorerModelItem(model) {
     const objectCount = getModelObjectIds(model.id).filter((id) => isSceneObjectId(id)).length;
-    const label = model.src || model.id;
+    const label = model.displayName || model.src || model.id;
     const isVisible = isModelVisible(model.id);
 
     return buildExplorerToggleCard({
@@ -1206,7 +1206,7 @@ function getExplorerModelLabel(modelId) {
     }
 
     const model = loadedModels.get(modelId);
-    return model?.src || model?.id || modelId;
+    return model?.displayName || model?.src || model?.id || modelId;
 }
 function renderExplorerObjectsTab() {
     const summary = explorerTabSummaries.get("objects");

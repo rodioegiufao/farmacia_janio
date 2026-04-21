@@ -2704,6 +2704,55 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
     justify-content: flex-end;
 }
 
+.share-upload-files-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 190px;
+    overflow-y: auto;
+}
+
+.share-upload-files-empty {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #cbd5e1;
+}
+
+.share-upload-file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid rgba(148, 163, 184, 0.32);
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.75);
+}
+
+.share-upload-file-name {
+    min-width: 0;
+    font-size: 0.85rem;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.share-upload-file-remove {
+    padding: 6px 10px;
+    border: 1px solid rgba(248, 113, 113, 0.65);
+    background: rgba(127, 29, 29, 0.35);
+    color: #fecaca;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.share-upload-file-remove:hover {
+    background: rgba(153, 27, 27, 0.58);
+}
+
 @media (max-width: 640px) {
     .ifc-upload-panel {
         top: auto;

@@ -1,4 +1,4 @@
-const SHARE_TTL_MS = 24 * 60 * 60 * 1000;
+const SHARE_TTL_MS = 60 * 60 * 1000;
 const STORE = globalThis.__ifcShareStore || new Map();
 globalThis.__ifcShareStore = STORE;
 

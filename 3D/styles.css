@@ -2423,6 +2423,10 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
     transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
 }
 
+.ifc-upload-dropzone[hidden] {
+    display: none !important;
+}
+
 .ifc-upload-dropzone:hover,
 .ifc-upload-dropzone.is-dragover {
     border-color: rgba(129, 140, 248, 0.95);

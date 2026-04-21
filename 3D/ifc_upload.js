@@ -576,7 +576,9 @@ if (!bridge) {
             const removeButton = document.createElement("button");
             removeButton.type = "button";
             removeButton.className = "share-upload-file-remove";
-            removeButton.textContent = "Excluir";
+            removeButton.textContent = "🗑️";
+            removeButton.title = "Excluir";
+            removeButton.setAttribute("aria-label", `Excluir ${file.name || "modelo.ifc"}`);
             removeButton.addEventListener("click", () => {
                 removeShareableFile(fileKey);
             });

@@ -12,6 +12,11 @@ if (!bridge) {
     const ifcUploadPanel = document.getElementById("ifcUploadPanel");
     const ifcUploadIntro = document.getElementById("ifcUploadIntro");
     const ifcUploadDropzone = document.querySelector(".ifc-upload-dropzone");
+    const ifcUploadProgressPanel = document.getElementById("ifcUploadProgressPanel");
+    const ifcUploadProgressFile = document.getElementById("ifcUploadProgressFile");
+    const ifcUploadProgressPercent = document.getElementById("ifcUploadProgressPercent");
+    const ifcUploadProgressFill = document.getElementById("ifcUploadProgressFill");
+    const ifcUploadProgressMeta = document.getElementById("ifcUploadProgressMeta");
     const shareButton = document.getElementById("btnShareUploadLink");
     const sharePanel = document.getElementById("shareUploadPanel");
     const closeSharePanelButton = document.getElementById("closeShareUploadPanel");
@@ -32,6 +37,81 @@ if (!bridge) {
     let isUploadInProgress = false;
 
     const IFC_OPEN_SHELL_WHEEL_URL = "https://ifcopenshell.github.io/wasm-wheels/ifcopenshell-0.8.3+34a1bc6-cp313-cp313-emscripten_4_0_9_wasm32.whl";
+
+    function formatBytes(bytes = 0) {
+        if (!Number.isFinite(bytes) || bytes <= 0) {
+            return "0 B";
+        }
+
+        const units = ["B", "KB", "MB", "GB"];
+        const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+        const value = bytes / (1024 ** unitIndex);
+
+        return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 2)} ${units[unitIndex]}`;
+    }
+
+    function showUploadProgress() {
+        if (ifcUploadProgressPanel) {
+            ifcUploadProgressPanel.hidden = false;
+        }
+    }
+
+    function hideUploadProgress() {
+        if (ifcUploadProgressPanel) {
+            ifcUploadProgressPanel.hidden = true;
+        }
+    }
+
+    function setUploadProgress({ fileName = "", percentage = 0, loadedBytes = 0, totalBytes = 0, speedBytesPerSec = 0, metaText = "" } = {}) {
+        const safePercentage = Math.max(0, Math.min(100, Number.isFinite(percentage) ? percentage : 0));
+        showUploadProgress();
+
+        if (ifcUploadProgressFile) {
+            ifcUploadProgressFile.textContent = fileName || "Carregando arquivo...";
+        }
+
+        if (ifcUploadProgressPercent) {
+            ifcUploadProgressPercent.textContent = `${Math.round(safePercentage)}%`;
+        }
+
+        if (ifcUploadProgressFill) {
+            ifcUploadProgressFill.style.width = `${safePercentage}%`;
+            ifcUploadProgressFill.parentElement?.setAttribute("aria-valuenow", String(Math.round(safePercentage)));
+        }
+
+        if (ifcUploadProgressMeta) {
+            if (metaText) {
+                ifcUploadProgressMeta.textContent = metaText;
+            } else {
+                const loadedLabel = formatBytes(loadedBytes);
+                const totalLabel = totalBytes > 0 ? formatBytes(totalBytes) : "tamanho desconhecido";
+                const speedLabel = speedBytesPerSec > 0 ? `${formatBytes(speedBytesPerSec)}/s` : "calculando taxa...";
+                ifcUploadProgressMeta.textContent = `${loadedLabel} / ${totalLabel} • ${speedLabel}`;
+            }
+        }
+    }
+
+    function readFileArrayBufferWithProgress(file, onProgress) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onprogress = (event) => {
+                if (typeof onProgress !== "function") {
+                    return;
+                }
+
+                onProgress({
+                    loaded: event.loaded || 0,
+                    total: event.total || file.size || 0,
+                    lengthComputable: event.lengthComputable
+                });
+            };
+
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error || new Error("Falha ao ler arquivo local."));
+            reader.readAsArrayBuffer(file);
+        });
+    }
 
     const ifcUploadDataSource = {
         getIFC(src, ok, error) {
@@ -284,6 +364,8 @@ if (!bridge) {
         if (completedFilesRef.count < totalFiles) {
             return;
         }
+
+        hideUploadProgress();
 
         const successfulFiles = successfulFilesRef.count;
 
@@ -642,7 +724,28 @@ if (!bridge) {
             dtxEnabled: bridge.viewerCompatibility.enableDataTextures
         };
 
-        const [fileText, fileArrayBuffer] = await Promise.all([file.text(), file.arrayBuffer()]);
+        const fileReadStartedAt = performance.now();
+        const fileArrayBuffer = await readFileArrayBufferWithProgress(file, ({ loaded, total }) => {
+            const elapsedSeconds = Math.max((performance.now() - fileReadStartedAt) / 1000, 0.001);
+            const speedBytesPerSec = loaded / elapsedSeconds;
+            const percentage = total > 0 ? (loaded / total) * 100 : 0;
+
+            setUploadProgress({
+                fileName: file.name,
+                percentage,
+                loadedBytes: loaded,
+                totalBytes: total || file.size || 0,
+                speedBytesPerSec
+            });
+        });
+        const fileText = new TextDecoder("utf-8").decode(fileArrayBuffer);
+        setUploadProgress({
+            fileName: file.name,
+            percentage: 100,
+            loadedBytes: file.size,
+            totalBytes: file.size,
+            metaText: "Arquivo recebido. Processando geometria IFC..."
+        });
 
         const tryLoadWithResolvedMethod = async (loader) => {
             const loadMethod = resolveIfcLoadMethod(loader);
@@ -798,14 +901,22 @@ if (!bridge) {
             isUploadInProgress = true;
             setUploadInputEnabled(false);
             hideUploadIntro();
-            bridge.setUploadStatus(
-                files.length > 1
-                    ? `Adicionando ${files.length} arquivos ao cenário...`
-                    : `Adicionando ${files[0].name} ao cenário...`
-            );
+            setUploadProgress({
+                fileName: files.length > 1 ? `${files.length} arquivos selecionados` : files[0].name,
+                percentage: 0,
+                metaText: files.length > 1 ? "Iniciando carregamento dos arquivos..." : "Iniciando upload do arquivo..."
+            });
+            bridge.setUploadStatus("Iniciando carregamento...");
 
             for (const file of files) {
                 const lowerCaseFileName = file.name.toLowerCase();
+                setUploadProgress({
+                    fileName: file.name,
+                    percentage: 0,
+                    metaText: lowerCaseFileName.endsWith(".ifc")
+                        ? "Lendo arquivo IFC para iniciar o processamento..."
+                        : "Carregando arquivo XKT..."
+                });
 
                 if (lowerCaseFileName.endsWith(".ifc")) {
                     await loadIfcUpload(file, uploadContext);

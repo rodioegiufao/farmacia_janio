@@ -485,6 +485,7 @@ const budgetStatus = document.getElementById("budgetStatus");
 const budgetTable = document.getElementById("budgetTable");
 const budgetTableBody = document.getElementById("budgetTableBody");
 const budgetTableLoadedProjects = new Set();
+const shareUploadPanel = document.getElementById("shareUploadPanel");
 
 setupExplorerPanel();
 setupAccessGate();
@@ -3180,6 +3181,13 @@ function setupDraggablePanels() {
         panel: budgetPanel,
         storageKey: `budgetPanelPosition:${pathname}`,
         ignoreSelectors: "input, button, textarea, select, a, iframe"
+    });
+
+    setupDraggablePanel({
+        panel: shareUploadPanel,
+        storageKey: `shareUploadPanelPosition:${pathname}`,
+        ignoreSelectors: "input, button, textarea, select, a",
+        handleSelector: ".share-upload-panel-header"
     });
 }
 

@@ -21,6 +21,7 @@ if (!bridge) {
     const ifcUploadProgressEta = document.getElementById("ifcUploadProgressEta");
     const ifcUploadProgressFill = document.getElementById("ifcUploadProgressFill");
     const ifcUploadProgressMeta = document.getElementById("ifcUploadProgressMeta");
+    const ifcUploadQueue = document.getElementById("ifcUploadQueue");
     const shareButton = document.getElementById("btnShareUploadLink");
     const sharePanel = document.getElementById("shareUploadPanel");
     const closeSharePanelButton = document.getElementById("closeShareUploadPanel");
@@ -39,6 +40,7 @@ if (!bridge) {
     let pyodideSetupPromise = null;
     let uploadModelSequence = 0;
     let isUploadInProgress = false;
+    const uploadQueueItems = new Map();
 
     const IFC_OPEN_SHELL_WHEEL_URL = "https://ifcopenshell.github.io/wasm-wheels/ifcopenshell-0.8.3+34a1bc6-cp313-cp313-emscripten_4_0_9_wasm32.whl";
 
@@ -70,6 +72,65 @@ if (!bridge) {
         if (ifcUploadDropzone) {
             ifcUploadDropzone.hidden = !isVisible;
         }
+    }
+
+    function resetUploadQueue(files = []) {
+        if (!ifcUploadQueue) {
+            return;
+        }
+
+        uploadQueueItems.clear();
+        ifcUploadQueue.innerHTML = "";
+        ifcUploadQueue.hidden = files.length === 0;
+
+        files.forEach((file, index) => {
+            const queueId = `${index}-${file.name}-${file.size}-${file.lastModified}`;
+            const item = document.createElement("div");
+            item.className = "ifc-upload-queue-item";
+            item.dataset.queueId = queueId;
+
+            const itemHeader = document.createElement("div");
+            itemHeader.className = "ifc-upload-queue-item-header";
+
+            const itemName = document.createElement("span");
+            itemName.className = "ifc-upload-queue-item-name";
+            itemName.textContent = file.name;
+
+            const itemStatus = document.createElement("span");
+            itemStatus.className = "ifc-upload-queue-item-status";
+            itemStatus.textContent = "Na fila";
+
+            const itemMeta = document.createElement("span");
+            itemMeta.className = "ifc-upload-queue-item-meta";
+            itemMeta.textContent = formatBytes(file.size || 0);
+
+            itemHeader.append(itemName, itemStatus);
+            item.append(itemHeader, itemMeta);
+            ifcUploadQueue.appendChild(item);
+            uploadQueueItems.set(queueId, { item, itemStatus, itemMeta });
+        });
+    }
+
+    function updateUploadQueueItem(queueId, { statusText = "", metaText = "", isDone = false, isError = false } = {}) {
+        if (!queueId) {
+            return;
+        }
+
+        const entry = uploadQueueItems.get(queueId);
+        if (!entry) {
+            return;
+        }
+
+        if (statusText) {
+            entry.itemStatus.textContent = statusText;
+        }
+
+        if (metaText) {
+            entry.itemMeta.textContent = metaText;
+        }
+
+        entry.item.classList.toggle("is-complete", Boolean(isDone));
+        entry.item.classList.toggle("is-error", Boolean(isError));
     }
 
     function formatEstimatedTime(seconds = 0) {
@@ -712,6 +773,7 @@ if (!bridge) {
             fileName,
             formatLabel,
             objectUrl = null,
+            fileQueueId = "",
             totalFiles = 1,
             loadedFilesRef = { count: 0 }
         } = uploadContext;
@@ -721,6 +783,11 @@ if (!bridge) {
                 URL.revokeObjectURL(objectUrl);
             }
             bridge.setUploadStatus(`Formato de resposta inesperado ao carregar ${formatLabel}.`, true);
+            updateUploadQueueItem(fileQueueId, {
+                statusText: "Erro",
+                metaText: "Falha ao iniciar carregamento.",
+                isError: true
+            });
             finalizeUploadBatch(uploadContext, { succeeded: false, fileName });
             return;
         }
@@ -745,6 +812,11 @@ if (!bridge) {
                 ? `${loadedCount}/${totalFiles} arquivo(s) carregado(s). Último: ${fileName}.`
                 : `${formatLabel} carregado: ${fileName}.`;
             bridge.setUploadStatus(statusMessage);
+            updateUploadQueueItem(fileQueueId, {
+                statusText: "Concluído",
+                metaText: "Modelo carregado com sucesso.",
+                isDone: true
+            });
             finalizeUploadBatch(uploadContext, { succeeded: true, fileName });
         });
 
@@ -754,12 +826,18 @@ if (!bridge) {
             }
             bridge.setUploadStatus(`Falha ao carregar ${fileName}.`, true);
             console.error(`Erro ao carregar ${formatLabel}:`, error);
+            updateUploadQueueItem(fileQueueId, {
+                statusText: "Erro",
+                metaText: "Falha durante a leitura do modelo.",
+                isError: true
+            });
             finalizeUploadBatch(uploadContext, { succeeded: false, fileName });
         });
     }
 
     async function loadIfcUpload(file, uploadContext = {}) {
         const modelId = buildUploadModelId("IFC_UPLOAD");
+        const { fileQueueId = "" } = uploadContext;
         const renderProfile = bridge.getDefaultRenderProfile();
         const performanceModeEnabled = bridge.getPerformanceModeEnabled();
 
@@ -789,6 +867,10 @@ if (!bridge) {
                 totalBytes: total || file.size || 0,
                 speedBytesPerSec
             });
+            updateUploadQueueItem(fileQueueId, {
+                statusText: `${Math.round(percentage)}%`,
+                metaText: `${formatBytes(loaded)} / ${formatBytes(total || file.size || 0)}`
+            });
         });
         const fileText = new TextDecoder("utf-8").decode(fileArrayBuffer);
         setUploadProgress({
@@ -798,6 +880,10 @@ if (!bridge) {
             totalBytes: file.size,
             metaText: "Arquivo recebido. Processando geometria IFC...",
             statusText: "Processando"
+        });
+        updateUploadQueueItem(fileQueueId, {
+            statusText: "Processando",
+            metaText: "Arquivo recebido. Gerando geometria..."
         });
 
         const tryLoadWithResolvedMethod = async (loader) => {
@@ -860,12 +946,18 @@ if (!bridge) {
         } catch (error) {
             bridge.setUploadStatus(`Falha ao iniciar o carregamento do IFC: ${error?.message || error}.`, true);
             console.error("Erro ao iniciar carregamento IFC:", error);
+            updateUploadQueueItem(fileQueueId, {
+                statusText: "Erro",
+                metaText: "Falha ao processar IFC.",
+                isError: true
+            });
             finalizeUploadBatch(uploadContext, { succeeded: false, fileName: file.name });
         }
     }
 
     function loadXktUpload(file, uploadContext = {}) {
         const objectUrl = URL.createObjectURL(file);
+        const { fileQueueId = "" } = uploadContext;
         const modelId = buildUploadModelId("XKT_UPLOAD");
 
         const renderProfile = bridge.getDefaultRenderProfile();
@@ -886,9 +978,18 @@ if (!bridge) {
             URL.revokeObjectURL(objectUrl);
             bridge.setUploadStatus(`Falha ao iniciar o carregamento do XKT: ${error?.message || error}.`, true);
             console.error("Erro ao iniciar carregamento XKT:", error);
+            updateUploadQueueItem(fileQueueId, {
+                statusText: "Erro",
+                metaText: "Falha ao iniciar XKT.",
+                isError: true
+            });
             finalizeUploadBatch(uploadContext, { succeeded: false, fileName: file.name });
             return;
         }
+        updateUploadQueueItem(fileQueueId, {
+            statusText: "Processando",
+            metaText: "Carregando geometria XKT..."
+        });
 
         finalizeUploadedModelLoad(model, {
             ...uploadContext,
@@ -936,6 +1037,7 @@ if (!bridge) {
 
             registerShareableFiles(files);
             bridge.updateExpectedModels(files.length);
+            resetUploadQueue(files);
 
             const loadedFilesRef = { count: 0 };
             const completedFilesRef = { count: 0 };
@@ -962,8 +1064,9 @@ if (!bridge) {
             });
             bridge.setUploadStatus("Iniciando carregamento...");
 
-            for (const file of files) {
+            for (const [index, file] of files.entries()) {
                 const lowerCaseFileName = file.name.toLowerCase();
+                const fileQueueId = `${index}-${file.name}-${file.size}-${file.lastModified}`;
                 setUploadProgress({
                     fileName: file.name,
                     percentage: 0,
@@ -971,13 +1074,25 @@ if (!bridge) {
                         ? "Lendo arquivo IFC para iniciar o processamento..."
                         : "Carregando arquivo XKT..."
                 });
+                updateUploadQueueItem(fileQueueId, {
+                    statusText: "Iniciando",
+                    metaText: lowerCaseFileName.endsWith(".ifc")
+                        ? "Lendo IFC local..."
+                        : "Iniciando XKT..."
+                });
 
                 if (lowerCaseFileName.endsWith(".ifc")) {
-                    await loadIfcUpload(file, uploadContext);
+                    await loadIfcUpload(file, {
+                        ...uploadContext,
+                        fileQueueId
+                    });
                     continue;
                 }
 
-                loadXktUpload(file, uploadContext);
+                loadXktUpload(file, {
+                    ...uploadContext,
+                    fileQueueId
+                });
             }
 
             ifcUploadInput.value = "";

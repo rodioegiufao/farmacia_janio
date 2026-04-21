@@ -2129,6 +2129,17 @@ function ensureModelOption(modelId) {
     }
 }
 
+function removeModelOption(selectElement, modelId) {
+    if (!selectElement || !modelId) {
+        return;
+    }
+
+    const optionToRemove = Array.from(selectElement.options).find((option) => option.value === modelId);
+    if (optionToRemove) {
+        optionToRemove.remove();
+    }
+}
+
 function syncTransformInputs(modelId) {
     if (!transformModelSelect) {
         return;
@@ -3910,6 +3921,35 @@ const ifcUploadBridge = {
     },
     addUploadedModelRecord: (modelId, fileName) => {
         currentModels = [...currentModels, { id: modelId, src: fileName }];
+    },
+    removeUploadedModelRecord: (modelId) => {
+        if (!modelId) {
+            return;
+        }
+
+        const model = loadedModels.get(modelId);
+        if (model && typeof model.destroy === "function") {
+            model.destroy();
+        }
+
+        loadedModels.delete(modelId);
+        originalTransforms.delete(modelId);
+        currentModels = currentModels.filter((currentModel) => currentModel.id !== modelId);
+        objectModelIdLookup.clear();
+        normalizedSceneObjectIdLookup.clear();
+        invalidateExplorerCaches();
+
+        removeModelOption(transformModelSelect, modelId);
+        removeModelOption(collisionModelASelect, modelId);
+
+        if (transformModelSelect && transformModelSelect.options.length > 0) {
+            transformModelSelect.value = transformModelSelect.options[0].value;
+            syncTransformInputs(transformModelSelect.value);
+        }
+
+        setDefaultCollisionSelection();
+        scheduleExplorerRefresh(0);
+        requestRenderFrame();
     },
     setUploadStatus: (message, isError = false) => {
         const uploadStatusElement = document.getElementById("ifcUploadStatus");

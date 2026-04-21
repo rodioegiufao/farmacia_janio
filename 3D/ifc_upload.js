@@ -14,7 +14,11 @@ if (!bridge) {
     const ifcUploadDropzone = document.querySelector(".ifc-upload-dropzone");
     const ifcUploadProgressPanel = document.getElementById("ifcUploadProgressPanel");
     const ifcUploadProgressFile = document.getElementById("ifcUploadProgressFile");
+    const ifcUploadProgressSize = document.getElementById("ifcUploadProgressSize");
+    const ifcUploadProgressStatus = document.getElementById("ifcUploadProgressStatus");
     const ifcUploadProgressPercent = document.getElementById("ifcUploadProgressPercent");
+    const ifcUploadProgressSpeed = document.getElementById("ifcUploadProgressSpeed");
+    const ifcUploadProgressEta = document.getElementById("ifcUploadProgressEta");
     const ifcUploadProgressFill = document.getElementById("ifcUploadProgressFill");
     const ifcUploadProgressMeta = document.getElementById("ifcUploadProgressMeta");
     const shareButton = document.getElementById("btnShareUploadLink");
@@ -68,7 +72,29 @@ if (!bridge) {
         }
     }
 
-    function setUploadProgress({ fileName = "", percentage = 0, loadedBytes = 0, totalBytes = 0, speedBytesPerSec = 0, metaText = "" } = {}) {
+    function formatEstimatedTime(seconds = 0) {
+        if (!Number.isFinite(seconds) || seconds <= 0) {
+            return "--";
+        }
+
+        if (seconds < 60) {
+            return `${Math.ceil(seconds)} s`;
+        }
+
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.round(seconds % 60);
+        return `${minutes} min ${remainingSeconds}s`;
+    }
+
+    function setUploadProgress({
+        fileName = "",
+        percentage = 0,
+        loadedBytes = 0,
+        totalBytes = 0,
+        speedBytesPerSec = 0,
+        metaText = "",
+        statusText = "Uploading"
+    } = {}) {
         const safePercentage = Math.max(0, Math.min(100, Number.isFinite(percentage) ? percentage : 0));
         showUploadProgress();
 
@@ -78,6 +104,25 @@ if (!bridge) {
 
         if (ifcUploadProgressPercent) {
             ifcUploadProgressPercent.textContent = `${Math.round(safePercentage)}%`;
+        }
+
+        if (ifcUploadProgressSize) {
+            const totalLabel = totalBytes > 0 ? formatBytes(totalBytes) : "tamanho desconhecido";
+            ifcUploadProgressSize.textContent = `(${totalLabel})`;
+        }
+
+        if (ifcUploadProgressStatus) {
+            ifcUploadProgressStatus.textContent = statusText || "Uploading";
+        }
+
+        if (ifcUploadProgressSpeed) {
+            ifcUploadProgressSpeed.textContent = speedBytesPerSec > 0 ? `${formatBytes(speedBytesPerSec)}/s` : "0 KB/s";
+        }
+
+        if (ifcUploadProgressEta) {
+            const remainingBytes = totalBytes > 0 ? Math.max(totalBytes - loadedBytes, 0) : 0;
+            const etaSeconds = speedBytesPerSec > 0 ? remainingBytes / speedBytesPerSec : 0;
+            ifcUploadProgressEta.textContent = formatEstimatedTime(etaSeconds);
         }
 
         if (ifcUploadProgressFill) {
@@ -751,7 +796,8 @@ if (!bridge) {
             percentage: 100,
             loadedBytes: file.size,
             totalBytes: file.size,
-            metaText: "Arquivo recebido. Processando geometria IFC..."
+            metaText: "Arquivo recebido. Processando geometria IFC...",
+            statusText: "Processando"
         });
 
         const tryLoadWithResolvedMethod = async (loader) => {

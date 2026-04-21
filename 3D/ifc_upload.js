@@ -18,6 +18,7 @@ if (!bridge) {
     const shareLinkInput = document.getElementById("shareUploadLinkInput");
     const shareCodeElement = document.getElementById("shareUploadCode");
     const copyShareLinkButton = document.getElementById("copyShareUploadLink");
+    const generateShareLinkButton = document.getElementById("generateShareUploadLink");
     const addMoreFilesButton = document.getElementById("addMoreIfcFiles");
     const shareApiEndpoint = "/api/share-models";
     const shareableFiles = [];
@@ -508,7 +509,7 @@ if (!bridge) {
             shareButton.setAttribute("aria-expanded", open ? "true" : "false");
         };
 
-        shareButton.addEventListener("click", async () => {
+        const generateShareLink = async () => {
             if (isUploadInProgress) {
                 bridge.setUploadStatus("Aguarde o término do upload para gerar um link temporário.");
                 return;
@@ -536,6 +537,20 @@ if (!bridge) {
                 shareCodeElement.textContent = "Não foi possível gerar o link temporário.";
                 bridge.setUploadStatus(`Erro ao gerar link: ${error?.message || error}.`, true);
             }
+        };
+
+        shareButton.addEventListener("click", () => {
+            const open = sharePanel.hidden;
+            setPanelState(open);
+
+            if (open && !shareableFiles.length) {
+                shareLinkInput.value = "";
+                shareCodeElement.textContent = "Nenhum modelo disponível para compartilhar.";
+            }
+        });
+
+        generateShareLinkButton?.addEventListener("click", () => {
+            void generateShareLink();
         });
 
         closeSharePanelButton?.addEventListener("click", () => setPanelState(false));

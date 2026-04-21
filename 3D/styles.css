@@ -2561,6 +2561,63 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
     text-align: left;
 }
 
+.ifc-upload-queue {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.ifc-upload-queue[hidden] {
+    display: none !important;
+}
+
+.ifc-upload-queue-item {
+    border: 1px solid rgba(129, 140, 248, 0.25);
+    background: rgba(17, 24, 39, 0.45);
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.ifc-upload-queue-item-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.82rem;
+}
+
+.ifc-upload-queue-item-name {
+    color: #e2e8f0;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ifc-upload-queue-item-status {
+    color: #c4b5fd;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.ifc-upload-queue-item-meta {
+    font-size: 0.74rem;
+    color: #cbd5e1;
+}
+
+.ifc-upload-queue-item.is-complete .ifc-upload-queue-item-status {
+    color: #86efac;
+}
+
+.ifc-upload-queue-item.is-error .ifc-upload-queue-item-status {
+    color: #fca5a5;
+}
+
 .share-upload-panel {
     position: fixed;
     top: 92px;

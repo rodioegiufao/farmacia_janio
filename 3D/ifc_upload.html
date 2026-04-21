@@ -165,6 +165,16 @@
             <span class="ifc-upload-dropzone-formats">.ifc, .xkt</span>
             <input id="ifcUploadInput" type="file" accept=".xkt,.ifc" multiple />
         </label>
+        <div id="ifcUploadProgressPanel" class="ifc-upload-progress-panel" hidden>
+            <div class="ifc-upload-progress-header">
+                <span id="ifcUploadProgressFile" class="ifc-upload-progress-file">Preparando upload...</span>
+                <span id="ifcUploadProgressPercent" class="ifc-upload-progress-percent">0%</span>
+            </div>
+            <div class="ifc-upload-progress-track" role="progressbar" aria-label="Progresso do upload" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div id="ifcUploadProgressFill" class="ifc-upload-progress-fill"></div>
+            </div>
+            <div id="ifcUploadProgressMeta" class="ifc-upload-progress-meta">Aguardando arquivo...</div>
+        </div>
         <p id="ifcUploadStatus">Selecione um arquivo .xkt ou .ifc para visualizar.</p>
     </div>
     <button id="mobileToolbarToggle" type="button" aria-label="Mostrar todas as ferramentas" title="Mostrar todas as ferramentas" hidden>

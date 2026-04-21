@@ -151,7 +151,7 @@ const fastNavPlugin = new FastNavPlugin(viewer, {
     hideSAO: true,
     hideColorTexture: true,
     hidePBR: true,
-    scaleCanvasResolution: false,
+    scaleCanvasResolution: true,
     defaultScaleCanvasResolutionFactor: 1,
     scaleCanvasResolutionFactor: 0.6,
     delayBeforeRestore: true,
@@ -1926,7 +1926,7 @@ function applyPerformanceMode(enabled, { persist = true } = {}) {
         viewer.scene.sao.enabled = performanceModeEnabled ? false : defaultRenderProfile.saoEnabled;
     }
 
-    fastNavPlugin.scaleCanvasResolution = performanceModeEnabled;
+    fastNavPlugin.scaleCanvasResolution = true;
     fastNavPlugin.defaultScaleCanvasResolutionFactor = performanceModeEnabled ? 0.8 : 1;
     fastNavPlugin.scaleCanvasResolutionFactor = performanceModeEnabled ? 0.55 : 0.6;
     fastNavPlugin.hideEdges = performanceModeEnabled;

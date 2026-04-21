@@ -2468,6 +2468,63 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
     text-align: center;
 }
 
+.ifc-upload-progress-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(129, 140, 248, 0.35);
+    background: rgba(17, 24, 39, 0.5);
+}
+
+.ifc-upload-progress-panel[hidden] {
+    display: none !important;
+}
+
+.ifc-upload-progress-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.84rem;
+}
+
+.ifc-upload-progress-file {
+    color: #e2e8f0;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ifc-upload-progress-percent {
+    color: #c4b5fd;
+    font-weight: 700;
+}
+
+.ifc-upload-progress-track {
+    width: 100%;
+    height: 7px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.3);
+    overflow: hidden;
+}
+
+.ifc-upload-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #8b5cf6, #6366f1);
+    border-radius: inherit;
+    transition: width 0.2s ease;
+}
+
+.ifc-upload-progress-meta {
+    font-size: 0.78rem;
+    color: #cbd5e1;
+    text-align: right;
+}
+
 .share-upload-panel {
     position: fixed;
     top: 92px;

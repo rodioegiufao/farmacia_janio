@@ -27,12 +27,14 @@ if (!bridge) {
     const closeSharePanelButton = document.getElementById("closeShareUploadPanel");
     const shareLinkInput = document.getElementById("shareUploadLinkInput");
     const shareCodeElement = document.getElementById("shareUploadCode");
+    const shareUploadFilesList = document.getElementById("shareUploadFilesList");
     const copyShareLinkButton = document.getElementById("copyShareUploadLink");
     const generateShareLinkButton = document.getElementById("generateShareUploadLink");
     const addMoreFilesButton = document.getElementById("addMoreIfcFiles");
     const shareApiEndpoint = "/api/share-models";
     const shareableFiles = [];
     const shareableFileKeys = new Set();
+    const shareableModelIdsByFileKey = new Map();
     let processSelectedFiles = async () => {};
 
     let ifcLoader = null;
@@ -517,6 +519,71 @@ if (!bridge) {
             shareableFileKeys.add(key);
             shareableFiles.push(file);
         });
+
+        renderShareableFilesList();
+    }
+
+    function removeShareableFile(fileKey) {
+        if (!fileKey || !shareableFileKeys.has(fileKey)) {
+            return;
+        }
+
+        const fileIndex = shareableFiles.findIndex((file) => buildShareableFileKey(file) === fileKey);
+        if (fileIndex >= 0) {
+            shareableFiles.splice(fileIndex, 1);
+        }
+
+        shareableFileKeys.delete(fileKey);
+        const linkedModelId = shareableModelIdsByFileKey.get(fileKey);
+        if (linkedModelId) {
+            bridge.removeUploadedModelRecord?.(linkedModelId);
+        }
+        shareableModelIdsByFileKey.delete(fileKey);
+
+        shareLinkInput.value = "";
+        shareCodeElement.textContent = shareableFiles.length
+            ? "Modelo removido. Gere um novo link para atualizar o compartilhamento."
+            : "Nenhum modelo disponível para compartilhar.";
+        bridge.setUploadStatus("Modelo removido com sucesso.");
+        renderShareableFilesList();
+    }
+
+    function renderShareableFilesList() {
+        if (!shareUploadFilesList) {
+            return;
+        }
+
+        shareUploadFilesList.innerHTML = "";
+
+        if (!shareableFiles.length) {
+            const emptyText = document.createElement("p");
+            emptyText.className = "share-upload-files-empty";
+            emptyText.textContent = "Nenhum modelo adicionado ainda.";
+            shareUploadFilesList.appendChild(emptyText);
+            return;
+        }
+
+        shareableFiles.forEach((file) => {
+            const fileKey = buildShareableFileKey(file);
+            const item = document.createElement("div");
+            item.className = "share-upload-file-item";
+
+            const name = document.createElement("span");
+            name.className = "share-upload-file-name";
+            name.textContent = file.name || "modelo.ifc";
+            name.title = file.name || "modelo.ifc";
+
+            const removeButton = document.createElement("button");
+            removeButton.type = "button";
+            removeButton.className = "share-upload-file-remove";
+            removeButton.textContent = "Excluir";
+            removeButton.addEventListener("click", () => {
+                removeShareableFile(fileKey);
+            });
+
+            item.append(name, removeButton);
+            shareUploadFilesList.appendChild(item);
+        });
     }
 
     const MAX_SHARE_REQUEST_BYTES = 4 * 1024 * 1024;
@@ -737,6 +804,7 @@ if (!bridge) {
         shareButton.addEventListener("click", () => {
             const open = sharePanel.hidden;
             setPanelState(open);
+            renderShareableFilesList();
 
             if (open && !shareableFiles.length) {
                 shareLinkInput.value = "";
@@ -808,6 +876,9 @@ if (!bridge) {
             }
             loadedFilesRef.count += 1;
             const loadedCount = loadedFilesRef.count;
+            if (uploadContext.fileKey) {
+                shareableModelIdsByFileKey.set(uploadContext.fileKey, modelId);
+            }
             const statusMessage = totalFiles > 1
                 ? `${loadedCount}/${totalFiles} arquivo(s) carregado(s). Último: ${fileName}.`
                 : `${formatLabel} carregado: ${fileName}.`;
@@ -1067,6 +1138,7 @@ if (!bridge) {
             for (const [index, file] of files.entries()) {
                 const lowerCaseFileName = file.name.toLowerCase();
                 const fileQueueId = `${index}-${file.name}-${file.size}-${file.lastModified}`;
+                const fileKey = buildShareableFileKey(file);
                 setUploadProgress({
                     fileName: file.name,
                     percentage: 0,
@@ -1084,14 +1156,16 @@ if (!bridge) {
                 if (lowerCaseFileName.endsWith(".ifc")) {
                     await loadIfcUpload(file, {
                         ...uploadContext,
-                        fileQueueId
+                        fileQueueId,
+                        fileKey
                     });
                     continue;
                 }
 
                 loadXktUpload(file, {
                     ...uploadContext,
-                    fileQueueId
+                    fileQueueId,
+                    fileKey
                 });
             }
 

@@ -62,6 +62,12 @@ if (!bridge) {
         }
     }
 
+    function setUploadDropzoneVisible(isVisible) {
+        if (ifcUploadDropzone) {
+            ifcUploadDropzone.hidden = !isVisible;
+        }
+    }
+
     function setUploadProgress({ fileName = "", percentage = 0, loadedBytes = 0, totalBytes = 0, speedBytesPerSec = 0, metaText = "" } = {}) {
         const safePercentage = Math.max(0, Math.min(100, Number.isFinite(percentage) ? percentage : 0));
         showUploadProgress();
@@ -383,6 +389,7 @@ if (!bridge) {
         }
 
         setUploadInputEnabled(true);
+        setUploadDropzoneVisible(true);
         bridge.setUploadStatus("Nenhum arquivo foi carregado. Tente novamente.", true);
         if (typeof onBatchComplete === "function") {
             onBatchComplete({ hasSuccess: false });
@@ -901,6 +908,7 @@ if (!bridge) {
             isUploadInProgress = true;
             setUploadInputEnabled(false);
             hideUploadIntro();
+            setUploadDropzoneVisible(false);
             setUploadProgress({
                 fileName: files.length > 1 ? `${files.length} arquivos selecionados` : files[0].name,
                 percentage: 0,

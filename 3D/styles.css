@@ -2213,6 +2213,21 @@ html, body {
     background: linear-gradient(135deg, #3e97ff, #0a86ff);
 }
 
+body[data-project="ifc_upload"] .materials-search-button {
+    padding: 8px 12px;
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    border-radius: 8px;
+    background: rgba(75, 85, 99, 0.9);
+    color: #e5e7eb;
+    font-size: 1rem;
+    font-weight: 700;
+    box-shadow: none;
+}
+
+body[data-project="ifc_upload"] .materials-search-button:hover {
+    background: rgba(107, 114, 128, 0.95);
+}
+
 #generateMaterialsList {
     padding: 8px 12px;
     border: none;

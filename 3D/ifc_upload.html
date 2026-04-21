@@ -167,8 +167,16 @@
         </label>
         <div id="ifcUploadProgressPanel" class="ifc-upload-progress-panel" hidden>
             <div class="ifc-upload-progress-header">
-                <span id="ifcUploadProgressFile" class="ifc-upload-progress-file">Preparando upload...</span>
-                <span id="ifcUploadProgressPercent" class="ifc-upload-progress-percent">0%</span>
+                <div class="ifc-upload-progress-file-wrap">
+                    <span id="ifcUploadProgressFile" class="ifc-upload-progress-file">Preparando upload...</span>
+                    <span id="ifcUploadProgressSize" class="ifc-upload-progress-size">(0 B)</span>
+                </div>
+                <div class="ifc-upload-progress-stats">
+                    <span id="ifcUploadProgressStatus" class="ifc-upload-progress-status">Uploading</span>
+                    <span id="ifcUploadProgressPercent" class="ifc-upload-progress-percent">0%</span>
+                    <span id="ifcUploadProgressSpeed" class="ifc-upload-progress-speed">0 KB/s</span>
+                    <span id="ifcUploadProgressEta" class="ifc-upload-progress-eta">--</span>
+                </div>
             </div>
             <div class="ifc-upload-progress-track" role="progressbar" aria-label="Progresso do upload" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                 <div id="ifcUploadProgressFill" class="ifc-upload-progress-fill"></div>

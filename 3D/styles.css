@@ -1236,6 +1236,16 @@ html, body {
     background: rgba(14, 116, 144, 0.4);
 }
 
+.property-panel-annotation {
+    border-color: rgba(125, 211, 252, 0.5);
+    background: rgba(14, 116, 144, 0.2);
+}
+
+.property-panel-annotation-text {
+    color: #e0f2fe;
+    font-weight: 600;
+}
+
 .quadro-summary-total {
     margin-bottom: 8px;
     color: rgba(245, 245, 245, 0.9);

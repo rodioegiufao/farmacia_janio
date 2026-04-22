@@ -7378,18 +7378,18 @@ function getQuadroPolosAnnotation(metaObject) {
         propertySetNames: ["AltoQi_Builder"]
     });
 
-    if (!numeroPolos) {
+    const numeroPolosValue = extractNumericPropertyValue(numeroPolos);
+    if (!Number.isFinite(numeroPolosValue)) {
         return "";
     }
 
     const polosUtilizados = getQuadroUsedPolesFromAssociatedItems(metaObject);
-    const annotationLines = [`Número de polos do quadro: ${numeroPolos}`];
-
-    if (Number.isFinite(polosUtilizados)) {
-        annotationLines.push(`Quantidade de polos utilizados no quadro: ${polosUtilizados}`);
+    if (!Number.isFinite(polosUtilizados)) {
+        return "";
     }
 
-    return annotationLines.join("<br>");
+    const espacosFaltantes = Math.max(0, numeroPolosValue - polosUtilizados);
+    return `Espaço(s) faltante(s): ${espacosFaltantes}`;
 }
 
 function getQuadroUsedPolesFromAssociatedItems(metaObject) {

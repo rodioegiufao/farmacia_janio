@@ -7364,13 +7364,7 @@ function getPropertyTextValue(pset, propertyName, fallback = "") {
 }
 
 function getQuadroPolosAnnotation(metaObject) {
-    if (!metaObject) {
-        return "";
-    }
-
-    const supportedTypes = ["ifcelectricdistributionboard", "ifcflowfitting"];
-    const normalizedType = normalizeIfcPropertyLabel(metaObject.type || "");
-    if (!supportedTypes.includes(normalizedType)) {
+    if (!isSupportedQuadroMetaObject(metaObject)) {
         return "";
     }
 
@@ -7390,6 +7384,53 @@ function getQuadroPolosAnnotation(metaObject) {
 
     const espacosFaltantes = Math.max(0, numeroPolosValue - polosUtilizados);
     return `Espaço(s) faltante(s): ${espacosFaltantes}`;
+}
+
+function isSupportedQuadroMetaObject(metaObject) {
+    if (!metaObject) {
+        return false;
+    }
+
+    const supportedTypes = ["ifcelectricdistributionboard", "ifcflowfitting"];
+    const normalizedType = normalizeIfcPropertyLabel(metaObject.type || "");
+    return supportedTypes.includes(normalizedType);
+}
+
+function hasKeywordInAssociatedItems(metaObject, keyword) {
+    if (!isSupportedQuadroMetaObject(metaObject)) {
+        return false;
+    }
+
+    const itensAssociadosSet = getMetaObjectPropertySetByName(metaObject, "AltoQi_QiBuilder-Itens_Associados");
+    if (!itensAssociadosSet || !Array.isArray(itensAssociadosSet.properties)) {
+        return false;
+    }
+
+    const normalizedKeyword = normalizeIfcPropertyLabel(keyword);
+    return itensAssociadosSet.properties.some((prop) => {
+        const propName = normalizeIfcPropertyLabel(prop?.name || prop?.id || "");
+        const propValue = normalizeIfcPropertyLabel(formatIfcPropertyValue(prop?.value));
+        return propName.includes(normalizedKeyword) || propValue.includes(normalizedKeyword);
+    });
+}
+
+function getQuadroAnnotations(metaObject) {
+    if (!isSupportedQuadroMetaObject(metaObject)) {
+        return [];
+    }
+
+    const annotations = [];
+    const quadroPolosAnnotation = getQuadroPolosAnnotation(metaObject);
+    if (quadroPolosAnnotation) {
+        annotations.push(quadroPolosAnnotation);
+    }
+
+    const hasDps = hasKeywordInAssociatedItems(metaObject, "contra surto");
+    const hasDr = hasKeywordInAssociatedItems(metaObject, "interruptor");
+    annotations.push(`O quadro tem DPS: ${hasDps ? "Sim" : "Não"}`);
+    annotations.push(`O quadro tem DR: ${hasDr ? "Sim" : "Não"}`);
+
+    return annotations;
 }
 
 function getQuadroUsedPolesFromAssociatedItems(metaObject) {
@@ -7755,12 +7796,12 @@ function showMaterialProperties(entity) {
         `;
     }
 
-    const quadroPolosAnnotation = getQuadroPolosAnnotation(metaObject);
-    if (quadroPolosAnnotation) {
+    const quadroAnnotations = getQuadroAnnotations(metaObject);
+    if (quadroAnnotations.length > 0) {{
         propriedades += `
             <div class="property-panel-section property-panel-annotation">
                 <div class="property-panel-section-title">Anotação</div>
-                <div class="property-panel-annotation-text">${quadroPolosAnnotation}</div>
+                ${quadroAnnotations.map((annotation) => `<div class="property-panel-annotation-text">${annotation}</div>`).join("")}
             </div>
         `;
     }

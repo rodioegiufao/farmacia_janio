@@ -7392,6 +7392,17 @@ function getQuadroPolosAnnotation(metaObject) {
     return `Espaço(s) faltante(s): ${espacosFaltantes}`;
 }
 
+function getQuadroAnnotations(metaObject) {
+    const annotations = [];
+    const polosAnnotation = getQuadroPolosAnnotation(metaObject);
+
+    if (polosAnnotation) {
+        annotations.push(polosAnnotation);
+    }
+
+    return annotations;
+}
+
 function getQuadroUsedPolesFromAssociatedItems(metaObject) {
     if (!metaObject?.propertySets?.length) {
         return null;

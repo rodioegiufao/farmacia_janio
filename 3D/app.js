@@ -7602,9 +7602,9 @@ function showMaterialProperties(entity) {
 
     const aabb = viewer.scene.getAABB(entity.id);
     if (aabb) {
-        const centerX = ((aabb[0] + aabb[3]) / 2).toFixed(5);
-        const centerY = ((aabb[1] + aabb[4]) / 2).toFixed(5);
-        const centerZ = ((aabb[2] + aabb[5]) / 2).toFixed(5);
+        const centerX = ((aabb[0] + aabb[3]) / 0.02).toFixed(5);
+        const centerY = ((aabb[1] + aabb[4]) / 0.02).toFixed(5);
+        const centerZ = ((aabb[2] + aabb[5]) / 0.02).toFixed(5);
         propriedades += `
             <div class="property-panel-coordinates">
                 <div class="property-label">Coordenadas (centro):</div>

@@ -7382,7 +7382,114 @@ function getQuadroPolosAnnotation(metaObject) {
         return "";
     }
 
-    return `Número de polos do quadro: ${numeroPolos}`;
+    const polosUtilizados = getQuadroUsedPolesFromAssociatedItems(metaObject);
+    const annotationLines = [`Número de polos do quadro: ${numeroPolos}`];
+
+    if (Number.isFinite(polosUtilizados)) {
+        annotationLines.push(`Quantidade de polos utilizados no quadro: ${polosUtilizados}`);
+    }
+
+    return annotationLines.join("<br>");
+}
+
+function getQuadroUsedPolesFromAssociatedItems(metaObject) {
+    if (!metaObject?.propertySets?.length) {
+        return null;
+    }
+
+    const itensAssociadosSet = getMetaObjectPropertySetByName(metaObject, "AltoQi_QiBuilder-Itens_Associados");
+    if (!itensAssociadosSet || !Array.isArray(itensAssociadosSet.properties)) {
+        return null;
+    }
+
+    const keywordMultipliers = [
+        { keyword: "contra surto", multiplier: 1 },
+        { keyword: "tetrapolar", multiplier: 4 },
+        { keyword: "tripolar", multiplier: 3 },
+        { keyword: "bipolar", multiplier: 2 },
+        { keyword: "unipolar", multiplier: 1 }
+    ];
+
+    const detectMultiplier = (text) => {
+        const normalizedText = normalizeIfcPropertyLabel(text);
+        const matched = keywordMultipliers.find(({ keyword }) => normalizedText.includes(keyword));
+        return matched ? matched.multiplier : null;
+    };
+
+    const extractQuantityFromText = (text) => {
+        const match = String(text || "").match(/(\d+(?:[.,]\d+)?)/);
+        if (!match) {
+            return null;
+        }
+        const parsed = Number.parseFloat(match[1].replace(",", "."));
+        return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const indexedItems = new Map();
+
+    for (const prop of itensAssociadosSet.properties) {
+        const propName = String(prop?.name || prop?.id || "");
+        const propValueText = formatIfcPropertyValue(prop?.value);
+        const suffixMatch = propName.match(/_(\d+)$/);
+
+        if (!suffixMatch) {
+            continue;
+        }
+
+        const index = Number(suffixMatch[1]);
+        const current = indexedItems.get(index) || {
+            textFragments: [],
+            quantity: null
+        };
+
+        current.textFragments.push(propName, propValueText);
+
+        const normalizedPropName = normalizeIfcPropertyLabel(propName);
+        const isQuantityField = normalizedPropName.includes("qtd") || normalizedPropName.includes("qtde") || normalizedPropName.includes("quant");
+
+        if (isQuantityField) {
+            const parsedQuantity = extractNumericPropertyValue(prop?.value);
+            if (Number.isFinite(parsedQuantity)) {
+                current.quantity = parsedQuantity;
+            }
+        }
+
+        indexedItems.set(index, current);
+    }
+
+    const indexedTotal = Array.from(indexedItems.values()).reduce((total, item) => {
+        const text = item.textFragments.join(" ");
+        const multiplier = detectMultiplier(text);
+        if (!Number.isFinite(multiplier)) {
+            return total;
+        }
+
+        const quantity = Number.isFinite(item.quantity) ? item.quantity : extractQuantityFromText(text) || 1;
+        return total + (quantity * multiplier);
+    }, 0);
+
+    if (indexedTotal > 0) {
+        return indexedTotal;
+    }
+
+    const fallbackTotal = itensAssociadosSet.properties.reduce((total, prop) => {
+        const propName = String(prop?.name || prop?.id || "");
+        const propValueText = formatIfcPropertyValue(prop?.value);
+        const combinedText = `${propName} ${propValueText}`;
+        const multiplier = detectMultiplier(combinedText);
+        if (!Number.isFinite(multiplier)) {
+            return total;
+        }
+
+        const quantity = extractNumericPropertyValue(prop?.value) || extractQuantityFromText(combinedText) || 1;
+        return total + (quantity * multiplier);
+    }, 0);
+
+    if (fallbackTotal > 0) {
+        return fallbackTotal;
+    }
+
+    return 0;
 }
 
 function extractElectricalPointEntries(metaObject) {

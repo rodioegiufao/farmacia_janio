@@ -7363,6 +7363,28 @@ function getPropertyTextValue(pset, propertyName, fallback = "") {
     return String(value).trim();
 }
 
+function getQuadroPolosAnnotation(metaObject) {
+    if (!metaObject) {
+        return "";
+    }
+
+    const supportedTypes = ["ifcelectricdistributionboard", "ifcflowfitting"];
+    const normalizedType = normalizeIfcPropertyLabel(metaObject.type || "");
+    if (!supportedTypes.includes(normalizedType)) {
+        return "";
+    }
+
+    const numeroPolos = getMetaObjectPropertyValue(metaObject, ["Número de polos", "Numero de polos"], {
+        propertySetNames: ["AltoQi_Builder"]
+    });
+
+    if (!numeroPolos) {
+        return "";
+    }
+
+    return `Número de polos do quadro: ${numeroPolos}`;
+}
+
 function extractElectricalPointEntries(metaObject) {
     if (!metaObject) {
         return [];
@@ -7623,6 +7645,16 @@ function showMaterialProperties(entity) {
                 </button>
             </div>
             <div id="quadroSummaryContainer"></div>
+        `;
+    }
+
+    const quadroPolosAnnotation = getQuadroPolosAnnotation(metaObject);
+    if (quadroPolosAnnotation) {
+        propriedades += `
+            <div class="property-panel-section property-panel-annotation">
+                <div class="property-panel-section-title">Anotação</div>
+                <div class="property-panel-annotation-text">${quadroPolosAnnotation}</div>
+            </div>
         `;
     }
 

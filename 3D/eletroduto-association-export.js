@@ -5,7 +5,7 @@ export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStat
 
     document.addEventListener("keydown", async (event) => {
         const key = event.key?.toLowerCase();
-        const isShortcut = event.ctrlKey && event.shiftKey && key === "e";
+        const isShortcut = key === "8";
 
         if (!isShortcut || event.repeat || isEditableTarget(event.target)) {
             return;

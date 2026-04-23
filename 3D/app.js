@@ -23,6 +23,7 @@ import {
     loadAssociationDefinitionsFromExcel,
     loadAssociaUnitsFromExcel
 } from "./excel-export.js";
+import { setupEletrodutoAssociationExportShortcut } from "./eletroduto-association-export.js";
 //import { setupAnnotations } from "./annotations.js";
 
 const { jsPDF } = window.jspdf;
@@ -191,6 +192,7 @@ function createGroundGrid() {
 
 createGroundGrid();
 loadExplicitLinearMaterialsFromExcel();
+setupEletrodutoAssociationExportShortcut({ viewer, setSearchStatus });
 
 // -----------------------------------------------------------------------------
 // 1.1 Anotações fixas
@@ -235,9 +237,14 @@ function injectMeasurementShortcutHelp() {
     const redoShortcutItem = document.createElement("li");
     redoShortcutItem.dataset.measurementHistoryShortcuts = "true";
     redoShortcutItem.innerHTML = "<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> / <kbd>Ctrl</kbd> + <kbd>Y</kbd> — Refazer medição";
+    
+    const eletrodutoShortcutItem = document.createElement("li");
+    eletrodutoShortcutItem.dataset.measurementHistoryShortcuts = "true";
+    eletrodutoShortcutItem.innerHTML = "<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd> — Exportar relatório de eletrodutos";
 
     generalHelpList.appendChild(undoShortcutItem);
     generalHelpList.appendChild(redoShortcutItem);
+    generalHelpList.appendChild(eletrodutoShortcutItem);
 }
 function setupAccessGate() {
     if (!accessGate || !accessForm || !accessInput) {

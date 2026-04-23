@@ -240,7 +240,7 @@ function injectMeasurementShortcutHelp() {
     
     const eletrodutoShortcutItem = document.createElement("li");
     eletrodutoShortcutItem.dataset.measurementHistoryShortcuts = "true";
-    eletrodutoShortcutItem.innerHTML = "<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd> — Exportar relatório de eletrodutos";
+    eletrodutoShortcutItem.innerHTML = "<kbd>8</kbd> — Exportar relatório de eletrodutos";
 
     generalHelpList.appendChild(undoShortcutItem);
     generalHelpList.appendChild(redoShortcutItem);

@@ -156,10 +156,13 @@ function collectEletrodutoRows(viewer) {
         .filter((metaObject) => targetTypes.has(normalizeLabel(metaObject?.type)))
         .map((metaObject) => {
             const associatedItems = getAssociatedItemsText(metaObject);
+            const cableGaugeMatches = extractCableGauges(associatedItems);
             return {
                 ifcName: String(metaObject?.name || metaObject?.id || "Sem nome"),
                 ifcType: String(metaObject?.type || "Sem tipo"),
                 associatedItems,
+                cableGauges: cableGaugeMatches.join(" | "),
+                cableGaugeCount: cableGaugeMatches.length,
                 status: associatedItems ? "OK" : "NÃO OK"
             };
         })
@@ -260,6 +263,21 @@ function normalizeLabel(value) {
         .toLowerCase();
 }
 
+function extractCableGauges(text) {
+    const source = String(text || "");
+    if (!source) {
+        return [];
+    }
+
+    const matches = source.match(/\d+(?:[.,]\d+)?\s*mm²?/gi) || [];
+    return matches.map((value) =>
+        value
+            .replace(/\s+/g, " ")
+            .replace(/mm2$/i, "mm²")
+            .trim()
+    );
+}
+
 function downloadRowsAsExcel(rows) {
     const excelRows = rows
         .map(
@@ -268,6 +286,8 @@ function downloadRowsAsExcel(rows) {
             <Cell><Data ss:Type="String">${escapeXml(row.ifcName)}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.ifcType)}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.associatedItems || "Sem itens associados")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.cableGauges || "-")}</Data></Cell>
+            <Cell><Data ss:Type="Number">${row.cableGaugeCount || 0}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.status)}</Data></Cell>
         </Row>`
         )
@@ -297,6 +317,8 @@ function downloadRowsAsExcel(rows) {
                 <Cell><Data ss:Type="String">Nome IFC</Data></Cell>
                 <Cell><Data ss:Type="String">Tipo IFC</Data></Cell>
                 <Cell><Data ss:Type="String">AltoQi_QiBuilder-Itens_Associados</Data></Cell>
+                <Cell><Data ss:Type="String">Bitola(s) dos cabos</Data></Cell>
+                <Cell><Data ss:Type="String">Qtd. de bitola(s)</Data></Cell>
                 <Cell><Data ss:Type="String">Status</Data></Cell>
             </Row>
             ${excelRows}

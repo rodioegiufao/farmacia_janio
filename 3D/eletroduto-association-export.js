@@ -21,7 +21,7 @@ export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStat
 
             const rows = collectEletrodutoRows(viewer);
             if (!rows.length) {
-                notify(setSearchStatus, "Nenhum eletroduto dos tipos IfcCableCarrierSegment/IfcFlowSegment foi encontrado para exportação.", true);
+                notify(setSearchStatus, "Nenhum eletroduto com palavras-chave (0,6/1kV, 1,8KV, 450/750V, UTP-5e) foi encontrado para exportação.", true);
                 return;
             }
 
@@ -162,7 +162,26 @@ function collectEletrodutoRows(viewer) {
                 associatedItems,
                 status: associatedItems ? "OK" : "NÃO OK"
             };
-        });
+        })
+        .filter((row) => hasRequiredKeyword(row.associatedItems));
+}
+
+const REQUIRED_ASSOCIATED_ITEM_KEYWORDS = [
+    "0,6/1kV",
+    "1,8KV",
+    "450/750V",
+    "UTP-5e"
+];
+
+function hasRequiredKeyword(associatedItemsText) {
+    const normalizedAssociatedItems = normalizeLabel(associatedItemsText);
+    if (!normalizedAssociatedItems) {
+        return false;
+    }
+
+    return REQUIRED_ASSOCIATED_ITEM_KEYWORDS.some((keyword) =>
+        normalizedAssociatedItems.includes(normalizeLabel(keyword))
+    );
 }
 
 function getAssociatedItemsText(metaObject) {

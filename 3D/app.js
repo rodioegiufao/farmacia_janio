@@ -7396,6 +7396,7 @@ function getQuadroAnnotations(metaObject) {
     const annotations = [];
     const polosAnnotation = getQuadroPolosAnnotation(metaObject);
     const dpsAnnotation = getQuadroDpsAnnotation(metaObject);
+    const drAnnotation = getQuadroDrAnnotation(metaObject);
 
     if (polosAnnotation) {
         annotations.push(polosAnnotation);
@@ -7405,10 +7406,14 @@ function getQuadroAnnotations(metaObject) {
         annotations.push(dpsAnnotation);
     }
 
+    if (drAnnotation) {
+        annotations.push(drAnnotation);
+    }
+
     return annotations;
 }
 
-function getQuadroDpsAnnotation(metaObject) {
+    function getQuadroDpsAnnotation(metaObject) {
     if (!metaObject?.propertySets?.length) {
         return "";
     }
@@ -7425,6 +7430,25 @@ function getQuadroDpsAnnotation(metaObject) {
     });
 
     return hasDps ? "DPS: Tem DPS" : "DPS: Não tem DPS";
+}
+
+function getQuadroDrAnnotation(metaObject) {
+    if (!metaObject?.propertySets?.length) {
+        return "";
+    }
+
+    const itensAssociadosSet = getMetaObjectPropertySetByName(metaObject, "AltoQi_QiBuilder-Itens_Associados");
+    if (!itensAssociadosSet || !Array.isArray(itensAssociadosSet.properties)) {
+        return "";
+    }
+
+    const hasDr = itensAssociadosSet.properties.some((prop) => {
+        const propName = normalizeIfcPropertyLabel(prop?.name || prop?.id || "");
+        const propValue = normalizeIfcPropertyLabel(formatIfcPropertyValue(prop?.value));
+        return propName.includes("interruptor") || propValue.includes("interruptor");
+    });
+
+    return hasDr ? "DR: Tem DR" : "DR: Não tem DR";
 }
 
 function getQuadroUsedPolesFromAssociatedItems(metaObject) {

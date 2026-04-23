@@ -156,14 +156,16 @@ function collectEletrodutoRows(viewer) {
         .filter((metaObject) => targetTypes.has(normalizeLabel(metaObject?.type)))
         .map((metaObject) => {
             const associatedItems = getAssociatedItemsText(metaObject);
-            const cableGaugeMatches = extractCableGauges(associatedItems);
+            const { uniqueGauges, totalOccurrences } = extractCableGaugeSummary(associatedItems);
             const operatingVoltages = extractOperatingVoltages(associatedItems);
+            const { ifcCode, ifcName } = splitIfcCodeAndName(metaObject);
             return {
-                ifcName: String(metaObject?.name || metaObject?.id || "Sem nome"),
+                ifcCode,
+                ifcName,
                 ifcType: String(metaObject?.type || "Sem tipo"),
                 associatedItems,
-                cableGauges: cableGaugeMatches.join(" | "),
-                cableGaugeCount: cableGaugeMatches.length,
+                cableGauges: uniqueGauges.join(" | "),
+                cableGaugeCount: totalOccurrences,
                 operatingVoltages: operatingVoltages.join(" | "),
                 status: associatedItems ? "OK" : "NÃO OK"
             };
@@ -271,15 +273,67 @@ function extractCableGauges(text) {
         return [];
     }
 
-    const matches = source.match(/\d+(?:[.,]\d+)?\s*mm(?:\^?2|²)\b/gi) || [];
-    const normalized = matches.map((value) =>
+    const matches = source.match(/\d+(?:[.,]\d+)?\s*mm(?:\^?2|²)/gi) || [];
+    return matches.map((value) =>
         value
             .replace(/\s+/g, " ")
             .replace(/mm\^?2\b/gi, "mm²")
             .trim()
     );
+}
 
-    return Array.from(new Set(normalized));
+function extractCableGaugeSummary(text) {
+    const matches = extractCableGauges(text);
+    const uniqueGauges = Array.from(new Set(matches));
+
+    return {
+        uniqueGauges,
+        totalOccurrences: matches.length
+    };
+}
+
+function splitIfcCodeAndName(metaObject) {
+    const rawName = String(metaObject?.name || "").trim();
+    const fallbackName = String(metaObject?.name || metaObject?.id || "Sem nome");
+    const explicitCode = getIfcCodeProperty(metaObject);
+
+    if (explicitCode) {
+        return {
+            ifcCode: explicitCode,
+            ifcName: rawName || fallbackName
+        };
+    }
+
+    const match = rawName.match(/^(\d+(?:[.\-/]\d+)*)(?:\s*[-:|]\s*|\s+)(.+)$/);
+    if (match) {
+        return {
+            ifcCode: match[1],
+            ifcName: match[2].trim() || fallbackName
+        };
+    }
+
+    return {
+        ifcCode: String(metaObject?.id || "-"),
+        ifcName: fallbackName
+    };
+}
+
+function getIfcCodeProperty(metaObject) {
+    const propertySets = Array.isArray(metaObject?.propertySets) ? metaObject.propertySets : [];
+    for (const set of propertySets) {
+        const props = Array.isArray(set?.properties) ? set.properties : [];
+        for (const prop of props) {
+            const propName = normalizeLabel(prop?.name || prop?.id || "");
+            if (propName === "codigo" || propName === "code") {
+                const value = formatIfcPropertyValue(prop?.value).trim();
+                if (value) {
+                    return value;
+                }
+            }
+        }
+    }
+
+    return "";
 }
 
 function extractOperatingVoltages(text) {
@@ -298,6 +352,7 @@ function downloadRowsAsExcel(rows) {
         .map(
             (row) => `
         <Row ss:StyleID="${row.status === "OK" ? "OkRow" : "NotOkRow"}">
+            <Cell><Data ss:Type="String">${escapeXml(row.ifcCode || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.ifcName)}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.ifcType)}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.associatedItems || "Sem itens associados")}</Data></Cell>
@@ -330,11 +385,12 @@ function downloadRowsAsExcel(rows) {
     <Worksheet ss:Name="Eletrodutos">
         <Table>
             <Row ss:StyleID="Header">
+                <Cell><Data ss:Type="String">Código IFC</Data></Cell>
                 <Cell><Data ss:Type="String">Nome IFC</Data></Cell>
                 <Cell><Data ss:Type="String">Tipo IFC</Data></Cell>
                 <Cell><Data ss:Type="String">AltoQi_QiBuilder-Itens_Associados</Data></Cell>
                 <Cell><Data ss:Type="String">Bitola(s) dos cabos</Data></Cell>
-                <Cell><Data ss:Type="String">Qtd. de bitola(s)</Data></Cell>
+                <Cell><Data ss:Type="String">Qtd. de ocorrências de bitola(s)</Data></Cell>
                 <Cell><Data ss:Type="String">Tensão(ões) de trabalho</Data></Cell>
                 <Cell><Data ss:Type="String">Status</Data></Cell>
             </Row>

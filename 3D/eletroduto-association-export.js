@@ -4,8 +4,7 @@ export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStat
     }
 
     document.addEventListener("keydown", async (event) => {
-        const key = event.key?.toLowerCase();
-        const isShortcut = key === "8";
+        const isShortcut = isEletrodutoShortcut(event);
 
         if (!isShortcut || event.repeat || isEditableTarget(event.target)) {
             return;
@@ -27,6 +26,15 @@ export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStat
             notify(setSearchStatus, "Não foi possível gerar o relatório de eletrodutos.", true);
         }
     });
+}
+
+function isEletrodutoShortcut(event) {
+    const key = String(event?.key || "").toLowerCase();
+    const code = String(event?.code || "").toLowerCase();
+
+    return key === "8" ||
+        code === "digit8" ||
+        code === "numpad8";
 }
 
 function collectEletrodutoRows(viewer) {

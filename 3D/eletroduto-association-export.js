@@ -157,12 +157,14 @@ function collectEletrodutoRows(viewer) {
         .map((metaObject) => {
             const associatedItems = getAssociatedItemsText(metaObject);
             const cableGaugeMatches = extractCableGauges(associatedItems);
+            const operatingVoltages = extractOperatingVoltages(associatedItems);
             return {
                 ifcName: String(metaObject?.name || metaObject?.id || "Sem nome"),
                 ifcType: String(metaObject?.type || "Sem tipo"),
                 associatedItems,
                 cableGauges: cableGaugeMatches.join(" | "),
                 cableGaugeCount: cableGaugeMatches.length,
+                operatingVoltages: operatingVoltages.join(" | "),
                 status: associatedItems ? "OK" : "NÃO OK"
             };
         })
@@ -269,12 +271,25 @@ function extractCableGauges(text) {
         return [];
     }
 
-    const matches = source.match(/\d+(?:[.,]\d+)?\s*mm²?/gi) || [];
-    return matches.map((value) =>
+    const matches = source.match(/\d+(?:[.,]\d+)?\s*mm(?:\^?2|²)\b/gi) || [];
+    const normalized = matches.map((value) =>
         value
             .replace(/\s+/g, " ")
-            .replace(/mm2$/i, "mm²")
+            .replace(/mm\^?2\b/gi, "mm²")
             .trim()
+    );
+
+    return Array.from(new Set(normalized));
+}
+
+function extractOperatingVoltages(text) {
+    const normalizedText = normalizeLabel(text);
+    if (!normalizedText) {
+        return [];
+    }
+
+    return REQUIRED_ASSOCIATED_ITEM_KEYWORDS.filter((keyword) =>
+        normalizedText.includes(normalizeLabel(keyword))
     );
 }
 
@@ -288,6 +303,7 @@ function downloadRowsAsExcel(rows) {
             <Cell><Data ss:Type="String">${escapeXml(row.associatedItems || "Sem itens associados")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.cableGauges || "-")}</Data></Cell>
             <Cell><Data ss:Type="Number">${row.cableGaugeCount || 0}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.operatingVoltages || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.status)}</Data></Cell>
         </Row>`
         )
@@ -319,6 +335,7 @@ function downloadRowsAsExcel(rows) {
                 <Cell><Data ss:Type="String">AltoQi_QiBuilder-Itens_Associados</Data></Cell>
                 <Cell><Data ss:Type="String">Bitola(s) dos cabos</Data></Cell>
                 <Cell><Data ss:Type="String">Qtd. de bitola(s)</Data></Cell>
+                <Cell><Data ss:Type="String">Tensão(ões) de trabalho</Data></Cell>
                 <Cell><Data ss:Type="String">Status</Data></Cell>
             </Row>
             ${excelRows}

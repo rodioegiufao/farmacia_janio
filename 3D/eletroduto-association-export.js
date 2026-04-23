@@ -13,6 +13,12 @@ export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStat
         event.preventDefault();
 
         try {
+            const shouldDownload = await requestEletrodutoDownloadConfirmation();
+            if (!shouldDownload) {
+                notify(setSearchStatus, "Download do relatório de eletrodutos cancelado.", false);
+                return;
+            }
+
             const rows = collectEletrodutoRows(viewer);
             if (!rows.length) {
                 notify(setSearchStatus, "Nenhum eletroduto dos tipos IfcCableCarrierSegment/IfcFlowSegment foi encontrado para exportação.", true);
@@ -25,6 +31,111 @@ export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStat
             console.error("Falha ao exportar relatório de eletrodutos:", error);
             notify(setSearchStatus, "Não foi possível gerar o relatório de eletrodutos.", true);
         }
+    });
+}
+
+function requestEletrodutoDownloadConfirmation() {
+    return new Promise((resolve) => {
+        const existingDialog = document.getElementById("eletroduto-download-confirmation");
+        if (existingDialog) {
+            existingDialog.remove();
+        }
+
+        const overlay = document.createElement("div");
+        overlay.id = "eletroduto-download-confirmation";
+        overlay.setAttribute("role", "dialog");
+        overlay.setAttribute("aria-modal", "true");
+        overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(7, 12, 25, 0.6);
+            backdrop-filter: blur(2px);
+            z-index: 10000;
+            padding: 16px;
+        `;
+
+        const panel = document.createElement("div");
+        panel.style.cssText = `
+            width: min(420px, calc(100vw - 32px));
+            background: rgba(20, 24, 39, 0.96);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: 12px;
+            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+            color: #f8fafc;
+            padding: 20px;
+            font-family: inherit;
+        `;
+
+        const title = document.createElement("h3");
+        title.textContent = "Baixar análise completa";
+        title.style.cssText = "margin: 0 0 10px; font-size: 1.05rem;";
+
+        const message = document.createElement("p");
+        message.textContent = "Deseja baixar uma análise completa dos eletrodutos?";
+        message.style.cssText = "margin: 0; color: #dbe3f3; line-height: 1.45;";
+
+        const actions = document.createElement("div");
+        actions.style.cssText = "display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px;";
+
+        const cancelButton = document.createElement("button");
+        cancelButton.type = "button";
+        cancelButton.textContent = "Cancelar";
+        cancelButton.style.cssText = `
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            background: rgba(148, 163, 184, 0.18);
+            color: #f8fafc;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+        `;
+
+        const confirmButton = document.createElement("button");
+        confirmButton.type = "button";
+        confirmButton.textContent = "Baixar";
+        confirmButton.style.cssText = `
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            background: linear-gradient(135deg, #2563eb, #0ea5e9);
+            color: #f8fafc;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+        `;
+
+        const closeDialog = (result) => {
+            overlay.remove();
+            document.removeEventListener("keydown", handleEscape);
+            resolve(Boolean(result));
+        };
+
+        const handleEscape = (event) => {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                closeDialog(false);
+            }
+        };
+
+        cancelButton.addEventListener("click", () => closeDialog(false));
+        confirmButton.addEventListener("click", () => closeDialog(true));
+        overlay.addEventListener("click", (event) => {
+            if (event.target === overlay) {
+                closeDialog(false);
+            }
+        });
+
+        document.addEventListener("keydown", handleEscape);
+
+        actions.appendChild(cancelButton);
+        actions.appendChild(confirmButton);
+        panel.appendChild(title);
+        panel.appendChild(message);
+        panel.appendChild(actions);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+        confirmButton.focus();
     });
 }
 

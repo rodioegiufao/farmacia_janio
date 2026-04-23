@@ -7368,9 +7368,7 @@ function getQuadroPolosAnnotation(metaObject) {
         return "";
     }
 
-    const supportedTypes = ["ifcelectricdistributionboard", "ifcflowfitting"];
-    const normalizedType = normalizeIfcPropertyLabel(metaObject.type || "");
-    if (!supportedTypes.includes(normalizedType)) {
+    if (!isSupportedQuadroAnnotationType(metaObject)) {
         return "";
     }
 
@@ -7390,6 +7388,12 @@ function getQuadroPolosAnnotation(metaObject) {
 
     const espacosFaltantes = Math.max(0, numeroPolosValue - polosUtilizados);
     return `Espaço(s) faltante(s): ${espacosFaltantes}`;
+}
+
+function isSupportedQuadroAnnotationType(metaObject) {
+    const supportedTypes = ["ifcelectricdistributionboard", "ifcflowfitting"];
+    const normalizedType = normalizeIfcPropertyLabel(metaObject?.type || "");
+    return supportedTypes.includes(normalizedType);
 }
 
 function getQuadroAnnotations(metaObject) {
@@ -7413,7 +7417,10 @@ function getQuadroAnnotations(metaObject) {
     return annotations;
 }
 
-    function getQuadroDpsAnnotation(metaObject) {
+function getQuadroDpsAnnotation(metaObject) {
+    if (!isSupportedQuadroAnnotationType(metaObject)) {
+        return "";
+    }
     if (!metaObject?.propertySets?.length) {
         return "";
     }
@@ -7433,6 +7440,10 @@ function getQuadroAnnotations(metaObject) {
 }
 
 function getQuadroDrAnnotation(metaObject) {
+    if (!isSupportedQuadroAnnotationType(metaObject)) {
+        return "";
+    }
+    
     if (!metaObject?.propertySets?.length) {
         return "";
     }

@@ -7395,12 +7395,36 @@ function getQuadroPolosAnnotation(metaObject) {
 function getQuadroAnnotations(metaObject) {
     const annotations = [];
     const polosAnnotation = getQuadroPolosAnnotation(metaObject);
+    const dpsAnnotation = getQuadroDpsAnnotation(metaObject);
 
     if (polosAnnotation) {
         annotations.push(polosAnnotation);
     }
 
+    if (dpsAnnotation) {
+        annotations.push(dpsAnnotation);
+    }
+
     return annotations;
+}
+
+function getQuadroDpsAnnotation(metaObject) {
+    if (!metaObject?.propertySets?.length) {
+        return "";
+    }
+
+    const itensAssociadosSet = getMetaObjectPropertySetByName(metaObject, "AltoQi_QiBuilder-Itens_Associados");
+    if (!itensAssociadosSet || !Array.isArray(itensAssociadosSet.properties)) {
+        return "";
+    }
+
+    const hasDps = itensAssociadosSet.properties.some((prop) => {
+        const propName = normalizeIfcPropertyLabel(prop?.name || prop?.id || "");
+        const propValue = normalizeIfcPropertyLabel(formatIfcPropertyValue(prop?.value));
+        return propName.includes("contra surto") || propValue.includes("contra surto");
+    });
+
+    return hasDps ? "DPS: Tem DPS" : "DPS: Não tem DPS";
 }
 
 function getQuadroUsedPolesFromAssociatedItems(metaObject) {

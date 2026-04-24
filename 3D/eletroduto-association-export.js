@@ -159,10 +159,13 @@ function collectEletrodutoRows(viewer) {
             const { uniqueGauges, totalOccurrences } = extractCableGaugeSummary(associatedItems);
             const operatingVoltages = extractOperatingVoltages(associatedItems);
             const { ifcCode, ifcName } = splitIfcCodeAndName(metaObject);
+            const identificationType = getIdentificationElementType(metaObject);
+            const isEletroduto = identificationType.includes("eletroduto");
             return {
                 ifcCode,
                 ifcName,
                 ifcType: String(metaObject?.type || "Sem tipo"),
+                isEletroduto: isEletroduto ? "Sim" : "Não",
                 associatedItems,
                 cableGauges: uniqueGauges.join(" | "),
                 cableGaugeCount: totalOccurrences,
@@ -209,6 +212,26 @@ function getAssociatedItemsText(metaObject) {
     return values.join(" | ");
 }
 
+function getIdentificationElementType(metaObject) {
+    const identificationSetNames = [
+        "Identificação_Elemento",
+        "Identificacao_Elemento",
+        "Identificação Elemento",
+        "Identificacao Elemento"
+    ];
+    const propertySet = getPropertySetByNames(metaObject, identificationSetNames);
+    if (!propertySet || !Array.isArray(propertySet.properties)) {
+        return "";
+    }
+
+    const tipoProperty = propertySet.properties.find((prop) => {
+        const propName = normalizeLabel(prop?.name || prop?.id || "");
+        return propName === "tipo" || propName === "type";
+    });
+
+    return normalizeLabel(formatIfcPropertyValue(tipoProperty?.value));
+}
+
 function getPropertySetByName(metaObject, targetName) {
     if (!metaObject?.propertySets?.length) {
         return null;
@@ -221,6 +244,21 @@ function getPropertySetByName(metaObject, targetName) {
             return normalizeLabel(propertySetName) === normalizedTarget;
         }) || null
     );
+}
+
+function getPropertySetByNames(metaObject, targetNames = []) {
+    if (!Array.isArray(targetNames) || !targetNames.length) {
+        return null;
+    }
+
+    for (const targetName of targetNames) {
+        const propertySet = getPropertySetByName(metaObject, targetName);
+        if (propertySet) {
+            return propertySet;
+        }
+    }
+
+    return null;
 }
 
 function formatIfcPropertyValue(value) {
@@ -355,6 +393,7 @@ function downloadRowsAsExcel(rows) {
             <Cell><Data ss:Type="String">${escapeXml(row.ifcCode || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.ifcName)}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.ifcType)}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.isEletroduto)}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.associatedItems || "Sem itens associados")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.cableGauges || "-")}</Data></Cell>
             <Cell><Data ss:Type="Number">${row.cableGaugeCount || 0}</Data></Cell>
@@ -388,6 +427,7 @@ function downloadRowsAsExcel(rows) {
                 <Cell><Data ss:Type="String">Código IFC</Data></Cell>
                 <Cell><Data ss:Type="String">Nome IFC</Data></Cell>
                 <Cell><Data ss:Type="String">Tipo IFC</Data></Cell>
+                <Cell><Data ss:Type="String">É eletroduto (Identificação_Elemento.Tipo)</Data></Cell>
                 <Cell><Data ss:Type="String">AltoQi_QiBuilder-Itens_Associados</Data></Cell>
                 <Cell><Data ss:Type="String">Bitola(s) dos cabos</Data></Cell>
                 <Cell><Data ss:Type="String">Qtd. de ocorrências de bitola(s)</Data></Cell>

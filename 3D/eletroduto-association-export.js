@@ -160,6 +160,7 @@ function collectEletrodutoRows(viewer) {
             const operatingVoltages = extractOperatingVoltages(associatedItems);
             const cableOccupancyAreaMm2 = calculateCableOccupancyAreaByEletroduto(associatedItems);
             const internalInfrastructureAreaMm2 = calculateInternalInfrastructureArea(metaObject);
+            const realCableQuantity = calculateRealCableQuantity(metaObject);
             const { ifcCode, ifcName } = splitIfcCodeAndName(metaObject);
             const identificationClassOrType = getIdentificationElementClassOrType(metaObject);
             const isTubulacao = isTubulacaoType(identificationClassOrType);
@@ -171,6 +172,7 @@ function collectEletrodutoRows(viewer) {
                 associatedItems,
                 cableGauges: uniqueGauges.join(" | "),
                 cableGaugeCount: totalOccurrences,
+                realCableQuantity,
                 operatingVoltages: operatingVoltages.join(" | "),
                 cableOccupancyAreaMm2,
                 internalInfrastructureAreaMm2,
@@ -552,6 +554,51 @@ function parseLocalizedNumber(value) {
     return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
+function calculateRealCableQuantity(metaObject) {
+    const infrastructureLength = getInfrastructureLength(metaObject);
+    if (!Number.isFinite(infrastructureLength) || infrastructureLength <= 0) {
+        return 0;
+    }
+
+    const associatedItemsSet = getPropertySetByName(metaObject, "AltoQi_QiBuilder-Itens_Associados");
+    if (!associatedItemsSet || !Array.isArray(associatedItemsSet.properties)) {
+        return 0;
+    }
+
+    const associatedLengthQuantities = associatedItemsSet.properties
+        .filter((property) => hasLengthUnitInPropertyName(property?.name || property?.id || ""))
+        .map((property) => parseLocalizedNumber(formatIfcPropertyValue(property?.value).trim()))
+        .filter((value) => Number.isFinite(value) && value > 0);
+
+    if (!associatedLengthQuantities.length) {
+        return 0;
+    }
+
+    const associatedQuantity = Math.max(...associatedLengthQuantities);
+    return roundToTwoDecimals(associatedQuantity / infrastructureLength);
+}
+
+function getInfrastructureLength(metaObject) {
+    const altoQiBuilderSet = getPropertySetByName(metaObject, "AltoQi_Builder");
+    const lengthProperty = findPropertyByNames(
+        altoQiBuilderSet,
+        ["Comprimento", "Length", "Comprimento máximo", "Comprimento maximo", "Maximum length"]
+    );
+    const parsedLength = parseLocalizedNumber(formatIfcPropertyValue(lengthProperty?.value).trim());
+    return Number.isFinite(parsedLength) ? parsedLength : 0;
+}
+
+function hasLengthUnitInPropertyName(propertyName) {
+    const normalizedName = normalizeLabel(propertyName);
+    if (!normalizedName) {
+        return false;
+    }
+
+    return /\bmetros?\b/.test(normalizedName) ||
+        /\bmm\b/.test(normalizedName) ||
+        /\bm\b/.test(normalizedName);
+}
+
 function calculateCableOccupancyAreaFromChunk(chunk) {
     const voltageClass = getVoltageClassFromText(chunk);
     if (!voltageClass) {
@@ -613,6 +660,7 @@ function downloadRowsAsExcel(rows) {
             <Cell><Data ss:Type="String">${escapeXml(row.associatedItems || "Sem itens associados")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.cableGauges || "-")}</Data></Cell>
             <Cell><Data ss:Type="Number">${row.cableGaugeCount || 0}</Data></Cell>
+            <Cell><Data ss:Type="Number">${row.realCableQuantity || 0}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.operatingVoltages || "-")}</Data></Cell>
             <Cell><Data ss:Type="Number">${row.cableOccupancyAreaMm2 || 0}</Data></Cell>
             <Cell><Data ss:Type="Number">${row.internalInfrastructureAreaMm2 || 0}</Data></Cell>
@@ -649,6 +697,7 @@ function downloadRowsAsExcel(rows) {
                 <Cell><Data ss:Type="String">AltoQi_QiBuilder-Itens_Associados</Data></Cell>
                 <Cell><Data ss:Type="String">Bitola(s) dos cabos</Data></Cell>
                 <Cell><Data ss:Type="String">Qtd. de ocorrências de bitola(s)</Data></Cell>
+                <Cell><Data ss:Type="String">Qtd. de cabos</Data></Cell>
                 <Cell><Data ss:Type="String">Tensão(ões) de trabalho</Data></Cell>
                 <Cell><Data ss:Type="String">Área ocupada por cabos (mm²)</Data></Cell>
                 <Cell><Data ss:Type="String">Área interna da infraestrutura (mm²)</Data></Cell>

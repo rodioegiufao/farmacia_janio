@@ -174,7 +174,7 @@ function collectEletrodutoRows(viewer) {
                 cableOccupancyAreaMm2,
                 status: associatedItems ? "OK" : "NÃO OK"
             };
-        }
+        })
         .filter((row) => hasRequiredKeyword(row.associatedItems));
 }
 

@@ -159,8 +159,8 @@ function collectEletrodutoRows(viewer) {
             const { uniqueGauges, totalOccurrences } = extractCableGaugeSummary(associatedItems);
             const operatingVoltages = extractOperatingVoltages(associatedItems);
             const { ifcCode, ifcName } = splitIfcCodeAndName(metaObject);
-            const identificationType = getIdentificationElementType(metaObject);
-            const isTubulacao = isTubulacaoType(identificationType);
+            const identificationClassOrType = getIdentificationElementClassOrType(metaObject);
+            const isTubulacao = isTubulacaoType(identificationClassOrType);
             return {
                 ifcCode,
                 ifcName,
@@ -212,7 +212,7 @@ function getAssociatedItemsText(metaObject) {
     return values.join(" | ");
 }
 
-function getIdentificationElementType(metaObject) {
+function getIdentificationElementClassOrType(metaObject) {
     const identificationSetNames = [
         "Identificação_Elemento",
         "Identificacao_Elemento",
@@ -222,6 +222,15 @@ function getIdentificationElementType(metaObject) {
     const propertySet = getPropertySetByNames(metaObject, identificationSetNames);
     if (!propertySet || !Array.isArray(propertySet.properties)) {
         return "";
+    }
+
+    const classeProperty = propertySet.properties.find((prop) => {
+        const propName = normalizeLabel(prop?.name || prop?.id || "");
+        return propName === "classe" || propName === "class";
+    });
+
+    if (classeProperty) {
+        return normalizeLabel(formatIfcPropertyValue(classeProperty?.value));
     }
 
     const tipoProperty = propertySet.properties.find((prop) => {

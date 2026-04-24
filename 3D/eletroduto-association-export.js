@@ -159,6 +159,7 @@ function collectEletrodutoRows(viewer) {
             const { uniqueGauges, totalOccurrences } = extractCableGaugeSummary(associatedItems);
             const operatingVoltages = extractOperatingVoltages(associatedItems);
             const cableOccupancyAreaMm2 = calculateCableOccupancyAreaByEletroduto(associatedItems);
+            const internalConduitAreaMm2 = calculateInternalConduitArea(metaObject);
             const { ifcCode, ifcName } = splitIfcCodeAndName(metaObject);
             const identificationClassOrType = getIdentificationElementClassOrType(metaObject);
             const isTubulacao = isTubulacaoType(identificationClassOrType);
@@ -172,6 +173,7 @@ function collectEletrodutoRows(viewer) {
                 cableGaugeCount: totalOccurrences,
                 operatingVoltages: operatingVoltages.join(" | "),
                 cableOccupancyAreaMm2,
+                internalConduitAreaMm2,
                 status: associatedItems ? "OK" : "NÃO OK"
             };
         })
@@ -455,7 +457,87 @@ function calculateCableOccupancyAreaByEletroduto(associatedItemsText) {
         return sum + area;
     }, 0);
 
-    return roundToTwoDecimals(totalAreaByFallback);
+    }
+
+function calculateInternalConduitArea(metaObject) {
+    const altoQiBuilderSet = getPropertySetByName(metaObject, "AltoQi_Builder");
+    const internalDiameterProperty = findPropertyByNames(
+        altoQiBuilderSet,
+        ["Diâmetro interno", "Diametro interno", "Internal diameter"]
+    );
+    const internalDiameterValue = formatIfcPropertyValue(internalDiameterProperty?.value).trim();
+    const internalDiameterMm = convertInternalDiameterToMillimeters({
+        rawDiameterValue: internalDiameterValue,
+        nominalDiameterValue: getNominalDiameterValue(altoQiBuilderSet)
+    });
+
+    if (!Number.isFinite(internalDiameterMm) || internalDiameterMm <= 0) {
+        return 0;
+    }
+
+    return roundToTwoDecimals((Math.PI * internalDiameterMm * internalDiameterMm) / 4);
+}
+
+function getNominalDiameterValue(propertySet) {
+    const nominalDiameterProperty = findPropertyByNames(
+        propertySet,
+        ["Diâmetro", "Diametro", "Nominal diameter"]
+    );
+
+    return formatIfcPropertyValue(nominalDiameterProperty?.value).trim();
+}
+
+function findPropertyByNames(propertySet, propertyNames = []) {
+    if (!propertySet || !Array.isArray(propertySet.properties) || !propertyNames.length) {
+        return null;
+    }
+
+    const normalizedPropertyNames = new Set(propertyNames.map((name) => normalizeLabel(name)));
+    return propertySet.properties.find((property) =>
+        normalizedPropertyNames.has(normalizeLabel(property?.name || property?.id || ""))
+    ) || null;
+}
+
+function convertInternalDiameterToMillimeters({ rawDiameterValue, nominalDiameterValue }) {
+    const normalizedRaw = normalizeLabel(rawDiameterValue);
+    const numericDiameter = parseLocalizedNumber(rawDiameterValue);
+    if (!Number.isFinite(numericDiameter)) {
+        return 0;
+    }
+
+    if (normalizedRaw.includes("mm")) {
+        return numericDiameter;
+    }
+
+    if (normalizedRaw.includes("cm")) {
+        return numericDiameter * 10;
+    }
+
+    if (normalizedRaw.includes("\"") || normalizedRaw.includes("pol")) {
+        return numericDiameter * 25.4;
+    }
+
+    if (normalizeLabel(nominalDiameterValue).includes("\"")) {
+        return numericDiameter * 10;
+    }
+
+    if (numericDiameter > 50) {
+        return numericDiameter;
+    }
+
+    return numericDiameter * 10;
+}
+
+function parseLocalizedNumber(value) {
+    const source = String(value || "");
+    const numericMatch = source.match(/-?\d+(?:[.,]\d+)?/);
+    if (!numericMatch) {
+        return Number.NaN;
+    }
+
+    const normalized = numericMatch[0].replace(",", ".");
+    const parsed = Number.parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
 function calculateCableOccupancyAreaFromChunk(chunk) {
@@ -521,6 +603,7 @@ function downloadRowsAsExcel(rows) {
             <Cell><Data ss:Type="Number">${row.cableGaugeCount || 0}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.operatingVoltages || "-")}</Data></Cell>
             <Cell><Data ss:Type="Number">${row.cableOccupancyAreaMm2 || 0}</Data></Cell>
+            <Cell><Data ss:Type="Number">${row.internalConduitAreaMm2 || 0}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.status)}</Data></Cell>
         </Row>`
         )
@@ -556,6 +639,7 @@ function downloadRowsAsExcel(rows) {
                 <Cell><Data ss:Type="String">Qtd. de ocorrências de bitola(s)</Data></Cell>
                 <Cell><Data ss:Type="String">Tensão(ões) de trabalho</Data></Cell>
                 <Cell><Data ss:Type="String">Área ocupada por cabos (mm²)</Data></Cell>
+                <Cell><Data ss:Type="String">Área interna do eletroduto (mm²)</Data></Cell>
                 <Cell><Data ss:Type="String">Status</Data></Cell>
             </Row>
             ${excelRows}

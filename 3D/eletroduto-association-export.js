@@ -557,31 +557,31 @@ function parseLocalizedNumber(value) {
 function calculateRealCableQuantity(metaObject) {
     const infrastructureLength = getInfrastructureLength(metaObject);
     if (!Number.isFinite(infrastructureLength) || infrastructureLength <= 0) {
-        return 0;
+        return 1;
     }
 
     const associatedItemsSet = getPropertySetByName(metaObject, "AltoQi_QiBuilder-Itens_Associados");
     if (!associatedItemsSet || !Array.isArray(associatedItemsSet.properties)) {
-        return 0;
+        return 1;
     }
 
-    const associatedLengthQuantities = associatedItemsSet.properties
+    const validRatios = associatedItemsSet.properties
+        .filter((property) => {
+            const propertyName = normalizeLabel(property?.name || property?.id || "");
+            return TUBULACAO_KEYWORDS.some((keyword) => propertyName.includes(normalizeLabel(keyword)));
+        })
         .map((property) => parseLocalizedNumber(formatIfcPropertyValue(property?.value).trim()))
         .filter((value) => Number.isFinite(value) && value > 0);
 
-    if (!associatedLengthQuantities.length) {
-        return 0;
-    }
-
-    const validRatios = associatedLengthQuantities
+    const integerRatios = validRatios
         .map((associatedQuantity) => associatedQuantity / infrastructureLength)
-        .filter((ratio) => Number.isInteger(ratio) && ratio > 0);
+        .filter((ratio) => Number.isInteger(ratio) && ratio >= 1);
 
     if (!validRatios.length) {
-        return 0;
+        return 1;
     }
 
-    return Math.max(...validRatios);
+    return Math.max(...integerRatios);
 }
 
 function getInfrastructureLength(metaObject) {

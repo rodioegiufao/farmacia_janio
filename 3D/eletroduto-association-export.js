@@ -232,7 +232,7 @@ function getIdentificationElementType(metaObject) {
     return normalizeLabel(formatIfcPropertyValue(tipoProperty?.value));
 }
 
-const TUBULACAO_KEYWORDS = ["eletroduto", "perfilado", "eletrocalha"];
+const TUBULACAO_KEYWORDS = ["eletroduto", "perfilados", "eletrocalha"];
 
 function isTubulacaoType(identificationType) {
     const normalizedType = normalizeLabel(identificationType);

@@ -158,6 +158,7 @@ function collectEletrodutoRows(viewer) {
             const associatedItems = getAssociatedItemsText(metaObject);
             const { uniqueGauges, totalOccurrences } = extractCableGaugeSummary(associatedItems);
             const operatingVoltages = extractOperatingVoltages(associatedItems);
+            const cableOccupancyAreaMm2 = calculateCableOccupancyAreaByEletroduto(associatedItems);
             const { ifcCode, ifcName } = splitIfcCodeAndName(metaObject);
             const identificationClassOrType = getIdentificationElementClassOrType(metaObject);
             const isTubulacao = isTubulacaoType(identificationClassOrType);
@@ -170,9 +171,10 @@ function collectEletrodutoRows(viewer) {
                 cableGauges: uniqueGauges.join(" | "),
                 cableGaugeCount: totalOccurrences,
                 operatingVoltages: operatingVoltages.join(" | "),
+                cableOccupancyAreaMm2,
                 status: associatedItems ? "OK" : "NÃO OK"
             };
-        })
+        }
         .filter((row) => hasRequiredKeyword(row.associatedItems));
 }
 
@@ -182,6 +184,27 @@ const REQUIRED_ASSOCIATED_ITEM_KEYWORDS = [
     "450/750V",
     "UTP-5e"
 ];
+
+const CABLE_OUTER_DIAMETER_MM_BY_VOLTAGE_AND_GAUGE = {
+    "0,6/1kv": {
+        "1,5": 5.6,
+        "2,5": 6.0,
+        "4": 6.8,
+        "6": 7.3,
+        "10": 8.1,
+        "16": 9.1,
+        "25": 10.9
+    },
+    "450/750v": {
+        "1,5": 3.1,
+        "2,5": 3.7,
+        "4": 4.3,
+        "6": 5.1,
+        "10": 8.3,
+        "16": 9.5,
+        "25": 11.2
+    }
+};
 
 function hasRequiredKeyword(associatedItemsText) {
     const normalizedAssociatedItems = normalizeLabel(associatedItemsText);
@@ -405,6 +428,85 @@ function extractOperatingVoltages(text) {
     );
 }
 
+function calculateCableOccupancyAreaByEletroduto(associatedItemsText) {
+    const source = String(associatedItemsText || "");
+    if (!source) {
+        return 0;
+    }
+
+    const normalizedSource = normalizeLabel(source);
+    const totalAreaByChunk = source
+        .split("|")
+        .map((chunk) => String(chunk || "").trim())
+        .filter(Boolean)
+        .reduce((sum, chunk) => sum + calculateCableOccupancyAreaFromChunk(chunk), 0);
+
+    if (totalAreaByChunk > 0) {
+        return roundToTwoDecimals(totalAreaByChunk);
+    }
+
+    const fallbackVoltageClass = getVoltageClassFromText(normalizedSource);
+    if (!fallbackVoltageClass) {
+        return 0;
+    }
+
+    const totalAreaByFallback = extractCableGauges(source).reduce((sum, gauge) => {
+        const area = getCableAreaByGaugeAndVoltage(gauge, fallbackVoltageClass);
+        return sum + area;
+    }, 0);
+
+    return roundToTwoDecimals(totalAreaByFallback);
+}
+
+function calculateCableOccupancyAreaFromChunk(chunk) {
+    const voltageClass = getVoltageClassFromText(chunk);
+    if (!voltageClass) {
+        return 0;
+    }
+
+    return extractCableGauges(chunk).reduce((sum, gauge) => {
+        const cableArea = getCableAreaByGaugeAndVoltage(gauge, voltageClass);
+        return sum + cableArea;
+    }, 0);
+}
+
+function getVoltageClassFromText(text) {
+    const normalized = normalizeLabel(text);
+
+    if (normalized.includes("0,6/1kv") || normalized.includes("0.6/1kv")) {
+        return "0,6/1kv";
+    }
+
+    if (normalized.includes("450/750v")) {
+        return "450/750v";
+    }
+
+    return "";
+}
+
+function getCableAreaByGaugeAndVoltage(gaugeLabel, voltageClass) {
+    const normalizedGauge = normalizeGaugeKey(gaugeLabel);
+    const outerDiameter = CABLE_OUTER_DIAMETER_MM_BY_VOLTAGE_AND_GAUGE?.[voltageClass]?.[normalizedGauge];
+    if (!outerDiameter) {
+        return 0;
+    }
+
+    return (Math.PI * outerDiameter * outerDiameter) / 4;
+}
+
+function normalizeGaugeKey(gaugeLabel) {
+    const numericMatch = String(gaugeLabel || "").match(/\d+(?:[.,]\d+)?/);
+    if (!numericMatch) {
+        return "";
+    }
+
+    return numericMatch[0].replace(".", ",");
+}
+
+function roundToTwoDecimals(value) {
+    return Number(value.toFixed(2));
+}
+
 function downloadRowsAsExcel(rows) {
     const excelRows = rows
         .map(
@@ -418,6 +520,7 @@ function downloadRowsAsExcel(rows) {
             <Cell><Data ss:Type="String">${escapeXml(row.cableGauges || "-")}</Data></Cell>
             <Cell><Data ss:Type="Number">${row.cableGaugeCount || 0}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.operatingVoltages || "-")}</Data></Cell>
+            <Cell><Data ss:Type="Number">${row.cableOccupancyAreaMm2 || 0}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.status)}</Data></Cell>
         </Row>`
         )
@@ -452,6 +555,7 @@ function downloadRowsAsExcel(rows) {
                 <Cell><Data ss:Type="String">Bitola(s) dos cabos</Data></Cell>
                 <Cell><Data ss:Type="String">Qtd. de ocorrências de bitola(s)</Data></Cell>
                 <Cell><Data ss:Type="String">Tensão(ões) de trabalho</Data></Cell>
+                <Cell><Data ss:Type="String">Área ocupada por cabos (mm²)</Data></Cell>
                 <Cell><Data ss:Type="String">Status</Data></Cell>
             </Row>
             ${excelRows}

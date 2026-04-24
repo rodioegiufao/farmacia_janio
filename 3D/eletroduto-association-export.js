@@ -577,7 +577,7 @@ function calculateRealCableQuantity(metaObject) {
         .map((associatedQuantity) => associatedQuantity / infrastructureLength)
         .filter((ratio) => Number.isInteger(ratio) && ratio >= 1);
 
-    if (!validRatios.length) {
+    if (!integerRatios.length) {
         return 1;
     }
 

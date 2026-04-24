@@ -159,7 +159,7 @@ function collectEletrodutoRows(viewer) {
             const { uniqueGauges, totalOccurrences } = extractCableGaugeSummary(associatedItems);
             const operatingVoltages = extractOperatingVoltages(associatedItems);
             const cableOccupancyAreaMm2 = calculateCableOccupancyAreaByEletroduto(associatedItems);
-            const internalConduitAreaMm2 = calculateInternalConduitArea(metaObject);
+            const internalInfrastructureAreaMm2 = calculateInternalInfrastructureArea(metaObject);
             const { ifcCode, ifcName } = splitIfcCodeAndName(metaObject);
             const identificationClassOrType = getIdentificationElementClassOrType(metaObject);
             const isTubulacao = isTubulacaoType(identificationClassOrType);
@@ -173,7 +173,7 @@ function collectEletrodutoRows(viewer) {
                 cableGaugeCount: totalOccurrences,
                 operatingVoltages: operatingVoltages.join(" | "),
                 cableOccupancyAreaMm2,
-                internalConduitAreaMm2,
+                internalInfrastructureAreaMm2,
                 status: associatedItems ? "OK" : "NÃO OK"
             };
         })
@@ -457,9 +457,10 @@ function calculateCableOccupancyAreaByEletroduto(associatedItemsText) {
         return sum + area;
     }, 0);
 
-    }
+    return roundToTwoDecimals(totalAreaByFallback);
+}
 
-function calculateInternalConduitArea(metaObject) {
+function calculateInternalInfrastructureArea(metaObject) {
     const altoQiBuilderSet = getPropertySetByName(metaObject, "AltoQi_Builder");
     const internalDiameterProperty = findPropertyByNames(
         altoQiBuilderSet,
@@ -471,11 +472,22 @@ function calculateInternalConduitArea(metaObject) {
         nominalDiameterValue: getNominalDiameterValue(altoQiBuilderSet)
     });
 
-    if (!Number.isFinite(internalDiameterMm) || internalDiameterMm <= 0) {
+    if (Number.isFinite(internalDiameterMm) && internalDiameterMm > 0) {
+        return roundToTwoDecimals((Math.PI * internalDiameterMm * internalDiameterMm) / 4);
+    }
+
+    const baseProperty = findPropertyByNames(altoQiBuilderSet, ["Base"]);
+    const heightProperty = findPropertyByNames(altoQiBuilderSet, ["Altura", "Height"]);
+    const baseCentimeters = parseLocalizedNumber(formatIfcPropertyValue(baseProperty?.value).trim());
+    const heightCentimeters = parseLocalizedNumber(formatIfcPropertyValue(heightProperty?.value).trim());
+
+    if (!Number.isFinite(baseCentimeters) || !Number.isFinite(heightCentimeters) || baseCentimeters <= 0 || heightCentimeters <= 0) {
         return 0;
     }
 
-    return roundToTwoDecimals((Math.PI * internalDiameterMm * internalDiameterMm) / 4);
+    const baseMillimeters = baseCentimeters * 10;
+    const heightMillimeters = heightCentimeters * 10;
+    return roundToTwoDecimals(baseMillimeters * heightMillimeters);
 }
 
 function getNominalDiameterValue(propertySet) {
@@ -603,7 +615,7 @@ function downloadRowsAsExcel(rows) {
             <Cell><Data ss:Type="Number">${row.cableGaugeCount || 0}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.operatingVoltages || "-")}</Data></Cell>
             <Cell><Data ss:Type="Number">${row.cableOccupancyAreaMm2 || 0}</Data></Cell>
-            <Cell><Data ss:Type="Number">${row.internalConduitAreaMm2 || 0}</Data></Cell>
+            <Cell><Data ss:Type="Number">${row.internalInfrastructureAreaMm2 || 0}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.status)}</Data></Cell>
         </Row>`
         )
@@ -639,7 +651,7 @@ function downloadRowsAsExcel(rows) {
                 <Cell><Data ss:Type="String">Qtd. de ocorrências de bitola(s)</Data></Cell>
                 <Cell><Data ss:Type="String">Tensão(ões) de trabalho</Data></Cell>
                 <Cell><Data ss:Type="String">Área ocupada por cabos (mm²)</Data></Cell>
-                <Cell><Data ss:Type="String">Área interna do eletroduto (mm²)</Data></Cell>
+                <Cell><Data ss:Type="String">Área interna da infraestrutura (mm²)</Data></Cell>
                 <Cell><Data ss:Type="String">Status</Data></Cell>
             </Row>
             ${excelRows}

@@ -15,7 +15,7 @@ export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStat
         try {
             const shouldDownload = await requestEletrodutoDownloadConfirmation();
             if (!shouldDownload) {
-                notify(setSearchStatus, "Download do relatório de eletrodutos cancelado.", false);
+                notify(setSearchStatus, "Download do relatório de s cancelado.", false);
                 return;
             }
 
@@ -160,12 +160,12 @@ function collectEletrodutoRows(viewer) {
             const operatingVoltages = extractOperatingVoltages(associatedItems);
             const { ifcCode, ifcName } = splitIfcCodeAndName(metaObject);
             const identificationType = getIdentificationElementType(metaObject);
-            const isEletroduto = identificationType.includes("eletroduto");
+            const isTubulacao = isTubulacaoType(identificationType);
             return {
                 ifcCode,
                 ifcName,
                 ifcType: String(metaObject?.type || "Sem tipo"),
-                isEletroduto: isEletroduto ? "Sim" : "Não",
+                isTubulacao: isTubulacao ? "Sim" : "Não",
                 associatedItems,
                 cableGauges: uniqueGauges.join(" | "),
                 cableGaugeCount: totalOccurrences,
@@ -230,6 +230,17 @@ function getIdentificationElementType(metaObject) {
     });
 
     return normalizeLabel(formatIfcPropertyValue(tipoProperty?.value));
+}
+
+const TUBULACAO_KEYWORDS = ["eletroduto", "perfilado", "eletrocalha"];
+
+function isTubulacaoType(identificationType) {
+    const normalizedType = normalizeLabel(identificationType);
+    if (!normalizedType) {
+        return false;
+    }
+
+    return TUBULACAO_KEYWORDS.some((keyword) => normalizedType.includes(keyword));
 }
 
 function getPropertySetByName(metaObject, targetName) {
@@ -393,7 +404,7 @@ function downloadRowsAsExcel(rows) {
             <Cell><Data ss:Type="String">${escapeXml(row.ifcCode || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.ifcName)}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.ifcType)}</Data></Cell>
-            <Cell><Data ss:Type="String">${escapeXml(row.isEletroduto)}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.isTubulacao)}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.associatedItems || "Sem itens associados")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.cableGauges || "-")}</Data></Cell>
             <Cell><Data ss:Type="Number">${row.cableGaugeCount || 0}</Data></Cell>
@@ -427,7 +438,7 @@ function downloadRowsAsExcel(rows) {
                 <Cell><Data ss:Type="String">Código IFC</Data></Cell>
                 <Cell><Data ss:Type="String">Nome IFC</Data></Cell>
                 <Cell><Data ss:Type="String">Tipo IFC</Data></Cell>
-                <Cell><Data ss:Type="String">É eletroduto (Identificação_Elemento.Tipo)</Data></Cell>
+                <Cell><Data ss:Type="String">Tubulação</Data></Cell>
                 <Cell><Data ss:Type="String">AltoQi_QiBuilder-Itens_Associados</Data></Cell>
                 <Cell><Data ss:Type="String">Bitola(s) dos cabos</Data></Cell>
                 <Cell><Data ss:Type="String">Qtd. de ocorrências de bitola(s)</Data></Cell>

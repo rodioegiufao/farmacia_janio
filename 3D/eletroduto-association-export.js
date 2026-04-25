@@ -156,9 +156,14 @@ function collectEletrodutoRows(viewer) {
         .filter((metaObject) => targetTypes.has(normalizeLabel(metaObject?.type)))
         .map((metaObject) => {
             const associatedItems = getAssociatedItemsText(metaObject);
-            const { uniqueGauges, totalOccurrences } = extractCableGaugeSummary(associatedItems);
+            const infrastructureLength = getInfrastructureLength(metaObject);
+            const {
+                uniqueGauges,
+                totalCableOccurrences,
+                quantitiesByGauge
+            } = extractCableGaugeQuantitiesByInfrastructureLength(associatedItems, infrastructureLength);
             const operatingVoltages = extractOperatingVoltages(associatedItems);
-            const cableOccupancyAreaMm2 = calculateCableOccupancyAreaByEletroduto(associatedItems);
+            const cableOccupancyAreaMm2 = calculateCableOccupancyAreaByEletroduto(associatedItems, infrastructureLength);
             const internalInfrastructureAreaMm2 = calculateInternalInfrastructureArea(metaObject);
             const realCableQuantity = calculateRealCableQuantity(metaObject);
             const { ifcCode, ifcName } = splitIfcCodeAndName(metaObject);
@@ -171,7 +176,8 @@ function collectEletrodutoRows(viewer) {
                 isTubulacao: isTubulacao ? "Sim" : "Não",
                 associatedItems,
                 cableGauges: uniqueGauges.join(" | "),
-                cableGaugeCount: totalOccurrences,
+                cableGaugeCount: totalCableOccurrences,
+                cableQuantitiesByGauge: quantitiesByGauge,
                 realCableQuantity,
                 operatingVoltages: operatingVoltages.join(" | "),
                 cableOccupancyAreaMm2,
@@ -380,6 +386,54 @@ function extractCableGaugeSummary(text) {
     return {
         uniqueGauges,
         totalOccurrences: matches.length
+   };
+}
+
+function extractCableGaugeQuantitiesByInfrastructureLength(associatedItemsText, infrastructureLength) {
+    const source = String(associatedItemsText || "");
+    if (!source) {
+        return {
+            uniqueGauges: [],
+            totalCableOccurrences: 0,
+            quantitiesByGauge: {}
+        };
+    }
+
+    const quantitiesByGauge = {};
+    const gaugeOrder = [];
+
+    source
+        .split("|")
+        .map((chunk) => String(chunk || "").trim())
+        .filter(Boolean)
+        .forEach((chunk) => {
+            const gauges = extractCableGauges(chunk);
+            if (!gauges.length) {
+                return;
+            }
+
+            const associatedLength = parseAssociatedLengthFromChunk(chunk);
+            const cableQuantity = calculateCableQuantityByLength({
+                associatedLength,
+                infrastructureLength
+            });
+
+            gauges.forEach((gauge) => {
+                if (!Object.prototype.hasOwnProperty.call(quantitiesByGauge, gauge)) {
+                    quantitiesByGauge[gauge] = 0;
+                    gaugeOrder.push(gauge);
+                }
+                quantitiesByGauge[gauge] += cableQuantity;
+            });
+        });
+
+    const totalCableOccurrences = Object.values(quantitiesByGauge)
+        .reduce((sum, quantity) => sum + quantity, 0);
+
+    return {
+        uniqueGauges: gaugeOrder,
+        totalCableOccurrences,
+        quantitiesByGauge
     };
 }
 
@@ -438,24 +492,31 @@ function extractOperatingVoltages(text) {
     );
 }
 
-function calculateCableOccupancyAreaByEletroduto(associatedItemsText) {
+function calculateCableOccupancyAreaByEletroduto(associatedItemsText, infrastructureLength) {
     const source = String(associatedItemsText || "");
     if (!source) {
         return 0;
     }
 
     const normalizedSource = normalizeLabel(source);
+    const fallbackVoltageClass = getVoltageClassFromText(normalizedSource);
     const totalAreaByChunk = source
         .split("|")
         .map((chunk) => String(chunk || "").trim())
         .filter(Boolean)
-        .reduce((sum, chunk) => sum + calculateCableOccupancyAreaFromChunk(chunk), 0);
+        .reduce((sum, chunk) => {
+            const chunkArea = calculateCableOccupancyAreaFromChunk({
+                chunk,
+                infrastructureLength,
+                fallbackVoltageClass
+            });
+            return sum + chunkArea;
+        }, 0);
 
     if (totalAreaByChunk > 0) {
         return roundToTwoDecimals(totalAreaByChunk);
     }
 
-    const fallbackVoltageClass = getVoltageClassFromText(normalizedSource);
     if (!fallbackVoltageClass) {
         return 0;
     }
@@ -613,15 +674,10 @@ function calculateRealCableQuantity(metaObject) {
 
 function getInfrastructureLength(metaObject) {
     const altoQiBuilderSet = getPropertySetByName(metaObject, "AltoQi_Builder");
-    const preferredLengthProperty = findPropertyByNames(
+    const lengthProperty = findPropertyByNames(
         altoQiBuilderSet,
         ["Comprimento", "Length"]
     );
-    const fallbackLengthProperty = preferredLengthProperty ? null : findPropertyByNames(
-        altoQiBuilderSet,
-        ["Comprimento máximo", "Comprimento maximo", "Maximum length"]
-    );
-    const lengthProperty = preferredLengthProperty || fallbackLengthProperty;
     const parsedLength = parseLocalizedNumber(formatIfcPropertyValue(lengthProperty?.value).trim());
     return Number.isFinite(parsedLength) ? parsedLength : 0;
 }
@@ -637,16 +693,64 @@ function hasLengthUnitInPropertyName(propertyName) {
         /\bm\b/.test(normalizedName);
 }
 
-function calculateCableOccupancyAreaFromChunk(chunk) {
-    const voltageClass = getVoltageClassFromText(chunk);
+function calculateCableOccupancyAreaFromChunk({ chunk, infrastructureLength, fallbackVoltageClass = "" }) {
+    const voltageClass = getVoltageClassFromText(chunk) || fallbackVoltageClass;
     if (!voltageClass) {
         return 0;
     }
 
+    const associatedLength = parseAssociatedLengthFromChunk(chunk);
+    const cableQuantity = calculateCableQuantityByLength({
+        associatedLength,
+        infrastructureLength
+    });
+
     return extractCableGauges(chunk).reduce((sum, gauge) => {
         const cableArea = getCableAreaByGaugeAndVoltage(gauge, voltageClass);
-        return sum + cableArea;
+        return sum + (cableArea * cableQuantity);
     }, 0);
+}
+
+function parseAssociatedLengthFromChunk(chunk) {
+    const source = String(chunk || "");
+    if (!source) {
+        return Number.NaN;
+    }
+
+    const colonSections = source.split(":");
+    if (colonSections.length > 1) {
+        const trailingSection = colonSections[colonSections.length - 1];
+        const parsedTrailing = parseLocalizedNumber(trailingSection);
+        if (Number.isFinite(parsedTrailing)) {
+            return parsedTrailing;
+        }
+    }
+
+    const numericMatches = Array.from(source.matchAll(/-?\d+(?:[.,]\d+)?/g));
+    if (!numericMatches.length) {
+        return Number.NaN;
+    }
+
+    const lastNumericValue = numericMatches[numericMatches.length - 1]?.[0] || "";
+    return parseLocalizedNumber(lastNumericValue);
+}
+
+function calculateCableQuantityByLength({ associatedLength, infrastructureLength, tolerance = 0.01 }) {
+    if (!Number.isFinite(associatedLength) || associatedLength <= 0) {
+        return 1;
+    }
+
+    if (!Number.isFinite(infrastructureLength) || infrastructureLength <= 0) {
+        return 1;
+    }
+
+    const ratio = associatedLength / infrastructureLength;
+    const nearestInteger = Math.round(ratio);
+    if (nearestInteger >= 1 && Math.abs(ratio - nearestInteger) <= tolerance) {
+        return nearestInteger;
+    }
+
+    return 1;
 }
 
 function getVoltageClassFromText(text) {

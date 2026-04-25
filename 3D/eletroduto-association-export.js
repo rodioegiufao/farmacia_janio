@@ -586,11 +586,29 @@ function calculateRealCableQuantity(metaObject) {
             return associatedLength / infrastructureLength;
         });
 
-    if (!validRatios.length) {
-        return 1;
+    if (validRatios.length) {
+        return roundToTwoDecimals(Math.max(...validRatios));
     }
 
-    return roundToTwoDecimals(Math.max(...validRatios));
+    for (const property of associatedItemsSet.properties) {
+        const propertyName = normalizeLabel(property?.name || property?.id || "");
+        const hasTubulacaoKeyword = TUBULACAO_KEYWORDS.some((keyword) =>
+            propertyName.includes(normalizeLabel(keyword))
+        );
+
+        if (!hasTubulacaoKeyword) {
+            continue;
+        }
+
+        const associatedLength = parseLocalizedNumber(formatIfcPropertyValue(property?.value).trim());
+        if (!Number.isFinite(associatedLength) || associatedLength <= infrastructureLength) {
+            continue;
+        }
+
+        return roundToTwoDecimals(associatedLength / infrastructureLength);
+    }
+
+    return 1;
 }
 
 function getInfrastructureLength(metaObject) {

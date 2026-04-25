@@ -269,6 +269,12 @@ function getIdentificationElementClassOrType(metaObject) {
 }
 
 const TUBULACAO_KEYWORDS = ["eletroduto", "perfilado", "eletrocalha"];
+const INFRASTRUCTURE_ASSOCIATED_ITEM_PATTERNS = [
+    "eletrocalha furada tipo u pre-galv. quen - eletrocalha perfurada tipo u",
+    "eletroduto pvc flexivel - eletroduto leve",
+    "perfilados perfurados - galvanizados a fogo",
+    "sinapi - metros - eletroduto flexivel"
+].map((pattern) => normalizeLabel(pattern));
 
 function isTubulacaoType(identificationType) {
     const normalizedType = normalizeLabel(identificationType);
@@ -568,7 +574,7 @@ function calculateRealCableQuantity(metaObject) {
     const validRatios = associatedItemsSet.properties
         .filter((property) => {
             const propertyName = normalizeLabel(property?.name || property?.id || "");
-            return TUBULACAO_KEYWORDS.some((keyword) => propertyName.includes(keyword));
+            return INFRASTRUCTURE_ASSOCIATED_ITEM_PATTERNS.some((pattern) => propertyName.includes(pattern));
         })
         .map((property) => parseLocalizedNumber(formatIfcPropertyValue(property?.value).trim()))
         .filter((value) => Number.isFinite(value) && value >= infrastructureLength)

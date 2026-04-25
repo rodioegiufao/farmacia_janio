@@ -568,20 +568,23 @@ function calculateRealCableQuantity(metaObject) {
     const validRatios = associatedItemsSet.properties
         .filter((property) => {
             const propertyName = normalizeLabel(property?.name || property?.id || "");
-            return TUBULACAO_KEYWORDS.some((keyword) => propertyName.includes(normalizeLabel(keyword)));
+            return TUBULACAO_KEYWORDS.some((keyword) => propertyName.includes(keyword));
         })
         .map((property) => parseLocalizedNumber(formatIfcPropertyValue(property?.value).trim()))
-        .filter((value) => Number.isFinite(value) && value > 0);
+        .filter((value) => Number.isFinite(value) && value >= infrastructureLength)
+        .map((associatedLength) => {
+            if (Math.abs(associatedLength - infrastructureLength) < 1e-6) {
+                return 1;
+            }
 
-    const integerRatios = validRatios
-        .map((associatedQuantity) => associatedQuantity / infrastructureLength)
-        .filter((ratio) => Number.isInteger(ratio) && ratio >= 1);
+            return associatedLength / infrastructureLength;
+        });
 
-    if (!integerRatios.length) {
+    if (!validRatios.length) {
         return 1;
     }
 
-    return Math.max(...integerRatios);
+    return roundToTwoDecimals(Math.max(...validRatios));
 }
 
 function getInfrastructureLength(metaObject) {

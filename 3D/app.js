@@ -192,7 +192,7 @@ function createGroundGrid() {
 
 createGroundGrid();
 loadExplicitLinearMaterialsFromExcel();
-setupEletrodutoAssociationExportShortcut({ viewer, setSearchStatus });
+setupEletrodutoAssociationExportShortcut({ viewer, setSearchStatus, requestRenderFrame, focusObjectById });
 
 // -----------------------------------------------------------------------------
 // 1.1 Anotações fixas

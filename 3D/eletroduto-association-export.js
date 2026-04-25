@@ -166,6 +166,7 @@ function collectEletrodutoRows(viewer) {
             const realCableQuantity = calculateRealCableQuantity(metaObject);
             const cableOccupancyAreaMm2 = calculateCableOccupancyAreaByEletroduto(associatedItems, infrastructureLength);
             const internalInfrastructureAreaMm2 = calculateInternalInfrastructureArea(metaObject, realCableQuantity);
+            const occupancyRate = calculateOccupancyRate(cableOccupancyAreaMm2, internalInfrastructureAreaMm2);
             const { ifcCode, ifcName } = splitIfcCodeAndName(metaObject);
             const identificationClassOrType = getIdentificationElementClassOrType(metaObject);
             const isTubulacao = isTubulacaoType(identificationClassOrType);
@@ -182,6 +183,7 @@ function collectEletrodutoRows(viewer) {
                 operatingVoltages: operatingVoltages.join(" | "),
                 cableOccupancyAreaMm2,
                 internalInfrastructureAreaMm2,
+                occupancyRate,
                 status: associatedItems ? "OK" : "NÃO OK"
             };
         })
@@ -807,6 +809,22 @@ function roundToTwoDecimals(value) {
     return Number(value.toFixed(2));
 }
 
+function calculateOccupancyRate(cableOccupancyAreaMm2, internalInfrastructureAreaMm2) {
+    if (!Number.isFinite(cableOccupancyAreaMm2) || cableOccupancyAreaMm2 <= 0) {
+        return 0;
+    }
+
+    if (!Number.isFinite(internalInfrastructureAreaMm2) || internalInfrastructureAreaMm2 <= 0) {
+        return 0;
+    }
+
+    return roundToFourDecimals(cableOccupancyAreaMm2 / internalInfrastructureAreaMm2);
+}
+
+function roundToFourDecimals(value) {
+    return Number(value.toFixed(4));
+}
+
 function downloadRowsAsExcel(rows) {
     const excelRows = rows
         .map(
@@ -823,6 +841,7 @@ function downloadRowsAsExcel(rows) {
             <Cell><Data ss:Type="String">${escapeXml(row.operatingVoltages || "-")}</Data></Cell>
             <Cell><Data ss:Type="Number">${row.cableOccupancyAreaMm2 || 0}</Data></Cell>
             <Cell><Data ss:Type="Number">${row.internalInfrastructureAreaMm2 || 0}</Data></Cell>
+            <Cell ss:StyleID="PercentageTwoDecimals"><Data ss:Type="Number">${row.occupancyRate || 0}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.status)}</Data></Cell>
         </Row>`
         )
@@ -845,6 +864,9 @@ function downloadRowsAsExcel(rows) {
         <Style ss:ID="NotOkRow">
             <Interior ss:Color="#FCE4D6" ss:Pattern="Solid" />
         </Style>
+        <Style ss:ID="PercentageTwoDecimals">
+            <NumberFormat ss:Format="0.00%" />
+        </Style>
     </Styles>
     <Worksheet ss:Name="Eletrodutos">
         <Table>
@@ -860,6 +882,7 @@ function downloadRowsAsExcel(rows) {
                 <Cell><Data ss:Type="String">Tensão(ões) de trabalho</Data></Cell>
                 <Cell><Data ss:Type="String">Área ocupada por cabos (mm²)</Data></Cell>
                 <Cell><Data ss:Type="String">Área interna da infraestrutura (mm²)</Data></Cell>
+                <Cell><Data ss:Type="String">Taxa de ocupação (%)</Data></Cell>
                 <Cell><Data ss:Type="String">Status</Data></Cell>
             </Row>
             ${excelRows}

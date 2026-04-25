@@ -163,9 +163,9 @@ function collectEletrodutoRows(viewer) {
                 quantitiesByGauge
             } = extractCableGaugeQuantitiesByInfrastructureLength(associatedItems, infrastructureLength);
             const operatingVoltages = extractOperatingVoltages(associatedItems);
-            const cableOccupancyAreaMm2 = calculateCableOccupancyAreaByEletroduto(associatedItems, infrastructureLength);
-            const internalInfrastructureAreaMm2 = calculateInternalInfrastructureArea(metaObject);
             const realCableQuantity = calculateRealCableQuantity(metaObject);
+            const cableOccupancyAreaMm2 = calculateCableOccupancyAreaByEletroduto(associatedItems, infrastructureLength);
+            const internalInfrastructureAreaMm2 = calculateInternalInfrastructureArea(metaObject, realCableQuantity);
             const { ifcCode, ifcName } = splitIfcCodeAndName(metaObject);
             const identificationClassOrType = getIdentificationElementClassOrType(metaObject);
             const isTubulacao = isTubulacaoType(identificationClassOrType);
@@ -529,7 +529,10 @@ function calculateCableOccupancyAreaByEletroduto(associatedItemsText, infrastruc
     return roundToTwoDecimals(totalAreaByFallback);
 }
 
-function calculateInternalInfrastructureArea(metaObject) {
+function calculateInternalInfrastructureArea(metaObject, cableQuantity = 1) {
+    const validCableQuantity = Number.isFinite(cableQuantity) && cableQuantity > 0
+        ? cableQuantity
+        : 1;
     const altoQiBuilderSet = getPropertySetByName(metaObject, "AltoQi_Builder");
     const internalDiameterProperty = findPropertyByNames(
         altoQiBuilderSet,
@@ -542,7 +545,8 @@ function calculateInternalInfrastructureArea(metaObject) {
     });
 
     if (Number.isFinite(internalDiameterMm) && internalDiameterMm > 0) {
-        return roundToTwoDecimals((Math.PI * internalDiameterMm * internalDiameterMm) / 4);
+        const internalAreaByCable = (Math.PI * internalDiameterMm * internalDiameterMm) / 4;
+        return roundToTwoDecimals(internalAreaByCable * validCableQuantity);
     }
 
     const baseProperty = findPropertyByNames(altoQiBuilderSet, ["Base"]);
@@ -556,7 +560,7 @@ function calculateInternalInfrastructureArea(metaObject) {
 
     const baseMillimeters = baseCentimeters * 10;
     const heightMillimeters = heightCentimeters * 10;
-    return roundToTwoDecimals(baseMillimeters * heightMillimeters);
+    return roundToTwoDecimals(baseMillimeters * heightMillimeters * validCableQuantity);
 }
 
 function getNominalDiameterValue(propertySet) {

@@ -254,3 +254,122 @@ export function setupAnnotations(viewer, { requestRenderFrame, focusObjectById }
 
     return { annotationsPlugin, annotations: { cliAnnotation, e1Annotation, pluvialAnnotations } };
 }
+
+const OCCUPANCY_LIMIT_ANNOTATION_PREFIX = "OCCUPANCY-LIMIT-";
+const OCCUPANCY_LIMIT_MARKER_COLOR = "#e53935";
+
+function computeObjectCenter(viewer, sceneObjectId) {
+    if (!viewer || !sceneObjectId) {
+        return null;
+    }
+
+    const aabb = viewer.scene?.getAABB?.(sceneObjectId);
+    if (!Array.isArray(aabb) || aabb.length < 6) {
+        return null;
+    }
+
+    const [minX, minY, minZ, maxX, maxY, maxZ] = aabb;
+    if (![minX, minY, minZ, maxX, maxY, maxZ].every(Number.isFinite)) {
+        return null;
+    }
+
+    return [
+        (minX + maxX) / 2,
+        (minY + maxY) / 2,
+        (minZ + maxZ) / 2
+    ];
+}
+
+function destroyAnnotation(annotationsPlugin, annotation) {
+    if (!annotation) {
+        return;
+    }
+
+    if (typeof annotationsPlugin?.destroyAnnotation === "function") {
+        annotationsPlugin.destroyAnnotation(annotation.id);
+        return;
+    }
+
+    if (typeof annotation.destroy === "function") {
+        annotation.destroy();
+    }
+}
+
+export function createOccupancyLimitAnnotationsController({ viewer, requestRenderFrame, focusObjectById } = {}) {
+    if (!viewer) {
+        return {
+            syncAnnotations() {}
+        };
+    }
+
+    const annotationsPlugin = new AnnotationsPlugin(viewer, {
+        markerHTML: "<div class='annotation-marker' style='background-color: {{markerBGColor}}'>{{glyph}}</div>",
+        labelHTML: "<div class='annotation-label'><div class='annotation-title'>{{title}}</div><div class='annotation-desc'>{{description}}</div></div>",
+        values: {
+            markerBGColor: OCCUPANCY_LIMIT_MARKER_COLOR,
+            glyph: "!",
+            title: "Taxa de ocupação acima do limite",
+            description: "Ultrapassou o limite máximo de ocupação de 40%."
+        }
+    });
+
+    const annotationsById = new Map();
+
+    function syncAnnotations(overLimitRows = []) {
+        const activeIds = new Set();
+
+        overLimitRows.forEach((row, index) => {
+            const sceneObjectId = row?.sceneObjectId || row?.metaObjectId;
+            const worldPos = computeObjectCenter(viewer, sceneObjectId);
+            if (!worldPos) {
+                return;
+            }
+
+            const annotationId = `${OCCUPANCY_LIMIT_ANNOTATION_PREFIX}${String(sceneObjectId || index)}`;
+            activeIds.add(annotationId);
+
+            if (annotationsById.has(annotationId)) {
+                return;
+            }
+
+            const occupancyPercent = Number.isFinite(row?.occupancyRate)
+                ? (row.occupancyRate * 100).toFixed(2)
+                : "0.00";
+
+            const annotation = annotationsPlugin.createAnnotation({
+                id: annotationId,
+                worldPos,
+                occludable: false,
+                markerShown: true,
+                labelShown: true,
+                values: {
+                    glyph: "!",
+                    title: "Taxa de ocupação acima do limite",
+                    description: `Ultrapassou o limite máximo de ocupação de 40% (atual: ${occupancyPercent}%).`,
+                    markerBGColor: OCCUPANCY_LIMIT_MARKER_COLOR
+                }
+            });
+
+            setupAnnotationLabelToggle(annotation, annotationsPlugin, requestRenderFrame || (() => {}));
+            setupAnnotationClickFocus(annotation, annotationsPlugin, focusObjectById || (() => {}), sceneObjectId);
+            annotationsById.set(annotationId, annotation);
+        });
+
+        Array.from(annotationsById.entries()).forEach(([annotationId, annotation]) => {
+            if (activeIds.has(annotationId)) {
+                return;
+            }
+
+            destroyAnnotation(annotationsPlugin, annotation);
+            annotationsById.delete(annotationId);
+        });
+
+        if (typeof requestRenderFrame === "function") {
+            requestRenderFrame();
+        }
+    }
+
+    return {
+        syncAnnotations
+    };
+}

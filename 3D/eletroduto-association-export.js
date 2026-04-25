@@ -595,10 +595,15 @@ function calculateRealCableQuantity(metaObject) {
 
 function getInfrastructureLength(metaObject) {
     const altoQiBuilderSet = getPropertySetByName(metaObject, "AltoQi_Builder");
-    const lengthProperty = findPropertyByNames(
+    const preferredLengthProperty = findPropertyByNames(
         altoQiBuilderSet,
-        ["Comprimento", "Length", "Comprimento máximo", "Comprimento maximo", "Maximum length"]
+        ["Comprimento", "Length"]
     );
+    const fallbackLengthProperty = preferredLengthProperty ? null : findPropertyByNames(
+        altoQiBuilderSet,
+        ["Comprimento máximo", "Comprimento maximo", "Maximum length"]
+    );
+    const lengthProperty = preferredLengthProperty || fallbackLengthProperty;
     const parsedLength = parseLocalizedNumber(formatIfcPropertyValue(lengthProperty?.value).trim());
     return Number.isFinite(parsedLength) ? parsedLength : 0;
 }

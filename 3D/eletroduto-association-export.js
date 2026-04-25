@@ -1,7 +1,11 @@
+import { createOccupancyLimitAnnotationsController } from "./annotations.js";
+
 export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStatus } = {}) {
     if (!viewer) {
         return;
     }
+
+    const occupancyLimitAnnotationsController = createOccupancyLimitAnnotationsController({ viewer });
 
     document.addEventListener("keydown", async (event) => {
         const isShortcut = isEletrodutoShortcut(event);
@@ -26,6 +30,8 @@ export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStat
             }
 
             downloadRowsAsExcel(rows);
+            const rowsAboveOccupancyLimit = rows.filter((row) => Number(row?.occupancyRate) > 0.4);
+            occupancyLimitAnnotationsController.syncAnnotations(rowsAboveOccupancyLimit);
             notify(setSearchStatus, `Relatório gerado com ${rows.length} eletroduto(s).`, false);
         } catch (error) {
             console.error("Falha ao exportar relatório de eletrodutos:", error);
@@ -171,6 +177,8 @@ function collectEletrodutoRows(viewer) {
             const identificationClassOrType = getIdentificationElementClassOrType(metaObject);
             const isTubulacao = isTubulacaoType(identificationClassOrType);
             return {
+                metaObjectId: metaObject?.id || "",
+                sceneObjectId: metaObject?.sceneObjectId || metaObject?.id || "",
                 ifcCode,
                 ifcName,
                 ifcType: String(metaObject?.type || "Sem tipo"),

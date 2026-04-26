@@ -1,11 +1,15 @@
 import { createOccupancyLimitAnnotationsController } from "./annotations.js";
 
-export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStatus } = {}) {
+export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStatus, requestRenderFrame, focusObjectById } = {}) {
     if (!viewer) {
         return;
     }
 
-    const occupancyLimitAnnotationsController = createOccupancyLimitAnnotationsController({ viewer });
+    const occupancyLimitAnnotationsController = createOccupancyLimitAnnotationsController({
+        viewer,
+        requestRenderFrame,
+        focusObjectById
+    });
 
     document.addEventListener("keydown", async (event) => {
         const isShortcut = isEletrodutoShortcut(event);

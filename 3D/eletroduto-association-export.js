@@ -33,9 +33,10 @@ export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStat
                 return;
             }
 
-            downloadRowsAsExcel(rows);
             const rowsAboveOccupancyLimit = rows.filter((row) => Number(row?.occupancyRate) > 0.4);
+            storeOccupancyAnnotationState(rowsAboveOccupancyLimit);
             occupancyLimitAnnotationsController.syncAnnotations(rowsAboveOccupancyLimit);
+            downloadRowsAsExcel(rows, rowsAboveOccupancyLimit);
             notify(setSearchStatus, `Relatório gerado com ${rows.length} eletroduto(s).`, false);
         } catch (error) {
             console.error("Falha ao exportar relatório de eletrodutos:", error);
@@ -837,7 +838,7 @@ function roundToFourDecimals(value) {
     return Number(value.toFixed(4));
 }
 
-function downloadRowsAsExcel(rows) {
+function downloadRowsAsExcel(rows, occupancyAnnotationRows = []) {
     const excelRows = rows
         .map(
             (row) => `
@@ -855,6 +856,19 @@ function downloadRowsAsExcel(rows) {
             <Cell><Data ss:Type="Number">${row.internalInfrastructureAreaMm2 || 0}</Data></Cell>
             <Cell ss:StyleID="PercentageTwoDecimals"><Data ss:Type="Number">${row.occupancyRate || 0}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.status)}</Data></Cell>
+        </Row>`
+        )
+        .join("");
+
+    const occupancyAnnotationExcelRows = occupancyAnnotationRows
+        .map(
+            (row) => `
+        <Row>
+            <Cell><Data ss:Type="String">${escapeXml(row.ifcCode || "-")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.ifcName || "-")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.sceneObjectId || row.metaObjectId || "-")}</Data></Cell>
+            <Cell ss:StyleID="PercentageTwoDecimals"><Data ss:Type="Number">${row.occupancyRate || 0}</Data></Cell>
+            <Cell><Data ss:Type="String">Taxa de ocupação acima do limite de 40%</Data></Cell>
         </Row>`
         )
         .join("");
@@ -900,6 +914,18 @@ function downloadRowsAsExcel(rows) {
             ${excelRows}
         </Table>
     </Worksheet>
+    <Worksheet ss:Name="Anotacoes_Ocupacao">
+        <Table>
+            <Row ss:StyleID="Header">
+                <Cell><Data ss:Type="String">Código IFC</Data></Cell>
+                <Cell><Data ss:Type="String">Nome IFC</Data></Cell>
+                <Cell><Data ss:Type="String">ID Objeto</Data></Cell>
+                <Cell><Data ss:Type="String">Taxa de ocupação (%)</Data></Cell>
+                <Cell><Data ss:Type="String">Anotação</Data></Cell>
+            </Row>
+            ${occupancyAnnotationExcelRows}
+        </Table>
+    </Worksheet>
 </Workbook>`;
 
     const blob = new Blob([spreadsheetXml], { type: "application/vnd.ms-excel" });
@@ -914,6 +940,19 @@ function downloadRowsAsExcel(rows) {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+}
+
+function storeOccupancyAnnotationState(rowsAboveOccupancyLimit) {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    const rows = Array.isArray(rowsAboveOccupancyLimit) ? rowsAboveOccupancyLimit : [];
+    window.annotationState = {
+        ...(window.annotationState || {}),
+        occupancy: rows
+    };
+    window.rowsComAnotacao = rows;
 }
 
 function escapeXml(value) {

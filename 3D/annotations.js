@@ -257,6 +257,8 @@ export function setupAnnotations(viewer, { requestRenderFrame, focusObjectById }
 
 const OCCUPANCY_LIMIT_ANNOTATION_PREFIX = "OCCUPANCY-LIMIT-";
 const OCCUPANCY_LIMIT_MARKER_COLOR = "#e53935";
+const OCCUPANCY_LIMIT_LABEL_BG_COLOR = "rgba(183, 28, 28, 0.95)";
+const OCCUPANCY_LIMIT_LABEL_BORDER_COLOR = "rgba(255, 205, 210, 0.65)";
 
 function computeObjectCenter(viewer, sceneObjectId) {
     if (!viewer || !sceneObjectId) {
@@ -278,6 +280,66 @@ function computeObjectCenter(viewer, sceneObjectId) {
         (minY + maxY) / 2,
         (minZ + maxZ) / 2
     ];
+}
+
+function buildSceneObjectIdCandidates(rawId) {
+    const normalizedRawId = String(rawId || "").trim();
+    if (!normalizedRawId) {
+        return [];
+    }
+
+    const candidates = new Set([normalizedRawId]);
+
+    ["#", "/", ":"].forEach((separator) => {
+        if (!normalizedRawId.includes(separator)) {
+            return;
+        }
+
+        const parts = normalizedRawId.split(separator).map((part) => part.trim()).filter(Boolean);
+        if (!parts.length) {
+            return;
+        }
+
+        candidates.add(parts[parts.length - 1]);
+    });
+
+    return Array.from(candidates);
+}
+
+function resolveSceneObjectIdForRow(viewer, row) {
+    const rawCandidates = new Set([
+        row?.sceneObjectId,
+        row?.metaObjectId,
+        row?.ifcCode
+    ]);
+
+    const metaObject = viewer?.metaScene?.metaObjects?.[row?.metaObjectId];
+    if (metaObject?.sceneObjectId) {
+        rawCandidates.add(metaObject.sceneObjectId);
+    }
+    if (metaObject?.id) {
+        rawCandidates.add(metaObject.id);
+    }
+
+    const sceneObjects = viewer?.scene?.objects || {};
+    const sceneObjectIds = Object.keys(sceneObjects);
+    const lowerMap = new Map(sceneObjectIds.map((id) => [String(id).toLowerCase(), id]));
+
+    for (const rawId of rawCandidates) {
+        const candidateVariants = buildSceneObjectIdCandidates(rawId);
+        for (const variant of candidateVariants) {
+            if (sceneObjects[variant]) {
+                return variant;
+            }
+
+            const lowerVariant = String(variant).toLowerCase();
+            if (lowerMap.has(lowerVariant)) {
+                return lowerMap.get(lowerVariant);
+            }
+        }
+    }
+
+    return "";
 }
 
 function destroyAnnotation(annotationsPlugin, annotation) {
@@ -304,9 +366,11 @@ export function createOccupancyLimitAnnotationsController({ viewer, requestRende
 
     const annotationsPlugin = new AnnotationsPlugin(viewer, {
         markerHTML: "<div class='annotation-marker' style='background-color: {{markerBGColor}}'>{{glyph}}</div>",
-        labelHTML: "<div class='annotation-label'><div class='annotation-title'>{{title}}</div><div class='annotation-desc'>{{description}}</div></div>",
+        labelHTML: "<div class='annotation-label' style='background: {{labelBGColor}}; border: 1px solid {{labelBorderColor}};'><div class='annotation-title'>{{title}}</div><div class='annotation-desc'>{{description}}</div></div>",
         values: {
             markerBGColor: OCCUPANCY_LIMIT_MARKER_COLOR,
+            labelBGColor: OCCUPANCY_LIMIT_LABEL_BG_COLOR,
+            labelBorderColor: OCCUPANCY_LIMIT_LABEL_BORDER_COLOR,
             glyph: "!",
             title: "Taxa de ocupação acima do limite",
             description: "Ultrapassou o limite máximo de ocupação de 40%."
@@ -319,7 +383,7 @@ export function createOccupancyLimitAnnotationsController({ viewer, requestRende
         const activeIds = new Set();
 
         overLimitRows.forEach((row, index) => {
-            const sceneObjectId = row?.sceneObjectId || row?.metaObjectId;
+            const sceneObjectId = resolveSceneObjectIdForRow(viewer, row);
             const worldPos = computeObjectCenter(viewer, sceneObjectId);
             if (!worldPos) {
                 return;
@@ -329,6 +393,12 @@ export function createOccupancyLimitAnnotationsController({ viewer, requestRende
             activeIds.add(annotationId);
 
             if (annotationsById.has(annotationId)) {
+                const existingAnnotation = annotationsById.get(annotationId);
+                if (existingAnnotation) {
+                    existingAnnotation.worldPos = worldPos;
+                    setAnnotationMarkerShown(existingAnnotation, true);
+                    setAnnotationLabelShown(existingAnnotation, true);
+                }
                 return;
             }
 
@@ -346,7 +416,9 @@ export function createOccupancyLimitAnnotationsController({ viewer, requestRende
                     glyph: "!",
                     title: "Taxa de ocupação acima do limite",
                     description: `Ultrapassou o limite máximo de ocupação de 40% (atual: ${occupancyPercent}%).`,
-                    markerBGColor: OCCUPANCY_LIMIT_MARKER_COLOR
+                    markerBGColor: OCCUPANCY_LIMIT_MARKER_COLOR,
+                    labelBGColor: OCCUPANCY_LIMIT_LABEL_BG_COLOR,
+                    labelBorderColor: OCCUPANCY_LIMIT_LABEL_BORDER_COLOR
                 }
             });
 

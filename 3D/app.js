@@ -3352,6 +3352,10 @@ const SEBRAE_RR_MODELS = [
     { id: "IFC_ALI", src: "/3D/sebrae-rr/modelo-01.xkt" },
 ];
 
+const ESC_MODELO_MODELS = [
+    { id: "IFC_EST_PP", src: "3D/esc_modelo/ESC-MODELO-EST-PP.xkt" },
+];
+
 const defaultModels = [
     { id: "IFC_LOG_TEF", src: "/3D/lacen/modelo-01.xkt" },
     { id: "IFC_ELE", src: "/3D/lacen/modelo-02.xkt" },
@@ -3443,6 +3447,12 @@ const SEBRAE_RR_MODEL_TRANSFORMS = {
     IFC_ALI: { position: [15, 0, 50] },
 };
 
+const ESC_MODELO_MODEL_TRANSFORMS = {
+    // Defina ajustes de origem/rotação por ID quando necessário
+    // Exemplo:
+    // IFC_ARQ: { position: [0, 0, 0], rotation: [0, 0, 0] },
+};
+
 const DEFAULT_MODEL_TRANSFORMS = {
     IFC_ILUX: { position: [-14.08, 0, 0] },
     IFC_EST: { position: [-62.3, 0.4, 35.2] },
@@ -3490,6 +3500,7 @@ const PROJECT_CONFIGS = {
     farmacia: { models: FARMACIA_MODELS, transforms: FARMACIA_MODEL_TRANSFORMS },
     esc_canaa: { models: CANAA_MODELS, transforms: CANAA_MODEL_TRANSFORMS },
     sebrae_rr: { models: SEBRAE_RR_MODELS, transforms: SEBRAE_RR_MODEL_TRANSFORMS },
+    esc_modelo: { models: ESC_MODELO_MODELS, transforms: ESC_MODELO_MODEL_TRANSFORMS },
 };
 
 const PROJECT_ROUTES = {
@@ -3499,6 +3510,7 @@ const PROJECT_ROUTES = {
     farmacia: "/3D/farmacia",
     esc_canaa: "/3D/esc_canaa",
     sebrae_rr: "/3D/sebrae-rr",
+    esc_modelo: "/3D/esc_modelo"
 };
 
 const PROJECT_BUDGET_DATA_URLS = {

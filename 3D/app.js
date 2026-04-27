@@ -3356,6 +3356,7 @@ const ESC_MODELO_MODELS = [
     { id: "IFC_EST_PP", src: "/3D/esc_modelo/modelo-01.xkt" },
     { id: "IFC_ARQ", src: "/3D/esc_modelo/modelo-02.xkt" },
     { id: "IFC_CLI", src: "/3D/esc_modelo/modelo-03.xkt" },
+    { id: "IFC_SAN", src: "/3D/esc_modelo/modelo-04.xkt" },
 ];
 
 const defaultModels = [
@@ -3451,8 +3452,9 @@ const SEBRAE_RR_MODEL_TRANSFORMS = {
 
 const ESC_MODELO_MODEL_TRANSFORMS = {
     IFC_EST_PP: { position: [45, -2.05, 25], rotation: [0, 0, 0] },
-    IFC_ARQ: { position: [354.7, 0, 3188.29], rotation: [0, 0, 0] },
-    IFC_CLI: { position: [354.7, 0, 3188.29], rotation: [0, 0, 0] },
+    IFC_ARQ: { position: [354.6, 0, 3187.75], rotation: [0, 0, 0] },
+    IFC_CLI: { position: [354.6, 0, 3187.75], rotation: [0, 0, 0] },
+    IFC_SAN: { position: [354.6, 0, 3187.75], rotation: [0, 0, 0] },
 };
 
 const DEFAULT_MODEL_TRANSFORMS = {

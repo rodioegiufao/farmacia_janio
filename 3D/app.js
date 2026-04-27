@@ -3448,9 +3448,7 @@ const SEBRAE_RR_MODEL_TRANSFORMS = {
 };
 
 const ESC_MODELO_MODEL_TRANSFORMS = {
-    // Defina ajustes de origem/rotação por ID quando necessário
-    // Exemplo:
-    // IFC_ARQ: { position: [0, 0, 0], rotation: [0, 0, 0] },
+    IFC_EST_PP: { position: [45, 0, 25], rotation: [0, 0, 0] },
 };
 
 const DEFAULT_MODEL_TRANSFORMS = {

@@ -3357,6 +3357,7 @@ const ESC_MODELO_MODELS = [
     { id: "IFC_ARQ", src: "/3D/esc_modelo/modelo-02.xkt" },
     { id: "IFC_CLI", src: "/3D/esc_modelo/modelo-03.xkt" },
     { id: "IFC_SAN", src: "/3D/esc_modelo/modelo-04.xkt" },
+    { id: "IFC_PLU", src: "/3D/esc_modelo/modelo-05.xkt" },
 ];
 
 const defaultModels = [
@@ -3455,6 +3456,7 @@ const ESC_MODELO_MODEL_TRANSFORMS = {
     IFC_ARQ: { position: [354.6, 0, 3187.75], rotation: [0, 0, 0] },
     IFC_CLI: { position: [354.6, 0, 3187.75], rotation: [0, 0, 0] },
     IFC_SAN: { position: [354.6, 0, 3187.75], rotation: [0, 0, 0] },
+    IFC_PLU: { position: [354.6, 0, 3187.75], rotation: [0, 0, 0] },
 };
 
 const DEFAULT_MODEL_TRANSFORMS = {

@@ -3354,6 +3354,7 @@ const SEBRAE_RR_MODELS = [
 
 const ESC_MODELO_MODELS = [
     { id: "IFC_EST_PP", src: "/3D/esc_modelo/modelo-01.xkt" },
+    { id: "IFC_ARQ", src: "/3D/esc_modelo/modelo-02.xkt" },
 ];
 
 const defaultModels = [

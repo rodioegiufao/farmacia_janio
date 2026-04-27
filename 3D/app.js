@@ -3449,7 +3449,8 @@ const SEBRAE_RR_MODEL_TRANSFORMS = {
 };
 
 const ESC_MODELO_MODEL_TRANSFORMS = {
-    IFC_EST_PP: { position: [45, 0, 25], rotation: [0, 0, 0] },
+    IFC_EST_PP: { position: [45, -2.05, 25], rotation: [0, 0, 0] },
+    IFC_ARQ: { position: [354.7, 0, 3188.29], rotation: [0, 0, 0] },
 };
 
 const DEFAULT_MODEL_TRANSFORMS = {

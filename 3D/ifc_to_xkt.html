@@ -1,326 +1,320 @@
-diff --git a/3D/ifc_to_xkt.html b/3D/ifc_to_xkt.html
-new file mode 100644
-index 0000000000000000000000000000000000000000..4e08d3314ba81893e2c3b39c07c47dae0cecb97e
---- /dev/null
-+++ b/3D/ifc_to_xkt.html
-@@ -0,0 +1,320 @@
-+<!DOCTYPE html>
-+<html lang="pt-BR">
-+<head>
-+    <meta charset="UTF-8" />
-+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-+    <title>Conversor IFC → XKT</title>
-+    <link rel="icon" href="/images/favicon.ico" sizes="any" />
-+    <style>
-+        :root {
-+            --bg: #0f172a;
-+            --card: #ffffff;
-+            --text: #0f172a;
-+            --muted: #475569;
-+            --accent: #2563eb;
-+            --accent-hover: #1d4ed8;
-+            --border: #cbd5e1;
-+            --ok: #166534;
-+            --error: #b91c1c;
-+        }
-+
-+        * { box-sizing: border-box; }
-+
-+        body {
-+            margin: 0;
-+            min-height: 100vh;
-+            display: grid;
-+            place-items: center;
-+            padding: 20px;
-+            font-family: Arial, sans-serif;
-+            background: radial-gradient(circle at top, #1e293b, var(--bg));
-+            color: var(--text);
-+        }
-+
-+        .card {
-+            width: min(100%, 740px);
-+            background: var(--card);
-+            border: 1px solid var(--border);
-+            border-radius: 16px;
-+            box-shadow: 0 20px 30px rgba(0, 0, 0, 0.24);
-+            padding: 24px;
-+            display: grid;
-+            gap: 16px;
-+        }
-+
-+        h1 {
-+            margin: 0;
-+            font-size: 1.6rem;
-+        }
-+
-+        p {
-+            margin: 0;
-+            color: var(--muted);
-+            line-height: 1.4;
-+        }
-+
-+        .dropzone {
-+            border: 2px dashed var(--border);
-+            border-radius: 12px;
-+            padding: 28px 16px;
-+            text-align: center;
-+            background: #f8fafc;
-+            transition: border-color 0.2s ease;
-+        }
-+
-+        .dropzone.dragover {
-+            border-color: var(--accent);
-+        }
-+
-+        .dropzone strong {
-+            display: block;
-+            margin-bottom: 8px;
-+        }
-+
-+        .dropzone input {
-+            display: none;
-+        }
-+
-+        .actions {
-+            display: flex;
-+            gap: 8px;
-+            flex-wrap: wrap;
-+        }
-+
-+        button,
-+        .button-link {
-+            border: 0;
-+            border-radius: 10px;
-+            padding: 12px 14px;
-+            cursor: pointer;
-+            font-weight: 700;
-+            text-decoration: none;
-+            color: #fff;
-+            background: var(--accent);
-+            transition: background 0.2s ease;
-+        }
-+
-+        button:hover,
-+        .button-link:hover {
-+            background: var(--accent-hover);
-+        }
-+
-+        button[disabled] {
-+            cursor: not-allowed;
-+            opacity: 0.7;
-+        }
-+
-+        .button-link {
-+            background: #334155;
-+        }
-+
-+        .status {
-+            font-size: 0.95rem;
-+            min-height: 22px;
-+        }
-+
-+        .status.ok { color: var(--ok); }
-+        .status.error { color: var(--error); }
-+
-+        .file-name {
-+            font-size: 0.95rem;
-+            color: var(--muted);
-+            overflow-wrap: anywhere;
-+        }
-+
-+        .progress {
-+            width: 100%;
-+            height: 10px;
-+            border-radius: 999px;
-+            background: #e2e8f0;
-+            overflow: hidden;
-+        }
-+
-+        .progress > span {
-+            display: block;
-+            height: 100%;
-+            width: 0;
-+            background: var(--accent);
-+            transition: width 0.2s linear;
-+        }
-+
-+        code {
-+            background: #f1f5f9;
-+            padding: 2px 6px;
-+            border-radius: 6px;
-+        }
-+    </style>
-+</head>
-+<body>
-+    <main class="card" aria-labelledby="pageTitle">
-+        <h1 id="pageTitle">Conversor IFC → XKT</h1>
-+        <p>
-+            Selecione um arquivo <code>.ifc</code>, converta no navegador e baixe o <code>.xkt</code>.
-+            Para arquivos muito grandes, prefira a conversão no servidor/CLI.
-+        </p>
-+
-+        <label id="dropzone" class="dropzone" for="ifcFileInput">
-+            <strong>Arraste e solte o arquivo IFC aqui</strong>
-+            <span>ou clique para selecionar</span>
-+            <input id="ifcFileInput" type="file" accept=".ifc" />
-+        </label>
-+
-+        <div id="selectedFileName" class="file-name">Nenhum arquivo selecionado.</div>
-+
-+        <div class="progress" aria-hidden="true">
-+            <span id="progressFill"></span>
-+        </div>
-+
-+        <div class="actions">
-+            <button id="convertButton" type="button" disabled>Converter para XKT</button>
-+            <a class="button-link" href="/3D/index.html">Voltar para projetos 3D</a>
-+        </div>
-+
-+        <div id="status" class="status" aria-live="polite"></div>
-+    </main>
-+
-+    <script type="module">
-+        import {
-+            XKTModel,
-+            parseIFCIntoXKTModel,
-+            writeXKTModelToArrayBuffer
-+        } from "https://esm.sh/@xeokit/xeokit-xkt-utils@1.10.2?bundle";
-+
-+        const WASM_PATH = "https://unpkg.com/web-ifc@0.0.68/";
-+
-+        const ifcFileInput = document.getElementById("ifcFileInput");
-+        const dropzone = document.getElementById("dropzone");
-+        const selectedFileName = document.getElementById("selectedFileName");
-+        const convertButton = document.getElementById("convertButton");
-+        const statusElement = document.getElementById("status");
-+        const progressFill = document.getElementById("progressFill");
-+
-+        let selectedFile = null;
-+
-+        function setStatus(message, type = "") {
-+            statusElement.textContent = message;
-+            statusElement.className = `status ${type}`.trim();
-+        }
-+
-+        function setProgress(value) {
-+            const safe = Math.max(0, Math.min(100, value));
-+            progressFill.style.width = `${safe}%`;
-+        }
-+
-+        function baseNameWithoutExtension(fileName = "") {
-+            return fileName.replace(/\.[^/.]+$/, "");
-+        }
-+
-+        function updateSelectedFile(file) {
-+            selectedFile = file;
-+            if (!file) {
-+                selectedFileName.textContent = "Nenhum arquivo selecionado.";
-+                convertButton.disabled = true;
-+                return;
-+            }
-+
-+            selectedFileName.textContent = `Arquivo: ${file.name}`;
-+            convertButton.disabled = false;
-+        }
-+
-+        function downloadArrayBuffer(arrayBuffer, fileName) {
-+            const blob = new Blob([arrayBuffer], { type: "application/octet-stream" });
-+            const url = URL.createObjectURL(blob);
-+            const a = document.createElement("a");
-+            a.href = url;
-+            a.download = fileName;
-+            document.body.appendChild(a);
-+            a.click();
-+            a.remove();
-+            URL.revokeObjectURL(url);
-+        }
-+
-+        async function convertIfcToXkt() {
-+            if (!selectedFile) {
-+                return;
-+            }
-+
-+            convertButton.disabled = true;
-+            setProgress(5);
-+            setStatus("Lendo arquivo IFC...", "");
-+
-+            try {
-+                const data = await selectedFile.arrayBuffer();
-+                const xktModel = new XKTModel();
-+
-+                setProgress(20);
-+                setStatus("Convertendo IFC para modelo XKT...", "");
-+
-+                await parseIFCIntoXKTModel({
-+                    data,
-+                    xktModel,
-+                    wasmPath: WASM_PATH,
-+                    autoNormals: true,
-+                    log: () => {}
-+                });
-+
-+                xktModel.finalize();
-+
-+                setProgress(85);
-+                setStatus("Gerando arquivo .xkt...", "");
-+
-+                const xktArrayBuffer = writeXKTModelToArrayBuffer(xktModel);
-+                const outputName = `${baseNameWithoutExtension(selectedFile.name) || "modelo"}.xkt`;
-+
-+                downloadArrayBuffer(xktArrayBuffer, outputName);
-+
-+                setProgress(100);
-+                setStatus(`Conversão concluída! Arquivo salvo: ${outputName}`, "ok");
-+            } catch (error) {
-+                console.error("Falha na conversão IFC → XKT", error);
-+                setProgress(0);
-+                setStatus(
-+                    `Erro ao converter: ${error?.message || error}. Verifique se o IFC é válido e tente novamente.`,
-+                    "error"
-+                );
-+            } finally {
-+                convertButton.disabled = !selectedFile;
-+            }
-+        }
-+
-+        ifcFileInput.addEventListener("change", (event) => {
-+            const file = event.target.files?.[0] || null;
-+            updateSelectedFile(file);
-+            setProgress(0);
-+            setStatus("");
-+        });
-+
-+        convertButton.addEventListener("click", convertIfcToXkt);
-+
-+        dropzone.addEventListener("dragover", (event) => {
-+            event.preventDefault();
-+            dropzone.classList.add("dragover");
-+        });
-+
-+        dropzone.addEventListener("dragleave", () => {
-+            dropzone.classList.remove("dragover");
-+        });
-+
-+        dropzone.addEventListener("drop", (event) => {
-+            event.preventDefault();
-+            dropzone.classList.remove("dragover");
-+            const file = event.dataTransfer?.files?.[0] || null;
-+            if (!file) {
-+                return;
-+            }
-+
-+            if (!file.name.toLowerCase().endsWith(".ifc")) {
-+                setStatus("Selecione apenas arquivos com extensão .ifc.", "error");
-+                return;
-+            }
-+
-+            const dataTransfer = new DataTransfer();
-+            dataTransfer.items.add(file);
-+            ifcFileInput.files = dataTransfer.files;
-+            updateSelectedFile(file);
-+            setProgress(0);
-+            setStatus("");
-+        });
-+    </script>
-+</body>
-+</html>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Conversor IFC → XKT</title>
+    <link rel="icon" href="/images/favicon.ico" sizes="any" />
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #ffffff;
+            --text: #0f172a;
+            --muted: #475569;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --border: #cbd5e1;
+            --ok: #166534;
+            --error: #b91c1c;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: radial-gradient(circle at top, #1e293b, var(--bg));
+            color: var(--text);
+        }
+
+        .card {
+            width: min(100%, 740px);
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: 0 20px 30px rgba(0, 0, 0, 0.24);
+            padding: 24px;
+            display: grid;
+            gap: 16px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.6rem;
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+
+        .dropzone {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 28px 16px;
+            text-align: center;
+            background: #f8fafc;
+            transition: border-color 0.2s ease;
+        }
+
+        .dropzone.dragover {
+            border-color: var(--accent);
+        }
+
+        .dropzone strong {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .dropzone input {
+            display: none;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        button,
+        .button-link {
+            border: 0;
+            border-radius: 10px;
+            padding: 12px 14px;
+            cursor: pointer;
+            font-weight: 700;
+            text-decoration: none;
+            color: #fff;
+            background: var(--accent);
+            transition: background 0.2s ease;
+        }
+
+        button:hover,
+        .button-link:hover {
+            background: var(--accent-hover);
+        }
+
+        button[disabled] {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .button-link {
+            background: #334155;
+        }
+
+        .status {
+            font-size: 0.95rem;
+            min-height: 22px;
+        }
+
+        .status.ok { color: var(--ok); }
+        .status.error { color: var(--error); }
+
+        .file-name {
+            font-size: 0.95rem;
+            color: var(--muted);
+            overflow-wrap: anywhere;
+        }
+
+        .progress {
+            width: 100%;
+            height: 10px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+
+        .progress > span {
+            display: block;
+            height: 100%;
+            width: 0;
+            background: var(--accent);
+            transition: width 0.2s linear;
+        }
+
+        code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <main class="card" aria-labelledby="pageTitle">
+        <h1 id="pageTitle">Conversor IFC → XKT</h1>
+        <p>
+            Selecione um arquivo <code>.ifc</code>, converta no navegador e baixe o <code>.xkt</code>.
+            Para arquivos muito grandes, prefira a conversão no servidor/CLI.
+        </p>
+
+        <label id="dropzone" class="dropzone" for="ifcFileInput">
+            <strong>Arraste e solte o arquivo IFC aqui</strong>
+            <span>ou clique para selecionar</span>
+            <input id="ifcFileInput" type="file" accept=".ifc" />
+        </label>
+
+        <div id="selectedFileName" class="file-name">Nenhum arquivo selecionado.</div>
+
+        <div class="progress" aria-hidden="true">
+            <span id="progressFill"></span>
+        </div>
+
+        <div class="actions">
+            <button id="convertButton" type="button" disabled>Converter para XKT</button>
+            <a class="button-link" href="/3D/index.html">Voltar para projetos 3D</a>
+        </div>
+
+        <div id="status" class="status" aria-live="polite"></div>
+    </main>
+
+    <script type="module">
+        import {
+            XKTModel,
+            parseIFCIntoXKTModel,
+            writeXKTModelToArrayBuffer
+        } from "https://esm.sh/@xeokit/xeokit-xkt-utils@1.10.2?bundle";
+
+        const WASM_PATH = "https://unpkg.com/web-ifc@0.0.68/";
+
+        const ifcFileInput = document.getElementById("ifcFileInput");
+        const dropzone = document.getElementById("dropzone");
+        const selectedFileName = document.getElementById("selectedFileName");
+        const convertButton = document.getElementById("convertButton");
+        const statusElement = document.getElementById("status");
+        const progressFill = document.getElementById("progressFill");
+
+        let selectedFile = null;
+
+        function setStatus(message, type = "") {
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`.trim();
+        }
+
+        function setProgress(value) {
+            const safe = Math.max(0, Math.min(100, value));
+            progressFill.style.width = `${safe}%`;
+        }
+
+        function baseNameWithoutExtension(fileName = "") {
+            return fileName.replace(/\.[^/.]+$/, "");
+        }
+
+        function updateSelectedFile(file) {
+            selectedFile = file;
+            if (!file) {
+                selectedFileName.textContent = "Nenhum arquivo selecionado.";
+                convertButton.disabled = true;
+                return;
+            }
+
+            selectedFileName.textContent = `Arquivo: ${file.name}`;
+            convertButton.disabled = false;
+        }
+
+        function downloadArrayBuffer(arrayBuffer, fileName) {
+            const blob = new Blob([arrayBuffer], { type: "application/octet-stream" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        async function convertIfcToXkt() {
+            if (!selectedFile) {
+                return;
+            }
+
+            convertButton.disabled = true;
+            setProgress(5);
+            setStatus("Lendo arquivo IFC...", "");
+
+            try {
+                const data = await selectedFile.arrayBuffer();
+                const xktModel = new XKTModel();
+
+                setProgress(20);
+                setStatus("Convertendo IFC para modelo XKT...", "");
+
+                await parseIFCIntoXKTModel({
+                    data,
+                    xktModel,
+                    wasmPath: WASM_PATH,
+                    autoNormals: true,
+                    log: () => {}
+                });
+
+                xktModel.finalize();
+
+                setProgress(85);
+                setStatus("Gerando arquivo .xkt...", "");
+
+                const xktArrayBuffer = writeXKTModelToArrayBuffer(xktModel);
+                const outputName = `${baseNameWithoutExtension(selectedFile.name) || "modelo"}.xkt`;
+
+                downloadArrayBuffer(xktArrayBuffer, outputName);
+
+                setProgress(100);
+                setStatus(`Conversão concluída! Arquivo salvo: ${outputName}`, "ok");
+            } catch (error) {
+                console.error("Falha na conversão IFC → XKT", error);
+                setProgress(0);
+                setStatus(
+                    `Erro ao converter: ${error?.message || error}. Verifique se o IFC é válido e tente novamente.`,
+                    "error"
+                );
+            } finally {
+                convertButton.disabled = !selectedFile;
+            }
+        }
+
+        ifcFileInput.addEventListener("change", (event) => {
+            const file = event.target.files?.[0] || null;
+            updateSelectedFile(file);
+            setProgress(0);
+            setStatus("");
+        });
+
+        convertButton.addEventListener("click", convertIfcToXkt);
+
+        dropzone.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            dropzone.classList.add("dragover");
+        });
+
+        dropzone.addEventListener("dragleave", () => {
+            dropzone.classList.remove("dragover");
+        });
+
+        dropzone.addEventListener("drop", (event) => {
+            event.preventDefault();
+            dropzone.classList.remove("dragover");
+            const file = event.dataTransfer?.files?.[0] || null;
+            if (!file) {
+                return;
+            }
+
+            if (!file.name.toLowerCase().endsWith(".ifc")) {
+                setStatus("Selecione apenas arquivos com extensão .ifc.", "error");
+                return;
+            }
+
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            ifcFileInput.files = dataTransfer.files;
+            updateSelectedFile(file);
+            setProgress(0);
+            setStatus("");
+        });
+    </script>
+</body>
+</html>

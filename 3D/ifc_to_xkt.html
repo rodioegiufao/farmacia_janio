@@ -174,12 +174,13 @@
     </main>
 
     <script type="module">
+        import * as WebIFC from "https://cdn.jsdelivr.net/npm/web-ifc@0.0.34/web-ifc-api.js";
         const XKT_UTILS_IMPORT_CANDIDATES = [
             "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-convert/dist/xeokit-convert.es.js",
             "https://unpkg.com/@xeokit/xeokit-convert/dist/xeokit-convert.es.js"
         ];
-
-        const WASM_PATH = "https://cdn.jsdelivr.net/npm/web-ifc@0.0.68/";
+        
+        const WASM_PATH = "https://cdn.jsdelivr.net/npm/web-ifc@0.0.34/";
 
         const ifcFileInput = document.getElementById("ifcFileInput");
         const dropzone = document.getElementById("dropzone");
@@ -275,11 +276,12 @@
                 setStatus("Convertendo IFC para modelo XKT...", "");
 
                 await parseIFCIntoXKTModel({
+                    WebIFC,
                     data,
                     xktModel,
                     wasmPath: WASM_PATH,
                     autoNormals: true,
-                    log: () => {}
+                    log: (msg) => console.log(msg)
                 });
 
                 xktModel.finalize();

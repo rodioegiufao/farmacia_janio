@@ -289,7 +289,10 @@
                 setProgress(85);
                 setStatus("Gerando arquivo .xkt...", "");
 
-                const xktArrayBuffer = writeXKTModelToArrayBuffer(xktModel);
+                const xktArrayBuffer = writeXKTModelToArrayBuffer({
+                    xktModel,
+                    zip: false
+                });
                 const outputName = `${baseNameWithoutExtension(selectedFile.name) || "modelo"}.xkt`;
 
                 downloadArrayBuffer(xktArrayBuffer, outputName);

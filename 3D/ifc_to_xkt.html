@@ -174,11 +174,11 @@
     </main>
 
     <script type="module">
-        import {
-            XKTModel,
-            parseIFCIntoXKTModel,
-            writeXKTModelToArrayBuffer
-        } from "https://esm.sh/@xeokit/xeokit-xkt-utils@1.10.2?bundle";
+        const XKT_UTILS_IMPORT_CANDIDATES = [
+            "https://esm.sh/xeokit-xkt-utils@1.10.2?bundle",
+            "https://cdn.jsdelivr.net/npm/xeokit-xkt-utils@1.10.2/dist/xeokit-xkt-utils.es.min.js",
+            "https://cdn.jsdelivr.net/npm/xeokit-xkt-utils@1.10.2/dist/xeokit-xkt-utils.es.js"
+        ];
 
         const WASM_PATH = "https://unpkg.com/web-ifc@0.0.68/";
 
@@ -190,6 +190,35 @@
         const progressFill = document.getElementById("progressFill");
 
         let selectedFile = null;
+        let xktUtils = null;
+
+        async function loadXktUtils() {
+            if (xktUtils) {
+                return xktUtils;
+            }
+
+            let lastError = null;
+
+            for (const url of XKT_UTILS_IMPORT_CANDIDATES) {
+                try {
+                    const imported = await import(url);
+                    if (
+                        imported?.XKTModel &&
+                        imported?.parseIFCIntoXKTModel &&
+                        imported?.writeXKTModelToArrayBuffer
+                    ) {
+                        xktUtils = imported;
+                        return xktUtils;
+                    }
+                } catch (error) {
+                    lastError = error;
+                }
+            }
+
+            throw new Error(
+                `Não foi possível carregar a biblioteca xeokit-xkt-utils. Detalhe: ${lastError?.message || lastError || "desconhecido"}`
+            );
+        }
 
         function setStatus(message, type = "") {
             statusElement.textContent = message;
@@ -240,6 +269,7 @@
 
             try {
                 const data = await selectedFile.arrayBuffer();
+                const { XKTModel, parseIFCIntoXKTModel, writeXKTModelToArrayBuffer } = await loadXktUtils();
                 const xktModel = new XKTModel();
 
                 setProgress(20);
@@ -276,6 +306,14 @@
                 convertButton.disabled = !selectedFile;
             }
         }
+
+        loadXktUtils().catch((error) => {
+            console.error("Falha ao carregar xeokit-xkt-utils", error);
+            setStatus(
+                "Não foi possível carregar a biblioteca de conversão IFC/XKT. Recarregue a página ou tente novamente mais tarde.",
+                "error"
+            );
+        });
 
         ifcFileInput.addEventListener("change", (event) => {
             const file = event.target.files?.[0] || null;

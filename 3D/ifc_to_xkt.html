@@ -183,6 +183,7 @@
             "https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.esm.mjs",
             "https://unpkg.com/pako@2.1.0/dist/pako.esm.mjs"
         ];
+        const ZIP_OUTPUT = false;
         
         const WASM_PATH = "https://cdn.jsdelivr.net/npm/web-ifc@0.0.34/";
 
@@ -300,7 +301,7 @@
             try {
                 const data = await selectedFile.arrayBuffer();
                 const { XKTModel, parseIFCIntoXKTModel, writeXKTModelToArrayBuffer } = await loadXktUtils();
-                const pako = await loadPakoUtils();
+                const pako = ZIP_OUTPUT ? await loadPakoUtils() : null;
                 const xktModel = new XKTModel();
 
                 setProgress(20);
@@ -320,11 +321,15 @@
                 setProgress(85);
                 setStatus("Gerando arquivo .xkt...", "");
 
-                const xktArrayBuffer = writeXKTModelToArrayBuffer({
+                const xktArrayBuffer = writeXKTModelToArrayBuffer(
                     xktModel,
-                    pako,
-                    zip: false
-                });
+                    null,
+                    {},
+                    {
+                        pako,
+                        zip: ZIP_OUTPUT
+                    }
+                );
                 const outputName = `${baseNameWithoutExtension(selectedFile.name) || "modelo"}.xkt`;
 
                 downloadArrayBuffer(xktArrayBuffer, outputName);
@@ -343,7 +348,10 @@
             }
         }
 
-        Promise.all([loadXktUtils(), loadPakoUtils()]).catch((error) => {
+        Promise.all([
+            loadXktUtils(),
+            ...(ZIP_OUTPUT ? [loadPakoUtils()] : [])
+        ]).catch((error) => {
             console.error("Falha ao carregar bibliotecas de conversão", error);
             setStatus(
                 "Não foi possível carregar as bibliotecas de conversão IFC/XKT. Recarregue a página ou tente novamente mais tarde.",

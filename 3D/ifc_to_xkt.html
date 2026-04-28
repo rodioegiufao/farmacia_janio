@@ -179,6 +179,10 @@
             "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-convert/dist/xeokit-convert.es.js",
             "https://unpkg.com/@xeokit/xeokit-convert/dist/xeokit-convert.es.js"
         ];
+        const PAKO_IMPORT_CANDIDATES = [
+            "https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.esm.mjs",
+            "https://unpkg.com/pako@2.1.0/dist/pako.esm.mjs"
+        ];
         
         const WASM_PATH = "https://cdn.jsdelivr.net/npm/web-ifc@0.0.34/";
 
@@ -191,6 +195,7 @@
 
         let selectedFile = null;
         let xktUtils = null;
+        let pakoUtils = null;
 
         async function loadXktUtils() {
             if (xktUtils) {
@@ -217,6 +222,31 @@
 
             throw new Error(
                 `Não foi possível carregar a biblioteca xeokit-xkt-utils. Detalhe: ${lastError?.message || lastError || "desconhecido"}`
+            );
+        }
+
+
+        async function loadPakoUtils() {
+            if (pakoUtils) {
+                return pakoUtils;
+            }
+
+            let lastError = null;
+
+            for (const url of PAKO_IMPORT_CANDIDATES) {
+                try {
+                    const imported = await import(url);
+                    if (imported?.deflate || imported?.gzip || imported?.zip) {
+                        pakoUtils = imported;
+                        return pakoUtils;
+                    }
+                } catch (error) {
+                    lastError = error;
+                }
+            }
+
+            throw new Error(
+                `Não foi possível carregar a biblioteca pako. Detalhe: ${lastError?.message || lastError || "desconhecido"}`
             );
         }
 
@@ -270,6 +300,7 @@
             try {
                 const data = await selectedFile.arrayBuffer();
                 const { XKTModel, parseIFCIntoXKTModel, writeXKTModelToArrayBuffer } = await loadXktUtils();
+                const pako = await loadPakoUtils();
                 const xktModel = new XKTModel();
 
                 setProgress(20);
@@ -291,6 +322,7 @@
 
                 const xktArrayBuffer = writeXKTModelToArrayBuffer({
                     xktModel,
+                    pako,
                     zip: false
                 });
                 const outputName = `${baseNameWithoutExtension(selectedFile.name) || "modelo"}.xkt`;
@@ -311,10 +343,10 @@
             }
         }
 
-        loadXktUtils().catch((error) => {
-            console.error("Falha ao carregar xeokit-xkt-utils", error);
+        Promise.all([loadXktUtils(), loadPakoUtils()]).catch((error) => {
+            console.error("Falha ao carregar bibliotecas de conversão", error);
             setStatus(
-                "Não foi possível carregar a biblioteca de conversão IFC/XKT. Recarregue a página ou tente novamente mais tarde.",
+                "Não foi possível carregar as bibliotecas de conversão IFC/XKT. Recarregue a página ou tente novamente mais tarde.",
                 "error"
             );
         });

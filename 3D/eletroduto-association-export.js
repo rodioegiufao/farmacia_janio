@@ -940,7 +940,7 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = []) {
     const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
     link.href = url;
-    link.download = `eletrodutos_associados_${timestamp}.xls`;
+    link.download = `eletrodutos_associados_${timestamp}.xlsx`;
     document.body.appendChild(link);
     link.click();
     link.remove();

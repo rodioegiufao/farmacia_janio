@@ -36,7 +36,8 @@ export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStat
             const rowsAboveOccupancyLimit = rows.filter((row) => Number(row?.occupancyRate) > 0.4);
             storeOccupancyAnnotationState(rowsAboveOccupancyLimit);
             occupancyLimitAnnotationsController.syncAnnotations(rowsAboveOccupancyLimit);
-            downloadRowsAsExcel(rows, rowsAboveOccupancyLimit);
+            const quadroAnnotationRows = collectQuadroAnnotationRows(viewer);
+            downloadRowsAsExcel(rows, quadroAnnotationRows);
             notify(setSearchStatus, `Relatório gerado com ${rows.length} eletroduto(s).`, false);
         } catch (error) {
             console.error("Falha ao exportar relatório de eletrodutos:", error);
@@ -838,7 +839,7 @@ function roundToFourDecimals(value) {
     return Number(value.toFixed(4));
 }
 
-function downloadRowsAsExcel(rows, occupancyAnnotationRows = []) {
+function downloadRowsAsExcel(rows, quadroAnnotationRows = []) {
     const excelRows = rows
         .map(
             (row) => `
@@ -860,15 +861,17 @@ function downloadRowsAsExcel(rows, occupancyAnnotationRows = []) {
         )
         .join("");
 
-    const occupancyAnnotationExcelRows = occupancyAnnotationRows
+    const quadroAnnotationExcelRows = quadroAnnotationRows
         .map(
             (row) => `
         <Row>
-            <Cell><Data ss:Type="String">${escapeXml(row.ifcCode || "-")}</Data></Cell>
-            <Cell><Data ss:Type="String">${escapeXml(row.ifcName || "-")}</Data></Cell>
-            <Cell><Data ss:Type="String">${escapeXml(row.sceneObjectId || row.metaObjectId || "-")}</Data></Cell>
-            <Cell ss:StyleID="PercentageTwoDecimals"><Data ss:Type="Number">${row.occupancyRate || 0}</Data></Cell>
-            <Cell><Data ss:Type="String">Taxa de ocupação acima do limite de 40%</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.id || "-")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.nome || "-")}</Data></Cell>
+            <Cell><Data ss:Type="Number">${row.disjuntores || 0}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.tamanhoQuadro || "-")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.dps || "-")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.dr || "-")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.barramentos || "-")}</Data></Cell>
         </Row>`
         )
         .join("");
@@ -914,16 +917,18 @@ function downloadRowsAsExcel(rows, occupancyAnnotationRows = []) {
             ${excelRows}
         </Table>
     </Worksheet>
-    <Worksheet ss:Name="Anotacoes_Ocupacao">
+    <Worksheet ss:Name="Anotacoes_Quadros">
         <Table>
             <Row ss:StyleID="Header">
-                <Cell><Data ss:Type="String">Código IFC</Data></Cell>
-                <Cell><Data ss:Type="String">Nome IFC</Data></Cell>
-                <Cell><Data ss:Type="String">ID Objeto</Data></Cell>
-                <Cell><Data ss:Type="String">Taxa de ocupação (%)</Data></Cell>
-                <Cell><Data ss:Type="String">Anotação</Data></Cell>
+                <Cell><Data ss:Type="String">ID</Data></Cell>
+                <Cell><Data ss:Type="String">Nome</Data></Cell>
+                <Cell><Data ss:Type="String">Disjuntores</Data></Cell>
+                <Cell><Data ss:Type="String">Tamanho do quadro</Data></Cell>
+                <Cell><Data ss:Type="String">DPS</Data></Cell>
+                <Cell><Data ss:Type="String">DR</Data></Cell>
+                <Cell><Data ss:Type="String">Barramentos</Data></Cell>
             </Row>
-            ${occupancyAnnotationExcelRows}
+            ${quadroAnnotationExcelRows}
         </Table>
     </Worksheet>
 </Workbook>`;
@@ -953,6 +958,86 @@ function storeOccupancyAnnotationState(rowsAboveOccupancyLimit) {
         occupancy: rows
     };
     window.rowsComAnotacao = rows;
+}
+
+function collectQuadroAnnotationRows(viewer) {
+    const metaObjects = Object.values(viewer?.metaScene?.metaObjects || {});
+    const targetTypes = new Set(["ifcelectricdistributionboard", "ifcflowfitting"]);
+
+    return metaObjects
+        .filter((metaObject) => targetTypes.has(normalizeLabel(metaObject?.type)))
+        .filter((metaObject) => Boolean(getPropertySetByName(metaObject, "Pset_ElectricalDeviceCommon-Ponto1")))
+        .map((metaObject) => {
+            const nome = String(metaObject?.name || "").trim();
+            const itensAssociados = getAssociatedItemsText(metaObject);
+            const tamanhoQuadro = getNumeroPolos(metaObject);
+            return {
+                id: metaObject?.id || metaObject?.sceneObjectId || "-",
+                nome: nome || "-",
+                disjuntores: countDisjuntores(itensAssociados),
+                tamanhoQuadro: Number.isFinite(tamanhoQuadro) ? `${tamanhoQuadro} polos` : "-",
+                dps: hasKeywordInAssociatedItems(itensAssociados, "contra surto") ? "Tem DPS" : "Não tem DPS",
+                dr: hasKeywordInAssociatedItems(itensAssociados, "interruptor") ? "Tem DR" : "Não tem DR",
+                barramentos: getBarramentoAnnotation(metaObject)
+            };
+        });
+}
+
+function getNumeroPolos(metaObject) {
+    const altoQiBuilderSet = getPropertySetByName(metaObject, "AltoQi_Builder");
+    const numeroPolosProperty = findPropertyByNames(altoQiBuilderSet, ["Número de polos", "Numero de polos"]);
+    const numeroPolos = parseLocalizedNumber(formatIfcPropertyValue(numeroPolosProperty?.value));
+    return Number.isFinite(numeroPolos) ? numeroPolos : null;
+}
+
+function countDisjuntores(text) {
+    const normalized = normalizeLabel(text);
+    if (!normalized) {
+        return 0;
+    }
+    const matches = normalized.match(/disjuntor|interruptor|unipolar|bipolar|tripolar|tetrapolar/g);
+    return Array.isArray(matches) ? matches.length : 0;
+}
+
+function hasKeywordInAssociatedItems(text, keyword) {
+    return normalizeLabel(text).includes(normalizeLabel(keyword));
+}
+
+function getBarramentoAnnotation(metaObject) {
+    const pontoSet = getPropertySetByName(metaObject, "Pset_ElectricalDeviceCommon-Ponto1");
+    const identificacaoSet = getPropertySetByName(metaObject, "Identificação_Elemento");
+    const nominalCurrentProperty = findPropertyByNames(pontoSet, ["NominalCurrent"]);
+    const nomeProperty = findPropertyByNames(identificacaoSet, ["Nome"]);
+    const nominalCurrent = parseLocalizedNumber(formatIfcPropertyValue(nominalCurrentProperty?.value));
+    const nome = formatIfcPropertyValue(nomeProperty?.value);
+
+    if (!Number.isFinite(nominalCurrent)) {
+        return "-";
+    }
+    if (nominalCurrent <= 100) {
+        return "Correto";
+    }
+    const capacidadeBarramento = extractBusbarCapacityFromName(nome);
+    if (!Number.isFinite(capacidadeBarramento)) {
+        return "-";
+    }
+    return nominalCurrent > capacidadeBarramento ? "Errado" : "Correto";
+}
+
+function extractBusbarCapacityFromName(nameText) {
+    const text = String(nameText || "");
+    if (!text) {
+        return null;
+    }
+    const inBarramentoMatch = text.match(/(?:in|i)\s*barr\.?\s*(\d+(?:[.,]\d+)?)/i);
+    if (inBarramentoMatch) {
+        return parseLocalizedNumber(inBarramentoMatch[1]);
+    }
+    const barramentoMatch = text.match(/barr(?:amento)?[^0-9]*(\d+(?:[.,]\d+)?)/i);
+    if (barramentoMatch) {
+        return parseLocalizedNumber(barramentoMatch[1]);
+    }
+    return null;
 }
 
 function escapeXml(value) {

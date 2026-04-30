@@ -98,7 +98,7 @@ export async function downloadMaterialsAsExcel(items, normalizeSearchText) {
     ).padStart(2, "0")}`;
 
     link.href = url;
-    link.download = `lista_materiais_${dateStamp}.xlsx`;
+    link.download = `lista_materiais_${dateStamp}.xls`;
     document.body.appendChild(link);
     link.click();
     link.remove();

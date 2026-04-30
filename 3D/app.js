@@ -7082,6 +7082,7 @@ function getQuadroAnnotations(metaObject) {
     const polosAnnotation = getQuadroPolosAnnotation(metaObject);
     const dpsAnnotation = getQuadroDpsAnnotation(metaObject);
     const drAnnotation = getQuadroDrAnnotation(metaObject);
+    const barramentoAnnotation = getQuadroBarramentoAnnotation(metaObject);
 
     if (polosAnnotation) {
         annotations.push(polosAnnotation);
@@ -7095,7 +7096,58 @@ function getQuadroAnnotations(metaObject) {
         annotations.push(drAnnotation);
     }
 
+    if (barramentoAnnotation) {
+        annotations.push(barramentoAnnotation);
+    }
+
     return annotations;
+}
+
+function getQuadroBarramentoAnnotation(metaObject) {
+    if (!isSupportedQuadroAnnotationType(metaObject)) {
+        return "";
+    }
+    if (!metaObject?.propertySets?.length) {
+        return "";
+    }
+
+    const pontoSet = getMetaObjectPropertySetByName(metaObject, "Pset_ElectricalDeviceCommon-Ponto1");
+    const identificacaoSet = getMetaObjectPropertySetByName(metaObject, "Identificação_Elemento");
+
+    if (!pontoSet || !identificacaoSet) {
+        return "";
+    }
+
+    const nominalCurrent = extractNumericPropertyValue(getPropertyValueFromSet(pontoSet, "NominalCurrent"));
+    const nome = getPropertyTextValue(identificacaoSet, "Nome", "");
+    const capacidadeBarramento = extractBusbarCapacityFromName(nome);
+
+    if (!Number.isFinite(nominalCurrent) || !Number.isFinite(capacidadeBarramento)) {
+        return "";
+    }
+
+    return nominalCurrent > capacidadeBarramento
+        ? "Barramento: Errado"
+        : "Barramento: Correto";
+}
+
+function extractBusbarCapacityFromName(nameText) {
+    const text = String(nameText || "");
+    if (!text) {
+        return null;
+    }
+
+    const inBarramentoMatch = text.match(/(?:in|i)\s*barr\.?\s*(\d+(?:[.,]\d+)?)/i);
+    if (inBarramentoMatch) {
+        return extractNumericPropertyValue(inBarramentoMatch[1]);
+    }
+
+    const barramentoMatch = text.match(/barr(?:amento)?[^0-9]*(\d+(?:[.,]\d+)?)/i);
+    if (barramentoMatch) {
+        return extractNumericPropertyValue(barramentoMatch[1]);
+    }
+
+    return null;
 }
 
 function getQuadroDpsAnnotation(metaObject) {

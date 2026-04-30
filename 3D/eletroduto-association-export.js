@@ -867,7 +867,7 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = []) {
         <Row>
             <Cell><Data ss:Type="String">${escapeXml(row.id || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.nome || "-")}</Data></Cell>
-            <Cell><Data ss:Type="Number">${row.disjuntores || 0}</Data></Cell>
+            <Cell><Data ss:Type="Number">${row.espacosFaltantes || 0}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.tamanhoQuadro || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.dps || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.dr || "-")}</Data></Cell>
@@ -922,7 +922,7 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = []) {
             <Row ss:StyleID="Header">
                 <Cell><Data ss:Type="String">ID</Data></Cell>
                 <Cell><Data ss:Type="String">Nome</Data></Cell>
-                <Cell><Data ss:Type="String">Disjuntores</Data></Cell>
+                <Cell><Data ss:Type="String">Espaço(s) faltante(s)</Data></Cell>
                 <Cell><Data ss:Type="String">Tamanho do quadro</Data></Cell>
                 <Cell><Data ss:Type="String">DPS</Data></Cell>
                 <Cell><Data ss:Type="String">DR</Data></Cell>
@@ -971,10 +971,14 @@ function collectQuadroAnnotationRows(viewer) {
             const nome = String(metaObject?.name || "").trim();
             const itensAssociados = getAssociatedItemsText(metaObject);
             const tamanhoQuadro = getNumeroPolos(metaObject);
+            const disjuntores = countDisjuntores(itensAssociados);
+            const espacosFaltantes = Number.isFinite(tamanhoQuadro)
+                ? Math.max(tamanhoQuadro - disjuntores, 0)
+                : 0;
             return {
                 id: metaObject?.id || metaObject?.sceneObjectId || "-",
                 nome: nome || "-",
-                disjuntores: countDisjuntores(itensAssociados),
+                espacosFaltantes,
                 tamanhoQuadro: Number.isFinite(tamanhoQuadro) ? `${tamanhoQuadro} polos` : "-",
                 dps: hasKeywordInAssociatedItems(itensAssociados, "contra surto") ? "Tem DPS" : "Não tem DPS",
                 dr: hasKeywordInAssociatedItems(itensAssociados, "interruptor") ? "Tem DR" : "Não tem DR",

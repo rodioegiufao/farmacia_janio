@@ -1158,6 +1158,29 @@ function getBarramentoAnnotation(metaObject) {
     return nominalCurrent > capacidadeBarramento ? "Errado" : "Correto";
 }
 
+function getMetaModelLabel(metaObject) {
+    const directLabel = [
+        metaObject?.metaModel?.name,
+        metaObject?.metaModel?.id,
+        metaObject?.modelId,
+        metaObject?.metaModelId
+    ].find((value) => String(value || "").trim());
+
+    if (directLabel) {
+        return String(directLabel).trim();
+    }
+
+    const sourceMetaObject = metaObject?.metaScene?.metaObjects?.[metaObject?.sceneObjectId];
+    const sourceLabel = [
+        sourceMetaObject?.metaModel?.name,
+        sourceMetaObject?.metaModel?.id,
+        sourceMetaObject?.modelId,
+        sourceMetaObject?.metaModelId
+    ].find((value) => String(value || "").trim());
+
+    return sourceLabel ? String(sourceLabel).trim() : "-";
+}
+
 function extractBusbarCapacityFromName(nameText) {
     const text = String(nameText || "");
     if (!text) {

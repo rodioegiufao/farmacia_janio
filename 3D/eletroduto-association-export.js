@@ -971,7 +971,7 @@ function collectQuadroAnnotationRows(viewer) {
             const nome = String(metaObject?.name || "").trim();
             const itensAssociados = getAssociatedItemsText(metaObject);
             const tamanhoQuadro = getNumeroPolos(metaObject);
-            const disjuntores = countDisjuntores(itensAssociados);
+            const disjuntores = countDisjuntores(metaObject, itensAssociados);
             const espacosFaltantes = Number.isFinite(tamanhoQuadro)
                 ? Math.max(tamanhoQuadro - disjuntores, 0)
                 : 0;
@@ -994,13 +994,120 @@ function getNumeroPolos(metaObject) {
     return Number.isFinite(numeroPolos) ? numeroPolos : null;
 }
 
-function countDisjuntores(text) {
-    const normalized = normalizeLabel(text);
+function countDisjuntores(metaObject, fallbackText = "") {
+    const usedPoles = getQuadroUsedPolesFromAssociatedItems(metaObject);
+    if (Number.isFinite(usedPoles)) {
+        return usedPoles;
+    }
+
+    const normalized = normalizeLabel(fallbackText);
     if (!normalized) {
         return 0;
     }
+
     const matches = normalized.match(/disjuntor|interruptor|unipolar|bipolar|tripolar|tetrapolar/g);
     return Array.isArray(matches) ? matches.length : 0;
+}
+
+function getQuadroUsedPolesFromAssociatedItems(metaObject) {
+    const itensAssociadosSet = getPropertySetByName(metaObject, "AltoQi_QiBuilder-Itens_Associados");
+    if (!itensAssociadosSet || !Array.isArray(itensAssociadosSet.properties)) {
+        return null;
+    }
+
+    const keywordMultipliers = [
+        { keyword: "contra surto", multiplier: 1 },
+        { keyword: "tetrapolar", multiplier: 4 },
+        { keyword: "tripolar", multiplier: 3 },
+        { keyword: "bipolar", multiplier: 2 },
+        { keyword: "unipolar", multiplier: 1 }
+    ];
+
+    const detectMultiplier = (text) => {
+        const normalizedText = normalizeLabel(text);
+        const matched = keywordMultipliers.find(({ keyword }) => normalizedText.includes(keyword));
+        return matched ? matched.multiplier : null;
+    };
+
+    const extractQuantityFromText = (text) => {
+        const match = String(text || "").match(/(\d+(?:[.,]\d+)?)/);
+        if (!match) {
+            return null;
+        }
+        return parseLocalizedNumber(match[1]);
+    };
+
+    const indexedItems = new Map();
+
+    for (const prop of itensAssociadosSet.properties) {
+        const propName = String(prop?.name || prop?.id || "");
+        const propValueText = formatIfcPropertyValue(prop?.value);
+        const suffixMatch = propName.match(/_(\d+)$/);
+
+        if (!suffixMatch) {
+            continue;
+        }
+
+        const index = Number(suffixMatch[1]);
+        const current = indexedItems.get(index) || {
+            textFragments: [],
+            quantity: null
+        };
+
+        current.textFragments.push(propName, propValueText);
+
+        const normalizedPropName = normalizeLabel(propName);
+        const isQuantityField =
+            normalizedPropName.includes("qtd") ||
+            normalizedPropName.includes("qtde") ||
+            normalizedPropName.includes("quant");
+
+        if (isQuantityField) {
+            const parsedQuantity = parseLocalizedNumber(formatIfcPropertyValue(prop?.value));
+            if (Number.isFinite(parsedQuantity)) {
+                current.quantity = parsedQuantity;
+            }
+        }
+
+        indexedItems.set(index, current);
+    }
+
+    const indexedTotal = Array.from(indexedItems.values()).reduce((total, item) => {
+        const text = item.textFragments.join(" ");
+        const multiplier = detectMultiplier(text);
+        if (!Number.isFinite(multiplier)) {
+            return total;
+        }
+
+        const quantity = Number.isFinite(item.quantity) ? item.quantity : extractQuantityFromText(text) || 1;
+        return total + (quantity * multiplier);
+    }, 0);
+
+    if (indexedTotal > 0) {
+        return indexedTotal;
+    }
+
+    const fallbackTotal = itensAssociadosSet.properties.reduce((total, prop) => {
+        const propName = String(prop?.name || prop?.id || "");
+        const propValueText = formatIfcPropertyValue(prop?.value);
+        const combinedText = `${propName} ${propValueText}`;
+        const multiplier = detectMultiplier(combinedText);
+        if (!Number.isFinite(multiplier)) {
+            return total;
+        }
+
+        const quantity =
+            parseLocalizedNumber(formatIfcPropertyValue(prop?.value)) ||
+            extractQuantityFromText(combinedText) ||
+            1;
+        return total + (quantity * multiplier);
+    }, 0);
+
+    if (fallbackTotal > 0) {
+        return fallbackTotal;
+    }
+
+    return 0;
 }
 
 function hasKeywordInAssociatedItems(text, keyword) {

@@ -866,6 +866,7 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = []) {
             (row) => `
         <Row>
             <Cell><Data ss:Type="String">${escapeXml(row.id || "-")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.modelo || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.nome || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.padraoProtecoes || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.esquema || "-")}</Data></Cell>
@@ -925,6 +926,7 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = []) {
         <Table>
             <Row ss:StyleID="Header">
                 <Cell><Data ss:Type="String">ID</Data></Cell>
+                <Cell><Data ss:Type="String">Modelo (XKT/IFC)</Data></Cell>
                 <Cell><Data ss:Type="String">Nome</Data></Cell>
                 <Cell><Data ss:Type="String">Padrão das proteções</Data></Cell>
                 <Cell><Data ss:Type="String">Esquema</Data></Cell>
@@ -978,6 +980,7 @@ function collectQuadroAnnotationRows(viewer) {
         .map((metaObject) => {
             const nome = String(metaObject?.name || "").trim();
             const itensAssociados = getAssociatedItemsText(metaObject);
+            const modelo = getMetaModelLabel(metaObject);
             const tamanhoQuadro = getNumeroPolos(metaObject);
             const disjuntores = countDisjuntores(metaObject, itensAssociados);
             const espacosFaltantes = Number.isFinite(tamanhoQuadro)
@@ -985,6 +988,7 @@ function collectQuadroAnnotationRows(viewer) {
                 : 0;
             return {
                 id: metaObject?.id || metaObject?.sceneObjectId || "-",
+                modelo,
                 nome: nome || "-",
                 padraoProtecoes: getAltoQiBuilderValue(metaObject, ["Padrão das proteções", "Padrao das protecoes"]),
                 esquema: getAltoQiBuilderValue(metaObject, ["Esquema"]),

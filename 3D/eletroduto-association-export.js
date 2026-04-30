@@ -867,6 +867,10 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = []) {
         <Row>
             <Cell><Data ss:Type="String">${escapeXml(row.id || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.nome || "-")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.padraoProtecoes || "-")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.esquema || "-")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.tensao || "-")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.protecaoPeca || "-")}</Data></Cell>
             <Cell><Data ss:Type="Number">${row.espacosFaltantes || 0}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.tamanhoQuadro || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.dps || "-")}</Data></Cell>
@@ -922,6 +926,10 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = []) {
             <Row ss:StyleID="Header">
                 <Cell><Data ss:Type="String">ID</Data></Cell>
                 <Cell><Data ss:Type="String">Nome</Data></Cell>
+                <Cell><Data ss:Type="String">Padrão das proteções</Data></Cell>
+                <Cell><Data ss:Type="String">Esquema</Data></Cell>
+                <Cell><Data ss:Type="String">Tensão</Data></Cell>
+                <Cell><Data ss:Type="String">Proteção - Peça</Data></Cell>
                 <Cell><Data ss:Type="String">Espaço(s) faltante(s)</Data></Cell>
                 <Cell><Data ss:Type="String">Tamanho do quadro</Data></Cell>
                 <Cell><Data ss:Type="String">DPS</Data></Cell>
@@ -978,6 +986,10 @@ function collectQuadroAnnotationRows(viewer) {
             return {
                 id: metaObject?.id || metaObject?.sceneObjectId || "-",
                 nome: nome || "-",
+                padraoProtecoes: getAltoQiBuilderValue(metaObject, ["Padrão das proteções", "Padrao das protecoes"]),
+                esquema: getAltoQiBuilderValue(metaObject, ["Esquema"]),
+                tensao: getAltoQiBuilderValue(metaObject, ["Tensão", "Tensao"]),
+                protecaoPeca: getAltoQiBuilderValue(metaObject, ["Proteção - Peça", "Protecao - Peca"]),
                 espacosFaltantes,
                 tamanhoQuadro: Number.isFinite(tamanhoQuadro) ? `${tamanhoQuadro} polos` : "-",
                 dps: hasKeywordInAssociatedItems(itensAssociados, "contra surto") ? "Tem DPS" : "Não tem DPS",
@@ -985,6 +997,13 @@ function collectQuadroAnnotationRows(viewer) {
                 barramentos: getBarramentoAnnotation(metaObject)
             };
         });
+}
+
+function getAltoQiBuilderValue(metaObject, names = []) {
+    const altoQiBuilderSet = getPropertySetByName(metaObject, "AltoQi_Builder");
+    const property = findPropertyByNames(altoQiBuilderSet, names);
+    const value = formatIfcPropertyValue(property?.value).trim();
+    return value || "-";
 }
 
 function getNumeroPolos(metaObject) {

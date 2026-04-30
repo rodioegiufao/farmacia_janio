@@ -7120,9 +7120,16 @@ function getQuadroBarramentoAnnotation(metaObject) {
 
     const nominalCurrent = extractNumericPropertyValue(getPropertyValueFromSet(pontoSet, "NominalCurrent"));
     const nome = getPropertyTextValue(identificacaoSet, "Nome", "");
-    const capacidadeBarramento = extractBusbarCapacityFromName(nome);
+    if (!Number.isFinite(nominalCurrent)) {
+        return "";
+    }
 
-    if (!Number.isFinite(nominalCurrent) || !Number.isFinite(capacidadeBarramento)) {
+    if (nominalCurrent <= 100) {
+        return "Barramento: Correto";
+    }
+
+    const capacidadeBarramento = extractBusbarCapacityFromName(nome);
+    if (!Number.isFinite(capacidadeBarramento)) {
         return "";
     }
 

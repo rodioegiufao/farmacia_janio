@@ -7077,7 +7077,14 @@ function isSupportedQuadroAnnotationType(metaObject) {
     return supportedTypes.includes(normalizedType);
 }
 
+function hasElectricalDevicePonto1(metaObject) {
+    return Boolean(getMetaObjectPropertySetByName(metaObject, "Pset_ElectricalDeviceCommon-Ponto1"));
+}
+
 function getQuadroAnnotations(metaObject) {
+    if (!hasElectricalDevicePonto1(metaObject)) {
+        return [];
+    }
     const annotations = [];
     const polosAnnotation = getQuadroPolosAnnotation(metaObject);
     const dpsAnnotation = getQuadroDpsAnnotation(metaObject);

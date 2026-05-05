@@ -389,7 +389,7 @@ class DimensionamentoEletricoApp {
             // Adicionar worksheet de terminais e cabos
             const wsTerminalCabosData = this.prepararDadosTerminalCabos();
             const wsTerminalCabos = XLSX.utils.aoa_to_sheet(wsTerminalCabosData);
-            this.aplicarFormatacaoTerminalCabos(wsTerminalCabos);
+            this.aplicarFormatacaoTerminalCabos(wsTerminalCabos, wsTerminalCabosData);
             XLSX.utils.book_append_sheet(wb, wsTerminalCabos, "Terminal e cabos");
             
             // Gerar e baixar arquivo
@@ -404,12 +404,12 @@ class DimensionamentoEletricoApp {
     }
 
     prepararDadosTerminalCabos() {
-        const bitolas = [6, 10, 16, 25, 50, 95];
+        const bitolas = this.obterBitolasUsadasNosQuadros();
         const indiceBitola = new Map(bitolas.map((b, i) => [b, i + 1]));
 
         const cabecalho = [
-            ["QUADRO", "CABOS", "", "", "", "", ""],
-            ["", "6", "10", "16", "25", "50", "95"]
+            ["QUADRO", "CABOS", ...new Array(Math.max(bitolas.length - 1, 0)).fill("")],
+            ["", ...bitolas.map((bitola) => String(bitola))]
         ];
 
         const totaisTerminais = new Array(bitolas.length).fill(0);
@@ -446,6 +446,19 @@ class DimensionamentoEletricoApp {
         return [...cabecalho, ...linhasQuadros, linhaTerminal, linhaCabo];
     }
 
+    obterBitolasUsadasNosQuadros() {
+        const bitolas = new Set();
+
+        this.dadosQuadros.forEach((quadro) => {
+            [quadro.FA, quadro.NE, quadro.TE].forEach((cabo) => {
+                const bitola = this.extrairBitola(cabo);
+                if (bitola) bitolas.add(bitola);
+            });
+        });
+
+        return Array.from(bitolas).sort((a, b) => a - b);
+    }
+
     adicionarQuantidadeBitola(linha, indiceBitola, bitola, quantidade) {
         if (!bitola || !indiceBitola.has(bitola) || quantidade <= 0) return;
         const coluna = indiceBitola.get(bitola);
@@ -473,14 +486,17 @@ class DimensionamentoEletricoApp {
             : String(arredondado).replace(".", ",");
     }
 
-    aplicarFormatacaoTerminalCabos(ws) {
+    aplicarFormatacaoTerminalCabos(ws, wsData = []) {
+        const totalColunas = wsData[1]?.length || 2;
+        const colunasCabos = Math.max(totalColunas - 1, 1);
+
         ws["!cols"] = [
             { wch: 12 },
-            { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }
+            ...new Array(colunasCabos).fill({ wch: 8 })
         ];
 
         ws["!merges"] = [
-            { s: { r: 0, c: 1 }, e: { r: 0, c: 6 } }
+            { s: { r: 0, c: 1 }, e: { r: 0, c: totalColunas - 1 } }
         ];
     }
     

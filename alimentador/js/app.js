@@ -391,6 +391,12 @@ class DimensionamentoEletricoApp {
             const wsTerminalCabos = XLSX.utils.aoa_to_sheet(wsTerminalCabosData);
             this.aplicarFormatacaoTerminalCabos(wsTerminalCabos, wsTerminalCabosData);
             XLSX.utils.book_append_sheet(wb, wsTerminalCabos, "Terminal e cabos");
+
+            // Adicionar worksheet com resumo de quantitativos de barramentos
+            const wsBarramentosResumoData = this.prepararDadosResumoBarramentos();
+            const wsBarramentosResumo = XLSX.utils.aoa_to_sheet(wsBarramentosResumoData);
+            this.aplicarFormatacaoResumoBarramentos(wsBarramentosResumo);
+            XLSX.utils.book_append_sheet(wb, wsBarramentosResumo, "Barramentos");
             
             // Gerar e baixar arquivo
             const fileName = `quadro_de_cargas_${new Date().toISOString().slice(0,10)}.xlsx`;
@@ -443,20 +449,25 @@ class DimensionamentoEletricoApp {
         const linhaTerminal = ["TERMINAL", ...totaisTerminais.map(v => this.formatarDecimal(v))];
         const linhaCabo = ["CABO", ...totaisCabos.map(v => this.formatarDecimal(v))];
 
-        const listaBarramentos = this.prepararListaBarramentos();
-
         return [
             ...cabecalho,
             ...linhasQuadros,
             linhaTerminal,
-            linhaCabo,
-            [""],
-            ["LISTA DE MATERIAIS - BARRAMENTOS"],
-            ["QUADRO", "CORRENTE (A)", "BARRAMENTO", "COMPRIMENTO (m)"],
-            ...listaBarramentos.linhasQuadro,
-            ["TOTAL", "", "", ""],
-            ["BARRAMENTO", "CORRENTE LIMITE (A)", "COMPRIMENTO TOTAL (m)", ""],
-            ...listaBarramentos.totais
+            linhaCabo
+        ];
+    }
+
+    prepararDadosResumoBarramentos() {
+        const listaBarramentos = this.prepararListaBarramentos();
+        const linhas = listaBarramentos.totais.map(([perfil, _, comprimento]) => ([
+            `Barramento ${perfil}`,
+            "m",
+            comprimento
+        ]));
+
+        return [
+            ["Descrição", "Unidade", "Quantitativo"],
+            ...linhas
         ];
     }
 
@@ -568,6 +579,14 @@ class DimensionamentoEletricoApp {
 
         ws["!merges"] = [
             { s: { r: 0, c: 1 }, e: { r: 0, c: totalColunas - 1 } }
+        ];
+    }
+
+    aplicarFormatacaoResumoBarramentos(ws) {
+        ws["!cols"] = [
+            { wch: 30 },
+            { wch: 12 },
+            { wch: 16 }
         ];
     }
     

@@ -443,7 +443,21 @@ class DimensionamentoEletricoApp {
         const linhaTerminal = ["TERMINAL", ...totaisTerminais.map(v => this.formatarDecimal(v))];
         const linhaCabo = ["CABO", ...totaisCabos.map(v => this.formatarDecimal(v))];
 
-        return [...cabecalho, ...linhasQuadros, linhaTerminal, linhaCabo];
+        const listaBarramentos = this.prepararListaBarramentos();
+
+        return [
+            ...cabecalho,
+            ...linhasQuadros,
+            linhaTerminal,
+            linhaCabo,
+            [""],
+            ["LISTA DE MATERIAIS - BARRAMENTOS"],
+            ["QUADRO", "CORRENTE (A)", "BARRAMENTO", "COMPRIMENTO (m)"],
+            ...listaBarramentos.linhasQuadro,
+            ["TOTAL", "", "", ""],
+            ["BARRAMENTO", "CORRENTE LIMITE (A)", "COMPRIMENTO TOTAL (m)", ""],
+            ...listaBarramentos.totais
+        ];
     }
 
     obterBitolasUsadasNosQuadros() {
@@ -484,6 +498,63 @@ class DimensionamentoEletricoApp {
         return Number.isInteger(arredondado)
             ? String(arredondado)
             : String(arredondado).replace(".", ",");
+    }
+
+    obterTabelaBarramentos() {
+        return [
+            { perfil: '3/8" x 1/8"', corrente: 73 },
+            { perfil: '1/2" x 1/8"', corrente: 97 },
+            { perfil: '3/4" x 1/8"', corrente: 146 },
+            { perfil: '1" x 1/8"', corrente: 195 },
+            { perfil: '1" x 3/16"', corrente: 281 },
+            { perfil: '1" x 1/4"', corrente: 359 },
+            { perfil: '1 1/2" x 3/16"', corrente: 422 },
+            { perfil: '1 1/2" x 1/4"', corrente: 539 },
+            { perfil: '2" x 1/4"', corrente: 719 },
+            { perfil: '1 1/4" x 1/2"', corrente: 821 },
+            { perfil: '2" x 3/8"', corrente: 1040 },
+            { perfil: '4" x 3/8"', corrente: 2064 }
+        ];
+    }
+
+    selecionarBarramento(correnteProjeto) {
+        const tabela = this.obterTabelaBarramentos();
+        return tabela.find((item) => correnteProjeto <= item.corrente) || tabela[tabela.length - 1];
+    }
+
+    extrairCorrenteDisjuntor(valorDisjuntor) {
+        const texto = String(valorDisjuntor || '').replace(',', '.');
+        const match = texto.match(/(\d+(?:\.\d+)?)/);
+        return match ? Number(match[1]) : null;
+    }
+
+    prepararListaBarramentos() {
+        const distanciaBase = 0.3;
+        const totaisPorBarramento = new Map();
+
+        const linhasQuadro = this.dadosQuadros.map((quadro) => {
+            const correnteDisjuntor = this.extrairCorrenteDisjuntor(quadro.DISJUNTOR) || Number(quadro.COR_MEDIA_A) || 0;
+            const barramento = this.selecionarBarramento(correnteDisjuntor);
+            const fasesAtivas = [quadro.ATIVA_R, quadro.ATIVA_S, quadro.ATIVA_T].filter((p) => Number(p) > 0).length || 1;
+            const comprimento = distanciaBase * fasesAtivas;
+
+            const acumulado = totaisPorBarramento.get(barramento.perfil) || { corrente: barramento.corrente, comprimento: 0 };
+            acumulado.comprimento += comprimento;
+            totaisPorBarramento.set(barramento.perfil, acumulado);
+
+            return [
+                quadro.N,
+                this.formatarDecimal(correnteDisjuntor),
+                barramento.perfil,
+                this.formatarDecimal(comprimento)
+            ];
+        });
+
+        const totais = Array.from(totaisPorBarramento.entries())
+            .map(([perfil, dados]) => [perfil, this.formatarDecimal(dados.corrente), this.formatarDecimal(dados.comprimento), ''])
+            .sort((a, b) => this.extrairCorrenteDisjuntor(a[1]) - this.extrairCorrenteDisjuntor(b[1]));
+
+        return { linhasQuadro, totais };
     }
 
     aplicarFormatacaoTerminalCabos(ws, wsData = []) {

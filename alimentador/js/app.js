@@ -385,6 +385,12 @@ class DimensionamentoEletricoApp {
             
             // Adicionar worksheet ao workbook
             XLSX.utils.book_append_sheet(wb, ws, "Quadros_de_Carga");
+
+            // Adicionar worksheet de terminais e cabos
+            const wsTerminalCabosData = this.prepararDadosTerminalCabos();
+            const wsTerminalCabos = XLSX.utils.aoa_to_sheet(wsTerminalCabosData);
+            this.aplicarFormatacaoTerminalCabos(wsTerminalCabos);
+            XLSX.utils.book_append_sheet(wb, wsTerminalCabos, "Terminal e cabos");
             
             // Gerar e baixar arquivo
             const fileName = `quadro_de_cargas_${new Date().toISOString().slice(0,10)}.xlsx`;
@@ -395,6 +401,87 @@ class DimensionamentoEletricoApp {
             console.error('Erro ao exportar para Excel:', error);
             this.mostrarNotificacao('Erro ao gerar arquivo Excel.', 'error');
         }
+    }
+
+    prepararDadosTerminalCabos() {
+        const bitolas = [6, 10, 16, 25, 50, 95];
+        const indiceBitola = new Map(bitolas.map((b, i) => [b, i + 1]));
+
+        const cabecalho = [
+            ["QUADRO", "CABOS", "", "", "", "", ""],
+            ["", "6", "10", "16", "25", "50", "95"]
+        ];
+
+        const totaisTerminais = new Array(bitolas.length).fill(0);
+        const totaisCabos = new Array(bitolas.length).fill(0);
+
+        const linhasQuadros = this.dadosQuadros.map((quadro) => {
+            const linha = [quadro.N];
+
+            for (let i = 0; i < bitolas.length; i++) linha.push("");
+
+            const fasesAtivas = [quadro.ATIVA_R, quadro.ATIVA_S, quadro.ATIVA_T].filter(p => Number(p) > 0).length;
+            const quantidadeCabosPorFase = this.extrairQuantidadeCondutores(quadro.FA);
+            const bitolaFase = this.extrairBitola(quadro.FA);
+            const bitolaNeutro = this.extrairBitola(quadro.NE);
+            const bitolaTerra = this.extrairBitola(quadro.TE);
+
+            const totalCabosFase = fasesAtivas * quantidadeCabosPorFase;
+            this.adicionarQuantidadeBitola(linha, indiceBitola, bitolaFase, totalCabosFase);
+            this.adicionarQuantidadeBitola(linha, indiceBitola, bitolaNeutro, 1);
+            this.adicionarQuantidadeBitola(linha, indiceBitola, bitolaTerra, 1);
+
+            for (let i = 0; i < bitolas.length; i++) {
+                const quantidade = linha[i + 1] === "" ? 0 : Number(linha[i + 1]);
+                totaisTerminais[i] += quantidade;
+                totaisCabos[i] += quantidade * bitolas[i] / 4;
+            }
+
+            return linha;
+        });
+
+        const linhaTerminal = ["TERMINAL", ...totaisTerminais.map(v => this.formatarDecimal(v))];
+        const linhaCabo = ["CABO", ...totaisCabos.map(v => this.formatarDecimal(v))];
+
+        return [...cabecalho, ...linhasQuadros, linhaTerminal, linhaCabo];
+    }
+
+    adicionarQuantidadeBitola(linha, indiceBitola, bitola, quantidade) {
+        if (!bitola || !indiceBitola.has(bitola) || quantidade <= 0) return;
+        const coluna = indiceBitola.get(bitola);
+        const atual = linha[coluna] === "" ? 0 : Number(linha[coluna]);
+        linha[coluna] = atual + quantidade;
+    }
+
+    extrairQuantidadeCondutores(valorCabo) {
+        const cabo = String(valorCabo || "").trim();
+        const match = cabo.match(/^(\d+)\s*x/i);
+        return match ? Number(match[1]) : 1;
+    }
+
+    extrairBitola(valorCabo) {
+        const cabo = String(valorCabo || "").trim();
+        const bitola = cabo.includes("x") ? cabo.split("x").pop() : cabo;
+        const numero = Number(bitola);
+        return Number.isFinite(numero) ? numero : null;
+    }
+
+    formatarDecimal(valor) {
+        const arredondado = Math.round(valor * 100) / 100;
+        return Number.isInteger(arredondado)
+            ? String(arredondado)
+            : String(arredondado).replace(".", ",");
+    }
+
+    aplicarFormatacaoTerminalCabos(ws) {
+        ws["!cols"] = [
+            { wch: 12 },
+            { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }
+        ];
+
+        ws["!merges"] = [
+            { s: { r: 0, c: 1 }, e: { r: 0, c: 6 } }
+        ];
     }
     
     // Novo método para preparar dados no formato melhorado

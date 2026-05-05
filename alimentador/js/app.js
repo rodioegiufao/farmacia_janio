@@ -392,11 +392,11 @@ class DimensionamentoEletricoApp {
             this.aplicarFormatacaoTerminalCabos(wsTerminalCabos, wsTerminalCabosData);
             XLSX.utils.book_append_sheet(wb, wsTerminalCabos, "Terminal e cabos");
 
-            // Adicionar worksheet com resumo de quantitativos de barramentos
-            const wsBarramentosResumoData = this.prepararDadosResumoBarramentos();
-            const wsBarramentosResumo = XLSX.utils.aoa_to_sheet(wsBarramentosResumoData);
-            this.aplicarFormatacaoResumoBarramentos(wsBarramentosResumo);
-            XLSX.utils.book_append_sheet(wb, wsBarramentosResumo, "Barramentos");
+            // Adicionar worksheet com lista de materiais (barramentos, terminais, cabos e disjuntores)
+            const wsMateriaisData = this.prepararDadosResumoBarramentos();
+            const wsMateriais = XLSX.utils.aoa_to_sheet(wsMateriaisData);
+            this.aplicarFormatacaoResumoBarramentos(wsMateriais);
+            XLSX.utils.book_append_sheet(wb, wsMateriais, "Lista de materiais");
             
             // Gerar e baixar arquivo
             const fileName = `quadro_de_cargas_${new Date().toISOString().slice(0,10)}.xlsx`;
@@ -457,17 +457,78 @@ class DimensionamentoEletricoApp {
         ];
     }
 
+
+    calcularTotaisTerminaisECabos() {
+        const bitolas = this.obterBitolasUsadasNosQuadros();
+        const totaisTerminais = new Array(bitolas.length).fill(0);
+        const totaisCabos = new Array(bitolas.length).fill(0);
+
+        this.dadosQuadros.forEach((quadro) => {
+            const fasesAtivas = [quadro.ATIVA_R, quadro.ATIVA_S, quadro.ATIVA_T].filter((p) => Number(p) > 0).length;
+            const quantidadeCabosPorFase = this.extrairQuantidadeCondutores(quadro.FA);
+            const bitolaFase = this.extrairBitola(quadro.FA);
+            const bitolaNeutro = this.extrairBitola(quadro.NE);
+            const bitolaTerra = this.extrairBitola(quadro.TE);
+
+            const adicionar = (bitola, quantidade) => {
+                const indice = bitolas.indexOf(bitola);
+                if (indice === -1 || quantidade <= 0) return;
+                totaisTerminais[indice] += quantidade;
+                totaisCabos[indice] += (quantidade * bitola) / 4;
+            };
+
+            adicionar(bitolaFase, fasesAtivas * quantidadeCabosPorFase);
+            adicionar(bitolaNeutro, 1);
+            adicionar(bitolaTerra, 1);
+        });
+
+        return bitolas.map((bitola, i) => ({
+            bitola,
+            terminais: totaisTerminais[i],
+            cabos: totaisCabos[i]
+        }));
+    }
+
+    contarDisjuntoresPorTipo() {
+        const totais = new Map();
+
+        this.dadosQuadros.forEach((quadro) => {
+            const fasesAtivas = [quadro.ATIVA_R, quadro.ATIVA_S, quadro.ATIVA_T].filter((p) => Number(p) > 0).length;
+            if (fasesAtivas <= 0) return;
+
+            const corrente = this.extrairCorrenteDisjuntor(quadro.DISJUNTOR);
+            const correnteTexto = Number.isFinite(corrente) ? this.formatarDecimal(corrente) : String(quadro.DISJUNTOR || '-');
+            const tipo = fasesAtivas === 1 ? 'monopolar' : fasesAtivas === 2 ? 'bipolar' : 'tripolar';
+            const descricao = `Disjuntor ${tipo} ${correnteTexto}A`;
+            totais.set(descricao, (totais.get(descricao) || 0) + 1);
+        });
+
+        return Array.from(totais.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    }
     prepararDadosResumoBarramentos() {
         const listaBarramentos = this.prepararListaBarramentos();
-        const linhas = listaBarramentos.totais.map(([perfil, _, comprimento]) => ([
+        const linhasBarramentos = listaBarramentos.totais.map(([perfil, _, comprimento]) => ([
             `Barramento ${perfil}`,
             "m",
             comprimento
         ]));
 
+        const linhasTerminaisECabos = this.calcularTotaisTerminaisECabos().flatMap((item) => ([
+            [`Terminal ${item.bitola}mm²`, "un", this.formatarDecimal(item.terminais)],
+            [`Cabo XLPE ${item.bitola} mm²`, "m", this.formatarDecimal(item.cabos)]
+        ]));
+
+        const linhasDisjuntores = this.contarDisjuntoresPorTipo().map(([descricao, quantidade]) => ([
+            descricao,
+            "un",
+            this.formatarDecimal(quantidade)
+        ]));
+
         return [
             ["Descrição", "Unidade", "Quantitativo"],
-            ...linhas
+            ...linhasBarramentos,
+            ...linhasTerminaisECabos,
+            ...linhasDisjuntores
         ];
     }
 

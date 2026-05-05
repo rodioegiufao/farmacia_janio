@@ -560,8 +560,13 @@ class DimensionamentoEletricoApp {
 
     extrairBitola(valorCabo) {
         const cabo = String(valorCabo || "").trim();
-        const bitola = cabo.includes("x") ? cabo.split("x").pop() : cabo;
-        const numero = Number(bitola);
+        if (!cabo) return null;
+
+        // Aceita formatos como "95", "1x95", "1 X 95" e variantes com espaços
+        const match = cabo.match(/(?:\d+\s*x\s*)?(\d+(?:[.,]\d+)?)/i);
+        if (!match) return null;
+
+        const numero = Number(match[1].replace(",", "."));
         return Number.isFinite(numero) ? numero : null;
     }
 

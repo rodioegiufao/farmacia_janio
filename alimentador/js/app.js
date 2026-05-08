@@ -440,7 +440,7 @@ class DimensionamentoEletricoApp {
             for (let i = 0; i < bitolas.length; i++) {
                 const quantidade = linha[i + 1] === "" ? 0 : Number(linha[i + 1]);
                 totaisTerminais[i] += quantidade;
-                totaisCabos[i] += quantidade * bitolas[i] / 4;
+                totaisCabos[i] += this.calcularMetragemCaboPorBitola(bitolas[i], quantidade);
             }
 
             return linha;
@@ -458,6 +458,18 @@ class DimensionamentoEletricoApp {
     }
 
 
+    calcularMetragemCaboPorBitola(bitola, quantidadeTerminais) {
+        if (!Number.isFinite(bitola) || !Number.isFinite(quantidadeTerminais) || quantidadeTerminais <= 0) {
+            return 0;
+        }
+
+        if (bitola >= 95) {
+            return 6;
+        }
+
+        return (quantidadeTerminais * bitola) / 4;
+    }
+
     calcularTotaisTerminaisECabos() {
         const bitolas = this.obterBitolasUsadasNosQuadros();
         const totaisTerminais = new Array(bitolas.length).fill(0);
@@ -474,7 +486,7 @@ class DimensionamentoEletricoApp {
                 const indice = bitolas.indexOf(bitola);
                 if (indice === -1 || quantidade <= 0) return;
                 totaisTerminais[indice] += quantidade;
-                totaisCabos[indice] += (quantidade * bitola) / 4;
+                totaisCabos[indice] += this.calcularMetragemCaboPorBitola(bitola, quantidade);
             };
 
             adicionar(bitolaFase, fasesAtivas * quantidadeCabosPorFase);

@@ -144,6 +144,9 @@ function getItemsByDescription(items, normalizeSearchText) {
 function buildAssociationRows(associationDefinitions, itemsByDescription, normalizeSearchText) {
     const aggregated = new Map();
     const matchedDescriptions = new Set();
+    const targetItemNormalized = normalizeSearchText(
+        'Dispositivo Elétrico - embutido - Placa 4x4" - Interruptor 2 teclas simples'
+    );
 
     associationDefinitions.forEach((association) => {
         const normalizedDescription = normalizeSearchText(association.itemDescricao || "");
@@ -174,6 +177,29 @@ function buildAssociationRows(associationDefinitions, itemsByDescription, normal
             matchStatus: "matched",
         });
     });
+
+    const targetMatch = itemsByDescription.get(targetItemNormalized);
+    const targetQuantity = targetMatch?.quantity || 0;
+    if (targetQuantity > 0) {
+        matchedDescriptions.add(targetItemNormalized);
+        const specialKey = "codigo:91974";
+        const specialQuantity = targetQuantity / 2;
+        const existingSpecial = aggregated.get(specialKey);
+
+        if (existingSpecial) {
+            existingSpecial.quantidade += specialQuantity;
+        } else {
+            aggregated.set(specialKey, {
+                codigo: "91974",
+                base: "SINAPI",
+                descricao:
+                    "INTERRUPTOR SIMPLES (4 MÓDULOS), 10A/250V, INCLUINDO SUPORTE E PLACA - FORNECIMENTO E INSTALAÇÃO. AF_03/2023",
+                unidade: "UN",
+                quantidade: specialQuantity,
+                matchStatus: "matched",
+            });
+        }
+    }
 
     return {
         associationRows: Array.from(aggregated.values()),

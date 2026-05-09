@@ -3408,7 +3408,7 @@ const IPER_MODEL_TRANSFORMS = {
     //IFC_ILUX: { position: [-14, 0, 0]},
     IFC_ARQ: { position: [0.16, 0, -0.19], rotation: [0, 90, 0]  },
     IFC_SDAI: { position: [0.16, 0, -0.19] },
-    IFC_GLP: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },
+    IFC_GLP: { position: [0.16, 0, -0.17], rotation: [0, 90, 0] },
     IFC_IRRI: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },
 };
 

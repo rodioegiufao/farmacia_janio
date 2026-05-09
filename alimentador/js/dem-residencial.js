@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const demandaB4 = calcularDemandaPorQuantidade('b4');
         const demandaB5 = calcularDemandaPorQuantidade('b5');
 
-        resultadoA.textContent = `a = ${formatarW(demandaA)} (CI: ${formatarW(cargaInstalada)} × FD: ${fdA.toFixed(2)})`;␊
+        resultadoA.textContent = `a = ${formatarW(demandaA)} (CI: ${formatarW(cargaInstalada)} × FD: ${fdA.toFixed(2)})`;
         resultadoB1.textContent = `b1 = ${formatarW(demandaB1.demanda)} (CI: ${formatarW(demandaB1.potencia)} × FD: ${demandaB1.fator.toFixed(2)})`;
         resultadoB2.textContent = `b2 = ${formatarW(demandaB2.demanda)} (CI: ${formatarW(demandaB2.potencia)} × FD: ${demandaB2.fator.toFixed(2)})`;
         resultadoB3.textContent = `b3 = ${formatarW(demandaB3.demanda)} (CI: ${formatarW(demandaB3.potencia)} × FD: ${demandaB3.fator.toFixed(2)} | Potência ${demandaB3.potencia <= 3500 ? 'até 3,5 kW' : 'acima de 3,5 kW'})`;

@@ -133,9 +133,11 @@ class DimensionamentoEletricoApp {
 
     // Obter dados do formulário
     obterDadosFormulario() {
+        const distanciaRaw = document.getElementById('distancia').value.trim();
+        const distanciaNormalizada = distanciaRaw.replace(',', '.');
         return {
             nomeQuadro: document.getElementById('nome-quadro').value.trim(),
-            distancia: parseFloat(document.getElementById('distancia').value),
+            distancia: parseFloat(distanciaNormalizada),
             fp: parseFloat(document.getElementById('fp').value),
             fd: parseFloat(document.getElementById('fd').value),
             tensao: parseInt(document.getElementById('tensao').value),

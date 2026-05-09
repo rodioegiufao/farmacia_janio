@@ -75,9 +75,6 @@ class GerenciadorGraficos {
             totais.demandaTotal += quadro.DEM_TOTAL_VA;
             totais.correnteMediaTotal += quadro.COR_MEDIA_A;
         });
-
-        totais.correnteMediaTotal /= dadosQuadros.length;
-
         // Calcular desbalanceamento
         const demandas = [totais.demandaR, totais.demandaS, totais.demandaT];
         const demandaMaxima = Math.max(...demandas);

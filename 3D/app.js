@@ -3292,6 +3292,8 @@ const IPER_MODELS = [
     { id: "IFC_ILUX", src: "/3D/iper/modelo-21.xkt" },
     { id: "IFC_TEF", src: "/3D/iper/modelo-22.xkt" },
     { id: "IFC_SDAI", src: "/3D/iper/modelo-23.xkt" },
+    { id: "IFC_GLP", src: "/3D/iper/modelo-24.xkt" },
+    { id: "IFC_IRRI", src: "/3D/iper/modelo-25.xkt" },
 ];
 
 const FARMACIA_MODELS = [
@@ -3406,6 +3408,8 @@ const IPER_MODEL_TRANSFORMS = {
     //IFC_ILUX: { position: [-14, 0, 0]},
     IFC_ARQ: { position: [0.16, 0, -0.19], rotation: [0, 90, 0]  },
     IFC_SDAI: { position: [0.16, 0, -0.19] },
+    IFC_GLP: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },
+    IFC_IRRI: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },
 };
 
 const FARMACIA_MODEL_TRANSFORMS = {

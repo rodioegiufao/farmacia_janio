@@ -354,13 +354,29 @@ class DimensionamentoEletricoApp {
         if (totalDemand) totalDemand.textContent = demandaTotal.toLocaleString() + ' VA';
         if (avgCurrent) avgCurrent.textContent = correnteMedia.toFixed(2) + ' A';
 
-        // Calcular subestação recomendada
+        // Calcular subestação recomendada e disjuntor geral
         const demandaKVA = demandaTotal / 1000;
-        const subestacoes = [75, 112.5, 225, 300, 500, 750, 1000, 1250, 1500, 1750, 2000];
+        const subestacoes = [30, 45, 75, 112.5, 150, 225, 300, 500, 750, 1000, 1250, 1500, 1750, 2000];
+        const disjgeral220 = [90, 125, 200, 300, 400, 630, 800, 1600, 2000, 3200, 4000, 4000, 5000, 6000];
+        const disjgeral380 = [50, 70, 125, 200, 300, 400, 630, 800, 1250, 1600, 2000, 3200, 3200, 4000];
         const subestacaoRecomendada = subestacoes.find(s => s >= demandaKVA) || subestacoes[subestacoes.length - 1];
-        
+
         const recommendedSub = document.getElementById('recommended-sub');
         if (recommendedSub) recommendedSub.textContent = subestacaoRecomendada + ' kVA';
+
+        const recommendedDisjuntor = document.getElementById('recommended-main-breaker');
+        if (recommendedDisjuntor) {
+            const tensoesLinha = [...new Set(this.dadosQuadros.map(q => Number(q.TENSAO_LINHA_V)).filter(v => !Number.isNaN(v)))];
+
+            if (tensoesLinha.length === 1) {
+                const indiceSubestacao = subestacoes.indexOf(subestacaoRecomendada);
+                const vetorDisjuntor = tensoesLinha[0] === 220 ? disjgeral220 : tensoesLinha[0] === 380 ? disjgeral380 : null;
+                const disjuntor = vetorDisjuntor && indiceSubestacao >= 0 ? vetorDisjuntor[indiceSubestacao] : null;
+                recommendedDisjuntor.textContent = disjuntor ? disjuntor + ' A' : '- A';
+            } else {
+                recommendedDisjuntor.textContent = '- A';
+            }
+        }
     }
 
     // app.js - Substitua a função exportarParaExcel()

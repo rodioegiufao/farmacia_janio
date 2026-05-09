@@ -167,12 +167,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const demandaB4 = calcularDemandaPorQuantidade('b4');
         const demandaB5 = calcularDemandaPorQuantidade('b5');
 
-        resultadoA.textContent = `a = ${formatarW(demandaA)} (CI: ${formatarW(cargaInstalada)} × FD: ${fdA.toFixed(2)})`;
-        resultadoB1.textContent = `b1 = ${formatarW(demandaB1.demanda)} (CI: ${formatarW(demandaB1.potencia * demandaB1.quantidade)} × FD: ${demandaB1.fator.toFixed(2)})`;
-        resultadoB2.textContent = `b2 = ${formatarW(demandaB2.demanda)} (CI: ${formatarW(demandaB2.potencia * demandaB2.quantidade)} × FD: ${demandaB2.fator.toFixed(2)})`;
-        resultadoB3.textContent = `b3 = ${formatarW(demandaB3.demanda)} (CI: ${formatarW(demandaB3.potencia * demandaB3.quantidade)} × FD: ${demandaB3.fator.toFixed(2)} | Potência ${demandaB3.potencia <= 3500 ? 'até 3,5 kW' : 'acima de 3,5 kW'})`;
-        resultadoB4.textContent = `b4 = ${formatarW(demandaB4.demanda)} (CI: ${formatarW(demandaB4.potencia * demandaB4.quantidade)} × FD: ${demandaB4.fator.toFixed(2)})`;
-        resultadoB5.textContent = `b5 = ${formatarW(demandaB5.demanda)} (CI: ${formatarW(demandaB5.potencia * demandaB5.quantidade)} × FD: ${demandaB5.fator.toFixed(2)})`;
+        resultadoA.textContent = `a = ${formatarW(demandaA)} (CI: ${formatarW(cargaInstalada)} × FD: ${fdA.toFixed(2)})`;␊
+        resultadoB1.textContent = `b1 = ${formatarW(demandaB1.demanda)} (CI: ${formatarW(demandaB1.potencia)} × FD: ${demandaB1.fator.toFixed(2)})`;
+        resultadoB2.textContent = `b2 = ${formatarW(demandaB2.demanda)} (CI: ${formatarW(demandaB2.potencia)} × FD: ${demandaB2.fator.toFixed(2)})`;
+        resultadoB3.textContent = `b3 = ${formatarW(demandaB3.demanda)} (CI: ${formatarW(demandaB3.potencia)} × FD: ${demandaB3.fator.toFixed(2)} | Potência ${demandaB3.potencia <= 3500 ? 'até 3,5 kW' : 'acima de 3,5 kW'})`;
+        resultadoB4.textContent = `b4 = ${formatarW(demandaB4.demanda)} (CI: ${formatarW(demandaB4.potencia)} × FD: ${demandaB4.fator.toFixed(2)})`;
+        resultadoB5.textContent = `b5 = ${formatarW(demandaB5.demanda)} (CI: ${formatarW(demandaB5.potencia)} × FD: ${demandaB5.fator.toFixed(2)})`;
 
         const total = demandaA + demandaB1.demanda + demandaB2.demanda + demandaB3.demanda + demandaB4.demanda + demandaB5.demanda;
         resultadoTotal.textContent = `Demanda total (a+b1+b2+b3+b4+b5+c+d+e+f): ${formatarW(total)}`;
@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             row.innerHTML = `
                 <div class="col-12 col-md-6">
-                    <label for="dem-${entry.key}-potencia" class="form-label mb-1">Potência (W)</label>
+                    <label for="dem-${entry.key}-potencia" class="form-label mb-1">Potência total dos equipamentos (W)</label>
                     <input type="number" min="0" step="any" class="form-control" id="dem-${entry.key}-potencia" placeholder="Ex.: 1500">
                 </div>
                 <div class="col-12 col-md-6">

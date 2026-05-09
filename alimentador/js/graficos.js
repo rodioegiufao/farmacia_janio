@@ -83,7 +83,7 @@ class GerenciadorGraficos {
 
         // Subestação recomendada
         const demandaKVA = totais.demandaTotal / 1000;
-        const subestacoes = [75, 112.5, 225, 300, 500, 750, 1000, 1250, 1500, 1750, 2000];
+        const subestacoes = [75, 112.5, 150, 225, 300, 500, 750, 1000, 1250, 1500, 1750, 2000];
         const subestacaoRecomendada = subestacoes.find(s => s >= demandaKVA) || subestacoes[subestacoes.length - 1];
 
         return {

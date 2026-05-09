@@ -111,12 +111,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultadoB5 = document.createElement('p');
     resultadoB5.className = 'mb-1';
 
+    const resultadoC = document.createElement('p');
+    resultadoC.className = 'mb-1';
+    
     const resultadoTotal = document.createElement('p');
     resultadoTotal.className = 'mb-1 fw-bold';
 
     const resultadoObs = document.createElement('small');
     resultadoObs.className = 'text-muted';
-    resultadoObs.textContent = 'No momento, o total considera a demanda de a, b1, b2, b3, b4 e b5. Os itens c, d, e e f serão somados nas próximas etapas.';
+    resultadoObs.textContent = 'No momento, o total considera a demanda de a, b1, b2, b3, b4, b5 e c. Os itens d, e e f serão somados nas próximas etapas.';
 
     resultadoWrapper.appendChild(resultadoTitulo);
     resultadoWrapper.appendChild(resultadoA);
@@ -125,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     resultadoWrapper.appendChild(resultadoB3);
     resultadoWrapper.appendChild(resultadoB4);
     resultadoWrapper.appendChild(resultadoB5);
+    resultadoWrapper.appendChild(resultadoC);
     resultadoWrapper.appendChild(resultadoTotal);
     resultadoWrapper.appendChild(resultadoObs);
 
@@ -166,6 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const demandaB3 = calcularDemandaB3();
         const demandaB4 = calcularDemandaPorQuantidade('b4');
         const demandaB5 = calcularDemandaPorQuantidade('b5');
+        const demandaC = calcularDemandaPorQuantidade('c');
 
         resultadoA.textContent = `a = ${formatarW(demandaA)} (CI: ${formatarW(cargaInstalada)} × FD: ${fdA.toFixed(2)})`;
         resultadoB1.textContent = `b1 = ${formatarW(demandaB1.demanda)} (CI: ${formatarW(demandaB1.potencia)} × FD: ${demandaB1.fator.toFixed(2)})`;
@@ -173,8 +178,9 @@ document.addEventListener('DOMContentLoaded', () => {
         resultadoB3.textContent = `b3 = ${formatarW(demandaB3.demanda)} (CI: ${formatarW(demandaB3.potencia)} × FD: ${demandaB3.fator.toFixed(2)} | Potência ${demandaB3.potencia <= 3500 ? 'até 3,5 kW' : 'acima de 3,5 kW'})`;
         resultadoB4.textContent = `b4 = ${formatarW(demandaB4.demanda)} (CI: ${formatarW(demandaB4.potencia)} × FD: ${demandaB4.fator.toFixed(2)})`;
         resultadoB5.textContent = `b5 = ${formatarW(demandaB5.demanda)} (CI: ${formatarW(demandaB5.potencia)} × FD: ${demandaB5.fator.toFixed(2)})`;
+        resultadoC.textContent = `c = ${formatarW(demandaC.demanda)} (CI: ${formatarW(demandaC.potencia)} × FD: ${demandaC.fator.toFixed(2)})`;
 
-        const total = demandaA + demandaB1.demanda + demandaB2.demanda + demandaB3.demanda + demandaB4.demanda + demandaB5.demanda;
+        const total = demandaA + demandaB1.demanda + demandaB2.demanda + demandaB3.demanda + demandaB4.demanda + demandaB5.demanda + demandaC.demanda;
         resultadoTotal.textContent = `Demanda total (a+b1+b2+b3+b4+b5+c+d+e+f): ${formatarW(total)}`;
     };
 

@@ -256,8 +256,6 @@ class CalculosEletricos {
             totais.correnteMediaTotal += quadro['COR. MÉDIA (A)'];
         });
 
-        totais.correnteMediaTotal /= dadosQuadros.length;
-
         // Calcular desbalanceamento
         const demandas = [totais.demandaR, totais.demandaS, totais.demandaT];
         const demandaMaxima = Math.max(...demandas);

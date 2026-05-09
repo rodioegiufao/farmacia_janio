@@ -344,7 +344,7 @@ class DimensionamentoEletricoApp {
     atualizarMetricas() {
         const potenciaTotal = this.dadosQuadros.reduce((sum, q) => sum + q.POT_TOTAL_W, 0);
         const demandaTotal = this.dadosQuadros.reduce((sum, q) => sum + q.DEM_TOTAL_VA, 0);
-        const correnteMedia = this.dadosQuadros.reduce((sum, q) => sum + q.COR_MEDIA_A, 0) / this.dadosQuadros.length;
+        const correnteMedia = this.dadosQuadros.reduce((sum, q) => sum + q.COR_MEDIA_A, 0);
 
         const totalPower = document.getElementById('total-power');
         const totalDemand = document.getElementById('total-demand');

@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return { potencia, quantidade, fator: 0, demanda: 0 };
         }
 
-        const cargaInstalada = potencia * quantidade;
+        const cargaInstalada = potencia;
         const fator = calcularFatorDemandaPorQuantidade(quantidade);
         return { potencia, quantidade, fator, demanda: cargaInstalada * fator };
     };
@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return { potencia, quantidade, fator: 0, demanda: 0 };
         }
 
-        const cargaInstalada = potencia * quantidade;
+        const cargaInstalada = potencia;
         const fator = calcularFatorDemandaB3(quantidade, potencia);
 
         return { potencia, quantidade, fator, demanda: cargaInstalada * fator };

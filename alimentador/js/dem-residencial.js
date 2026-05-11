@@ -84,6 +84,82 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const formatarW = (valor) => `${valor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} W`;
 
+    const tabelasLigacao = {
+        monofasico: {
+            label: 'Monofásico',
+            unidade: 'Carga instalada',
+            limiteSemAtendimento: 10000,
+            faixas: [
+                { min: 0, max: 1270, disjuntor: '10A', condutor: '4mm²' },
+                { min: 1270, max: 1905, disjuntor: '16A', condutor: '4mm²', minExclusivo: true },
+                { min: 1905, max: 2540, disjuntor: '20A', condutor: '4mm²', minExclusivo: true },
+                { min: 2540, max: 3175, disjuntor: '25A', condutor: '4mm²', minExclusivo: true },
+                { min: 3175, max: 3810, disjuntor: '32A', condutor: '6mm²', minExclusivo: true },
+                { min: 3810, max: 5000, disjuntor: '40A', condutor: '6mm²', minExclusivo: true },
+                { min: 5000, max: 6350, disjuntor: '50A', condutor: '10mm²', minExclusivo: true },
+                { min: 6350, max: 10000, disjuntor: '63A', condutor: '16mm²', minExclusivo: true }
+            ]
+        },
+        bifasico: {
+            label: 'Bifásico',
+            unidade: 'Carga instalada',
+            limiteSemAtendimento: 15000,
+            faixas: [
+                { min: 0, max: 2220, disjuntor: '10A', condutor: '4mm²' },
+                { min: 2220, max: 3300, disjuntor: '16A', condutor: '4mm²', minExclusivo: true },
+                { min: 3300, max: 4400, disjuntor: '20A', condutor: '4mm²', minExclusivo: true },
+                { min: 4400, max: 5500, disjuntor: '25A', condutor: '4mm²', minExclusivo: true },
+                { min: 5500, max: 6600, disjuntor: '32A', condutor: '6mm²', minExclusivo: true },
+                { min: 6600, max: 8800, disjuntor: '40A', condutor: '6mm²', minExclusivo: true },
+                { min: 8800, max: 11000, disjuntor: '50A', condutor: '10mm²', minExclusivo: true },
+                { min: 11000, max: 15000, disjuntor: '63A', condutor: '16mm²', minExclusivo: true }
+            ]
+        },
+        trifasico: {
+            label: 'Trifásico',
+            unidade: 'Demanda',
+            limiteSemAtendimento: null,
+            faixas: [
+                { min: 0, max: 5710, disjuntor: '16A', condutor: '4mm²' },
+                { min: 5710, max: 9520, disjuntor: '25A', condutor: '4mm²', minExclusivo: true },
+                { min: 9520, max: 11430, disjuntor: '32A', condutor: '4mm²', minExclusivo: true },
+                { min: 11430, max: 15240, disjuntor: '40A', condutor: '6mm²', minExclusivo: true },
+                { min: 15240, max: 19050, disjuntor: '50A', condutor: '10mm²', minExclusivo: true },
+                { min: 19050, max: 23000, disjuntor: '63A', condutor: '16mm²', minExclusivo: true },
+                { min: 23000, max: 27000, disjuntor: '70A', condutor: '16mm²', minExclusivo: true },
+                { min: 27000, max: 34200, disjuntor: '90A', condutor: '25mm²', minExclusivo: true },
+                { min: 34200, max: 38000, disjuntor: '100A', condutor: '25mm²', minExclusivo: true },
+                { min: 38000, max: 47000, disjuntor: '120A', condutor: '35mm²', minExclusivo: true },
+                { min: 47000, max: 57000, disjuntor: '150A', condutor: '50mm²', minExclusivo: true },
+                { min: 57000, max: 66000, disjuntor: '175A', condutor: '70mm²', minExclusivo: true },
+                { min: 66000, max: 75000, disjuntor: '200A', condutor: '95mm²', minExclusivo: true }
+            ]
+        }
+    };
+
+    const obterRecomendacaoLigacao = (tipo, valorBase) => {
+        const tabela = tabelasLigacao[tipo];
+
+        if (!tabela || valorBase <= 0) {
+            return `${tabela?.label || 'Sistema'}: informe um valor maior que zero para calcular a recomendação.`;
+        }
+
+        const faixa = tabela.faixas.find((item) => {
+            const atendeMinimo = item.minExclusivo ? valorBase > item.min : valorBase >= item.min;
+            return atendeMinimo && valorBase <= item.max;
+        });
+
+        if (faixa) {
+            return `${tabela.label}: ${tabela.unidade} de ${formatarW(valorBase)} → Disjuntor recomendado: ${faixa.disjuntor} | Cabo recomendado: ${faixa.condutor}.`;
+        }
+
+        if (tabela.limiteSemAtendimento !== null && valorBase > tabela.limiteSemAtendimento) {
+            return `${tabela.label}: para ${tabela.unidade.toLowerCase()} acima de ${formatarW(tabela.limiteSemAtendimento)}, sem disjuntor/cabo padrão nesta tabela.`;
+        }
+
+        return `${tabela.label}: valor fora da faixa cadastrada. Revise a entrada.`;
+    };
+
     const resultadoWrapper = document.createElement('div');
     resultadoWrapper.className = 'mt-4 p-3 rounded';
     resultadoWrapper.style.background = 'rgba(49, 130, 206, 0.12)';
@@ -117,6 +193,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultadoTotal = document.createElement('p');
     resultadoTotal.className = 'mb-1 fw-bold';
 
+    const resultadoMonofasico = document.createElement('p');
+    resultadoMonofasico.className = 'mb-1';
+
+    const resultadoBifasico = document.createElement('p');
+    resultadoBifasico.className = 'mb-1';
+
+    const resultadoTrifasico = document.createElement('p');
+    resultadoTrifasico.className = 'mb-1';
+
     const resultadoObs = document.createElement('small');
     resultadoObs.className = 'text-muted';
     resultadoObs.textContent = 'No momento, o total considera a demanda de a, b1, b2, b3, b4, b5 e c. Os itens d, e e f serão somados nas próximas etapas.';
@@ -130,6 +215,9 @@ document.addEventListener('DOMContentLoaded', () => {
     resultadoWrapper.appendChild(resultadoB5);
     resultadoWrapper.appendChild(resultadoC);
     resultadoWrapper.appendChild(resultadoTotal);
+    resultadoWrapper.appendChild(resultadoMonofasico);
+    resultadoWrapper.appendChild(resultadoBifasico);
+    resultadoWrapper.appendChild(resultadoTrifasico);
     resultadoWrapper.appendChild(resultadoObs);
 
     const calcularDemandaPorQuantidade = (key) => {
@@ -182,6 +270,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const total = demandaA + demandaB1.demanda + demandaB2.demanda + demandaB3.demanda + demandaB4.demanda + demandaB5.demanda + demandaC.demanda;
         resultadoTotal.textContent = `Demanda total (a+b1+b2+b3+b4+b5+c+d+e+f): ${formatarW(total)}`;
+        resultadoMonofasico.textContent = obterRecomendacaoLigacao('monofasico', total);
+        resultadoBifasico.textContent = obterRecomendacaoLigacao('bifasico', total);
+        resultadoTrifasico.textContent = obterRecomendacaoLigacao('trifasico', total);
     };
 
     entries.forEach((entry) => {

@@ -269,8 +269,18 @@ document.addEventListener('DOMContentLoaded', () => {
         resultadoC.textContent = `c = ${formatarW(demandaC.demanda)} (CI: ${formatarW(demandaC.potencia)} × FD: ${demandaC.fator.toFixed(2)})`;
 
         const total = demandaA + demandaB1.demanda + demandaB2.demanda + demandaB3.demanda + demandaB4.demanda + demandaB5.demanda + demandaC.demanda;
+        const usaApenasGrupoA = demandaA > 0
+            && demandaB1.demanda === 0
+            && demandaB2.demanda === 0
+            && demandaB3.demanda === 0
+            && demandaB4.demanda === 0
+            && demandaB5.demanda === 0
+            && demandaC.demanda === 0;
+
         resultadoTotal.textContent = `Demanda total (a+b1+b2+b3+b4+b5+c+d+e+f): ${formatarW(total)}`;
-        resultadoMonofasico.textContent = obterRecomendacaoLigacao('monofasico', total);
+        resultadoMonofasico.textContent = usaApenasGrupoA
+            ? obterRecomendacaoLigacao('monofasico', total)
+            : 'Monofásico: recomendação disponível apenas quando houver somente carga do item a (circuitos de iluminação e tomadas).';
         resultadoBifasico.textContent = obterRecomendacaoLigacao('bifasico', total);
         resultadoTrifasico.textContent = obterRecomendacaoLigacao('trifasico', total);
     };

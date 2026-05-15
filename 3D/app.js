@@ -3450,9 +3450,9 @@ const POLICLINICA_MODEL_TRANSFORMS = {
 };
 
 const FERCOMERCIO_MODEL_TRANSFORMS = {
-    IFC_EST: { position: [0, 0, 0] },
+    IFC_EST: { position: [0, -0.1, 0] },
     IFC_ELE: { position: [0, 0, 0] },
-    IFC_ARQ: { position: [0, 0, 0] },
+    IFC_ARQ: { position: [-18.7, 0, 8.95] },
 };
 
 const CANAA_MODEL_TRANSFORMS = {

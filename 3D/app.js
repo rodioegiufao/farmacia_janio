@@ -3332,6 +3332,7 @@ const FERCOMERCIO_MODELS = [
     { id: "IFC_EST", src: "/3D/fercomercio/ifc-est-fercomercio.xkt" },
     { id: "IFC_ELE", src: "/3D/fercomercio/ifc-ele-fercomercio.xkt" },
     { id: "IFC_ARQ", src: "/3D/fercomercio/ifc-arq-fercomercio.xkt" },
+    { id: "IFC_SAN_PLU", src: "/3D/fercomercio/ifc-san-plu-fercomercio.xkt" },
 ];
 
 const CANAA_MODELS = [

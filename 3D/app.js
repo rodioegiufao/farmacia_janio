@@ -3328,6 +3328,12 @@ const POLICLINICA_MODELS = [
     { id: "IFC_IRRI", src: "/3D/policlinica/modelo-13.xkt" },
 ];
 
+const FERCOMERCIO_MODELS = [
+    { id: "IFC_EST", src: "/3D/fercomercio/ifc-est-fercomercio.xkt" },
+    { id: "IFC_ELE", src: "/3D/fercomercio/ifc-ele-fercomercio.xkt" },
+    { id: "IFC_ARQ", src: "/3D/fercomercio/ifc-arq-fercomercio.xkt" },
+];
+
 const CANAA_MODELS = [
     { id: "IFC_ELE", src: "/3D/esc_canaa/modelo-01.xkt" },
     { id: "IFC_ILUX", src: "/3D/esc_canaa/modelo-02.xkt" },
@@ -3443,6 +3449,12 @@ const POLICLINICA_MODEL_TRANSFORMS = {
     IFC_IRRI: { position: [-78, 0, 40], rotation: [0, -45, 0] },
 };
 
+const FERCOMERCIO_MODEL_TRANSFORMS = {
+    IFC_EST: { position: [0, 0, 0] },
+    IFC_ELE: { position: [0, 0, 0] },
+    IFC_ARQ: { position: [0, 0, 0] },
+};
+
 const CANAA_MODEL_TRANSFORMS = {
     IFC_EST_PP: { position: [48.212, 0.385, -36.8995]},
     IFC_SAN: { position: [-0.03,-0.1, 0] },
@@ -3509,6 +3521,7 @@ const PROJECT_CONFIGS = {
     lacen: { models: defaultModels, transforms: DEFAULT_MODEL_TRANSFORMS },
     policlinica: { models: POLICLINICA_MODELS, transforms: POLICLINICA_MODEL_TRANSFORMS },
     farmacia: { models: FARMACIA_MODELS, transforms: FARMACIA_MODEL_TRANSFORMS },
+    fercomercio: { models: FERCOMERCIO_MODELS, transforms: FERCOMERCIO_MODEL_TRANSFORMS },
     esc_canaa: { models: CANAA_MODELS, transforms: CANAA_MODEL_TRANSFORMS },
     sebrae_rr: { models: SEBRAE_RR_MODELS, transforms: SEBRAE_RR_MODEL_TRANSFORMS },
     esc_modelo: { models: ESC_MODELO_MODELS, transforms: ESC_MODELO_MODEL_TRANSFORMS },
@@ -3519,6 +3532,7 @@ const PROJECT_ROUTES = {
     lacen: "/3D/lacen",
     policlinica: "/3D/policlinica",
     farmacia: "/3D/farmacia",
+    fercomercio: "/3D/fercomercio",
     esc_canaa: "/3D/esc_canaa",
     sebrae_rr: "/3D/sebrae-rr",
     esc_modelo: "/3D/esc_modelo"

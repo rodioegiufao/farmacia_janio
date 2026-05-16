@@ -3333,6 +3333,7 @@ const fecomercio_MODELS = [
     { id: "IFC_ELE", src: "/3D/fecomercio/ifc-ele-fecomercio.xkt" },
     { id: "IFC_ARQ", src: "/3D/fecomercio/ifc-arq-fecomercio.xkt" },
     { id: "IFC_SAN_PLU", src: "/3D/fecomercio/ifc-san-plu-fecomercio.xkt" },
+    { id: "IFC_HID", src: "/3D/fecomercio/ifc-hid-fecomercio.xkt" },
 ];
 
 const CANAA_MODELS = [

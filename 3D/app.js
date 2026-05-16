@@ -3530,6 +3530,34 @@ const PROJECT_CONFIGS = {
     esc_modelo: { models: ESC_MODELO_MODELS, transforms: ESC_MODELO_MODEL_TRANSFORMS },
 };
 
+const PROJECT_INITIAL_HIDDEN_IDS = {
+    fercomercio: [
+        "0IzBrQxdX84wfc29us7pwZ",
+        "0qNnWYq2n8zvreBu599Ye4",
+        "2AfqiJyGTAUu2DGdVW$eU4",
+        "2AfqiJyGTAUu2DGdVW$eU7",
+        "AfqiJyGTAUu2DGdVW$ePu",
+    ],
+};
+
+function applyProjectHiddenIds() {
+    const hiddenIds = PROJECT_INITIAL_HIDDEN_IDS[projectFromDataset] || [];
+
+    if (!hiddenIds.length || !viewer?.scene?.setObjectsVisible) {
+        return;
+    }
+
+    const availableIds = new Set(getAllObjectIds());
+    const idsToHide = hiddenIds.filter((id) => availableIds.has(id));
+
+    if (!idsToHide.length) {
+        return;
+    }
+
+    viewer.scene.setObjectsVisible(idsToHide, false);
+    console.log(`IDs ocultados na inicialização (${projectFromDataset}): ${idsToHide.join(", ")}`);
+}
+
 const PROJECT_ROUTES = {
     iper: "/3D/iper",
     lacen: "/3D/lacen",

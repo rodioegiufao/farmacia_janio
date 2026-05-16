@@ -3328,11 +3328,11 @@ const POLICLINICA_MODELS = [
     { id: "IFC_IRRI", src: "/3D/policlinica/modelo-13.xkt" },
 ];
 
-const FERCOMERCIO_MODELS = [
-    { id: "IFC_EST", src: "/3D/fercomercio/ifc-est-fercomercio.xkt" },
-    { id: "IFC_ELE", src: "/3D/fercomercio/ifc-ele-fercomercio.xkt" },
-    { id: "IFC_ARQ", src: "/3D/fercomercio/ifc-arq-fercomercio.xkt" },
-    { id: "IFC_SAN_PLU", src: "/3D/fercomercio/ifc-san-plu-fercomercio.xkt" },
+const fecomercio_MODELS = [
+    { id: "IFC_EST", src: "/3D/fecomercio/ifc-est-fecomercio.xkt" },
+    { id: "IFC_ELE", src: "/3D/fecomercio/ifc-ele-fecomercio.xkt" },
+    { id: "IFC_ARQ", src: "/3D/fecomercio/ifc-arq-fecomercio.xkt" },
+    { id: "IFC_SAN_PLU", src: "/3D/fecomercio/ifc-san-plu-fecomercio.xkt" },
 ];
 
 const CANAA_MODELS = [
@@ -3450,7 +3450,7 @@ const POLICLINICA_MODEL_TRANSFORMS = {
     IFC_IRRI: { position: [-78, 0, 40], rotation: [0, -45, 0] },
 };
 
-const FERCOMERCIO_MODEL_TRANSFORMS = {
+const fecomercio_MODEL_TRANSFORMS = {
     IFC_EST: { position: [0, -0.1, 0] },
     IFC_ELE: { position: [0, 0, 0] },
     IFC_ARQ: { position: [-18.7, 0, 8.95] },
@@ -3524,14 +3524,14 @@ const PROJECT_CONFIGS = {
     lacen: { models: defaultModels, transforms: DEFAULT_MODEL_TRANSFORMS },
     policlinica: { models: POLICLINICA_MODELS, transforms: POLICLINICA_MODEL_TRANSFORMS },
     farmacia: { models: FARMACIA_MODELS, transforms: FARMACIA_MODEL_TRANSFORMS },
-    fercomercio: { models: FERCOMERCIO_MODELS, transforms: FERCOMERCIO_MODEL_TRANSFORMS },
+    fecomercio: { models: fecomercio_MODELS, transforms: fecomercio_MODEL_TRANSFORMS },
     esc_canaa: { models: CANAA_MODELS, transforms: CANAA_MODEL_TRANSFORMS },
     sebrae_rr: { models: SEBRAE_RR_MODELS, transforms: SEBRAE_RR_MODEL_TRANSFORMS },
     esc_modelo: { models: ESC_MODELO_MODELS, transforms: ESC_MODELO_MODEL_TRANSFORMS },
 };
 
 const PROJECT_INITIAL_HIDDEN_IDS = {
-    fercomercio: [
+    fecomercio: [
         "0IzBrQxdX84wfc29us7pwZ",
         "0qNnWYq2n8zvreBu599Ye4",
         "2AfqiJyGTAUu2DGdVW$eU4",
@@ -3563,7 +3563,7 @@ const PROJECT_ROUTES = {
     lacen: "/3D/lacen",
     policlinica: "/3D/policlinica",
     farmacia: "/3D/farmacia",
-    fercomercio: "/3D/fercomercio",
+    fecomercio: "/3D/fecomercio",
     esc_canaa: "/3D/esc_canaa",
     sebrae_rr: "/3D/sebrae-rr",
     esc_modelo: "/3D/esc_modelo"

@@ -3219,53 +3219,40 @@ function adjustCameraOnLoad() {
 }
 
 async function loadDefaultModel({ id, src }) {
-    try {
-        const response = await fetch(src, { method: "HEAD" });
-        defaultModelChecksDone++;
+    defaultModelChecksDone++;
+    expectedModels++;
 
-        if (!response.ok) {
-            console.warn(`⚠️ Modelo padrão ignorado: ${src} não está disponível (status ${response.status}).`);
-            maybeFinalizeInitialization();
-            return;
+    const model = xktLoader.load({
+        id,
+        src,
+        edges: performanceModeEnabled ? false : defaultRenderProfile.edgesEnabled,
+        saoEnabled: performanceModeEnabled ? false : defaultRenderProfile.saoEnabled,
+        dtxEnabled: viewerCompatibility.enableDataTextures
+    });
+
+    model.on("loaded", () => {
+        const transform = currentModelTransforms[id];
+
+        if (transform?.position) {
+            model.position = [...transform.position];
         }
 
-        expectedModels++;
+        if (transform?.rotation) {
+            model.rotation = [...transform.rotation];
+        }
 
-        const model = xktLoader.load({
-            id,
-            src,
-            edges: performanceModeEnabled ? false : defaultRenderProfile.edgesEnabled,
-            saoEnabled: performanceModeEnabled ? false : defaultRenderProfile.saoEnabled,
-            dtxEnabled: viewerCompatibility.enableDataTextures
-        });
+        //if (id === "IFC_ARQ") {
+            //model.xrayed = true;
+        //}
 
-        model.on("loaded", () => {
-            const transform = currentModelTransforms[id];
+        adjustCameraOnLoad();
+        registerModelTransform(model);
+    });
 
-            if (transform?.position) {
-                model.position = [...transform.position];
-            }
-
-            if (transform?.rotation) {
-                model.rotation = [...transform.rotation];
-            }
-
-            //if (id === "IFC_ARQ") {
-                //model.xrayed = true;
-            //}
-
-            adjustCameraOnLoad();
-            registerModelTransform(model);
-        });
-        model.on("error", (err) => {
-            console.error(`Erro ao carregar ${src}:`, err);
-            adjustCameraOnLoad();
-        });
-    } catch (error) {
-        defaultModelChecksDone++;
-        console.warn(`⚠️ Não foi possível verificar o modelo ${src}:`, error);
-        maybeFinalizeInitialization();
-    }
+    model.on("error", (err) => {
+        console.error(`Erro ao carregar ${src}:`, err);
+        adjustCameraOnLoad();
+    });
 }
 
 const IPER_MODELS = [

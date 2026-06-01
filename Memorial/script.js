@@ -525,11 +525,12 @@ async function inserirMateriaisTomadaNoDocumento(zip, materiaisSelecionados) {
     const relsFile = zip.file('word/_rels/document.xml.rels');
     if (!documentFile || !relsFile) return;
 
-    let documentXml = documentFile.asText();
+    let documentXml = lerArquivoZipComoTexto(documentFile);
     if (!documentXml.includes(TOMADAS_PLACEHOLDER)) return;
 
     let relsXml = relsFile.asText();
     let nextRelationId = obterProximoRelationId(relsXml);
+    let nextDocPrId = obterProximoDocPrId(documentXml);
     const paragraphXmlList = [];
 
     if (!materiaisSelecionados.length) {
@@ -540,11 +541,15 @@ async function inserirMateriaisTomadaNoDocumento(zip, materiaisSelecionados) {
         paragraphXmlList.push(criarParagrafoTexto(material.descricao, { firstLine: true, justify: true }));
 
         if (material.imageData) {
-            const imageFileName = `memorial_tomada_${index + 1}.${material.imageExtension || 'png'}`;
+            const imageExtension = normalizarExtensaoImagem(material.imageExtension);
+            const imageFileName = `memorial_tomada_${index + 1}.${imageExtension}`;
             const relationId = `rId${nextRelationId++}`;
-            zip.file(`word/media/${imageFileName}`, material.imageData);
-            relsXml = relsXml.replace('</Relationships>', `<Relationship Id="${relationId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imageFileName}"/></Relationships>`);
-            paragraphXmlList.push(criarParagrafoImagem(relationId, material.nomeImagem || material.nome, index + 1));
+            const docPrId = nextDocPrId++;
+
+            zip.file(`word/media/${imageFileName}`, converterImagemParaArrayBuffer(material.imageData));
+            relsXml = adicionarRelacionamentoImagem(relsXml, relationId, imageFileName);
+            contentTypesXml = garantirContentTypeImagem(contentTypesXml, imageExtension, material.imageContentType);
+            paragraphXmlList.push(criarParagrafoImagem(relationId, material.nomeImagem || material.nome, docPrId));
         } else {
             paragraphXmlList.push(criarParagrafoTexto('Imagem não encontrada na base de dados.', { center: true, italic: true }));
         }
@@ -560,10 +565,56 @@ async function inserirMateriaisTomadaNoDocumento(zip, materiaisSelecionados) {
 
     zip.file('word/document.xml', documentXml);
     zip.file('word/_rels/document.xml.rels', relsXml);
+    zip.file('[Content_Types].xml', contentTypesXml);
+}
+
+function lerArquivoZipComoTexto(file) {
+    if (typeof file.asText === 'function') return file.asText();
+    return file._data?.getContent?.() || '';
+}
+
+function lerContentTypes(zip) {
+    const contentTypesFile = zip.file('[Content_Types].xml');
+    return contentTypesFile ? lerArquivoZipComoTexto(contentTypesFile) : '';
+}
+
+function normalizarExtensaoImagem(extension) {
+    const normalized = String(extension || 'png').toLowerCase().replace(/^\./, '');
+    return normalized === 'jpg' ? 'jpeg' : normalized;
+}
+
+function converterImagemParaArrayBuffer(imageData) {
+    if (imageData instanceof ArrayBuffer) return imageData;
+    if (ArrayBuffer.isView(imageData)) {
+        return imageData.buffer.slice(imageData.byteOffset, imageData.byteOffset + imageData.byteLength);
+    }
+    return imageData;
+}
+
+function adicionarRelacionamentoImagem(relsXml, relationId, imageFileName) {
+    const relationshipXml = `<Relationship Id="${relationId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${escapeXmlAttribute(imageFileName)}"/>`;
+    return relsXml.replace('</Relationships>', `${relationshipXml}</Relationships>`);
+}
+
+function garantirContentTypeImagem(contentTypesXml, extension, contentType) {
+    if (!contentTypesXml) return contentTypesXml;
+
+    const safeExtension = escapeXmlAttribute(extension);
+    const normalizedContentType = contentType || (extension === 'jpeg' ? 'image/jpeg' : `image/${extension}`);
+    const defaultRegex = new RegExp(`<Default\\s+[^>]*Extension=["']${escapeRegExp(extension)}["']`, 'i');
+    if (defaultRegex.test(contentTypesXml)) return contentTypesXml;
+
+    const defaultXml = `<Default Extension="${safeExtension}" ContentType="${escapeXmlAttribute(normalizedContentType)}"/>`;
+    return contentTypesXml.replace('</Types>', `${defaultXml}</Types>`);
 }
 
 function obterProximoRelationId(relsXml) {
     const ids = Array.from(relsXml.matchAll(/Id="rId(\d+)"/g)).map((match) => Number(match[1]));
+    return Math.max(0, ...ids) + 1;
+}
+
+function obterProximoDocPrId(documentXml) {
+    const ids = Array.from(documentXml.matchAll(/<wp:docPr[^>]*\sid="(\d+)"/g)).map((match) => Number(match[1]));
     return Math.max(0, ...ids) + 1;
 }
 
@@ -576,13 +627,12 @@ function criarParagrafoTexto(text, options = {}) {
     return `<w:p><w:pPr><w:spacing w:line="360" w:lineRule="auto"/>${firstLine}${justification}<w:rPr><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/>${italic}</w:rPr></w:pPr><w:r><w:rPr><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/>${italic}</w:rPr><w:t xml:space="preserve">${safeText}</w:t></w:r></w:p>`;
 }
 
-function criarParagrafoImagem(relationId, altText, imageIndex) {
+function criarParagrafoImagem(relationId, altText, docPrId) {
     const cx = 3200000;
     const cy = 2200000;
-    const docPrId = 9000 + imageIndex;
-    const safeAltText = escapeXml(altText || `Imagem de tomada ${imageIndex}`);
+    const safeAltText = escapeXmlAttribute(altText || `Imagem de tomada ${docPrId}`);
 
-    return `<w:p><w:pPr><w:spacing w:before="160" w:after="80"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${safeAltText}" descr="${safeAltText}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="${safeAltText}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+    return `<w:p><w:pPr><w:spacing w:before="160" w:after="80"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${safeAltText}" descr="${safeAltText}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${safeAltText}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
 }
 
 function escapeXml(value) {
@@ -592,6 +642,10 @@ function escapeXml(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;');
+}
+
+function escapeXmlAttribute(value) {
+    return escapeXml(value).replace(/[\r\n\t]+/g, ' ');
 }
 
 function escapeRegExp(value) {

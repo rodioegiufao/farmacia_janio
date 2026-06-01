@@ -575,8 +575,12 @@ async function inserirMateriaisTomadaNoDocumento(zip, materiaisSelecionados) {
     });
 
     const replacementXml = paragraphXmlList.join('');
-    const markerRegex = new RegExp(`<w:p(?:(?!<w:p)[\\s\\S])*?${escapeRegExp(TOMADAS_PLACEHOLDER)}[\\s\\S]*?</w:p>`);
+    const markerRegex = new RegExp(`<w:p(?:\\s|>)(?:(?!<w:p(?:\\s|>))[\\s\\S])*?${escapeRegExp(TOMADAS_PLACEHOLDER)}[\\s\\S]*?</w:p>`);
     documentXml = documentXml.replace(markerRegex, replacementXml);
+
+    validarXmlGerado(documentXml, 'word/document.xml');
+    validarXmlGerado(relsXml, 'word/_rels/document.xml.rels');
+    validarXmlGerado(contentTypesXml, '[Content_Types].xml');
 
     zip.file('word/document.xml', documentXml);
     zip.file('word/_rels/document.xml.rels', relsXml);
@@ -665,7 +669,7 @@ function obterProximoDocPrId(documentXml) {
 }
 
 function criarParagrafoTexto(text, options = {}) {
-    const safeText = escapeXml(text || '');
+    const safeText = criarRunsTextoSeguro(text || '');
     const justification = options.center ? '<w:jc w:val="center"/>' : (options.justify ? '<w:jc w:val="both"/>' : '');
     const firstLine = options.firstLine ? '<w:ind w:firstLine="720"/>' : '';
     const italic = options.italic ? '<w:i/><w:iCs/>' : '';
@@ -678,7 +682,25 @@ function criarParagrafoImagem(relationId, altText, docPrId) {
     const cy = 2200000;
     const safeAltText = escapeXmlAttribute(altText || `Imagem de tomada ${docPrId}`);
 
-    return `<w:p><w:pPr><w:spacing w:before="160" w:after="80"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${safeAltText}" descr="${safeAltText}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${safeAltText}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+    return `<w:p><w:pPr><w:spacing w:before="160" w:after="80"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${safeAltText}" descr="${safeAltText}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${safeAltText}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+}
+
+function criarRunsTextoSeguro(value) {
+    return escapeXml(limparCaracteresInvalidosXml(value).replace(/\r\n|\n|\r/g, ' '));
+}
+
+function limparCaracteresInvalidosXml(value) {
+    return String(value || '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+}
+
+function validarXmlGerado(xml, nomeArquivo) {
+    if (typeof DOMParser === 'undefined') return;
+
+    const parsed = new DOMParser().parseFromString(xml, 'application/xml');
+    const parserError = parsed.getElementsByTagName('parsererror')[0];
+    if (parserError) {
+        throw new Error(`XML inválido gerado em ${nomeArquivo}: ${parserError.textContent}`);
+    }
 }
 
 function escapeXml(value) {

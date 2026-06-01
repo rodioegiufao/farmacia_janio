@@ -1,5 +1,7 @@
 const TEMPLATE_URL = '/Memorial/templates/MEM-DESCRITIVO-ELÉTRICO.docx';
 const TEMPLATE_NAME = 'MEM-DESCRITIVO-ELÉTRICO';
+const MEMORIAL_DATABASE_URL = '/Memorial/base_de_dados_memorial.xlsx';
+const TOMADAS_PLACEHOLDER = '__MEMORIAL_TOMADAS_SELECIONADAS__';
 
 const MESES_PT_BR = [
     'janeiro',
@@ -18,6 +20,7 @@ const MESES_PT_BR = [
 
 let documentosGerados = [];
 let dadosProcessados = {};
+let materiaisTomada = [];
 
 document.addEventListener('DOMContentLoaded', function() {
     initThemeSelector();
@@ -25,6 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
     checkTemplate();
     setupEventListeners();
     setupAutomaticIsolationVoltages();
+    carregarMateriaisTomada();
 });
 
 function setupDefaultDatePlaceholders() {
@@ -108,6 +112,205 @@ function atualizarTensoesIsolamentoAutomaticas() {
 
 function updateIsolationVoltage(isolacao, isolamento) {
     isolamento.value = TENSAO_ISOLAMENTO_POR_ISOLACAO[isolacao.value] || '';
+}
+
+async function carregarMateriaisTomada() {
+    const container = document.getElementById('tomadas-material-options');
+    if (!container) return;
+
+    try {
+        materiaisTomada = await carregarMateriaisDaPlanilhaTomada();
+        renderizarOpcoesMateriaisTomada();
+    } catch (error) {
+        console.error('Erro ao carregar materiais de tomada:', error);
+        container.innerHTML = `
+            <p class="material-options-status">
+                <i class="fas fa-exclamation-triangle"></i>
+                Não foi possível carregar a base de tomadas. Verifique o arquivo base_de_dados_memorial.xlsx.
+            </p>
+        `;
+    }
+}
+
+async function carregarMateriaisDaPlanilhaTomada() {
+    const response = await fetch(MEMORIAL_DATABASE_URL);
+    if (!response.ok) {
+        throw new Error(`Base de dados não encontrada: ${MEMORIAL_DATABASE_URL}`);
+    }
+
+    const workbookBuffer = await response.arrayBuffer();
+    const workbookZip = await JSZip.loadAsync(workbookBuffer);
+    const parser = new DOMParser();
+    const sharedStrings = await lerSharedStrings(workbookZip, parser);
+    const sheetPath = await obterCaminhoDaPlanilha(workbookZip, parser, 'tomada');
+    const imageByMetadataIndex = await mapearImagensRichValue(workbookZip, parser);
+    const sheetXml = await workbookZip.file(sheetPath).async('text');
+    const sheetDoc = parser.parseFromString(sheetXml, 'application/xml');
+    const rows = Array.from(sheetDoc.getElementsByTagNameNS('*', 'row'));
+    const materiais = [];
+
+    for (const row of rows) {
+        const rowNumber = Number(row.getAttribute('r'));
+        if (!rowNumber || rowNumber < 2) continue;
+
+        const cells = Array.from(row.getElementsByTagNameNS('*', 'c'));
+        const cellsByColumn = cells.reduce((map, cell) => {
+            const column = (cell.getAttribute('r') || '').replace(/[0-9]/g, '');
+            map[column] = cell;
+            return map;
+        }, {});
+
+        const nome = lerValorCelula(cellsByColumn.A, sharedStrings).trim();
+        if (!nome) continue;
+
+        const descricao = lerValorCelula(cellsByColumn.B, sharedStrings).trim();
+        const nomeImagem = lerValorCelula(cellsByColumn.D, sharedStrings).trim();
+        const vm = cellsByColumn.C?.getAttribute('vm');
+        const imageInfo = vm ? imageByMetadataIndex.get(Number(vm) - 1) : null;
+        let imageData = null;
+
+        if (imageInfo?.path && workbookZip.file(imageInfo.path)) {
+            imageData = await workbookZip.file(imageInfo.path).async('uint8array');
+        }
+
+        materiais.push({
+            id: `tomada-${rowNumber}`,
+            rowNumber,
+            nome,
+            descricao,
+            nomeImagem,
+            imagePath: imageInfo?.path || '',
+            imageExtension: imageInfo?.extension || 'png',
+            imageContentType: imageInfo?.contentType || 'image/png',
+            imageData
+        });
+    }
+
+    return materiais;
+}
+
+async function lerSharedStrings(workbookZip, parser) {
+    const file = workbookZip.file('xl/sharedStrings.xml');
+    if (!file) return [];
+
+    const xml = await file.async('text');
+    const doc = parser.parseFromString(xml, 'application/xml');
+    return Array.from(doc.getElementsByTagNameNS('*', 'si')).map((item) => item.textContent || '');
+}
+
+async function obterCaminhoDaPlanilha(workbookZip, parser, sheetName) {
+    const workbookXml = await workbookZip.file('xl/workbook.xml').async('text');
+    const workbookDoc = parser.parseFromString(workbookXml, 'application/xml');
+    const sheet = Array.from(workbookDoc.getElementsByTagNameNS('*', 'sheet'))
+        .find((item) => item.getAttribute('name') === sheetName);
+
+    if (!sheet) throw new Error(`Planilha não encontrada: ${sheetName}`);
+
+    const relationId = sheet.getAttribute('r:id');
+    const relsXml = await workbookZip.file('xl/_rels/workbook.xml.rels').async('text');
+    const relsDoc = parser.parseFromString(relsXml, 'application/xml');
+    const relationship = Array.from(relsDoc.getElementsByTagNameNS('*', 'Relationship'))
+        .find((item) => item.getAttribute('Id') === relationId);
+
+    if (!relationship) throw new Error(`Relacionamento da planilha não encontrado: ${sheetName}`);
+
+    return normalizarCaminhoZip('xl/' + relationship.getAttribute('Target'));
+}
+
+async function mapearImagensRichValue(workbookZip, parser) {
+    const result = new Map();
+    const richValueRelFile = workbookZip.file('xl/richData/richValueRel.xml');
+    const richValueRelRelsFile = workbookZip.file('xl/richData/_rels/richValueRel.xml.rels');
+    const richValueFile = workbookZip.file('xl/richData/rdrichvalue.xml');
+    if (!richValueRelFile || !richValueRelRelsFile || !richValueFile) return result;
+
+    const relXml = await richValueRelFile.async('text');
+    const relDoc = parser.parseFromString(relXml, 'application/xml');
+    const relIdsByIndex = Array.from(relDoc.getElementsByTagNameNS('*', 'rel')).map((rel) => rel.getAttribute('r:id'));
+
+    const relsXml = await richValueRelRelsFile.async('text');
+    const relsDoc = parser.parseFromString(relsXml, 'application/xml');
+    const imageTargetsById = new Map(Array.from(relsDoc.getElementsByTagNameNS('*', 'Relationship')).map((rel) => {
+        const rawTarget = rel.getAttribute('Target') || '';
+        const path = normalizarCaminhoZip('xl/richData/' + rawTarget);
+        return [rel.getAttribute('Id'), path];
+    }));
+
+    const richValueXml = await richValueFile.async('text');
+    const richValueDoc = parser.parseFromString(richValueXml, 'application/xml');
+    Array.from(richValueDoc.getElementsByTagNameNS('*', 'rv')).forEach((rv, metadataIndex) => {
+        const values = Array.from(rv.getElementsByTagNameNS('*', 'v')).map((value) => Number(value.textContent || 0));
+        const relIndex = values[0];
+        const relId = relIdsByIndex[relIndex];
+        const path = imageTargetsById.get(relId);
+        if (!path) return;
+
+        const extension = (path.split('.').pop() || 'png').toLowerCase().replace('jpg', 'jpeg');
+        result.set(metadataIndex, {
+            path,
+            extension,
+            contentType: `image/${extension}`
+        });
+    });
+
+    return result;
+}
+
+function normalizarCaminhoZip(path) {
+    const parts = [];
+    path.split('/').forEach((part) => {
+        if (!part || part === '.') return;
+        if (part === '..') parts.pop();
+        else parts.push(part);
+    });
+    return parts.join('/');
+}
+
+function lerValorCelula(cell, sharedStrings) {
+    if (!cell) return '';
+
+    const value = cell.getElementsByTagNameNS('*', 'v')[0]?.textContent || '';
+    if (cell.getAttribute('t') === 's') {
+        return sharedStrings[Number(value)] || '';
+    }
+
+    return value;
+}
+
+function renderizarOpcoesMateriaisTomada() {
+    const container = document.getElementById('tomadas-material-options');
+    if (!container) return;
+
+    if (!materiaisTomada.length) {
+        container.innerHTML = '<p class="material-options-status">Nenhum material encontrado na aba tomada.</p>';
+        return;
+    }
+
+    container.innerHTML = materiaisTomada.map((material, index) => `
+        <label class="material-option">
+            <input type="checkbox" name="materiais_tomada" value="${escapeHtml(material.id)}">
+            <span>
+                <strong>${escapeHtml(material.nome)}</strong>
+                <span>${escapeHtml(material.nomeImagem || 'Imagem sem legenda')}</span>
+            </span>
+        </label>
+    `).join('');
+}
+
+function obterMateriaisTomadaSelecionados() {
+    const selectedIds = Array.from(document.querySelectorAll('input[name="materiais_tomada"]:checked')).map((input) => input.value);
+    return selectedIds
+        .map((id) => materiaisTomada.find((material) => material.id === id))
+        .filter(Boolean);
+}
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 function setupEventListeners() {
@@ -204,10 +407,16 @@ function validarFormulario() {
         }
     }
 
+    if (!obterMateriaisTomadaSelecionados().length) {
+        alert('Por favor, selecione pelo menos um material de tomada.');
+        document.getElementById('tomadas-material-options')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return false;
+    }
     return true;
 }
 
 function coletarDadosFormulario() {
+    const tomadasSelecionadas = obterMateriaisTomadaSelecionados();
     const dados = {
         YYYY: getValue('numero_art'),
         MMMM: getValue('responsavel'),
@@ -234,6 +443,8 @@ function coletarDadosFormulario() {
         FFFD: getValue('bitola_emergencia'),
         GGGD: getValue('isolacao_emergencia'),
         HHHH: getValue('nome_projeto'),
+        IIII: TOMADAS_PLACEHOLDER,
+        TOMADAS_SELECIONADAS: tomadasSelecionadas.map((material) => material.nome).join(', '),
 
         // Placeholders existentes no template que não foram solicitados como inputs nesta tela.
         // Mantê-los vazios evita a exibição de valores indefinidos no documento gerado.
@@ -241,6 +452,11 @@ function coletarDadosFormulario() {
         ZXXZ: '',
         ZXZX: ''
     };
+
+    Object.defineProperty(dados, '__tomadasSelecionadas', {
+        value: tomadasSelecionadas,
+        enumerable: false
+    });
 
     dadosProcessados = { ...dados };
     return dados;
@@ -286,7 +502,10 @@ async function processarTemplateWord(arrayBuffer, dados) {
         doc.setData(dados);
         doc.render();
 
-        return doc.getZip().generate({
+        const renderedZip = doc.getZip();
+        await inserirMateriaisTomadaNoDocumento(renderedZip, dados.__tomadasSelecionadas || []);
+
+        return renderedZip.generate({
             type: 'arraybuffer',
             mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             compression: 'DEFLATE'
@@ -299,6 +518,84 @@ async function processarTemplateWord(arrayBuffer, dados) {
         }
         throw new Error('Falha ao gerar o documento Word com Docxtemplater.');
     }
+}
+
+async function inserirMateriaisTomadaNoDocumento(zip, materiaisSelecionados) {
+    const documentFile = zip.file('word/document.xml');
+    const relsFile = zip.file('word/_rels/document.xml.rels');
+    if (!documentFile || !relsFile) return;
+
+    let documentXml = documentFile.asText();
+    if (!documentXml.includes(TOMADAS_PLACEHOLDER)) return;
+
+    let relsXml = relsFile.asText();
+    let nextRelationId = obterProximoRelationId(relsXml);
+    const paragraphXmlList = [];
+
+    if (!materiaisSelecionados.length) {
+        paragraphXmlList.push(criarParagrafoTexto('Nenhum material de tomada selecionado.'));
+    }
+
+    materiaisSelecionados.forEach((material, index) => {
+        paragraphXmlList.push(criarParagrafoTexto(material.descricao, { firstLine: true, justify: true }));
+
+        if (material.imageData) {
+            const imageFileName = `memorial_tomada_${index + 1}.${material.imageExtension || 'png'}`;
+            const relationId = `rId${nextRelationId++}`;
+            zip.file(`word/media/${imageFileName}`, material.imageData);
+            relsXml = relsXml.replace('</Relationships>', `<Relationship Id="${relationId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imageFileName}"/></Relationships>`);
+            paragraphXmlList.push(criarParagrafoImagem(relationId, material.nomeImagem || material.nome, index + 1));
+        } else {
+            paragraphXmlList.push(criarParagrafoTexto('Imagem não encontrada na base de dados.', { center: true, italic: true }));
+        }
+
+        if (material.nomeImagem) {
+            paragraphXmlList.push(criarParagrafoTexto(material.nomeImagem, { center: true, italic: true }));
+        }
+    });
+
+    const replacementXml = paragraphXmlList.join('');
+    const markerRegex = new RegExp(`<w:p(?:(?!<w:p)[\\s\\S])*?${escapeRegExp(TOMADAS_PLACEHOLDER)}[\\s\\S]*?</w:p>`);
+    documentXml = documentXml.replace(markerRegex, replacementXml);
+
+    zip.file('word/document.xml', documentXml);
+    zip.file('word/_rels/document.xml.rels', relsXml);
+}
+
+function obterProximoRelationId(relsXml) {
+    const ids = Array.from(relsXml.matchAll(/Id="rId(\d+)"/g)).map((match) => Number(match[1]));
+    return Math.max(0, ...ids) + 1;
+}
+
+function criarParagrafoTexto(text, options = {}) {
+    const safeText = escapeXml(text || '');
+    const justification = options.center ? '<w:jc w:val="center"/>' : (options.justify ? '<w:jc w:val="both"/>' : '');
+    const firstLine = options.firstLine ? '<w:ind w:firstLine="720"/>' : '';
+    const italic = options.italic ? '<w:i/><w:iCs/>' : '';
+
+    return `<w:p><w:pPr><w:spacing w:line="360" w:lineRule="auto"/>${firstLine}${justification}<w:rPr><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/>${italic}</w:rPr></w:pPr><w:r><w:rPr><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/>${italic}</w:rPr><w:t xml:space="preserve">${safeText}</w:t></w:r></w:p>`;
+}
+
+function criarParagrafoImagem(relationId, altText, imageIndex) {
+    const cx = 3200000;
+    const cy = 2200000;
+    const docPrId = 9000 + imageIndex;
+    const safeAltText = escapeXml(altText || `Imagem de tomada ${imageIndex}`);
+
+    return `<w:p><w:pPr><w:spacing w:before="160" w:after="80"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${safeAltText}" descr="${safeAltText}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="${safeAltText}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+}
+
+function escapeXml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
+function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function exibirResultados() {

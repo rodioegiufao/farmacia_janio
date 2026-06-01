@@ -792,3 +792,55 @@ body {
         margin-bottom: 15px;
     }
 }
+.form-group-wide {
+    grid-column: 1 / -1;
+}
+
+.material-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+    padding: 14px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(15, 20, 25, 0.35);
+}
+
+.material-options-status {
+    grid-column: 1 / -1;
+    color: var(--text-light);
+    opacity: 0.8;
+}
+
+.material-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--primary-medium);
+    cursor: pointer;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.material-option:hover {
+    border-color: var(--accent-blue);
+    transform: translateY(-1px);
+}
+
+.material-option input[type="checkbox"] {
+    width: auto;
+    margin-top: 4px;
+    accent-color: var(--accent-blue);
+}
+
+.material-option strong,
+.material-option span {
+    display: block;
+}
+
+.material-option span {
+    font-size: 0.85rem;
+    opacity: 0.75;
+}

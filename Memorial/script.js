@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupDefaultDatePlaceholders();
     checkTemplate();
     setupEventListeners();
+    setupAutomaticIsolationVoltages();
 });
 
 function setupDefaultDatePlaceholders() {
@@ -69,6 +70,46 @@ async function checkTemplate() {
     }
 }
 
+const TENSAO_ISOLAMENTO_POR_ISOLACAO = {
+    'PVC': '450/750V',
+    'XLPE/EPR': '600/1000V'
+};
+
+const CAMPOS_ISOLAMENTO_AUTOMATICO = [
+    { isolacaoId: 'isolacao_iluminacao', isolamentoId: 'isolamento_iluminacao' },
+    { isolacaoId: 'isolacao_tomadas', isolamentoId: 'isolamento_tomadas' },
+    { isolacaoId: 'isolacao_climatizacao', isolamentoId: 'isolamento_climatizacao' },
+    { isolacaoId: 'isolacao_exaustao', isolamentoId: 'isolamento_exaustao' },
+    { isolacaoId: 'isolacao_emergencia', isolamentoId: 'isolamento_emergencia' }
+];
+
+function setupAutomaticIsolationVoltages() {
+    CAMPOS_ISOLAMENTO_AUTOMATICO.forEach(({ isolacaoId, isolamentoId }) => {
+        const isolacao = document.getElementById(isolacaoId);
+        const isolamento = document.getElementById(isolamentoId);
+
+        if (!isolacao || !isolamento) return;
+
+        updateIsolationVoltage(isolacao, isolamento);
+        isolacao.addEventListener('change', () => updateIsolationVoltage(isolacao, isolamento));
+    });
+}
+
+function atualizarTensoesIsolamentoAutomaticas() {
+    CAMPOS_ISOLAMENTO_AUTOMATICO.forEach(({ isolacaoId, isolamentoId }) => {
+        const isolacao = document.getElementById(isolacaoId);
+        const isolamento = document.getElementById(isolamentoId);
+
+        if (!isolacao || !isolamento) return;
+
+        updateIsolationVoltage(isolacao, isolamento);
+    });
+}
+
+function updateIsolationVoltage(isolacao, isolamento) {
+    isolamento.value = TENSAO_ISOLAMENTO_POR_ISOLACAO[isolacao.value] || '';
+}
+
 function setupEventListeners() {
     const form = document.getElementById('document-form');
     if (form) {
@@ -82,6 +123,7 @@ function setupEventListeners() {
     if (resetBtn) {
         resetBtn.addEventListener('click', function() {
             if (form) form.reset();
+            atualizarTensoesIsolamentoAutomaticas();
             documentosGerados = [];
             dadosProcessados = {};
             setupDefaultDatePlaceholders();

@@ -529,6 +529,7 @@ async function inserirMateriaisTomadaNoDocumento(zip, materiaisSelecionados) {
     if (!documentXml.includes(TOMADAS_PLACEHOLDER)) return;
 
     let relsXml = relsFile.asText();
+    let contentTypesXml = lerContentTypes(zip);
     let nextRelationId = obterProximoRelationId(relsXml);
     let nextDocPrId = obterProximoDocPrId(documentXml);
     const paragraphXmlList = [];

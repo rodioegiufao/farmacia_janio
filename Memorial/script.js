@@ -1,5 +1,7 @@
 const TEMPLATE_URL = '/Memorial/templates/MEM-DESCRITIVO-ELÉTRICO.docx';
 const TEMPLATE_NAME = 'MEM-DESCRITIVO-ELÉTRICO';
+const TOMADAS_IMAGE_FOLDER_URL = '/Memorial/imagens/';
+const TOMADAS_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
 const MEMORIAL_DATABASE_URL = '/Memorial/base_de_dados_memorial.xlsx';
 const TOMADAS_PLACEHOLDER = '__MEMORIAL_TOMADAS_SELECIONADAS__';
 
@@ -143,7 +145,6 @@ async function carregarMateriaisDaPlanilhaTomada() {
     const parser = new DOMParser();
     const sharedStrings = await lerSharedStrings(workbookZip, parser);
     const sheetPath = await obterCaminhoDaPlanilha(workbookZip, parser, 'tomada');
-    const imageByMetadataIndex = await mapearImagensRichValue(workbookZip, parser);
     const sheetXml = await workbookZip.file(sheetPath).async('text');
     const sheetDoc = parser.parseFromString(sheetXml, 'application/xml');
     const rows = Array.from(sheetDoc.getElementsByTagNameNS('*', 'row'));
@@ -165,13 +166,7 @@ async function carregarMateriaisDaPlanilhaTomada() {
 
         const descricao = lerValorCelula(cellsByColumn.B, sharedStrings).trim();
         const nomeImagem = lerValorCelula(cellsByColumn.D, sharedStrings).trim();
-        const vm = cellsByColumn.C?.getAttribute('vm');
-        const imageInfo = vm ? imageByMetadataIndex.get(Number(vm) - 1) : null;
-        let imageData = null;
-
-        if (imageInfo?.path && workbookZip.file(imageInfo.path)) {
-            imageData = await workbookZip.file(imageInfo.path).async('uint8array');
-        }
+        const imagem = await carregarImagemTomadaDaPasta({ nome, descricao, nomeImagem });
 
         materiais.push({
             id: `tomada-${rowNumber}`,
@@ -179,14 +174,68 @@ async function carregarMateriaisDaPlanilhaTomada() {
             nome,
             descricao,
             nomeImagem,
-            imagePath: imageInfo?.path || '',
-            imageExtension: imageInfo?.extension || 'png',
-            imageContentType: imageInfo?.contentType || 'image/png',
-            imageData
+            imagePath: imagem?.path || '',
+            imageExtension: imagem?.extension || 'png',
+            imageContentType: imagem?.contentType || 'image/png',
+            imageData: imagem?.data || null
         });
     }
 
     return materiais;
+}
+
+async function carregarImagemTomadaDaPasta(material) {
+    const nomesBase = [material.nome, material.nomeImagem, material.descricao]
+        .map((value) => String(value || '').trim())
+        .filter(Boolean);
+    const candidatos = criarCandidatosImagemTomada(nomesBase);
+
+    for (const candidato of candidatos) {
+        const url = `${TOMADAS_IMAGE_FOLDER_URL}${encodeURIComponent(candidato.fileName)}`;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) continue;
+
+            const data = new Uint8Array(await response.arrayBuffer());
+            return {
+                data,
+                path: url,
+                extension: candidato.extension,
+                contentType: response.headers.get('content-type') || obterContentTypeImagem(candidato.extension)
+            };
+        } catch (error) {
+            console.warn(`Não foi possível carregar a imagem de tomada: ${candidato.fileName}`, error);
+        }
+    }
+
+    return null;
+}
+
+function criarCandidatosImagemTomada(nomesBase) {
+    const candidatos = [];
+    const adicionados = new Set();
+
+    nomesBase.forEach((nomeBase) => {
+        const nomeLimpo = nomeBase.replace(/[\\/]+/g, '-').trim();
+        if (!nomeLimpo) return;
+
+        const extensaoInformada = nomeLimpo.match(/\.([a-z0-9]+)$/i)?.[1];
+        const extensoes = extensaoInformada ? [extensaoInformada] : TOMADAS_IMAGE_EXTENSIONS;
+        const nomeSemExtensao = extensaoInformada ? nomeLimpo.replace(/\.[a-z0-9]+$/i, '') : nomeLimpo;
+
+        extensoes.forEach((extension) => {
+            const normalizedExtension = normalizarExtensaoImagem(extension);
+            const fileExtension = normalizedExtension === 'jpeg' ? 'jpg' : normalizedExtension;
+            const fileName = `${nomeSemExtensao}.${fileExtension}`;
+            const key = fileName.toLowerCase();
+            if (adicionados.has(key)) return;
+
+            adicionados.add(key);
+            candidatos.push({ fileName, extension: normalizedExtension });
+        });
+    });
+
+    return candidatos;
 }
 
 async function lerSharedStrings(workbookZip, parser) {
@@ -215,45 +264,6 @@ async function obterCaminhoDaPlanilha(workbookZip, parser, sheetName) {
     if (!relationship) throw new Error(`Relacionamento da planilha não encontrado: ${sheetName}`);
 
     return normalizarCaminhoZip('xl/' + relationship.getAttribute('Target'));
-}
-
-async function mapearImagensRichValue(workbookZip, parser) {
-    const result = new Map();
-    const richValueRelFile = workbookZip.file('xl/richData/richValueRel.xml');
-    const richValueRelRelsFile = workbookZip.file('xl/richData/_rels/richValueRel.xml.rels');
-    const richValueFile = workbookZip.file('xl/richData/rdrichvalue.xml');
-    if (!richValueRelFile || !richValueRelRelsFile || !richValueFile) return result;
-
-    const relXml = await richValueRelFile.async('text');
-    const relDoc = parser.parseFromString(relXml, 'application/xml');
-    const relIdsByIndex = Array.from(relDoc.getElementsByTagNameNS('*', 'rel')).map((rel) => rel.getAttribute('r:id'));
-
-    const relsXml = await richValueRelRelsFile.async('text');
-    const relsDoc = parser.parseFromString(relsXml, 'application/xml');
-    const imageTargetsById = new Map(Array.from(relsDoc.getElementsByTagNameNS('*', 'Relationship')).map((rel) => {
-        const rawTarget = rel.getAttribute('Target') || '';
-        const path = normalizarCaminhoZip('xl/richData/' + rawTarget);
-        return [rel.getAttribute('Id'), path];
-    }));
-
-    const richValueXml = await richValueFile.async('text');
-    const richValueDoc = parser.parseFromString(richValueXml, 'application/xml');
-    Array.from(richValueDoc.getElementsByTagNameNS('*', 'rv')).forEach((rv, metadataIndex) => {
-        const values = Array.from(rv.getElementsByTagNameNS('*', 'v')).map((value) => Number(value.textContent || 0));
-        const relIndex = values[0];
-        const relId = relIdsByIndex[relIndex];
-        const path = imageTargetsById.get(relId);
-        if (!path) return;
-
-        const extension = (path.split('.').pop() || 'png').toLowerCase().replace('jpg', 'jpeg');
-        result.set(metadataIndex, {
-            path,
-            extension,
-            contentType: `image/${extension}`
-        });
-    });
-
-    return result;
 }
 
 function normalizarCaminhoZip(path) {

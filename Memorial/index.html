@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Memorial Descritivo Elétrico</title>
+    <link rel="icon" href="/images/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
+    <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
+    <link rel="stylesheet" href="/Memorial/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.1/dist/pizzip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.42.4/build/docxtemplater.js"></script>
+</head>
+<body>
+    <div id="theme-selector" class="theme-selector">
+        <div class="theme-selector-content">
+            <div class="theme-logo">Gerador de Memorial Descritivo Elétrico</div>
+            <div class="theme-controls">
+                <label class="theme-switch">
+                    <input type="checkbox" id="theme-toggle">
+                    <span class="theme-slider">
+                        <span class="theme-icon sun">☀️</span>
+                        <span class="theme-icon moon">🌙</span>
+                    </span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-file-word"></i>
+                <div>
+                    <h1>Gerador de Memorial Descritivo Elétrico</h1>
+                    <p class="subtitle">Preencha os dados e gere o template MEM-DESCRITIVO-ELÉTRICO em Word</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <aside class="sidebar">
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-file-word"></i> Documento Word</h3>
+                    <ul id="template-list">
+                        <li><i class="fas fa-check-circle"></i> MEM-DESCRITIVO-ELÉTRICO (.docx)</li>
+                    </ul>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-lightbulb"></i> Dica Importante</h3>
+                    <div class="tip">
+                        <p><strong>Formatação Word:</strong> O documento gerado mantém a formatação original do template, incluindo:</p>
+                        <ul>
+                            <li>Estilos de fonte e parágrafo</li>
+                            <li>Tabelas e formatação</li>
+                            <li>Marcadores e numeração</li>
+                            <li>Cabeçalhos e rodapés</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-download"></i> Template</h3>
+                    <p>Template utilizado: <code>/Memorial/templates/MEM-DESCRITIVO-ELÉTRICO.docx</code></p>
+                    <div class="template-status" id="template-status">
+                        <p><i class="fas fa-sync fa-spin"></i> Verificando template...</p>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="content">
+                <form id="document-form">
+                    <section class="form-section">
+                        <h2><i class="fas fa-pencil-alt"></i> Dados Gerais</h2>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="numero_art"><i class="fas fa-file-signature"></i> NÚMERO DA ART *</label>
+                                <input type="text" id="numero_art" placeholder="Ex: RR20260000000" required>
+                                <small>Substituirá [YYYY]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="responsavel"><i class="fas fa-user-tie"></i> NOME DA SECRETÁRIA OU PROPRIETÁRIO *</label>
+                                <input type="text" id="responsavel" placeholder="Ex: Secretaria Municipal de Obras" required>
+                                <small>Substituirá [MMMM]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="nome_projeto"><i class="fas fa-folder-open"></i> NOME DO PROJETO *</label>
+                                <input type="text" id="nome_projeto" placeholder="Ex: Reforma da Unidade Básica de Saúde" required>
+                                <small>Substituirá [HHHH]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="mes_atual"><i class="fas fa-calendar-alt"></i> MÊS ATUAL *</label>
+                                <input type="text" id="mes_atual" readonly required>
+                                <small>Substituirá [MES_ATUAL]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="ano_atual"><i class="fas fa-calendar"></i> ANO ATUAL *</label>
+                                <input type="text" id="ano_atual" readonly required>
+                                <small>Substituirá [ANO_ATUAL]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="tensao_secundaria"><i class="fas fa-plug"></i> TENSÃO SECUNDÁRIA *</label>
+                                <input type="text" id="tensao_secundaria" placeholder="Ex: 380/220 V" required>
+                                <small>Substituirá [DDDD]</small>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="form-section">
+                        <h2><i class="fas fa-hard-hat"></i> Responsável Técnico</h2>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="engenheiro"><i class="fas fa-user-cog"></i> NOME DO ENGENHEIRO *</label>
+                                <input type="text" id="engenheiro" placeholder="Ex: Rodrigo Damasceno Nascimento" required>
+                                <small>Substituirá [XXYY]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="crea"><i class="fas fa-id-card"></i> NÚMERO DO CREA *</label>
+                                <input type="text" id="crea" placeholder="Ex: 0920192912" required>
+                                <small>Substituirá [AAAA]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="email"><i class="fas fa-envelope"></i> E-MAIL *</label>
+                                <input type="email" id="email" placeholder="Ex: email@dominio.com" required>
+                                <small>Substituirá [BBBB]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="telefone"><i class="fas fa-phone"></i> NÚMERO DO TELEFONE COM DDD *</label>
+                                <input type="text" id="telefone" placeholder="Ex: (95) 99146-6367" required>
+                                <small>Substituirá [CCCC]</small>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="form-section">
+                        <h2><i class="fas fa-lightbulb"></i> Circuito de Iluminação</h2>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="isolamento_iluminacao"><i class="fas fa-bolt"></i> TENSÃO DE ISOLAMENTO ILUMINAÇÃO *</label>
+                                <input type="text" id="isolamento_iluminacao" placeholder="Ex: 750 V" required>
+                                <small>Substituirá [EEEE]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="bitola_iluminacao"><i class="fas fa-ruler"></i> BITOLA DO CABO EM mm² ILUMINAÇÃO *</label>
+                                <input type="text" id="bitola_iluminacao" placeholder="Ex: 2,5" required>
+                                <small>Substituirá [FFFF]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="isolacao_iluminacao"><i class="fas fa-shield-alt"></i> TIPO DE ISOLAÇÃO ILUMINAÇÃO *</label>
+                                <select id="isolacao_iluminacao" required>
+                                    <option value="" disabled selected>Selecione</option>
+                                    <option value="PVC">PVC</option>
+                                    <option value="XLPE/EPR">XLPE/EPR</option>
+                                </select>
+                                <small>Substituirá [GGGG]</small>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="form-section">
+                        <h2><i class="fas fa-plug"></i> Circuito de Tomadas</h2>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="isolamento_tomadas"><i class="fas fa-bolt"></i> TENSÃO DE ISOLAMENTO TOMADAS *</label>
+                                <input type="text" id="isolamento_tomadas" placeholder="Ex: 750 V" required>
+                                <small>Substituirá [EEEA]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="bitola_tomadas"><i class="fas fa-ruler"></i> BITOLA DO CABO EM mm² TOMADAS *</label>
+                                <input type="text" id="bitola_tomadas" placeholder="Ex: 2,5" required>
+                                <small>Substituirá [FFFA]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="isolacao_tomadas"><i class="fas fa-shield-alt"></i> TIPO DE ISOLAÇÃO TOMADAS *</label>
+                                <select id="isolacao_tomadas" required>
+                                    <option value="" disabled selected>Selecione</option>
+                                    <option value="PVC">PVC</option>
+                                    <option value="XLPE/EPR">XLPE/EPR</option>
+                                </select>
+                                <small>Substituirá [GGGA]</small>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="form-section">
+                        <h2><i class="fas fa-wind"></i> Circuito de Climatização</h2>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="isolamento_climatizacao"><i class="fas fa-bolt"></i> TENSÃO DE ISOLAMENTO CLIMATIZAÇÃO *</label>
+                                <input type="text" id="isolamento_climatizacao" placeholder="Ex: 750 V" required>
+                                <small>Substituirá [EEEB]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="bitola_climatizacao"><i class="fas fa-ruler"></i> BITOLA DO CABO EM mm² CLIMATIZAÇÃO *</label>
+                                <input type="text" id="bitola_climatizacao" placeholder="Ex: 4" required>
+                                <small>Substituirá [FFFB]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="isolacao_climatizacao"><i class="fas fa-shield-alt"></i> TIPO DE ISOLAÇÃO CLIMATIZAÇÃO *</label>
+                                <select id="isolacao_climatizacao" required>
+                                    <option value="" disabled selected>Selecione</option>
+                                    <option value="PVC">PVC</option>
+                                    <option value="XLPE/EPR">XLPE/EPR</option>
+                                </select>
+                                <small>Substituirá [GGGB]</small>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="form-section">
+                        <h2><i class="fas fa-fan"></i> Circuito de Exaustão</h2>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="isolamento_exaustao"><i class="fas fa-bolt"></i> TENSÃO DE ISOLAMENTO EXAUSTÃO *</label>
+                                <input type="text" id="isolamento_exaustao" placeholder="Ex: 750 V" required>
+                                <small>Substituirá [EEEC]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="bitola_exaustao"><i class="fas fa-ruler"></i> BITOLA DO CABO EM mm² EXAUSTÃO *</label>
+                                <input type="text" id="bitola_exaustao" placeholder="Ex: 2,5" required>
+                                <small>Substituirá [FFFC]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="isolacao_exaustao"><i class="fas fa-shield-alt"></i> TIPO DE ISOLAÇÃO EXAUSTÃO *</label>
+                                <select id="isolacao_exaustao" required>
+                                    <option value="" disabled selected>Selecione</option>
+                                    <option value="PVC">PVC</option>
+                                    <option value="XLPE/EPR">XLPE/EPR</option>
+                                </select>
+                                <small>Substituirá [GGGC]</small>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="form-section">
+                        <h2><i class="fas fa-exclamation-triangle"></i> Circuito de Emergência</h2>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="isolamento_emergencia"><i class="fas fa-bolt"></i> TENSÃO DE ISOLAMENTO EMERGÊNCIA *</label>
+                                <input type="text" id="isolamento_emergencia" placeholder="Ex: 750 V" required>
+                                <small>Substituirá [EEED]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="bitola_emergencia"><i class="fas fa-ruler"></i> BITOLA DO CABO EM mm² EMERGÊNCIA *</label>
+                                <input type="text" id="bitola_emergencia" placeholder="Ex: 2,5" required>
+                                <small>Substituirá [FFFD]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="isolacao_emergencia"><i class="fas fa-shield-alt"></i> TIPO DE ISOLAÇÃO EMERGÊNCIA *</label>
+                                <select id="isolacao_emergencia" required>
+                                    <option value="" disabled selected>Selecione</option>
+                                    <option value="PVC">PVC</option>
+                                    <option value="XLPE/EPR">XLPE/EPR</option>
+                                </select>
+                                <small>Substituirá [GGGD]</small>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="form-section">
+                        <h2><i class="fas fa-file-contract"></i> Opções de Geração</h2>
+                        <div class="options-grid">
+                            <div class="option-item">
+                                <input type="checkbox" id="gerar_memorial_eletrico" checked>
+                                <label for="gerar_memorial_eletrico">
+                                    <i class="fas fa-file-alt"></i> MEM-DESCRITIVO-ELÉTRICO
+                                </label>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-generate" id="generate-btn">
+                            <i class="fas fa-file-word"></i> Gerar Documento Word
+                        </button>
+                        <button type="button" id="reset-btn" class="btn-reset">
+                            <i class="fas fa-redo"></i> Limpar Formulário
+                        </button>
+                        <div class="loading hidden" id="loading">
+                            <i class="fas fa-spinner fa-spin"></i> Processando documento...
+                        </div>
+                    </div>
+                </form>
+
+                <div id="results-section" class="hidden">
+                    <section class="results-section">
+                        <h2><i class="fas fa-download"></i> Documento Word Gerado</h2>
+                        <div class="success-message" id="success-message">
+                            <i class="fas fa-check-circle"></i>
+                            <div>
+                                <p><strong>Sucesso!</strong> Documento gerado com formatação Word completa.</p>
+                                <p class="success-detail">O arquivo está pronto para download e edição no Microsoft Word.</p>
+                            </div>
+                        </div>
+
+                        <div class="documents-grid" id="documents-container"></div>
+
+                        <div class="download-options">
+                            <h3><i class="fas fa-file-archive"></i> Download</h3>
+                            <p>Baixe o memorial gerado ou copie o resumo dos dados utilizados.</p>
+                            <button id="download-all-btn" class="btn-download-all">
+                                <i class="fas fa-file-archive"></i> Baixar ZIP
+                            </button>
+                            <button id="download-individual-btn" class="btn-download-individual">
+                                <i class="fas fa-folder-open"></i> Abrir Pasta de Downloads
+                            </button>
+                        </div>
+
+                        <div class="data-summary">
+                            <h3><i class="fas fa-clipboard-check"></i> Dados Utilizados</h3>
+                            <div class="summary-content">
+                                <div id="data-summary-content"></div>
+                                <button id="copy-data-btn" class="btn-copy">
+                                    <i class="fas fa-copy"></i> Copiar Dados
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+
+        <footer class="footer">
+            <p><i class="fas fa-copyright"></i> Sistema de Geração de Memorial Descritivo Elétrico</p>
+            <p class="footer-info">Documento gerado com formatação completa do Microsoft Word</p>
+        </footer>
+    </div>
+
+    <script src="/Memorial/script.js"></script>
+</body>
+</html>

@@ -528,7 +528,7 @@ async function inserirMateriaisTomadaNoDocumento(zip, materiaisSelecionados) {
     let documentXml = lerArquivoZipComoTexto(documentFile);
     if (!documentXml.includes(TOMADAS_PLACEHOLDER)) return;
 
-    let relsXml = relsFile.asText();
+    let relsXml = lerArquivoZipComoTexto(relsFile);
     let contentTypesXml = lerContentTypes(zip);
     let nextRelationId = obterProximoRelationId(relsXml);
     let nextDocPrId = obterProximoDocPrId(documentXml);
@@ -542,14 +542,17 @@ async function inserirMateriaisTomadaNoDocumento(zip, materiaisSelecionados) {
         paragraphXmlList.push(criarParagrafoTexto(material.descricao, { firstLine: true, justify: true }));
 
         if (material.imageData) {
-            const imageExtension = normalizarExtensaoImagem(material.imageExtension);
-            const imageFileName = `memorial_tomada_${index + 1}.${imageExtension}`;
+            const imageType = detectarTipoImagem(material.imageData, material.imageExtension);
+            const imageFileName = `memorial_tomada_${index + 1}.${imageType.extension}`;
             const relationId = `rId${nextRelationId++}`;
             const docPrId = nextDocPrId++;
 
-            zip.file(`word/media/${imageFileName}`, converterImagemParaArrayBuffer(material.imageData));
+            zip.file(`word/media/${imageFileName}`, converterImagemParaUint8Array(material.imageData), {
+                binary: true,
+                createFolders: true
+            });
             relsXml = adicionarRelacionamentoImagem(relsXml, relationId, imageFileName);
-            contentTypesXml = garantirContentTypeImagem(contentTypesXml, imageExtension, material.imageContentType);
+            contentTypesXml = garantirContentTypeImagem(contentTypesXml, imageType.extension, imageType.contentType);
             paragraphXmlList.push(criarParagrafoImagem(relationId, material.nomeImagem || material.nome, docPrId));
         } else {
             paragraphXmlList.push(criarParagrafoTexto('Imagem não encontrada na base de dados.', { center: true, italic: true }));
@@ -584,10 +587,41 @@ function normalizarExtensaoImagem(extension) {
     return normalized === 'jpg' ? 'jpeg' : normalized;
 }
 
-function converterImagemParaArrayBuffer(imageData) {
-    if (imageData instanceof ArrayBuffer) return imageData;
+function detectarTipoImagem(imageData, fallbackExtension = 'png') {
+    const bytes = converterImagemParaUint8Array(imageData);
+    const fallback = normalizarExtensaoImagem(fallbackExtension);
+
+    if (!bytes || bytes.length < 4) {
+        return { extension: fallback, contentType: obterContentTypeImagem(fallback) };
+    }
+
+    if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+        return { extension: 'png', contentType: 'image/png' };
+    }
+
+    if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+        return { extension: 'jpeg', contentType: 'image/jpeg' };
+    }
+
+    if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) {
+        return { extension: 'gif', contentType: 'image/gif' };
+    }
+
+    return { extension: fallback, contentType: obterContentTypeImagem(fallback) };
+}
+
+function obterContentTypeImagem(extension) {
+    const normalized = normalizarExtensaoImagem(extension);
+    if (normalized === 'jpeg') return 'image/jpeg';
+    if (normalized === 'svg') return 'image/svg+xml';
+    return `image/${normalized}`;
+}
+
+function converterImagemParaUint8Array(imageData) {
+    if (imageData instanceof Uint8Array) return imageData;
+    if (imageData instanceof ArrayBuffer) return new Uint8Array(imageData);
     if (ArrayBuffer.isView(imageData)) {
-        return imageData.buffer.slice(imageData.byteOffset, imageData.byteOffset + imageData.byteLength);
+        return new Uint8Array(imageData.buffer, imageData.byteOffset, imageData.byteLength);
     }
     return imageData;
 }

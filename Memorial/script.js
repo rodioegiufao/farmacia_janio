@@ -33,18 +33,17 @@ document.addEventListener('DOMContentLoaded', function() {
     carregarMateriaisTomada();
 });
 
-function setupDefaultDatePlaceholders() {
+function obterDataAtualDocumento() {
     const hoje = new Date();
-    const mesAtual = MESES_PT_BR[hoje.getMonth()].toUpperCase();
-    const anoAtual = hoje.getFullYear().toString();
-    const mesAtualInput = document.getElementById('mes_atual');
-    const anoAtualInput = document.getElementById('ano_atual');
 
-    if (mesAtualInput) mesAtualInput.value = mesAtual;
-    if (anoAtualInput) anoAtualInput.value = anoAtual;
+    return {
+        MES_ATUAL: MESES_PT_BR[hoje.getMonth()].toUpperCase(),
+        ANO_ATUAL: hoje.getFullYear().toString()
+    };
+}
 
-    dadosProcessados.MES_ATUAL = mesAtual;
-    dadosProcessados.ANO_ATUAL = anoAtual;
+function setupDefaultDatePlaceholders() {
+    Object.assign(dadosProcessados, obterDataAtualDocumento());
 }
 
 async function checkTemplate() {
@@ -112,8 +111,12 @@ function atualizarTensoesIsolamentoAutomaticas() {
     });
 }
 
+function obterTensaoIsolamentoPorTipo(tipoIsolacao) {
+    return TENSAO_ISOLAMENTO_POR_ISOLACAO[tipoIsolacao] || '';
+}
+
 function updateIsolationVoltage(isolacao, isolamento) {
-    isolamento.value = TENSAO_ISOLAMENTO_POR_ISOLACAO[isolacao.value] || '';
+    isolamento.value = obterTensaoIsolamentoPorTipo(isolacao.value);
 }
 
 async function carregarMateriaisTomada() {
@@ -383,14 +386,11 @@ function validarFormulario() {
         'numero_art',
         'responsavel',
         'nome_projeto',
-        'mes_atual',
-        'ano_atual',
         'tensao_secundaria',
         'engenheiro',
         'crea',
         'email',
         'telefone',
-        'isolamento_iluminacao',
         'bitola_iluminacao',
         'isolacao_iluminacao',
         'isolamento_tomadas',
@@ -427,17 +427,18 @@ function validarFormulario() {
 
 function coletarDadosFormulario() {
     const tomadasSelecionadas = obterMateriaisTomadaSelecionados();
+    const dataAtualDocumento = obterDataAtualDocumento();
     const dados = {
         YYYY: getValue('numero_art'),
         MMMM: getValue('responsavel'),
-        MES_ATUAL: getValue('mes_atual'),
-        ANO_ATUAL: getValue('ano_atual'),
+        MES_ATUAL: dataAtualDocumento.MES_ATUAL,
+        ANO_ATUAL: dataAtualDocumento.ANO_ATUAL,
         XXYY: getValue('engenheiro'),
         AAAA: getValue('crea'),
         BBBB: getValue('email'),
         CCCC: getValue('telefone'),
         DDDD: getValue('tensao_secundaria'),
-        EEEE: getValue('isolamento_iluminacao'),
+        EEEE: obterTensaoIsolamentoPorTipo(getValue('isolacao_iluminacao')),
         FFFF: getValue('bitola_iluminacao'),
         GGGG: getValue('isolacao_iluminacao'),
         EEEA: getValue('isolamento_tomadas'),

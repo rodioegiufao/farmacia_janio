@@ -57,7 +57,7 @@ async function checkTemplate() {
             statusElement.innerHTML = `
                 <p><i class="fas fa-check-circle" style="color: #27ae60;"></i>
                 Template encontrado!</p>
-                <small>Pronto para gerar o memorial em Word</small>
+                <small>Pronto para gerar o memorial em Word ou PDF</small>
             `;
         } else {
             statusElement.innerHTML = `
@@ -491,6 +491,7 @@ async function gerarDocumentoWord(dados) {
     documentosGerados.push({
         nome: 'Memorial Descritivo Elétrico',
         nomeArquivo: `${TEMPLATE_NAME} - ${nomeProjeto}.docx`,
+        nomeArquivoPdf: `${TEMPLATE_NAME} - ${nomeProjeto}.pdf`,
         conteudo: docxContent,
         tipo: 'memorial_descritivo_eletrico'
     });
@@ -710,11 +711,15 @@ function exibirResultados() {
         docElement.className = 'document-card';
         docElement.innerHTML = `
             <h4><i class="fas fa-file-word"></i> ${doc.nome}</h4>
-            <p>Arquivo: <strong>${doc.nomeArquivo}</strong></p>
-            <p>Formato: Microsoft Word (.docx)</p>
+            <p>Arquivo Word: <strong>${doc.nomeArquivo}</strong></p>
+            <p>Arquivo PDF: <strong>${doc.nomeArquivoPdf}</strong></p>
+            <p>Formatos disponíveis: Microsoft Word (.docx) ou PDF (.pdf)</p>
             <div class="document-buttons">
                 <button class="btn-download" onclick="baixarDocumentoWord(${index})">
                     <i class="fas fa-download"></i> Baixar Word
+                </button>
+                <button class="btn-download-pdf" onclick="baixarDocumentoPdf(${index})">
+                    <i class="fas fa-file-pdf"></i> Baixar PDF
                 </button>
                 <button class="btn-preview" onclick="visualizarDocumento(${index})">
                     <i class="fas fa-eye"></i> Visualizar
@@ -748,6 +753,51 @@ function baixarDocumentoWord(index) {
 
     setTimeout(() => URL.revokeObjectURL(url), 100);
     showDownloadFeedback(doc.nome);
+}
+
+async function baixarDocumentoPdf(index) {
+    const doc = documentosGerados[index];
+    if (!doc) return;
+
+    if (!window.docx?.renderAsync || !window.html2pdf) {
+        alert('Não foi possível carregar as bibliotecas de PDF. Verifique sua conexão e tente novamente.');
+        return;
+    }
+
+    const renderContainer = document.createElement('div');
+    renderContainer.className = 'pdf-render-container';
+    document.body.appendChild(renderContainer);
+
+    try {
+        await window.docx.renderAsync(doc.conteudo.slice(0), renderContainer, null, {
+            className: 'docx-preview',
+            inWrapper: true,
+            ignoreWidth: false,
+            ignoreHeight: false,
+            ignoreFonts: false,
+            breakPages: true,
+            useBase64URL: true
+        });
+
+        await window.html2pdf()
+            .set({
+                margin: 0,
+                filename: doc.nomeArquivoPdf,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, logging: false },
+                jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] }
+            })
+            .from(renderContainer)
+            .save();
+
+        showDownloadFeedback(`${doc.nome} em PDF`);
+    } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+        alert('Erro ao gerar PDF. Você ainda pode baixar o arquivo em Word.');
+    } finally {
+        renderContainer.remove();
+    }
 }
 
 function baixarTodosDocumentos() {
@@ -817,7 +867,7 @@ function showLoading(show) {
     } else {
         loading.classList.add('hidden');
         generateBtn.disabled = false;
-        generateBtn.innerHTML = '<i class="fas fa-file-word"></i> Gerar Documento Word';
+        generateBtn.innerHTML = '<i class="fas fa-file-export"></i> Gerar Documento';
     }
 }
 

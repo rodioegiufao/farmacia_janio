@@ -13,6 +13,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.1/dist/pizzip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.42.4/build/docxtemplater.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.6/dist/docx-preview.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
     <div id="theme-selector" class="theme-selector">
@@ -36,7 +38,7 @@
                 <i class="fas fa-file-word"></i>
                 <div>
                     <h1>Gerador de Memorial Descritivo Elétrico</h1>
-                    <p class="subtitle">Preencha os dados e gere o template MEM-DESCRITIVO-ELÉTRICO em Word</p>
+                    <p class="subtitle">Preencha os dados e gere o template MEM-DESCRITIVO-ELÉTRICO em Word ou PDF</p>
                 </div>
             </div>
         </header>
@@ -282,7 +284,7 @@
 
                     <div class="form-actions">
                         <button type="submit" class="btn-generate" id="generate-btn">
-                            <i class="fas fa-file-word"></i> Gerar Documento Word
+                            <i class="fas fa-file-export"></i> Gerar Documento
                         </button>
                         <button type="button" id="reset-btn" class="btn-reset">
                             <i class="fas fa-redo"></i> Limpar Formulário
@@ -295,12 +297,12 @@
 
                 <div id="results-section" class="hidden">
                     <section class="results-section">
-                        <h2><i class="fas fa-download"></i> Documento Word Gerado</h2>
+                        <h2><i class="fas fa-download"></i> Memorial Gerado</h2>
                         <div class="success-message" id="success-message">
                             <i class="fas fa-check-circle"></i>
                             <div>
-                                <p><strong>Sucesso!</strong> Documento gerado com formatação Word completa.</p>
-                                <p class="success-detail">O arquivo está pronto para download e edição no Microsoft Word.</p>
+                                <p><strong>Sucesso!</strong> Documento gerado com opções em Word e PDF.</p>
+                                <p class="success-detail">Baixe em Word para edição ou em PDF para compartilhamento.</p>
                             </div>
                         </div>
 
@@ -308,9 +310,9 @@
 
                         <div class="download-options">
                             <h3><i class="fas fa-file-archive"></i> Download</h3>
-                            <p>Baixe o memorial gerado ou copie o resumo dos dados utilizados.</p>
+                            <p>Baixe o memorial gerado em Word, PDF ou copie o resumo dos dados utilizados.</p>
                             <button id="download-all-btn" class="btn-download-all">
-                                <i class="fas fa-file-archive"></i> Baixar ZIP
+                                <i class="fas fa-file-archive"></i> Baixar ZIP Word
                             </button>
                             <button id="download-individual-btn" class="btn-download-individual">
                                 <i class="fas fa-folder-open"></i> Abrir Pasta de Downloads

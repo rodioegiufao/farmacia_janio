@@ -579,10 +579,12 @@ body {
 
 .document-buttons {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
 }
 
 .btn-download,
+.btn-download-pdf,
 .btn-preview {
     padding: 12px 20px;
     border: none;
@@ -605,6 +607,16 @@ body {
 
 .btn-download:hover {
     background: linear-gradient(135deg, #219653 0%, #1e7e34 100%);
+    transform: translateY(-2px);
+}
+
+.btn-download-pdf {
+    background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+    color: white;
+}
+
+.btn-download-pdf:hover {
+    background: linear-gradient(135deg, #c53030 0%, #9b2c2c 100%);
     transform: translateY(-2px);
 }
 
@@ -671,6 +683,16 @@ body {
 .btn-download-individual:hover {
     background: linear-gradient(135deg, #2c5aa0 0%, #244b86 100%);
     transform: translateY(-3px);
+}
+
+.pdf-render-container {
+    position: fixed;
+    left: -99999px;
+    top: 0;
+    width: 794px;
+    background: white;
+    color: #000;
+    z-index: -1;
 }
 
 /* Resumo de dados */

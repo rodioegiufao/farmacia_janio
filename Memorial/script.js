@@ -1,7 +1,5 @@
 const TEMPLATE_URL = '/Memorial/templates/MEM-DESCRITIVO-ELÉTRICO.docx';
 const TEMPLATE_NAME = 'MEM-DESCRITIVO-ELÉTRICO';
-const TOMADAS_IMAGE_FOLDER_URL = '/Memorial/imagens/';
-const TOMADAS_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
 const MEMORIAL_DATABASE_URL = '/Memorial/base_de_dados_memorial.xlsx';
 const TOMADAS_PLACEHOLDER = '__MEMORIAL_TOMADAS_SELECIONADAS__';
 const ELETROCALHAS_PLACEHOLDER = '__MEMORIAL_ELETROCALHAS_SELECIONADAS__';
@@ -177,6 +175,7 @@ async function carregarMateriaisDaPlanilha(sheetName, idPrefix) {
     const parser = new DOMParser();
     const sharedStrings = await lerSharedStrings(workbookZip, parser);
     const sheetPath = await obterCaminhoDaPlanilha(workbookZip, parser, sheetName);
+    const imageMap = await criarMapaImagensRichData(workbookZip, parser);
     const sheetXml = await workbookZip.file(sheetPath).async('text');
     const sheetDoc = parser.parseFromString(sheetXml, 'application/xml');
     const rows = Array.from(sheetDoc.getElementsByTagNameNS('*', 'row'));
@@ -198,7 +197,7 @@ async function carregarMateriaisDaPlanilha(sheetName, idPrefix) {
 
         const descricao = lerValorCelula(cellsByColumn.B, sharedStrings).trim();
         const nomeImagem = lerValorCelula(cellsByColumn.D, sharedStrings).trim();
-        const imagem = await carregarImagemTomadaDaPasta({ nome, descricao, nomeImagem });
+        const imagem = await carregarImagemDaColunaC(workbookZip, imageMap, cellsByColumn.C);
 
         materiais.push({
             id: `${idPrefix}-${rowNumber}`,
@@ -216,58 +215,62 @@ async function carregarMateriaisDaPlanilha(sheetName, idPrefix) {
     return materiais;
 }
 
-async function carregarImagemTomadaDaPasta(material) {
-    const nomesBase = [material.nome, material.nomeImagem, material.descricao]
-        .map((value) => String(value || '').trim())
-        .filter(Boolean);
-    const candidatos = criarCandidatosImagemTomada(nomesBase);
+async function carregarImagemDaColunaC(workbookZip, imageMap, cell) {
+    const vm = Number(cell?.getAttribute('vm'));
+    if (!vm || !imageMap.has(vm)) return null;
 
-    for (const candidato of candidatos) {
-        const url = `${TOMADAS_IMAGE_FOLDER_URL}${encodeURIComponent(candidato.fileName)}`;
-        try {
-            const response = await fetch(url);
-            if (!response.ok) continue;
+    const imagePath = imageMap.get(vm);
+    const imageFile = workbookZip.file(imagePath);
+    if (!imageFile) return null;
 
-            const data = new Uint8Array(await response.arrayBuffer());
-            return {
-                data,
-                path: url,
-                extension: candidato.extension,
-                contentType: response.headers.get('content-type') || obterContentTypeImagem(candidato.extension)
-            };
-        } catch (error) {
-            console.warn(`Não foi possível carregar a imagem de tomada: ${candidato.fileName}`, error);
-        }
-    }
+    const extension = normalizarExtensaoImagem(imagePath.split('.').pop() || 'png');
+    const data = await imageFile.async('uint8array');
 
-    return null;
+    return {
+        data,
+        path: imagePath,
+        extension,
+        contentType: obterContentTypeImagem(extension)
+    };
 }
 
-function criarCandidatosImagemTomada(nomesBase) {
-    const candidatos = [];
-    const adicionados = new Set();
+async function criarMapaImagensRichData(workbookZip, parser) {
+    const richValuesFile = workbookZip.file('xl/richData/rdrichvalue.xml');
+    const richValueRelsFile = workbookZip.file('xl/richData/richValueRel.xml');
+    const richValueRelationshipsFile = workbookZip.file('xl/richData/_rels/richValueRel.xml.rels');
 
-    nomesBase.forEach((nomeBase) => {
-        const nomeLimpo = nomeBase.replace(/[\\/]+/g, '-').trim();
-        if (!nomeLimpo) return;
+    if (!richValuesFile || !richValueRelsFile || !richValueRelationshipsFile) return new Map();
+    const [richValuesXml, richValueRelsXml, richValueRelationshipsXml] = await Promise.all([
+        richValuesFile.async('text'),
+        richValueRelsFile.async('text'),
+        richValueRelationshipsFile.async('text')
+    ]);
 
-        const extensaoInformada = nomeLimpo.match(/\.([a-z0-9]+)$/i)?.[1];
-        const extensoes = extensaoInformada ? [extensaoInformada] : TOMADAS_IMAGE_EXTENSIONS;
-        const nomeSemExtensao = extensaoInformada ? nomeLimpo.replace(/\.[a-z0-9]+$/i, '') : nomeLimpo;
+    const richValuesDoc = parser.parseFromString(richValuesXml, 'application/xml');
+    const richValueRelsDoc = parser.parseFromString(richValueRelsXml, 'application/xml');
+    const richValueRelationshipsDoc = parser.parseFromString(richValueRelationshipsXml, 'application/xml');
 
-        extensoes.forEach((extension) => {
-            const normalizedExtension = normalizarExtensaoImagem(extension);
-            const fileExtension = normalizedExtension === 'jpeg' ? 'jpg' : normalizedExtension;
-            const fileName = `${nomeSemExtensao}.${fileExtension}`;
-            const key = fileName.toLowerCase();
-            if (adicionados.has(key)) return;
+    const relIdsPorIndice = Array.from(richValueRelsDoc.getElementsByTagNameNS('*', 'rel'))
+        .map((rel) => rel.getAttribute('r:id') || rel.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id'));
 
-            adicionados.add(key);
-            candidatos.push({ fileName, extension: normalizedExtension });
-        });
-    });
+    const relationshipTargets = Array.from(richValueRelationshipsDoc.getElementsByTagNameNS('*', 'Relationship'))
+        .reduce((map, relationship) => {
+            map[relationship.getAttribute('Id')] = relationship.getAttribute('Target');
+            return map;
+        }, {});
 
-    return candidatos;
+    return Array.from(richValuesDoc.getElementsByTagNameNS('*', 'rv')).reduce((map, richValue, index) => {
+        const valores = Array.from(richValue.getElementsByTagNameNS('*', 'v'));
+        const relIndex = Number(valores[0]?.textContent);
+        const relId = relIdsPorIndice[relIndex];
+        const target = relationshipTargets[relId];
+
+        if (target) {
+            map.set(index + 1, normalizarCaminhoZip(`xl/richData/${target}`));
+        }
+
+        return map;
+    }, new Map());
 }
 
 async function lerSharedStrings(workbookZip, parser) {
@@ -585,14 +588,14 @@ async function processarTemplateWord(arrayBuffer, dados) {
             placeholder: TOMADAS_PLACEHOLDER,
             emptyMessage: 'Nenhum material de tomada selecionado.',
             imageFilePrefix: 'memorial_tomada',
-            missingImageMessage: 'Imagem não encontrada na base de dados.',
+            missingImageMessage: 'Imagem não encontrada na coluna C da planilha.',
             defaultAltText: 'Imagem de tomada'
         });
         await inserirMateriaisNoDocumento(renderedZip, dados.__eletrocalhasSelecionadas || [], {
             placeholder: ELETROCALHAS_PLACEHOLDER,
             emptyMessage: 'Nenhum material de eletrocalha selecionado.',
             imageFilePrefix: 'memorial_eletrocalha',
-            missingImageMessage: 'Imagem não encontrada na base de dados.',
+            missingImageMessage: 'Imagem não encontrada na coluna C da planilha.',
             defaultAltText: 'Imagem de eletrocalha'
         });
 

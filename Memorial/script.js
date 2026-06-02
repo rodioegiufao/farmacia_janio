@@ -3,6 +3,7 @@ const TEMPLATE_NAME = 'MEM-DESCRITIVO-ELÉTRICO';
 const MEMORIAL_DATABASE_URL = '/Memorial/base_de_dados_memorial.xlsx';
 const TOMADAS_PLACEHOLDER = '__MEMORIAL_TOMADAS_SELECIONADAS__';
 const ELETROCALHAS_PLACEHOLDER = '__MEMORIAL_ELETROCALHAS_SELECIONADAS__';
+const ILUMINACAO_PLACEHOLDER = '__MEMORIAL_ILUMINACAO_SELECIONADA__';
 
 const MESES_PT_BR = [
     'janeiro',
@@ -23,6 +24,7 @@ let documentosGerados = [];
 let dadosProcessados = {};
 let materiaisTomada = [];
 let materiaisEletrocalha = [];
+let materiaisIluminacao = [];
 
 document.addEventListener('DOMContentLoaded', function() {
     initThemeSelector();
@@ -32,6 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupAutomaticIsolationVoltages();
     carregarMateriaisTomada();
     carregarMateriaisEletrocalha();
+    carregarMateriaisIluminacao();
 });
 
 function obterDataAtualDocumento() {
@@ -156,12 +159,34 @@ async function carregarMateriaisEletrocalha() {
     }
 }
 
+async function carregarMateriaisIluminacao() {
+    const container = document.getElementById('iluminacao-material-options');
+    if (!container) return;
+
+    try {
+        materiaisIluminacao = await carregarMateriaisDaPlanilhaIluminacao();
+        renderizarOpcoesMateriaisIluminacao();
+    } catch (error) {
+        console.error('Erro ao carregar materiais de iluminação:', error);
+        container.innerHTML = `
+            <p class="material-options-status">
+                <i class="fas fa-exclamation-triangle"></i>
+                Não foi possível carregar a base de iluminação. Verifique o arquivo base_de_dados_memorial.xlsx.
+            </p>
+        `;
+    }
+}
+
 async function carregarMateriaisDaPlanilhaTomada() {
     return carregarMateriaisDaPlanilha('tomada', 'tomada');
 }
 
 async function carregarMateriaisDaPlanilhaEletrocalha() {
     return carregarMateriaisDaPlanilha('eletrocalha', 'eletrocalha');
+}
+
+async function carregarMateriaisDaPlanilhaIluminacao() {
+    return carregarMateriaisDaPlanilha('iluminacao', 'iluminacao');
 }
 
 async function carregarMateriaisDaPlanilha(sheetName, idPrefix) {
@@ -340,6 +365,15 @@ function renderizarOpcoesMateriaisEletrocalha() {
     });
 }
 
+function renderizarOpcoesMateriaisIluminacao() {
+    renderizarOpcoesMateriais({
+        containerId: 'iluminacao-material-options',
+        inputName: 'materiais_iluminacao',
+        materiais: materiaisIluminacao,
+        emptyMessage: 'Nenhum material encontrado na aba iluminacao.'
+    });
+}
+
 function renderizarOpcoesMateriais({ containerId, inputName, materiais, emptyMessage }) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -366,6 +400,10 @@ function obterMateriaisTomadaSelecionados() {
 
 function obterMateriaisEletrocalhaSelecionados() {
     return obterMateriaisSelecionados('materiais_eletrocalha', materiaisEletrocalha);
+}
+
+function obterMateriaisIluminacaoSelecionados() {
+    return obterMateriaisSelecionados('materiais_iluminacao', materiaisIluminacao);
 }
 
 function obterMateriaisSelecionados(inputName, materiais) {
@@ -477,6 +515,12 @@ function validarFormulario() {
         return false;
     }
 
+    if (!obterMateriaisIluminacaoSelecionados().length) {
+        alert('Por favor, selecione pelo menos um material de iluminação.');
+        document.getElementById('iluminacao-material-options')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return false;
+    }
+
     if (!obterMateriaisEletrocalhaSelecionados().length) {
         alert('Por favor, selecione pelo menos um material de eletrocalha.');
         document.getElementById('eletrocalhas-material-options')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -489,6 +533,7 @@ function validarFormulario() {
 function coletarDadosFormulario() {
     const tomadasSelecionadas = obterMateriaisTomadaSelecionados();
     const eletrocalhasSelecionadas = obterMateriaisEletrocalhaSelecionados();
+    const iluminacaoSelecionada = obterMateriaisIluminacaoSelecionados();
     const dataAtualDocumento = obterDataAtualDocumento();
     const dados = {
         YYYY: getValue('numero_art'),
@@ -518,8 +563,10 @@ function coletarDadosFormulario() {
         HHHH: getValue('nome_projeto'),
         IIII: TOMADAS_PLACEHOLDER,
         JJJJ: ELETROCALHAS_PLACEHOLDER,
+        KKKK: ILUMINACAO_PLACEHOLDER,
         TOMADAS_SELECIONADAS: tomadasSelecionadas.map((material) => material.nome).join(', '),
         ELETROCALHAS_SELECIONADAS: eletrocalhasSelecionadas.map((material) => material.nome).join(', '),
+        ILUMINACAO_SELECIONADA: iluminacaoSelecionada.map((material) => material.nome).join(', '),
 
         // Placeholders existentes no template que não foram solicitados como inputs nesta tela.
         // Mantê-los vazios evita a exibição de valores indefinidos no documento gerado.
@@ -535,6 +582,11 @@ function coletarDadosFormulario() {
 
     Object.defineProperty(dados, '__eletrocalhasSelecionadas', {
         value: eletrocalhasSelecionadas,
+        enumerable: false
+    });
+
+    Object.defineProperty(dados, '__iluminacaoSelecionada', {
+        value: iluminacaoSelecionada,
         enumerable: false
     });
 
@@ -597,6 +649,13 @@ async function processarTemplateWord(arrayBuffer, dados) {
             imageFilePrefix: 'memorial_eletrocalha',
             missingImageMessage: 'Imagem não encontrada na coluna C da planilha.',
             defaultAltText: 'Imagem de eletrocalha'
+        });
+        await inserirMateriaisNoDocumento(renderedZip, dados.__iluminacaoSelecionada || [], {
+            placeholder: ILUMINACAO_PLACEHOLDER,
+            emptyMessage: 'Nenhum material de iluminação selecionado.',
+            imageFilePrefix: 'memorial_iluminacao',
+            missingImageMessage: 'Imagem não encontrada na coluna C da planilha.',
+            defaultAltText: 'Imagem de iluminação'
         });
 
         return renderedZip.generate({

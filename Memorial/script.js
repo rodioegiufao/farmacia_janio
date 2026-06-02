@@ -535,6 +535,8 @@ function coletarDadosFormulario() {
     const eletrocalhasSelecionadas = obterMateriaisEletrocalhaSelecionados();
     const iluminacaoSelecionada = obterMateriaisIluminacaoSelecionados();
     const dataAtualDocumento = obterDataAtualDocumento();
+    const tensaoSecundaria = getValue('tensao_secundaria');
+    const tensoesLinha = obterTensoesLinhaPorTensaoSecundaria(tensaoSecundaria);
     const dados = {
         YYYY: getValue('numero_art'),
         MMMM: getValue('responsavel'),
@@ -544,7 +546,9 @@ function coletarDadosFormulario() {
         AAAA: getValue('crea'),
         BBBB: getValue('email'),
         CCCC: getValue('telefone'),
-        DDDD: getValue('tensao_secundaria'),
+        DDDD: tensaoSecundaria,
+        LLLA: tensoesLinha.LLLA,
+        LLLB: tensoesLinha.LLLB,
         EEEE: obterTensaoIsolamentoPorTipo(getValue('isolacao_iluminacao')),
         FFFF: getValue('bitola_iluminacao'),
         GGGG: getValue('isolacao_iluminacao'),
@@ -596,6 +600,16 @@ function coletarDadosFormulario() {
 
 function getValue(id) {
     return document.getElementById(id)?.value.trim() || '';
+}
+
+function obterTensoesLinhaPorTensaoSecundaria(tensaoSecundaria) {
+    const tensoesPorTipo = {
+        '220/127V': { LLLA: '127', LLLB: '220' },
+        '380/220V': { LLLA: '220', LLLB: '380' },
+        '380/220V e 220/127V': { LLLA: '127', LLLB: '220' }
+    };
+
+    return tensoesPorTipo[tensaoSecundaria] || { LLLA: '', LLLB: '' };
 }
 
 async function gerarDocumentoWord(dados) {

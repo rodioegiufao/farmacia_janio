@@ -4,6 +4,7 @@ const TOMADAS_IMAGE_FOLDER_URL = '/Memorial/imagens/';
 const TOMADAS_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
 const MEMORIAL_DATABASE_URL = '/Memorial/base_de_dados_memorial.xlsx';
 const TOMADAS_PLACEHOLDER = '__MEMORIAL_TOMADAS_SELECIONADAS__';
+const ELETROCALHAS_PLACEHOLDER = '__MEMORIAL_ELETROCALHAS_SELECIONADAS__';
 
 const MESES_PT_BR = [
     'janeiro',
@@ -23,6 +24,7 @@ const MESES_PT_BR = [
 let documentosGerados = [];
 let dadosProcessados = {};
 let materiaisTomada = [];
+let materiaisEletrocalha = [];
 
 document.addEventListener('DOMContentLoaded', function() {
     initThemeSelector();
@@ -31,6 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
     setupAutomaticIsolationVoltages();
     carregarMateriaisTomada();
+    carregarMateriaisEletrocalha();
 });
 
 function obterDataAtualDocumento() {
@@ -137,7 +140,33 @@ async function carregarMateriaisTomada() {
     }
 }
 
+async function carregarMateriaisEletrocalha() {
+    const container = document.getElementById('eletrocalhas-material-options');
+    if (!container) return;
+
+    try {
+        materiaisEletrocalha = await carregarMateriaisDaPlanilhaEletrocalha();
+        renderizarOpcoesMateriaisEletrocalha();
+    } catch (error) {
+        console.error('Erro ao carregar materiais de eletrocalha:', error);
+        container.innerHTML = `
+            <p class="material-options-status">
+                <i class="fas fa-exclamation-triangle"></i>
+                Não foi possível carregar a base de eletrocalhas. Verifique o arquivo base_de_dados_memorial.xlsx.
+            </p>
+        `;
+    }
+}
+
 async function carregarMateriaisDaPlanilhaTomada() {
+    return carregarMateriaisDaPlanilha('tomada', 'tomada');
+}
+
+async function carregarMateriaisDaPlanilhaEletrocalha() {
+    return carregarMateriaisDaPlanilha('eletrocalha', 'eletrocalha');
+}
+
+async function carregarMateriaisDaPlanilha(sheetName, idPrefix) {
     const response = await fetch(MEMORIAL_DATABASE_URL);
     if (!response.ok) {
         throw new Error(`Base de dados não encontrada: ${MEMORIAL_DATABASE_URL}`);
@@ -147,7 +176,7 @@ async function carregarMateriaisDaPlanilhaTomada() {
     const workbookZip = await JSZip.loadAsync(workbookBuffer);
     const parser = new DOMParser();
     const sharedStrings = await lerSharedStrings(workbookZip, parser);
-    const sheetPath = await obterCaminhoDaPlanilha(workbookZip, parser, 'tomada');
+    const sheetPath = await obterCaminhoDaPlanilha(workbookZip, parser, sheetName);
     const sheetXml = await workbookZip.file(sheetPath).async('text');
     const sheetDoc = parser.parseFromString(sheetXml, 'application/xml');
     const rows = Array.from(sheetDoc.getElementsByTagNameNS('*', 'row'));
@@ -172,7 +201,7 @@ async function carregarMateriaisDaPlanilhaTomada() {
         const imagem = await carregarImagemTomadaDaPasta({ nome, descricao, nomeImagem });
 
         materiais.push({
-            id: `tomada-${rowNumber}`,
+            id: `${idPrefix}-${rowNumber}`,
             rowNumber,
             nome,
             descricao,
@@ -291,17 +320,35 @@ function lerValorCelula(cell, sharedStrings) {
 }
 
 function renderizarOpcoesMateriaisTomada() {
-    const container = document.getElementById('tomadas-material-options');
+    renderizarOpcoesMateriais({
+        containerId: 'tomadas-material-options',
+        inputName: 'materiais_tomada',
+        materiais: materiaisTomada,
+        emptyMessage: 'Nenhum material encontrado na aba tomada.'
+    });
+}
+
+function renderizarOpcoesMateriaisEletrocalha() {
+    renderizarOpcoesMateriais({
+        containerId: 'eletrocalhas-material-options',
+        inputName: 'materiais_eletrocalha',
+        materiais: materiaisEletrocalha,
+        emptyMessage: 'Nenhum material encontrado na aba eletrocalha.'
+    });
+}
+
+function renderizarOpcoesMateriais({ containerId, inputName, materiais, emptyMessage }) {
+    const container = document.getElementById(containerId);
     if (!container) return;
 
-    if (!materiaisTomada.length) {
-        container.innerHTML = '<p class="material-options-status">Nenhum material encontrado na aba tomada.</p>';
+    if (!materiais.length) {
+        container.innerHTML = `<p class="material-options-status">${escapeHtml(emptyMessage)}</p>`;
         return;
     }
 
-    container.innerHTML = materiaisTomada.map((material, index) => `
+    container.innerHTML = materiais.map((material) => `
         <label class="material-option">
-            <input type="checkbox" name="materiais_tomada" value="${escapeHtml(material.id)}">
+            <input type="checkbox" name="${escapeHtml(inputName)}" value="${escapeHtml(material.id)}">
             <span>
                 <strong>${escapeHtml(material.nome)}</strong>
                 <span>${escapeHtml(material.nomeImagem || 'Imagem sem legenda')}</span>
@@ -311,9 +358,17 @@ function renderizarOpcoesMateriaisTomada() {
 }
 
 function obterMateriaisTomadaSelecionados() {
-    const selectedIds = Array.from(document.querySelectorAll('input[name="materiais_tomada"]:checked')).map((input) => input.value);
+    return obterMateriaisSelecionados('materiais_tomada', materiaisTomada);
+}
+
+function obterMateriaisEletrocalhaSelecionados() {
+    return obterMateriaisSelecionados('materiais_eletrocalha', materiaisEletrocalha);
+}
+
+function obterMateriaisSelecionados(inputName, materiais) {
+    const selectedIds = Array.from(document.querySelectorAll(`input[name="${inputName}"]:checked`)).map((input) => input.value);
     return selectedIds
-        .map((id) => materiaisTomada.find((material) => material.id === id))
+        .map((id) => materiais.find((material) => material.id === id))
         .filter(Boolean);
 }
 
@@ -418,11 +473,19 @@ function validarFormulario() {
         document.getElementById('tomadas-material-options')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return false;
     }
+
+    if (!obterMateriaisEletrocalhaSelecionados().length) {
+        alert('Por favor, selecione pelo menos um material de eletrocalha.');
+        document.getElementById('eletrocalhas-material-options')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return false;
+    }
+
     return true;
 }
 
 function coletarDadosFormulario() {
     const tomadasSelecionadas = obterMateriaisTomadaSelecionados();
+    const eletrocalhasSelecionadas = obterMateriaisEletrocalhaSelecionados();
     const dataAtualDocumento = obterDataAtualDocumento();
     const dados = {
         YYYY: getValue('numero_art'),
@@ -451,7 +514,9 @@ function coletarDadosFormulario() {
         GGGD: getValue('isolacao_emergencia'),
         HHHH: getValue('nome_projeto'),
         IIII: TOMADAS_PLACEHOLDER,
+        JJJJ: ELETROCALHAS_PLACEHOLDER,
         TOMADAS_SELECIONADAS: tomadasSelecionadas.map((material) => material.nome).join(', '),
+        ELETROCALHAS_SELECIONADAS: eletrocalhasSelecionadas.map((material) => material.nome).join(', '),
 
         // Placeholders existentes no template que não foram solicitados como inputs nesta tela.
         // Mantê-los vazios evita a exibição de valores indefinidos no documento gerado.
@@ -462,6 +527,11 @@ function coletarDadosFormulario() {
 
     Object.defineProperty(dados, '__tomadasSelecionadas', {
         value: tomadasSelecionadas,
+        enumerable: false
+    });
+
+    Object.defineProperty(dados, '__eletrocalhasSelecionadas', {
+        value: eletrocalhasSelecionadas,
         enumerable: false
     });
 
@@ -511,7 +581,20 @@ async function processarTemplateWord(arrayBuffer, dados) {
         doc.render();
 
         const renderedZip = doc.getZip();
-        await inserirMateriaisTomadaNoDocumento(renderedZip, dados.__tomadasSelecionadas || []);
+        await inserirMateriaisNoDocumento(renderedZip, dados.__tomadasSelecionadas || [], {
+            placeholder: TOMADAS_PLACEHOLDER,
+            emptyMessage: 'Nenhum material de tomada selecionado.',
+            imageFilePrefix: 'memorial_tomada',
+            missingImageMessage: 'Imagem não encontrada na base de dados.',
+            defaultAltText: 'Imagem de tomada'
+        });
+        await inserirMateriaisNoDocumento(renderedZip, dados.__eletrocalhasSelecionadas || [], {
+            placeholder: ELETROCALHAS_PLACEHOLDER,
+            emptyMessage: 'Nenhum material de eletrocalha selecionado.',
+            imageFilePrefix: 'memorial_eletrocalha',
+            missingImageMessage: 'Imagem não encontrada na base de dados.',
+            defaultAltText: 'Imagem de eletrocalha'
+        });
 
         return renderedZip.generate({
             type: 'arraybuffer',
@@ -528,13 +611,13 @@ async function processarTemplateWord(arrayBuffer, dados) {
     }
 }
 
-async function inserirMateriaisTomadaNoDocumento(zip, materiaisSelecionados) {
+async function inserirMateriaisNoDocumento(zip, materiaisSelecionados, options) {
     const documentFile = zip.file('word/document.xml');
     const relsFile = zip.file('word/_rels/document.xml.rels');
     if (!documentFile || !relsFile) return;
 
     let documentXml = lerArquivoZipComoTexto(documentFile);
-    if (!documentXml.includes(TOMADAS_PLACEHOLDER)) return;
+    if (!documentXml.includes(options.placeholder)) return;
 
     let relsXml = lerArquivoZipComoTexto(relsFile);
     let contentTypesXml = lerContentTypes(zip);
@@ -543,7 +626,7 @@ async function inserirMateriaisTomadaNoDocumento(zip, materiaisSelecionados) {
     const paragraphXmlList = [];
 
     if (!materiaisSelecionados.length) {
-        paragraphXmlList.push(criarParagrafoTexto('Nenhum material de tomada selecionado.'));
+        paragraphXmlList.push(criarParagrafoTexto(options.emptyMessage));
     }
 
     materiaisSelecionados.forEach((material, index) => {
@@ -551,7 +634,7 @@ async function inserirMateriaisTomadaNoDocumento(zip, materiaisSelecionados) {
 
         if (material.imageData) {
             const imageType = detectarTipoImagem(material.imageData, material.imageExtension);
-            const imageFileName = `memorial_tomada_${index + 1}.${imageType.extension}`;
+            const imageFileName = `${options.imageFilePrefix}_${index + 1}.${imageType.extension}`;
             const relationId = `rId${nextRelationId++}`;
             const docPrId = nextDocPrId++;
 
@@ -561,9 +644,9 @@ async function inserirMateriaisTomadaNoDocumento(zip, materiaisSelecionados) {
             });
             relsXml = adicionarRelacionamentoImagem(relsXml, relationId, imageFileName);
             contentTypesXml = garantirContentTypeImagem(contentTypesXml, imageType.extension, imageType.contentType);
-            paragraphXmlList.push(criarParagrafoImagem(relationId, material.nomeImagem || material.nome, docPrId));
+            paragraphXmlList.push(criarParagrafoImagem(relationId, material.nomeImagem || material.nome, docPrId, options.defaultAltText));
         } else {
-            paragraphXmlList.push(criarParagrafoTexto('Imagem não encontrada na base de dados.', { center: true, italic: true }));
+            paragraphXmlList.push(criarParagrafoTexto(options.missingImageMessage, { center: true, italic: true }));
         }
 
         if (material.nomeImagem) {
@@ -572,7 +655,7 @@ async function inserirMateriaisTomadaNoDocumento(zip, materiaisSelecionados) {
     });
 
     const replacementXml = paragraphXmlList.join('');
-    const markerRegex = new RegExp(`<w:p(?:\\s|>)(?:(?!<w:p(?:\\s|>))[\\s\\S])*?${escapeRegExp(TOMADAS_PLACEHOLDER)}[\\s\\S]*?</w:p>`);
+    const markerRegex = new RegExp(`<w:p(?:\\s|>)(?:(?!<w:p(?:\\s|>))[\\s\\S])*?${escapeRegExp(options.placeholder)}[\\s\\S]*?</w:p>`);
     documentXml = documentXml.replace(markerRegex, replacementXml);
 
     validarXmlGerado(documentXml, 'word/document.xml');
@@ -674,10 +757,10 @@ function criarParagrafoTexto(text, options = {}) {
     return `<w:p><w:pPr><w:spacing w:line="360" w:lineRule="auto"/>${firstLine}${justification}<w:rPr><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/>${italic}</w:rPr></w:pPr><w:r><w:rPr><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/>${italic}</w:rPr><w:t xml:space="preserve">${safeText}</w:t></w:r></w:p>`;
 }
 
-function criarParagrafoImagem(relationId, altText, docPrId) {
+function criarParagrafoImagem(relationId, altText, docPrId, defaultAltText = 'Imagem de tomada') {
     const cx = 3200000;
     const cy = 2200000;
-    const safeAltText = escapeXmlAttribute(altText || `Imagem de tomada ${docPrId}`);
+    const safeAltText = escapeXmlAttribute(altText || `${defaultAltText} ${docPrId}`);
 
     return `<w:p><w:pPr><w:spacing w:before="160" w:after="80"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${safeAltText}" descr="${safeAltText}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${safeAltText}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
 }

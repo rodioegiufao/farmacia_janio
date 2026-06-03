@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador BIM - XKT/IFC Upload</title>
+    <title>Visualizador BIM - XKT/IFC/GLB Upload</title>
     <link rel="icon" href="/images/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
     <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
@@ -153,17 +153,17 @@
         </div>
         <span id="searchFeedback" class="search-feedback" aria-live="polite"></span>
     </div>
-    <div id="ifcUploadPanel" class="ifc-upload-panel" aria-label="Carregar arquivo XKT ou IFC">
+    <div id="ifcUploadPanel" class="ifc-upload-panel" aria-label="Carregar arquivo XKT, IFC ou GLB">
         <div id="ifcUploadIntro">
             <h1>Bem-vindo ao Visualizador BIM</h1>
-            <p class="ifc-upload-panel-subtitle">Carregue seu modelo IFC/XKT para iniciar a análise 3D.</p>
+            <p class="ifc-upload-panel-subtitle">Carregue seu modelo IFC/XKT/GLB para iniciar a análise 3D.</p>
         </div>
         <label class="ifc-upload-dropzone" for="ifcUploadInput">
             <span class="ifc-upload-dropzone-icon" aria-hidden="true">📦</span>
             <span class="ifc-upload-dropzone-title">Selecionar arquivo</span>
             <span class="ifc-upload-dropzone-helper">ou arraste e solte aqui</span>
-            <span class="ifc-upload-dropzone-formats">.ifc, .xkt</span>
-            <input id="ifcUploadInput" type="file" accept=".xkt,.ifc" multiple />
+            <span class="ifc-upload-dropzone-formats">.ifc, .xkt, .glb</span>
+            <input id="ifcUploadInput" type="file" accept=".xkt,.ifc,.glb" multiple />
         </label>
         <div id="ifcUploadProgressPanel" class="ifc-upload-progress-panel" hidden>
             <div class="ifc-upload-progress-header">
@@ -184,7 +184,7 @@
             <div id="ifcUploadProgressMeta" class="ifc-upload-progress-meta">Aguardando arquivo...</div>
         </div>
         <div id="ifcUploadQueue" class="ifc-upload-queue" hidden></div>
-        <p id="ifcUploadStatus">Selecione um arquivo .xkt ou .ifc para visualizar.</p>
+        <p id="ifcUploadStatus">Selecione um arquivo .xkt, .ifc ou .glb para visualizar.</p>
     </div>
     <button id="mobileToolbarToggle" type="button" aria-label="Mostrar todas as ferramentas" title="Mostrar todas as ferramentas" hidden>
         <img class="tool-toggle-icon" src="/3D/img/ferramentas-fechada.png" alt="" aria-hidden="true" />

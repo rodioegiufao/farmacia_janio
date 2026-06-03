@@ -1,12 +1,13 @@
 import {
     WebIFCLoaderPlugin,
-    IFCOpenShellLoaderPlugin
+    IFCOpenShellLoaderPlugin,
+    GLTFLoaderPlugin
 } from "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@2.6.107/dist/xeokit-sdk.min.es.js";
 
 const bridge = window.ifcUploadBridge;
 
 if (!bridge) {
-    console.warn("ifcUploadBridge não encontrado. Upload IFC/XKT não foi inicializado.");
+    console.warn("ifcUploadBridge não encontrado. Upload IFC/XKT/GLB não foi inicializado.");
 } else {
     const ifcUploadInput = document.getElementById("ifcUploadInput");
     const ifcUploadPanel = document.getElementById("ifcUploadPanel");
@@ -39,6 +40,7 @@ if (!bridge) {
 
     let ifcLoader = null;
     let ifcOpenShellLoader = null;
+    let glbLoader = null;
     let pyodideSetupPromise = null;
     let uploadModelSequence = 0;
     let isUploadInProgress = false;
@@ -414,6 +416,19 @@ if (!bridge) {
         }
 
         return ifcLoader;
+    }
+
+    function getGlbLoader() {
+        if (glbLoader) {
+            return glbLoader;
+        }
+
+        if (typeof GLTFLoaderPlugin !== "function") {
+            return null;
+        }
+
+        glbLoader = new GLTFLoaderPlugin(bridge.viewer);
+        return glbLoader;
     }
 
     function buildUploadModelId(prefix) {
@@ -1028,6 +1043,64 @@ if (!bridge) {
         }
     }
 
+    function loadGlbUpload(file, uploadContext = {}) {
+        const objectUrl = URL.createObjectURL(file);
+        const { fileQueueId = "" } = uploadContext;
+        const modelId = buildUploadModelId("GLB_UPLOAD");
+
+        const renderProfile = bridge.getDefaultRenderProfile();
+        const performanceModeEnabled = bridge.getPerformanceModeEnabled();
+        const loader = getGlbLoader();
+
+        if (!loader) {
+            URL.revokeObjectURL(objectUrl);
+            bridge.setUploadStatus("Carregador GLB indisponível no momento.", true);
+            updateUploadQueueItem(fileQueueId, {
+                statusText: "Erro",
+                metaText: "Carregador GLB indisponível.",
+                isError: true
+            });
+            finalizeUploadBatch(uploadContext, { succeeded: false, fileName: file.name });
+            return;
+        }
+
+        let model;
+
+        try {
+            model = loader.load({
+                id: modelId,
+                src: bridge.normalizeBlobUrl(objectUrl),
+                cacheBuster: false,
+                edges: performanceModeEnabled ? false : renderProfile.edgesEnabled,
+                saoEnabled: performanceModeEnabled ? false : renderProfile.saoEnabled
+            });
+        } catch (error) {
+            URL.revokeObjectURL(objectUrl);
+            bridge.setUploadStatus(`Falha ao iniciar o carregamento do GLB: ${error?.message || error}.`, true);
+            console.error("Erro ao iniciar carregamento GLB:", error);
+            updateUploadQueueItem(fileQueueId, {
+                statusText: "Erro",
+                metaText: "Falha ao iniciar GLB.",
+                isError: true
+            });
+            finalizeUploadBatch(uploadContext, { succeeded: false, fileName: file.name });
+            return;
+        }
+
+        updateUploadQueueItem(fileQueueId, {
+            statusText: "Processando",
+            metaText: "Carregando geometria GLB..."
+        });
+
+        finalizeUploadedModelLoad(model, {
+            ...uploadContext,
+            modelId,
+            fileName: file.name,
+            formatLabel: "GLB",
+            objectUrl
+        });
+    }
+
     function loadXktUpload(file, uploadContext = {}) {
         const objectUrl = URL.createObjectURL(file);
         const { fileQueueId = "" } = uploadContext;
@@ -1073,6 +1146,30 @@ if (!bridge) {
         });
     }
 
+    function getInitialFileProgressText(lowerCaseFileName = "") {
+        if (lowerCaseFileName.endsWith(".ifc")) {
+            return "Lendo arquivo IFC para iniciar o processamento...";
+        }
+
+        if (lowerCaseFileName.endsWith(".glb")) {
+            return "Carregando arquivo GLB...";
+        }
+
+        return "Carregando arquivo XKT...";
+    }
+
+    function getInitialQueueMetaText(lowerCaseFileName = "") {
+        if (lowerCaseFileName.endsWith(".ifc")) {
+            return "Lendo IFC local...";
+        }
+
+        if (lowerCaseFileName.endsWith(".glb")) {
+            return "Iniciando GLB...";
+        }
+
+        return "Iniciando XKT...";
+    }
+
     function setupIfcUploadInput() {
         if (!ifcUploadInput) {
             return;
@@ -1100,11 +1197,13 @@ if (!bridge) {
 
             const invalidFile = files.find((file) => {
                 const lowerCaseFileName = file.name.toLowerCase();
-                return !lowerCaseFileName.endsWith(".xkt") && !lowerCaseFileName.endsWith(".ifc");
+                return !lowerCaseFileName.endsWith(".xkt")
+                    && !lowerCaseFileName.endsWith(".ifc")
+                    && !lowerCaseFileName.endsWith(".glb");
             });
 
             if (invalidFile) {
-                bridge.setUploadStatus("Arquivo inválido. Selecione apenas arquivos .xkt ou .ifc.", true);
+                bridge.setUploadStatus("Arquivo inválido. Selecione apenas arquivos .xkt, .ifc ou .glb.", true);
                 return;
             }
 
@@ -1144,19 +1243,24 @@ if (!bridge) {
                 setUploadProgress({
                     fileName: file.name,
                     percentage: 0,
-                    metaText: lowerCaseFileName.endsWith(".ifc")
-                        ? "Lendo arquivo IFC para iniciar o processamento..."
-                        : "Carregando arquivo XKT..."
+                    metaText: getInitialFileProgressText(lowerCaseFileName)
                 });
                 updateUploadQueueItem(fileQueueId, {
                     statusText: "Iniciando",
-                    metaText: lowerCaseFileName.endsWith(".ifc")
-                        ? "Lendo IFC local..."
-                        : "Iniciando XKT..."
+                    metaText: getInitialQueueMetaText(lowerCaseFileName)
                 });
 
                 if (lowerCaseFileName.endsWith(".ifc")) {
                     await loadIfcUpload(file, {
+                        ...uploadContext,
+                        fileQueueId,
+                        fileKey
+                    });
+                    continue;
+                }
+
+                if (lowerCaseFileName.endsWith(".glb")) {
+                    loadGlbUpload(file, {
                         ...uploadContext,
                         fileQueueId,
                         fileKey

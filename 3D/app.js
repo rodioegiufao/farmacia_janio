@@ -421,11 +421,11 @@ const toggleTreeViewButton = document.getElementById("btnToggleTree");
 const treeViewTitleElement = treeViewContainer?.querySelector(".tree-view-title");
 const treeViewSubtitleElement = treeViewContainer?.querySelector(".tree-view-subtitle");
 const EXPLORER_TAB_DEFINITIONS = [
-    { id: "models", label: "Modelos", subtitle: "Modelos IFC/XKT carregados no visualizador" },
+    { id: "models", label: "Modelos", subtitle: "Modelos IFC/XKT/GLB carregados no visualizador" },
     { id: "objects", label: "Objetos", subtitle: "Objetos disponíveis para foco e inspeção" },
     { id: "classes", label: "Classes", subtitle: "Classes IFC agrupadas para isolamento" },
     { id: "storeys", label: "Pav", subtitle: "Selecione o pavimento para isolar" },
-    { id: "networks", label: "Redes", subtitle: "Organize e isole os IFCs/XKTs por rede" },
+    { id: "networks", label: "Redes", subtitle: "Organize e isole os modelos por rede" },
     { id: "parts", label: "Peças", subtitle: "Organize e isole as peças por Classe, Tipo e Nome" }
 ];
 const explorerExpandedGroups = {
@@ -1103,11 +1103,11 @@ function buildExplorerModelItem(model) {
         },
         isActive: isVisible,
         toggleTitle: isVisible
-            ? `Desativar IFC ${model.id}`
-            : `Ativar IFC ${model.id}`,
+            ? `Desativar modelo ${model.id}`
+            : `Ativar modelo ${model.id}`,
         toggleAriaLabel: isVisible
-            ? `Desativar IFC ${model.id}`
-            : `Ativar IFC ${model.id}`,
+            ? `Desativar modelo ${model.id}`
+            : `Ativar modelo ${model.id}`,
         onToggle: () => toggleModelVisibility(model.id),
         className: "explorer-model-item"
     });
@@ -1199,7 +1199,7 @@ function renderExplorerModelsTab() {
         return;
     }
 
-    summary.textContent = `${models.length} modelo(s) carregado(s). Clique no card para isolar ou use o botão com visto para ativar/desativar cada IFC.`;
+    summary.textContent = `${models.length} modelo(s) carregado(s). Clique no card para isolar ou use o botão com visto para ativar/desativar cada modelo.`;
 
     models
         .sort((a, b) => String(a.id).localeCompare(String(b.id), "pt-BR"))

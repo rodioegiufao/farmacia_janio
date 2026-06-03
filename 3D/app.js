@@ -7047,6 +7047,31 @@ function getMetaObjectPropertySetByName(metaObject, targetName) {
     }) || null;
 }
 
+function getMetaObjectIndexedPropertySetsByPrefix(metaObject, targetPrefix) {
+    if (!metaObject?.propertySets?.length) {
+        return [];
+    }
+
+    const normalizedPrefix = normalizeIfcPropertyLabel(targetPrefix);
+    const escapedPrefix = normalizedPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const prefixPattern = new RegExp(`^${escapedPrefix}(\\d+)$`);
+
+    return metaObject.propertySets
+        .map((propertySet) => {
+            const propertySetName = propertySet?.name || propertySet?.id || "";
+            const match = normalizeIfcPropertyLabel(propertySetName).match(prefixPattern);
+            return match
+                ? {
+                    propertySet,
+                    index: Number(match[1]),
+                    name: propertySetName
+                }
+                : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.index - b.index);
+}
+
 function getPropertyFromSet(pset, propertyName) {
     if (!pset?.properties?.length) {
         return null;
@@ -7352,19 +7377,29 @@ function extractElectricalPointEntries(metaObject) {
         return [];
     }
 
-    const pointSet = getMetaObjectPropertySetByName(metaObject, "AltoQi_Builder-Ponto1");
+    const pointSets = getMetaObjectIndexedPropertySetsByPrefix(metaObject, "AltoQi_Builder-Ponto");
     const circuitoSet = getMetaObjectPropertySetByName(metaObject, "Circuito");
 
-    if (!pointSet || !circuitoSet) {
+    if (!pointSets.length || !circuitoSet) {
         return [];
     }
 
-    const potencia = extractNumericPropertyValue(getPropertyValueFromSet(pointSet, "Potência (W)"));
-    const rendimento = extractNumericPropertyValue(getPropertyValueFromSet(pointSet, "Rendimento (%)"));
-    const fatorPotencia = extractNumericPropertyValue(getPropertyValueFromSet(pointSet, "Fator de potência (%)"));
-    const quantidade = extractNumericPropertyValue(getPropertyValueFromSet(pointSet, "Quantidade")) ?? 1;
+    const validPoints = pointSets
+        .map(({ propertySet, index }) => {
+            const potencia = extractNumericPropertyValue(getPropertyValueFromSet(propertySet, "Potência (W)"));
+            const rendimento = extractNumericPropertyValue(getPropertyValueFromSet(propertySet, "Rendimento (%)"));
+            const fatorPotencia = extractNumericPropertyValue(getPropertyValueFromSet(propertySet, "Fator de potência (%)"));
+            const quantidade = extractNumericPropertyValue(getPropertyValueFromSet(propertySet, "Quantidade")) ?? 1;
 
     if (!Number.isFinite(potencia) || !Number.isFinite(rendimento) || !Number.isFinite(fatorPotencia) || fatorPotencia === 0) {
+                return null;
+            }
+
+            return { index, potencia, rendimento, fatorPotencia, quantidade };
+        })
+        .filter(Boolean);
+
+    if (!validPoints.length) {
         return [];
     }
 
@@ -7380,7 +7415,6 @@ function extractElectricalPointEntries(metaObject) {
     });
 
     const totalIndexes = indexes.size || 1;
-    const multiplicadorQuantidade = totalIndexes === 1 ? quantidade : 1;
     const entries = [];
 
     indexes.forEach((index) => {
@@ -7392,12 +7426,19 @@ function extractElectricalPointEntries(metaObject) {
             return;
         }
 
-        const potenciaCalculada = potencia * multiplicadorQuantidade * (rendimento / 100) / (fatorPotencia / 100);
-        entries.push({
-            quadro: quadro.trim(),
-            pavimento: pavimento.trim(),
-            circuito: circuito.trim(),
-            potenciaCalculadaW: potenciaCalculada
+        const pointsForCircuit = totalIndexes === 1
+            ? validPoints
+            : validPoints.filter((point) => point.index === index);
+
+        pointsForCircuit.forEach(({ potencia, rendimento, fatorPotencia, quantidade }) => {
+            const multiplicadorQuantidade = totalIndexes === 1 ? quantidade : 1;
+            const potenciaCalculada = potencia * multiplicadorQuantidade * (rendimento / 100) / (fatorPotencia / 100);
+            entries.push({
+                quadro: quadro.trim(),
+                pavimento: pavimento.trim(),
+                circuito: circuito.trim(),
+                potenciaCalculadaW: potenciaCalculada
+            });
         });
     });
 

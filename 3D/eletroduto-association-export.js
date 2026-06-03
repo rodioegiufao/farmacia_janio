@@ -350,6 +350,31 @@ function getPropertySetByNames(metaObject, targetNames = []) {
     return null;
 }
 
+function getIndexedPropertySetsByPrefix(metaObject, targetPrefix) {
+    if (!metaObject?.propertySets?.length) {
+        return [];
+    }
+
+    const normalizedPrefix = normalizeLabel(targetPrefix);
+    const escapedPrefix = normalizedPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const prefixPattern = new RegExp(`^${escapedPrefix}(\\d+)$`);
+
+    return metaObject.propertySets
+        .map((propertySet) => {
+            const propertySetName = propertySet?.name || propertySet?.id || "";
+            const match = normalizeLabel(propertySetName).match(prefixPattern);
+            return match
+                ? {
+                    propertySet,
+                    index: Number(match[1]),
+                    name: propertySetName
+                }
+                : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.index - b.index);
+}
+
 function formatIfcPropertyValue(value) {
     if (value === null || value === undefined) {
         return "";
@@ -887,6 +912,7 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = [], buildingLoadRows =
             (row) => `
         <Row>
             <Cell><Data ss:Type="String">${escapeXml(row.id || "-")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.pointName || "-")}</Data></Cell>
             <Cell><Data ss:Type="Number">${formatSpreadsheetNumber(row.powerW)}</Data></Cell>
             <Cell><Data ss:Type="Number">${formatSpreadsheetNumber(row.quantity)}</Data></Cell>
             <Cell><Data ss:Type="Number">${formatSpreadsheetNumber(row.totalPowerW)}</Data></Cell>
@@ -964,6 +990,7 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = [], buildingLoadRows =
         <Table>
             <Row ss:StyleID="Header">
                 <Cell><Data ss:Type="String">ID</Data></Cell>
+                <Cell><Data ss:Type="String">Ponto</Data></Cell>
                 <Cell><Data ss:Type="String">Potência (W)</Data></Cell>
                 <Cell><Data ss:Type="String">Quantidade</Data></Cell>
                 <Cell><Data ss:Type="String">Carga total (W)</Data></Cell>
@@ -971,6 +998,7 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = [], buildingLoadRows =
             ${buildingLoadExcelRows}
             <Row ss:StyleID="TotalRow">
                 <Cell><Data ss:Type="String">TOTAL</Data></Cell>
+                <Cell><Data ss:Type="String">-</Data></Cell>
                 <Cell><Data ss:Type="String">-</Data></Cell>
                 <Cell><Data ss:Type="String">-</Data></Cell>
                 <Cell><Data ss:Type="Number">${formatSpreadsheetNumber(buildingLoadTotalPowerW)}</Data></Cell>
@@ -996,23 +1024,26 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = [], buildingLoadRows =
 function collectBuildingLoadRows(viewer) {
     const metaObjects = Object.values(viewer?.metaScene?.metaObjects || {});
 
-    return metaObjects
-        .filter((metaObject) => Boolean(getPropertySetByName(metaObject, "AltoQi_Builder-Ponto1")))
-        .map((metaObject) => {
-            const ponto1Set = getPropertySetByName(metaObject, "AltoQi_Builder-Ponto1");
-            const powerW = getNumericPropertyValue(ponto1Set, ["Potência (W)", "Potencia (W)", "Potência", "Potencia"]);
-            const quantity = getNumericPropertyValue(ponto1Set, ["Quantidade", "Quantity"]);
-            const totalPowerW = Number.isFinite(powerW) && Number.isFinite(quantity)
-                ? roundToTwoDecimals(powerW * quantity)
-                : 0;
+    return metaObjects.flatMap((metaObject) => {
+        const pointSets = getIndexedPropertySetsByPrefix(metaObject, "AltoQi_Builder-Ponto");
 
-            return {
-                id: metaObject?.id || metaObject?.sceneObjectId || "-",
-                powerW: Number.isFinite(powerW) ? powerW : 0,
-                quantity: Number.isFinite(quantity) ? quantity : 0,
-                totalPowerW
-            };
-        });
+        return pointSets
+            .map(({ propertySet, name }) => {
+                const powerW = getNumericPropertyValue(propertySet, ["Potência (W)", "Potencia (W)", "Potência", "Potencia"]);
+                const quantity = getNumericPropertyValue(propertySet, ["Quantidade", "Quantity"]);
+                const totalPowerW = Number.isFinite(powerW) && Number.isFinite(quantity)
+                    ? roundToTwoDecimals(powerW * quantity)
+                    : 0;
+
+                return {
+                    id: metaObject?.id || metaObject?.sceneObjectId || "-",
+                    pointName: name || "-",
+                    powerW: Number.isFinite(powerW) ? powerW : 0,
+                    quantity: Number.isFinite(quantity) ? quantity : 0,
+                    totalPowerW
+                };
+            });
+    });
 }
 
 function getNumericPropertyValue(propertySet, propertyNames = []) {

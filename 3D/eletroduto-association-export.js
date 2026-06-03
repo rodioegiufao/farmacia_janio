@@ -37,8 +37,9 @@ export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStat
             storeOccupancyAnnotationState(rowsAboveOccupancyLimit);
             occupancyLimitAnnotationsController.syncAnnotations(rowsAboveOccupancyLimit);
             const quadroAnnotationRows = collectQuadroAnnotationRows(viewer);
-            downloadRowsAsExcel(rows, quadroAnnotationRows);
-            notify(setSearchStatus, `Relatório gerado com ${rows.length} eletroduto(s).`, false);
+            const buildingLoadRows = collectBuildingLoadRows(viewer);
+            downloadRowsAsExcel(rows, quadroAnnotationRows, buildingLoadRows);
+            notify(setSearchStatus, `Relatório gerado com ${rows.length} eletroduto(s) e ${buildingLoadRows.length} carga(s).`, false);
         } catch (error) {
             console.error("Falha ao exportar relatório de eletrodutos:", error);
             notify(setSearchStatus, "Não foi possível gerar o relatório de eletrodutos.", true);
@@ -839,7 +840,7 @@ function roundToFourDecimals(value) {
     return Number(value.toFixed(4));
 }
 
-function downloadRowsAsExcel(rows, quadroAnnotationRows = []) {
+function downloadRowsAsExcel(rows, quadroAnnotationRows = [], buildingLoadRows = []) {
     const excelRows = rows
         .map(
             (row) => `
@@ -881,6 +882,20 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = []) {
         )
         .join("");
 
+    const buildingLoadExcelRows = buildingLoadRows
+        .map(
+            (row) => `
+        <Row>
+            <Cell><Data ss:Type="String">${escapeXml(row.id || "-")}</Data></Cell>
+            <Cell><Data ss:Type="Number">${formatSpreadsheetNumber(row.powerW)}</Data></Cell>
+            <Cell><Data ss:Type="Number">${formatSpreadsheetNumber(row.quantity)}</Data></Cell>
+            <Cell><Data ss:Type="Number">${formatSpreadsheetNumber(row.totalPowerW)}</Data></Cell>
+        </Row>`
+        )
+        .join("");
+
+    const buildingLoadTotalPowerW = buildingLoadRows.reduce((sum, row) => sum + (Number(row.totalPowerW) || 0), 0);
+
     const spreadsheetXml = `<?xml version="1.0"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
  xmlns:o="urn:schemas-microsoft-com:office:office"
@@ -900,6 +915,10 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = []) {
         </Style>
         <Style ss:ID="PercentageTwoDecimals">
             <NumberFormat ss:Format="0.00%" />
+        </Style>
+        <Style ss:ID="TotalRow">
+            <Font ss:Bold="1" />
+            <Interior ss:Color="#FFF2CC" ss:Pattern="Solid" />
         </Style>
     </Styles>
     <Worksheet ss:Name="Eletrodutos">
@@ -941,6 +960,23 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = []) {
             ${quadroAnnotationExcelRows}
         </Table>
     </Worksheet>
+    <Worksheet ss:Name="Cargas_Predio">
+        <Table>
+            <Row ss:StyleID="Header">
+                <Cell><Data ss:Type="String">ID</Data></Cell>
+                <Cell><Data ss:Type="String">Potência (W)</Data></Cell>
+                <Cell><Data ss:Type="String">Quantidade</Data></Cell>
+                <Cell><Data ss:Type="String">Carga total (W)</Data></Cell>
+            </Row>
+            ${buildingLoadExcelRows}
+            <Row ss:StyleID="TotalRow">
+                <Cell><Data ss:Type="String">TOTAL</Data></Cell>
+                <Cell><Data ss:Type="String">-</Data></Cell>
+                <Cell><Data ss:Type="String">-</Data></Cell>
+                <Cell><Data ss:Type="Number">${formatSpreadsheetNumber(buildingLoadTotalPowerW)}</Data></Cell>
+            </Row>
+        </Table>
+    </Worksheet>
 </Workbook>`;
 
     const blob = new Blob([spreadsheetXml], { type: "application/vnd.ms-excel" });
@@ -955,6 +991,39 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = []) {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+}
+
+function collectBuildingLoadRows(viewer) {
+    const metaObjects = Object.values(viewer?.metaScene?.metaObjects || {});
+
+    return metaObjects
+        .filter((metaObject) => Boolean(getPropertySetByName(metaObject, "AltoQi_Builder-Ponto1")))
+        .map((metaObject) => {
+            const ponto1Set = getPropertySetByName(metaObject, "AltoQi_Builder-Ponto1");
+            const powerW = getNumericPropertyValue(ponto1Set, ["Potência (W)", "Potencia (W)", "Potência", "Potencia"]);
+            const quantity = getNumericPropertyValue(ponto1Set, ["Quantidade", "Quantity"]);
+            const totalPowerW = Number.isFinite(powerW) && Number.isFinite(quantity)
+                ? roundToTwoDecimals(powerW * quantity)
+                : 0;
+
+            return {
+                id: metaObject?.id || metaObject?.sceneObjectId || "-",
+                powerW: Number.isFinite(powerW) ? powerW : 0,
+                quantity: Number.isFinite(quantity) ? quantity : 0,
+                totalPowerW
+            };
+        });
+}
+
+function getNumericPropertyValue(propertySet, propertyNames = []) {
+    const property = findPropertyByNames(propertySet, propertyNames);
+    const value = parseLocalizedNumber(formatIfcPropertyValue(property?.value));
+    return Number.isFinite(value) ? value : Number.NaN;
+}
+
+function formatSpreadsheetNumber(value) {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : 0;
 }
 
 function storeOccupancyAnnotationState(rowsAboveOccupancyLimit) {

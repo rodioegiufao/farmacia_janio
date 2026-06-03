@@ -914,6 +914,8 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = [], buildingLoadRows =
         <Row>
             <Cell><Data ss:Type="String">${escapeXml(row.id || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.pointName || "-")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.circuito || "-")}</Data></Cell>
+            <Cell><Data ss:Type="String">${escapeXml(row.quadro || "-")}</Data></Cell>
             <Cell><Data ss:Type="Number">${formatSpreadsheetNumber(row.powerW)}</Data></Cell>
             <Cell><Data ss:Type="Number">${formatSpreadsheetNumber(row.quantity)}</Data></Cell>
             <Cell><Data ss:Type="Number">${formatSpreadsheetNumber(row.totalPowerW)}</Data></Cell>
@@ -995,10 +997,14 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = [], buildingLoadRows =
                 <Cell><Data ss:Type="String">Potência (W)</Data></Cell>
                 <Cell><Data ss:Type="String">Quantidade</Data></Cell>
                 <Cell><Data ss:Type="String">Carga total (W)</Data></Cell>
+                <Cell><Data ss:Type="String">Circuito</Data></Cell>
+                <Cell><Data ss:Type="String">Quadro</Data></Cell>
             </Row>
             ${buildingLoadExcelRows}
             <Row ss:StyleID="TotalRow">
                 <Cell><Data ss:Type="String">TOTAL</Data></Cell>
+                <Cell><Data ss:Type="String">-</Data></Cell>
+                <Cell><Data ss:Type="String">-</Data></Cell>
                 <Cell><Data ss:Type="String">-</Data></Cell>
                 <Cell><Data ss:Type="String">-</Data></Cell>
                 <Cell><Data ss:Type="String">-</Data></Cell>
@@ -1027,9 +1033,10 @@ function collectBuildingLoadRows(viewer) {
 
     return metaObjects.flatMap((metaObject) => {
         const pointSets = getIndexedPropertySetsByPrefix(metaObject, "AltoQi_Builder-Ponto");
+        const circuitoSet = getPropertySetByName(metaObject, "Circuito");
 
         return pointSets
-            .map(({ propertySet, name }) => {
+            .map(({ propertySet, name, index }) => {
                 const powerW = getNumericPropertyValue(propertySet, ["Potência (W)", "Potencia (W)", "Potência", "Potencia"]);
                 const quantity = getNumericPropertyValue(propertySet, ["Quantidade", "Quantity"]);
                 const totalPowerW = Number.isFinite(powerW) && Number.isFinite(quantity)
@@ -1039,12 +1046,20 @@ function collectBuildingLoadRows(viewer) {
                 return {
                     id: metaObject?.id || metaObject?.sceneObjectId || "-",
                     pointName: name || "-",
+                    circuito: getTextPropertyValue(circuitoSet, [`Circuito_${index}`], "-"),
+                    quadro: getTextPropertyValue(circuitoSet, [`Quadro_${index}`], "-"),
                     powerW: Number.isFinite(powerW) ? powerW : 0,
                     quantity: Number.isFinite(quantity) ? quantity : 0,
                     totalPowerW
                 };
             });
     });
+}
+
+function getTextPropertyValue(propertySet, propertyNames = [], fallback = "") {
+    const property = findPropertyByNames(propertySet, propertyNames);
+    const value = formatIfcPropertyValue(property?.value).trim();
+    return value || fallback;
 }
 
 function getNumericPropertyValue(propertySet, propertyNames = []) {

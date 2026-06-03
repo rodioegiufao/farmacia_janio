@@ -907,7 +907,8 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = [], buildingLoadRows =
         )
         .join("");
 
-    const buildingLoadExcelRows = buildingLoadRows
+    const visibleBuildingLoadRows = buildingLoadRows.filter((row) => formatSpreadsheetNumber(row.powerW) > 0);
+    const buildingLoadExcelRows = visibleBuildingLoadRows
         .map(
             (row) => `
         <Row>
@@ -920,7 +921,7 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = [], buildingLoadRows =
         )
         .join("");
 
-    const buildingLoadTotalPowerW = buildingLoadRows.reduce((sum, row) => sum + (Number(row.totalPowerW) || 0), 0);
+    const buildingLoadTotalPowerW = visibleBuildingLoadRows.reduce((sum, row) => sum + (Number(row.totalPowerW) || 0), 0);
 
     const spreadsheetXml = `<?xml version="1.0"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"

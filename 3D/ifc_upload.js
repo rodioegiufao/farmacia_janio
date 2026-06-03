@@ -248,6 +248,68 @@ if (!bridge) {
                 });
         }
     };
+    
+    function fetchUploadArrayBuffer(src, ok, error, label = "GLB") {
+        const resolvedSrc = bridge.normalizeBlobUrl(src);
+
+        fetch(resolvedSrc)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Falha HTTP ${response.status} ao baixar ${label}.`);
+                }
+                return response.arrayBuffer();
+            })
+            .then((arrayBuffer) => ok(arrayBuffer))
+            .catch((fetchError) => {
+                if (typeof error === "function") {
+                    error(fetchError?.message || fetchError);
+                }
+            });
+    }
+
+    function resolveGltfAttachmentSrc(gltfSrc, attachmentSrc) {
+        if (typeof attachmentSrc !== "string") {
+            return attachmentSrc;
+        }
+
+        if (/^(blob:|data:|https?:|\/)/i.test(attachmentSrc)) {
+            return attachmentSrc;
+        }
+
+        try {
+            return new URL(attachmentSrc, bridge.normalizeBlobUrl(gltfSrc)).href;
+        } catch (_error) {
+            return attachmentSrc;
+        }
+    }
+
+    const gltfUploadDataSource = {
+        cacheBuster: false,
+        getGLTF(glTFSrc, ok, error) {
+            fetchUploadArrayBuffer(glTFSrc, ok, error, "glTF");
+        },
+        getGLB(glbSrc, ok, error) {
+            fetchUploadArrayBuffer(glbSrc, ok, error, "GLB");
+        },
+        getArrayBuffer(glTFSrc, binarySrc, ok, error) {
+            fetchUploadArrayBuffer(resolveGltfAttachmentSrc(gltfSrc, binarySrc), ok, error, "anexo glTF");
+        },
+        getMetaModel(metaModelSrc, ok, error) {
+            fetch(bridge.normalizeBlobUrl(metaModelSrc))
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`Falha HTTP ${response.status} ao baixar metadados glTF.`);
+                    }
+                    return response.json();
+                })
+                .then((json) => ok(json))
+                .catch((fetchError) => {
+                    if (typeof error === "function") {
+                        error(fetchError?.message || fetchError);
+                    }
+                });
+        }
+    };
 
     function resolveIfcLoadMethod(loaderInstance) {
         if (!loaderInstance) {
@@ -427,7 +489,9 @@ if (!bridge) {
             return null;
         }
 
-        glbLoader = new GLTFLoaderPlugin(bridge.viewer);
+        glbLoader = new GLTFLoaderPlugin(bridge.viewer, {
+            dataSource: gltfUploadDataSource
+        })
         return glbLoader;
     }
 

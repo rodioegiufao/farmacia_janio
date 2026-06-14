@@ -38,9 +38,7 @@ const loginForm = document.getElementById("loginForm");
 const cadastroForm = document.getElementById("cadastroForm");
 const btnLogout = document.getElementById("btnLogout");
 const usuarioLogado = document.getElementById("usuarioLogado");
-const usuariosPanel = document.getElementById("usuariosPanel");
-const adminCadastroMount = document.getElementById("adminCadastroMount");
-const usuariosLista = document.getElementById("usuariosLista");
+const adminLink = document.getElementById("adminLink");
 
 const form = document.getElementById("atividadeForm");
 const tabela = document.getElementById("atividadesTabela");
@@ -119,20 +117,16 @@ async function verificarSessao() {
 function aplicarUsuarioLogado(user) {
   usuarioAtual = user;
   const adminLogado = user?.perfil === "admin";
-  const destinoCadastro = adminLogado ? adminCadastroMount : authGrid;
-  if (cadastroForm.parentElement !== destinoCadastro) {
-    destinoCadastro.appendChild(cadastroForm);
-  }
+
   loginForm.hidden = Boolean(user);
-  cadastroForm.hidden = Boolean(user) && !adminLogado;
+  cadastroForm.hidden = Boolean(user);
   authPanel.hidden = Boolean(user);
   appContent.hidden = !user;
   btnLogout.hidden = !user;
+  adminLink.hidden = !adminLogado;
   usuarioLogado.textContent = user ? `${user.nome} (${user.perfil})` : "";
   btnLimparTudo.hidden = !adminLogado;
-  usuariosPanel.hidden = !adminLogado;
   document.getElementById("cadastroPerfilWrapper").hidden = !adminLogado;
-  if (adminLogado) carregarUsuarios();
 }
 
 async function entrar(event) {
@@ -176,18 +170,8 @@ async function cadastrarUsuario(event) {
     }).then(validarResposta);
     cadastroForm.reset();
     alert(`Usuário ${data.nome} cadastrado com sucesso.`);
-    if (usuarioAtual?.perfil === "admin") carregarUsuarios();
   } catch (erro) {
     alert(`Não foi possível cadastrar: ${erro.message}`);
-  }
-}
-
-async function carregarUsuarios() {
-  try {
-    const usuarios = await fetch(USUARIOS_URL).then(validarResposta);
-    usuariosLista.innerHTML = usuarios.map((user) => `<span class="user-pill">${escapeHtml(user.nome)} - ${escapeHtml(user.perfil)}</span>`).join("");
-  } catch (erro) {
-    usuariosLista.innerHTML = `<p class="help-text">${escapeHtml(erro.message)}</p>`;
   }
 }
 

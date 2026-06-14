@@ -210,3 +210,13 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
   .auth-grid { grid-template-columns: 1fr; }
   .theme-controls { flex-wrap: wrap; justify-content: flex-end; }
 }
+
+.theme-controls { display: flex; align-items: center; gap: 10px; }
+.theme-logo-link { text-decoration: none; }
+.nav-button { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; padding: 8px 12px; border-radius: 8px; font-weight: 700; }
+.admin-container { max-width: 1100px; }
+.admin-user-form { margin-bottom: 22px; }
+.users-list-admin { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.user-card { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--primary-medium); color: var(--text-light); }
+.user-card strong { color: var(--text-lighter); }
+.user-card span { font-size: 0.9rem; opacity: 0.9; }

@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/atividades/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <div id="theme-selector" class="theme-selector">
@@ -90,11 +91,74 @@
         </div>
       </div>
     </header>
-    <section class="dashboard" aria-label="Resumo das atividades">
-      <article class="card"><span>Total</span><strong id="totalAtividades">0</strong></article>
-      <article class="card"><span>Em progresso</span><strong id="totalProgresso">0</strong></article>
-      <article class="card"><span>Atrasadas</span><strong id="totalAtrasado">0</strong></article>
-      <article class="card"><span>Finalizadas</span><strong id="totalFinalizado">0</strong></article>
+    <section class="panel dashboard-panel" aria-label="Dashboard de produtividade">
+      <div class="panel-header">
+        <div>
+          <h2>Dashboard</h2>
+          <p>Indicadores e gráficos de produtividade individual e coletiva da equipe.</p>
+        </div>
+      </div>
+
+      <div class="dashboard-filters">
+        <label>
+          Período
+          <select id="dashboardPeriodo">
+            <option value="mes-atual">Este mês</option>
+            <option value="mes-anterior">Mês anterior</option>
+            <option value="ultimos-30">Últimos 30 dias</option>
+            <option value="ano-atual">Este ano</option>
+            <option value="personalizado">Período personalizado</option>
+          </select>
+        </label>
+        <label class="dashboard-custom-period">
+          Início
+          <input type="date" id="dashboardDataInicio">
+        </label>
+        <label class="dashboard-custom-period">
+          Fim
+          <input type="date" id="dashboardDataFim">
+        </label>
+        <label>
+          Colaborador
+          <select id="dashboardColaborador"></select>
+        </label>
+        <label>
+          Status
+          <select id="dashboardStatus"></select>
+        </label>
+        <label>
+          Prioridade
+          <select id="dashboardPrioridade"></select>
+        </label>
+        <label>
+          Projeto
+          <select id="dashboardProjeto"></select>
+        </label>
+        <label>
+          Obra
+          <select id="dashboardObra"></select>
+        </label>
+      </div>
+
+      <div class="dashboard" aria-label="Indicadores gerais da equipe">
+        <article class="card"><span>Total</span><strong id="totalAtividades">0</strong></article>
+        <article class="card"><span>Em progresso</span><strong id="totalProgresso">0</strong></article>
+        <article class="card"><span>Finalizadas</span><strong id="totalFinalizado">0</strong></article>
+        <article class="card"><span>Atrasadas</span><strong id="totalAtrasado">0</strong></article>
+        <article class="card"><span>Projetos/obras</span><strong id="totalProjetosObras">0</strong></article>
+        <article class="card"><span>Conclusão geral</span><strong id="percentualConclusao">0%</strong></article>
+      </div>
+
+      <div class="collaborator-summary" id="dashboardResumoColaboradores"></div>
+
+      <div class="charts-grid">
+        <article class="chart-card"><h3>Atividades por colaborador</h3><canvas id="chartAtividadesColaborador"></canvas></article>
+        <article class="chart-card"><h3>Projetos/obras por colaborador</h3><canvas id="chartProjetosColaborador"></canvas></article>
+        <article class="chart-card"><h3>Distribuição por status</h3><canvas id="chartStatus"></canvas></article>
+        <article class="chart-card"><h3>Finalizadas por mês</h3><canvas id="chartFinalizadasMes"></canvas></article>
+        <article class="chart-card"><h3>Atividades por tipo de projeto</h3><canvas id="chartTipoProjeto"></canvas></article>
+        <article class="chart-card"><h3>Atividades por prioridade</h3><canvas id="chartPrioridade"></canvas></article>
+      </div>
     </section>
 
     <section class="panel">

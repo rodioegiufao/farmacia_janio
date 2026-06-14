@@ -16,6 +16,8 @@
     <div class="theme-selector-content">
       <div class="theme-logo">Controle de Atividades do Setor</div>
       <div class="theme-controls">
+        <span id="usuarioLogado" class="logged-user"></span>
+        <button type="button" class="secondary logout-button" id="btnLogout" hidden>Sair</button>
         <label class="theme-switch">
           <input type="checkbox" id="theme-toggle">
           <span class="theme-slider">
@@ -28,6 +30,56 @@
   </div>
 
   <main class="container">
+    <section class="panel auth-panel" id="authPanel">
+      <div class="panel-header">
+        <div>
+          <h2>Acesso ao controle</h2>
+          <p>Entre com usuário e senha. Se ainda não existir nenhum cadastro, crie o primeiro usuário administrador.</p>
+        </div>
+      </div>
+
+      <div class="auth-grid">
+        <form id="loginForm" class="auth-form">
+          <h3>Entrar</h3>
+          <label>
+            Usuário
+            <input type="text" id="loginUsuario" autocomplete="username" required />
+          </label>
+          <label>
+            Senha
+            <input type="password" id="loginSenha" autocomplete="current-password" required />
+          </label>
+          <button type="submit" class="primary">Entrar</button>
+        </form>
+
+        <form id="cadastroForm" class="auth-form">
+          <h3>Cadastrar usuário</h3>
+          <label>
+            Nome
+            <input type="text" id="cadastroNome" required />
+          </label>
+          <label>
+            Usuário
+            <input type="text" id="cadastroUsuario" autocomplete="username" required />
+          </label>
+          <label>
+            Senha
+            <input type="password" id="cadastroSenha" autocomplete="new-password" minlength="6" required />
+          </label>
+          <label id="cadastroPerfilWrapper">
+            Perfil
+            <select id="cadastroPerfil">
+              <option value="colaborador">Colaborador</option>
+              <option value="admin">Admin / dono do setor</option>
+            </select>
+          </label>
+          <button type="submit" class="secondary">Cadastrar</button>
+          <p class="help-text">O primeiro cadastro vira admin automaticamente. Depois disso, só admin cadastra novos usuários.</p>
+        </form>
+      </div>
+    </section>
+
+    <div id="appContent" class="app-content" hidden>
     <header class="header">
       <div class="logo">
         <i class="fas fa-list-check"></i>
@@ -166,6 +218,16 @@
         </table>
       </div>
     </section>
+      <section class="panel admin-panel" id="usuariosPanel" hidden>
+        <div class="panel-header">
+          <div>
+            <h2>Usuários cadastrados</h2>
+            <p>Somente administradores podem ver e cadastrar usuários.</p>
+          </div>
+        </div>
+        <div id="usuariosLista" class="users-list"></div>
+      </section>
+    </div>
   </main>
 
   <script src="/atividades/script.js"></script>

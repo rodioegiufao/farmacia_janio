@@ -36,6 +36,20 @@ function parseRequestBody(req) {
   }
 }
 
+function normalizeSupabaseRestUrl(rawUrl) {
+  const parsedUrl = new URL(rawUrl);
+  const pathSegments = parsedUrl.pathname.split("/").filter(Boolean);
+  const restIndex = pathSegments.findIndex((segment, index) => segment === "rest" && pathSegments[index + 1] === "v1");
+
+  parsedUrl.pathname = restIndex >= 0
+    ? `/${pathSegments.slice(0, restIndex + 2).join("/")}`
+    : `${parsedUrl.pathname.replace(/\/$/, "")}/rest/v1`;
+  parsedUrl.search = "";
+  parsedUrl.hash = "";
+
+  return parsedUrl.toString().replace(/\/$/, "");
+}
+
 function getSupabaseConfig() {
   const url = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -45,7 +59,7 @@ function getSupabaseConfig() {
   }
 
   return {
-    baseUrl: `${url.replace(/\/$/, "")}/rest/v1/${SUPABASE_TABLE}`,
+    baseUrl: `${normalizeSupabaseRestUrl(url)}/${SUPABASE_TABLE}`,
     headers: {
       apikey: serviceRoleKey,
       Authorization: `Bearer ${serviceRoleKey}`,

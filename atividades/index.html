@@ -36,7 +36,7 @@
       <div class="panel-header">
         <div>
           <h2>Acesso ao controle</h2>
-          <p>Entre com usuário e senha. Se ainda não existir nenhum cadastro, crie o primeiro usuário administrador.</p>
+          <p>Entre com seu usuário e senha para acessar o controle de atividades.</p>
         </div>
       </div>
 
@@ -52,31 +52,6 @@
             <input type="password" id="loginSenha" autocomplete="current-password" required />
           </label>
           <button type="submit" class="primary">Entrar</button>
-        </form>
-
-        <form id="cadastroForm" class="auth-form">
-          <h3>Cadastrar usuário</h3>
-          <label>
-            Nome
-            <input type="text" id="cadastroNome" required />
-          </label>
-          <label>
-            Usuário
-            <input type="text" id="cadastroUsuario" autocomplete="username" required />
-          </label>
-          <label>
-            Senha
-            <input type="password" id="cadastroSenha" autocomplete="new-password" minlength="6" required />
-          </label>
-          <label id="cadastroPerfilWrapper">
-            Perfil
-            <select id="cadastroPerfil">
-              <option value="colaborador">Colaborador</option>
-              <option value="admin">Admin / dono do setor</option>
-            </select>
-          </label>
-          <button type="submit" class="secondary">Cadastrar</button>
-          <p class="help-text">O primeiro cadastro vira admin automaticamente. Depois disso, só admin cadastra novos usuários.</p>
         </form>
       </div>
     </section>

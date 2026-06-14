@@ -195,3 +195,18 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
     .span-2 { grid-column: span 1; }
     .panel-header, .logo { align-items: flex-start; flex-direction: column; }
 }
+
+.auth-panel { max-width: 980px; margin: 0 auto 28px; }
+.auth-grid { display: grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); gap: 22px; }
+.auth-form { display: grid; gap: 14px; padding: 18px; border: 1px solid var(--border-color); border-radius: 12px; background: rgba(99, 179, 237, 0.06); }
+.auth-form h3 { color: var(--text-lighter); }
+.help-text { font-size: 0.85rem; opacity: 0.8; }
+.logged-user { margin-right: 10px; color: var(--text-lighter); font-weight: 600; }
+.logout-button { padding: 8px 12px; }
+.users-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.user-pill { display: inline-flex; padding: 8px 12px; border-radius: 999px; background: var(--primary-medium); color: var(--text-lighter); border: 1px solid var(--border-color); font-weight: 600; }
+
+@media (max-width: 900px) {
+  .auth-grid { grid-template-columns: 1fr; }
+  .theme-controls { flex-wrap: wrap; justify-content: flex-end; }
+}

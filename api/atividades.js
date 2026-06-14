@@ -148,7 +148,6 @@ module.exports = async function atividadesHandler(req, res) {
 
       const record = toDatabaseRecord(body);
       enforceCollaboratorPermission(record, user);
-      <article class="card"><span>Horas trabalhadas</span><strong id="totalHorasTrabalhadas">0h</strong></article>
       delete record.usuario_id;
       delete record.criado_por_nome;
       const data = await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(body.id)}`, {

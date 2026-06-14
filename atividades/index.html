@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Organização de Trabalhos - RL</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <span class="eyebrow">Ribeiro Lopes</span>
+      <h1>Organização de Trabalhos dos Colaboradores</h1>
+      <p>Controle de atividades por obra, prioridade, projeto, etapa, prazos e status.</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="dashboard" aria-label="Resumo das atividades">
+      <article class="card"><span>Total</span><strong id="totalAtividades">0</strong></article>
+      <article class="card"><span>Em progresso</span><strong id="totalProgresso">0</strong></article>
+      <article class="card"><span>Atrasadas</span><strong id="totalAtrasado">0</strong></article>
+      <article class="card"><span>Finalizadas</span><strong id="totalFinalizado">0</strong></article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Nova atividade</h2>
+          <p>Preencha os campos abaixo para registrar um trabalho.</p>
+        </div>
+        <button type="button" class="ghost" id="btnLimparTudo">Limpar registros</button>
+      </div>
+
+      <form id="atividadeForm" class="form-grid">
+        <input type="hidden" id="atividadeId" />
+
+        <label>
+          Colaborador
+          <select id="colaborador" required></select>
+        </label>
+
+        <label>
+          Nome da obra
+          <input type="text" id="obra" placeholder="Ex.: Ampliação do HGR" required />
+        </label>
+
+        <label>
+          Prioridade
+          <select id="prioridade" required></select>
+        </label>
+
+        <label>
+          Projeto
+          <select id="projeto" required></select>
+        </label>
+
+        <label class="span-2">
+          Trabalhos
+          <textarea id="trabalhos" rows="3" placeholder="Descreva o serviço realizado ou a executar" required></textarea>
+        </label>
+
+        <label>
+          Etapa
+          <select id="etapa" required></select>
+        </label>
+
+        <label>
+          Status
+          <select id="status" required></select>
+        </label>
+
+        <label>
+          Data de início
+          <input type="date" id="dataInicio" required />
+        </label>
+
+        <label>
+          Horário de início
+          <input type="time" id="horaInicio" required />
+        </label>
+
+        <label>
+          Data de término
+          <input type="date" id="dataTermino" />
+        </label>
+
+        <label>
+          Horário de término
+          <input type="time" id="horaTermino" />
+        </label>
+
+        <label>
+          Data prevista para entrega
+          <input type="date" id="dataPrevista" required />
+        </label>
+
+        <label class="span-2">
+          Observações
+          <textarea id="observacoes" rows="2" placeholder="Informações complementares"></textarea>
+        </label>
+
+        <div class="form-actions span-2">
+          <button type="submit" class="primary" id="btnSalvar">Salvar atividade</button>
+          <button type="button" class="secondary" id="btnCancelarEdicao">Cancelar edição</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Atividades registradas</h2>
+          <p>Use os filtros para visualizar as demandas por colaborador, obra, projeto ou status.</p>
+        </div>
+        <button type="button" class="primary" id="btnExportarCSV">Exportar CSV</button>
+      </div>
+
+      <div class="filters">
+        <input type="search" id="busca" placeholder="Buscar por obra, trabalho ou observação" />
+        <select id="filtroColaborador"></select>
+        <select id="filtroStatus"></select>
+        <select id="filtroPrioridade"></select>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Colaborador</th>
+              <th>Obra</th>
+              <th>Prioridade</th>
+              <th>Projeto</th>
+              <th>Trabalhos</th>
+              <th>Etapa</th>
+              <th>Início</th>
+              <th>Término</th>
+              <th>Entrega</th>
+              <th>Status</th>
+              <th>Observações</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="atividadesTabela"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

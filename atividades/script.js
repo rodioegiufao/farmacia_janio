@@ -372,6 +372,7 @@ function escapeHtml(valor) {
     "'": "&#39;",
     '"': "&quot;"
   })[caractere]);
+}
 
 function formatarData(data) {
   if (!data) return "-";

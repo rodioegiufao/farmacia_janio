@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test": "node --check api/_auth.js && node --check api/auth.js && node --check api/usuarios.js && node --check api/atividades.js && node --check atividades/script.js"
+    "test": "node --check api/_auth.js && node --check api/auth.js && node --check api/usuarios.js && node --check api/atividades.js && node --check atividades/script.js && node --check admin/script.js"
   }
 }

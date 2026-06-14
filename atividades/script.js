@@ -82,7 +82,7 @@ async function inicializar() {
   btnLogout.addEventListener("click", sair);
   await verificarSessao();
   
-  preencherSelect(campos.colaborador, colaboradores);
+  preencherColaboradoresPermitidos();
   preencherSelect(campos.prioridade, prioridades);
   preencherSelect(campos.projeto, projetos);
   preencherSelect(campos.etapa, etapas);
@@ -127,6 +127,42 @@ function aplicarUsuarioLogado(user) {
   usuarioLogado.textContent = user ? `${user.nome} (${user.perfil})` : "";
   btnLimparTudo.hidden = !adminLogado;
   document.getElementById("cadastroPerfilWrapper").hidden = !adminLogado;
+  preencherColaboradoresPermitidos();
+}
+
+function colaboradorDoUsuario(user = usuarioAtual) {
+  if (!user) return "";
+
+  const nomeNormalizado = normalizarTexto(user.nome);
+  return colaboradores.find((colaborador) => {
+    const colaboradorNormalizado = normalizarTexto(colaborador);
+    return nomeNormalizado === colaboradorNormalizado
+      || nomeNormalizado.startsWith(`${colaboradorNormalizado} `)
+      || nomeNormalizado.includes(colaboradorNormalizado);
+  }) || user.nome;
+}
+
+function preencherColaboradoresPermitidos() {
+  if (!campos.colaborador) return;
+
+  if (usuarioAtual?.perfil === "admin") {
+    preencherSelect(campos.colaborador, colaboradores);
+    campos.colaborador.disabled = false;
+    return;
+  }
+
+  const colaborador = colaboradorDoUsuario();
+  preencherSelect(campos.colaborador, colaborador ? [colaborador] : []);
+  campos.colaborador.value = colaborador;
+  campos.colaborador.disabled = true;
+}
+
+function normalizarTexto(texto) {
+  return String(texto || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
 }
 
 async function entrar(event) {
@@ -190,7 +226,7 @@ async function salvarAtividade(event) {
 
   const atividade = {
     id: campos.id.value || gerarId(),
-    colaborador: campos.colaborador.value,
+    colaborador: usuarioAtual?.perfil === "admin" ? campos.colaborador.value : colaboradorDoUsuario(),
     obra: campos.obra.value.trim(),
     prioridade: campos.prioridade.value,
     projeto: campos.projeto.value,
@@ -217,7 +253,8 @@ async function salvarAtividade(event) {
       atividades.unshift(atividadeSalva);
     }
 
-  form.reset();
+    form.reset();
+    preencherColaboradoresPermitidos();
     campos.id.value = "";
     btnCancelarEdicao.style.display = "none";
     document.getElementById("btnSalvar").textContent = "Salvar atividade";
@@ -226,6 +263,7 @@ async function salvarAtividade(event) {
     alert(`Não foi possível salvar no Supabase: ${erro.message}`);
   } finally {
     setFormDisabled(false);
+    preencherColaboradoresPermitidos();
   }
 }
 
@@ -325,6 +363,9 @@ function editarAtividade(id) {
 
   btnCancelarEdicao.style.display = "inline-block";
   document.getElementById("btnSalvar").textContent = "Atualizar atividade";
+  if (usuarioAtual?.perfil !== "admin") {
+    campos.colaborador.value = colaboradorDoUsuario();
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -343,6 +384,7 @@ async function excluirAtividade(id) {
 
 function cancelarEdicao() {
   form.reset();
+  preencherColaboradoresPermitidos();
   campos.id.value = "";
   btnCancelarEdicao.style.display = "none";
   document.getElementById("btnSalvar").textContent = "Salvar atividade";

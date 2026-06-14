@@ -32,12 +32,14 @@ const AUTH_URL = "/api/auth";
 const USUARIOS_URL = "/api/usuarios";
 
 const authPanel = document.getElementById("authPanel");
+const authGrid = document.getElementById("authGrid");
 const appContent = document.getElementById("appContent");
 const loginForm = document.getElementById("loginForm");
 const cadastroForm = document.getElementById("cadastroForm");
 const btnLogout = document.getElementById("btnLogout");
 const usuarioLogado = document.getElementById("usuarioLogado");
 const usuariosPanel = document.getElementById("usuariosPanel");
+const adminCadastroMount = document.getElementById("adminCadastroMount");
 const usuariosLista = document.getElementById("usuariosLista");
 
 const form = document.getElementById("atividadeForm");
@@ -116,16 +118,20 @@ async function verificarSessao() {
 
 function aplicarUsuarioLogado(user) {
   usuarioAtual = user;
-  authPanel.hidden = Boolean(user) && user.perfil !== "admin";
+  const adminLogado = user?.perfil === "admin";
+  const destinoCadastro = adminLogado ? adminCadastroMount : authGrid;
+  if (cadastroForm.parentElement !== destinoCadastro) {
+    destinoCadastro.appendChild(cadastroForm);
+  }
   loginForm.hidden = Boolean(user);
-  cadastroForm.hidden = Boolean(user) && user.perfil !== "admin";
+  cadastroForm.hidden = Boolean(user) && !adminLogado;
   appContent.hidden = !user;
   btnLogout.hidden = !user;
   usuarioLogado.textContent = user ? `${user.nome} (${user.perfil})` : "";
-  btnLimparTudo.hidden = user?.perfil !== "admin";
-  usuariosPanel.hidden = user?.perfil !== "admin";
-  document.getElementById("cadastroPerfilWrapper").hidden = user?.perfil !== "admin";
-  if (user?.perfil === "admin") carregarUsuarios();
+  btnLimparTudo.hidden = !adminLogado;
+  usuariosPanel.hidden = !adminLogado;
+  document.getElementById("cadastroPerfilWrapper").hidden = !adminLogado;
+  if (adminLogado) carregarUsuarios();
 }
 
 async function entrar(event) {

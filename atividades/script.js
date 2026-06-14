@@ -266,6 +266,12 @@ async function salvarAtividade(event) {
     observacoes: campos.observacoes.value.trim(),
     criadoEm: campos.id.value ? atividades.find((item) => item.id === campos.id.value)?.criadoEm : new Date().toISOString()
   };
+  
+  const conflito = encontrarConflitoHorario(atividade, atividades);
+  if (conflito) {
+    alert(`Este horário já possui atividade registrada para ${atividade.colaborador}: ${conflito.trabalhos} (${formatarDataHora(conflito.dataInicio, conflito.horaInicio)} até ${formatarDataHora(conflito.dataTermino, conflito.horaTermino)}).`);
+    return;
+  }
 
   try {
     setFormDisabled(true);
@@ -442,6 +448,7 @@ function atualizarDashboard() {
   document.getElementById("totalFinalizado").textContent = finalizadas;
   document.getElementById("totalAtrasado").textContent = listaDashboard.filter((a) => a.status === "Atrasado").length;
   document.getElementById("totalProjetosObras").textContent = contarProjetosTrabalhados(listaDashboard);
+  document.getElementById("totalHorasTrabalhadas").textContent = formatarHoras(calcularHorasTrabalhadas(listaDashboard));
   document.getElementById("percentualConclusao").textContent = `${total ? Math.round((finalizadas / total) * 100) : 0}%`;
 
   renderizarResumoColaboradores(listaDashboard);
@@ -519,7 +526,7 @@ function renderizarResumoColaboradores(lista) {
     <article class="collaborator-card">
       <strong>${escapeHtml(nome)}</strong>
       <span>${resumo[nome].total} atividades • ${resumo[nome].finalizadas} finalizadas • ${resumo[nome].progresso} em progresso • ${resumo[nome].atrasadas} atrasadas</span>
-      <small>${escapeHtml(nome)} trabalhou em ${resumo[nome].projetos} projeto(s)/obra(s) no período.</small>
+      <small>${escapeHtml(nome)} trabalhou ${formatarHoras(resumo[nome].horas)} em ${resumo[nome].projetos} projeto(s)/obra(s) no período.</small>
     </article>
   `).join("");
 }
@@ -527,11 +534,12 @@ function renderizarResumoColaboradores(lista) {
 function agruparPorColaborador(lista) {
   return lista.reduce((acc, atividade) => {
     const nome = atividade.colaborador || "Sem colaborador";
-    acc[nome] ||= { total: 0, finalizadas: 0, progresso: 0, atrasadas: 0, projetosSet: new Set(), projetos: 0 };
+    acc[nome] ||= { total: 0, finalizadas: 0, progresso: 0, atrasadas: 0, horas: 0, projetosSet: new Set(), projetos: 0 };
     acc[nome].total += 1;
     acc[nome].finalizadas += atividade.status === "Finalizado" ? 1 : 0;
     acc[nome].progresso += atividade.status === "Em progresso" ? 1 : 0;
     acc[nome].atrasadas += atividade.status === "Atrasado" ? 1 : 0;
+    acc[nome].horas += calcularHorasAtividade(atividade);
     acc[nome].projetosSet.add(`${normalizarTexto(atividade.obra)}|${normalizarTexto(atividade.projeto)}`);
     acc[nome].projetos = acc[nome].projetosSet.size;
     return acc;
@@ -545,6 +553,7 @@ function renderizarGraficosDashboard(lista) {
   const colaboradoresLabels = Object.keys(porColaborador);
 
   criarOuAtualizarGrafico("chartAtividadesColaborador", "bar", colaboradoresLabels, colaboradoresLabels.map((nome) => porColaborador[nome].total), "Atividades");
+  criarOuAtualizarGrafico("chartHorasColaborador", "bar", colaboradoresLabels, colaboradoresLabels.map((nome) => Number(porColaborador[nome].horas.toFixed(2))), "Horas");
   criarOuAtualizarGrafico("chartProjetosColaborador", "bar", colaboradoresLabels, colaboradoresLabels.map((nome) => porColaborador[nome].projetos), "Projetos/obras");
   criarOuAtualizarGrafico("chartStatus", "doughnut", statusLista, statusLista.map((status) => lista.filter((a) => a.status === status).length), "Status");
   const finalizadasPorMes = obterMesesFinalizados(lista);
@@ -693,7 +702,42 @@ function escapeHtml(valor) {
     '"': "&quot;"
   })[caractere]);
 }
+function obterIntervaloAtividade(atividade) {
+  if (!atividade.dataInicio || !atividade.horaInicio || !atividade.dataTermino || !atividade.horaTermino) return null;
 
+  const inicio = new Date(`${atividade.dataInicio}T${atividade.horaInicio}`);
+  const fim = new Date(`${atividade.dataTermino}T${atividade.horaTermino}`);
+  if (Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime()) || fim <= inicio) return null;
+
+  return { inicio, fim };
+}
+
+function calcularHorasAtividade(atividade) {
+  const intervalo = obterIntervaloAtividade(atividade);
+  if (!intervalo) return 0;
+  return (intervalo.fim - intervalo.inicio) / 36e5;
+}
+
+function calcularHorasTrabalhadas(lista) {
+  return lista.reduce((total, atividade) => total + calcularHorasAtividade(atividade), 0);
+}
+
+function formatarHoras(horas) {
+  const horasSeguras = Number.isFinite(horas) ? horas : 0;
+  return `${horasSeguras.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}h`;
+}
+
+function encontrarConflitoHorario(atividade, lista) {
+  const intervalo = obterIntervaloAtividade(atividade);
+  if (!intervalo) return null;
+
+  return lista.find((existente) => {
+    if (existente.id === atividade.id || existente.colaborador !== atividade.colaborador) return false;
+    const intervaloExistente = obterIntervaloAtividade(existente);
+    if (!intervaloExistente) return false;
+    return intervalo.inicio < intervaloExistente.fim && intervalo.fim > intervaloExistente.inicio;
+  }) || null;
+}
 function formatarData(data) {
   if (!data) return "-";
   const [ano, mes, dia] = data.split("-");

@@ -298,13 +298,13 @@ function renderizarTabela() {
   tabela.innerHTML = "";
   
   if (carregando) {
-    tabela.innerHTML = `<tr><td colspan="12" class="empty">Carregando atividades do Supabase...</td></tr>`;
+    tabela.innerHTML = `<tr><td colspan="13" class="empty">Carregando atividades do Supabase...</td></tr>`;
     atualizarDashboard();
     return;
   }
 
   if (!listaFiltrada.length) {
-    tabela.innerHTML = `<tr><td colspan="12" class="empty">Nenhuma atividade encontrada.</td></tr>`;
+    tabela.innerHTML = `<tr><td colspan="13" class="empty">Nenhuma atividade encontrada.</td></tr>`;
     atualizarDashboard();
     return;
   }
@@ -321,6 +321,7 @@ function renderizarTabela() {
       <td>${formatarDataHora(atividade.dataInicio, atividade.horaInicio)}</td>
       <td>${formatarDataHora(atividade.dataTermino, atividade.horaTermino)}</td>
       <td>${formatarData(atividade.dataPrevista)}</td>
+      <td>${formatarDataHoraCadastro(atividade.criadoEm)}</td>
       <td><span class="badge ${classeStatus(atividade.status)}">${escapeHtml(atividade.status)}</span></td>
       <td>${escapeHtml(atividade.observacoes || "-")}</td>
       <td>
@@ -428,6 +429,7 @@ function exportarCSV() {
     "Data de término",
     "Horário de término",
     "Data prevista para entrega",
+    "Cadastrado em",
     "Status",
     "Observações"
   ];
@@ -444,6 +446,7 @@ function exportarCSV() {
     a.dataTermino,
     a.horaTermino,
     a.dataPrevista,
+    formatarDataHoraCadastro(a.criadoEm),
     a.status,
     a.observacoes
   ]);
@@ -516,6 +519,21 @@ function formatarData(data) {
 function formatarDataHora(data, hora) {
   if (!data && !hora) return "-";
   return `${formatarData(data)}${hora ? ` às ${hora}` : ""}`;
+}
+
+function formatarDataHoraCadastro(dataHora) {
+  if (!dataHora) return "-";
+
+  const data = new Date(dataHora);
+  if (Number.isNaN(data.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(data);
 }
 
 function classePrioridade(prioridade) {

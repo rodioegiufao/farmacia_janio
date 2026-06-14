@@ -27,7 +27,7 @@ const etapas = [
 ];
 const statusLista = ["Atrasado", "Em progresso", "Pausado", "Finalizado"];
 
-const STORAGE_KEY = "rl_atividades_colaboradores";
+const API_URL = "/api/atividades";
 
 const form = document.getElementById("atividadeForm");
 const tabela = document.getElementById("atividadesTabela");
@@ -35,7 +35,8 @@ const btnCancelarEdicao = document.getElementById("btnCancelarEdicao");
 const btnLimparTudo = document.getElementById("btnLimparTudo");
 const btnExportarCSV = document.getElementById("btnExportarCSV");
 
-let atividades = carregarAtividades();
+let atividades = [];
+let carregando = false;
 
 const campos = {
   id: document.getElementById("atividadeId"),
@@ -63,7 +64,7 @@ const filtros = {
 
 inicializar();
 
-function inicializar() {
+async function inicializar() {
   preencherSelect(campos.colaborador, colaboradores);
   preencherSelect(campos.prioridade, prioridades);
   preencherSelect(campos.projeto, projetos);
@@ -84,7 +85,7 @@ function inicializar() {
     filtro.addEventListener("change", renderizarTabela);
   });
 
-  renderizarTabela();
+  await carregarAtividades();
 }
 
 function preencherSelect(select, opcoes, placeholder = "Selecione") {
@@ -97,7 +98,7 @@ function preencherSelect(select, opcoes, placeholder = "Selecione") {
   });
 }
 
-function salvarAtividade(event) {
+async function salvarAtividade(event) {
   event.preventDefault();
 
   const atividade = {
@@ -115,23 +116,30 @@ function salvarAtividade(event) {
     dataPrevista: campos.dataPrevista.value,
     status: statusAtualizado(campos.status.value, campos.dataPrevista.value),
     observacoes: campos.observacoes.value.trim(),
-    criadoEm: new Date().toISOString()
+    criadoEm: campos.id.value ? atividades.find((item) => item.id === campos.id.value)?.criadoEm : new Date().toISOString()
   };
 
-  const indice = atividades.findIndex((item) => item.id === atividade.id);
+  try {
+    setFormDisabled(true);
+    const atividadeSalva = await apiRequest(campos.id.value ? "PUT" : "POST", atividade);
+    const indice = atividades.findIndex((item) => item.id === atividade.id);
 
-  if (indice >= 0) {
-    atividades[indice] = atividade;
-  } else {
-    atividades.unshift(atividade);
-  }
+    if (indice >= 0) {
+      atividades[indice] = atividadeSalva;
+    } else {
+      atividades.unshift(atividadeSalva);
+    }
 
-  salvarNoStorage();
   form.reset();
-  campos.id.value = "";
-  btnCancelarEdicao.style.display = "none";
-  document.getElementById("btnSalvar").textContent = "Salvar atividade";
-  renderizarTabela();
+    campos.id.value = "";
+    btnCancelarEdicao.style.display = "none";
+    document.getElementById("btnSalvar").textContent = "Salvar atividade";
+    renderizarTabela();
+  } catch (erro) {
+    alert(`Não foi possível salvar no Supabase: ${erro.message}`);
+  } finally {
+    setFormDisabled(false);
+  }
 }
 
 function statusAtualizado(statusInformado, dataPrevista) {
@@ -163,6 +171,12 @@ function renderizarTabela() {
   });
 
   tabela.innerHTML = "";
+  
+  if (carregando) {
+    tabela.innerHTML = `<tr><td colspan="12" class="empty">Carregando atividades do Supabase...</td></tr>`;
+    atualizarDashboard();
+    return;
+  }
 
   if (!listaFiltrada.length) {
     tabela.innerHTML = `<tr><td colspan="12" class="empty">Nenhuma atividade encontrada.</td></tr>`;
@@ -173,17 +187,17 @@ function renderizarTabela() {
   listaFiltrada.forEach((atividade) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${atividade.colaborador}</td>
-      <td>${atividade.obra}</td>
-      <td><span class="badge ${classePrioridade(atividade.prioridade)}">${atividade.prioridade}</span></td>
-      <td>${atividade.projeto}</td>
-      <td>${atividade.trabalhos}</td>
-      <td>${atividade.etapa}</td>
+      <td>${escapeHtml(atividade.colaborador)}</td>
+      <td>${escapeHtml(atividade.obra)}</td>
+      <td><span class="badge ${classePrioridade(atividade.prioridade)}">${escapeHtml(atividade.prioridade)}</span></td>
+      <td>${escapeHtml(atividade.projeto)}</td>
+      <td>${escapeHtml(atividade.trabalhos)}</td>
+      <td>${escapeHtml(atividade.etapa)}</td>
       <td>${formatarDataHora(atividade.dataInicio, atividade.horaInicio)}</td>
       <td>${formatarDataHora(atividade.dataTermino, atividade.horaTermino)}</td>
       <td>${formatarData(atividade.dataPrevista)}</td>
-      <td><span class="badge ${classeStatus(atividade.status)}">${atividade.status}</span></td>
-      <td>${atividade.observacoes || "-"}</td>
+      <td><span class="badge ${classeStatus(atividade.status)}">${escapeHtml(atividade.status)}</span></td>
+      <td>${escapeHtml(atividade.observacoes || "-")}</td>
       <td>
         <div class="actions">
           <button type="button" class="secondary" onclick="editarAtividade('${atividade.id}')">Editar</button>
@@ -198,18 +212,15 @@ function renderizarTabela() {
 }
 
 function atualizarStatusAtrasadoAutomaticamente() {
-  let houveAlteracao = false;
-
   atividades = atividades.map((atividade) => {
     const novoStatus = statusAtualizado(atividade.status, atividade.dataPrevista);
     if (novoStatus !== atividade.status) {
-      houveAlteracao = true;
-      return { ...atividade, status: novoStatus };
+      const atualizada = { ...atividade, status: novoStatus };
+      apiRequest("PUT", atualizada).catch((erro) => console.error("Erro ao atualizar status no Supabase:", erro));
+      return atualizada;
     }
     return atividade;
   });
-
-  if (houveAlteracao) salvarNoStorage();
 }
 
 function editarAtividade(id) {
@@ -226,13 +237,17 @@ function editarAtividade(id) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function excluirAtividade(id) {
-  const confirmar = confirm("Deseja excluir esta atividade?");
+async function excluirAtividade(id) {
+  const confirmar = confirm("Deseja excluir esta atividade do Supabase?");
   if (!confirmar) return;
 
-  atividades = atividades.filter((item) => item.id !== id);
-  salvarNoStorage();
-  renderizarTabela();
+  try {
+    await fetch(`${API_URL}?id=${encodeURIComponent(id)}`, { method: "DELETE" }).then(validarResposta);
+    atividades = atividades.filter((item) => item.id !== id);
+    renderizarTabela();
+  } catch (erro) {
+    alert(`Não foi possível excluir no Supabase: ${erro.message}`);
+  }
 }
 
 function cancelarEdicao() {
@@ -242,13 +257,17 @@ function cancelarEdicao() {
   document.getElementById("btnSalvar").textContent = "Salvar atividade";
 }
 
-function limparTodosRegistros() {
-  const confirmar = confirm("Deseja apagar todos os registros salvos neste navegador?");
+async function limparTodosRegistros() {
+  const confirmar = confirm("Deseja apagar todos os registros salvos no Supabase?");
   if (!confirmar) return;
 
-  atividades = [];
-  salvarNoStorage();
-  renderizarTabela();
+  try {
+    await fetch(`${API_URL}?all=true`, { method: "DELETE" }).then(validarResposta);
+    atividades = [];
+    renderizarTabela();
+  } catch (erro) {
+    alert(`Não foi possível limpar os registros no Supabase: ${erro.message}`);
+  }
 }
 
 function atualizarDashboard() {
@@ -309,58 +328,50 @@ function exportarCSV() {
   URL.revokeObjectURL(url);
 }
 
-function carregarAtividades() {
-  const dados = localStorage.getItem(STORAGE_KEY);
-
-  if (dados) {
-    try {
-      return JSON.parse(dados);
-    } catch (erro) {
-      console.error("Erro ao carregar atividades:", erro);
-    }
+async function carregarAtividades() {
+  try {
+    carregando = true;
+    renderizarTabela();
+    atividades = await fetch(API_URL).then(validarResposta);
+  } catch (erro) {
+    alert(`Não foi possível carregar as atividades do Supabase: ${erro.message}`);
+    atividades = [];
+  } finally {
+    carregando = false;
+    renderizarTabela();
   }
-
-  return [
-    {
-      id: gerarId(),
-      colaborador: "Bruno",
-      obra: "",
-      prioridade: "P3",
-      projeto: "Elétrico Baixa Tensão",
-      trabalhos: "Plotando o Frajola que o Bruno enviou",
-      etapa: "AutoCAD",
-      dataInicio: "2026-05-22",
-      horaInicio: "15:55",
-      dataTermino: "2026-05-22",
-      horaTermino: "00:00",
-      dataPrevista: "2026-06-05",
-      status: "Finalizado",
-      observacoes: "Atividade importada como exemplo da planilha enviada.",
-      criadoEm: new Date().toISOString()
-    },
-    {
-      id: gerarId(),
-      colaborador: "Bruno",
-      obra: "",
-      prioridade: "P3",
-      projeto: "Elétrico Baixa Tensão",
-      trabalhos: "Plotagem ainda não terminada; foi colocado no Drive o que foi feito.",
-      etapa: "AutoCAD",
-      dataInicio: "2026-05-22",
-      horaInicio: "18:06",
-      dataTermino: "",
-      horaTermino: "",
-      dataPrevista: "",
-      status: "Em progresso",
-      observacoes: "Atividade importada como exemplo da planilha enviada.",
-      criadoEm: new Date().toISOString()
-    }
-  ];
 }
 
-function salvarNoStorage() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(atividades));
+async function apiRequest(method, atividade) {
+  return fetch(API_URL, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(atividade)
+  }).then(validarResposta);
 }
+
+async function validarResposta(response) {
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error || "Erro inesperado na comunicação com o servidor.");
+  }
+  return data;
+}
+
+function setFormDisabled(disabled) {
+  form.querySelectorAll("button, input, select, textarea").forEach((elemento) => {
+    elemento.disabled = disabled;
+  });
+}
+
+function escapeHtml(valor) {
+  return String(valor || "").replace(/[&<>'"]/g, (caractere) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    '"': "&quot;"
+  })[caractere]);
 
 function formatarData(data) {
   if (!data) return "-";

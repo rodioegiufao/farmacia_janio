@@ -55,6 +55,36 @@ const FIELD_TO_COLUMN = {
   criadoPorNome: "criado_por_nome"
 };
 
+function getActivityInterval(activity) {
+  if (!activity.data_inicio || !activity.hora_inicio || !activity.data_termino || !activity.hora_termino) return null;
+
+  const start = new Date(`${activity.data_inicio}T${activity.hora_inicio}`);
+  const end = new Date(`${activity.data_termino}T${activity.hora_termino}`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return null;
+
+  return { start, end };
+}
+
+async function ensureNoScheduleOverlap(record) {
+  const interval = getActivityInterval(record);
+  if (!interval || !record.colaborador) return;
+
+  const query = `?colaborador=eq.${encodeURIComponent(record.colaborador)}&select=id,trabalhos,data_inicio,hora_inicio,data_termino,hora_termino`;
+  const existingRecords = await supabaseRequest(SUPABASE_TABLE, query);
+  const conflict = (Array.isArray(existingRecords) ? existingRecords : []).find((existing) => {
+    if (existing.id === record.id) return false;
+    const existingInterval = getActivityInterval(existing);
+    if (!existingInterval) return false;
+    return interval.start < existingInterval.end && interval.end > existingInterval.start;
+  });
+
+  if (conflict) {
+    const error = new Error(`O colaborador já possui atividade no período informado: ${conflict.trabalhos || conflict.id}.`);
+    error.statusCode = 409;
+    throw error;
+  }
+}
+
 function toDatabaseRecord(activity) {
   return Object.entries(FIELD_TO_COLUMN).reduce((record, [field, column]) => {
     if (Object.prototype.hasOwnProperty.call(activity, field)) {
@@ -88,6 +118,7 @@ module.exports = async function atividadesHandler(req, res) {
       record.criado_por_nome = user.nome;
       enforceCollaboratorPermission(record, user);
       record.colaborador = record.colaborador || user.nome;
+      await ensureNoScheduleOverlap(record);
       const data = await supabaseRequest(SUPABASE_TABLE, "", {
         method: "POST",
         body: JSON.stringify(record)
@@ -117,6 +148,7 @@ module.exports = async function atividadesHandler(req, res) {
 
       const record = toDatabaseRecord(body);
       enforceCollaboratorPermission(record, user);
+      <article class="card"><span>Horas trabalhadas</span><strong id="totalHorasTrabalhadas">0h</strong></article>
       delete record.usuario_id;
       delete record.criado_por_nome;
       const data = await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(body.id)}`, {

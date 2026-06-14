@@ -101,7 +101,7 @@ function salvarAtividade(event) {
   event.preventDefault();
 
   const atividade = {
-    id: campos.id.value || crypto.randomUUID(),
+    id: campos.id.value || gerarId(),
     colaborador: campos.colaborador.value,
     obra: campos.obra.value.trim(),
     prioridade: campos.prioridade.value,
@@ -136,6 +136,7 @@ function salvarAtividade(event) {
 
 function statusAtualizado(statusInformado, dataPrevista) {
   if (statusInformado === "Finalizado" || statusInformado === "Pausado") return statusInformado;
+  if (!dataPrevista) return statusInformado || "Em progresso";
 
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
@@ -321,7 +322,7 @@ function carregarAtividades() {
 
   return [
     {
-      id: crypto.randomUUID(),
+      id: gerarId(),
       colaborador: "Bruno",
       obra: "",
       prioridade: "P3",
@@ -338,7 +339,7 @@ function carregarAtividades() {
       criadoEm: new Date().toISOString()
     },
     {
-      id: crypto.randomUUID(),
+      id: gerarId(),
       colaborador: "Bruno",
       obra: "",
       prioridade: "P3",
@@ -379,3 +380,29 @@ function classePrioridade(prioridade) {
 function classeStatus(status) {
   return status.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replaceAll(" ", "-");
 }
+
+function gerarId() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    return window.crypto.randomUUID();
+  }
+
+  return `atividade-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function initThemeSelector() {
+  const themeToggle = document.getElementById("theme-toggle");
+  if (!themeToggle) return;
+
+  const html = document.documentElement;
+  const savedTheme = localStorage.getItem("theme") || "dark";
+  html.setAttribute("data-theme", savedTheme);
+  themeToggle.checked = savedTheme === "light";
+
+  themeToggle.addEventListener("change", function () {
+    const theme = this.checked ? "light" : "dark";
+    html.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  });
+}
+
+initThemeSelector();

@@ -3,19 +3,39 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Organização de Trabalhos - RL</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>Controle de Atividades - RL</title>
+  <link rel="icon" href="/images/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
+  <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <span class="eyebrow">Ribeiro Lopes</span>
-      <h1>Organização de Trabalhos dos Colaboradores</h1>
-      <p>Controle de atividades por obra, prioridade, projeto, etapa, prazos e status.</p>
+  <div id="theme-selector" class="theme-selector">
+    <div class="theme-selector-content">
+      <div class="theme-logo">Controle de Atividades do Setor</div>
+      <div class="theme-controls">
+        <label class="theme-switch">
+          <input type="checkbox" id="theme-toggle">
+          <span class="theme-slider">
+            <span class="theme-icon sun">☀️</span>
+            <span class="theme-icon moon">🌙</span>
+          </span>
+        </label>
+      </div>
     </div>
-  </header>
+  </div>
 
   <main class="container">
+    <header class="header">
+      <div class="logo">
+        <i class="fas fa-list-check"></i>
+        <div>
+          <h1>Organização de Trabalhos dos Colaboradores</h1>
+          <p class="subtitle">Controle de atividades por obra, prioridade, projeto, etapa, prazos e status.</p>
+        </div>
+      </div>
+    </header>
     <section class="dashboard" aria-label="Resumo das atividades">
       <article class="card"><span>Total</span><strong id="totalAtividades">0</strong></article>
       <article class="card"><span>Em progresso</span><strong id="totalProgresso">0</strong></article>

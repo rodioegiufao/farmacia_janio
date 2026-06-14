@@ -33,23 +33,24 @@
 
   <main class="container">
     <section class="panel auth-panel" id="authPanel">
-      <div class="panel-header">
-        <div>
-          <h2>Acesso ao controle</h2>
+      <div class="auth-card">
+        <div class="auth-copy">
+          <h2>Login</h2>
           <p>Entre com seu usuário e senha para acessar o controle de atividades.</p>
         </div>
-      </div>
-
-      <div class="auth-grid" id="authGrid">
         <form id="loginForm" class="auth-form">
-          <h3>Entrar</h3>
           <label>
             Usuário
             <input type="text" id="loginUsuario" autocomplete="username" required />
           </label>
           <label>
             Senha
-            <input type="password" id="loginSenha" autocomplete="current-password" required />
+            <span class="password-field">
+              <input type="password" id="loginSenha" autocomplete="current-password" required />
+              <button type="button" class="password-toggle" id="toggleLoginSenha" aria-label="Mostrar senha" aria-pressed="false">
+                <i class="fa-regular fa-eye" aria-hidden="true"></i>
+              </button>
+            </span>
           </label>
           <button type="submit" class="primary">Entrar</button>
         </form>

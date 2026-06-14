@@ -2,6 +2,39 @@ const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./
 
 const SUPABASE_TABLE = "atividades_colaboradores";
 
+const COLABORADORES = ["Rodrigo", "Hellen", "Bruno", "Estagiário"];
+
+function normalizeText(text) {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function collaboratorForUser(user) {
+  const normalizedName = normalizeText(user?.nome);
+  return COLABORADORES.find((collaborator) => {
+    const normalizedCollaborator = normalizeText(collaborator);
+    return normalizedName === normalizedCollaborator
+      || normalizedName.startsWith(`${normalizedCollaborator} `)
+      || normalizedName.includes(normalizedCollaborator);
+  }) || user?.nome || "";
+}
+
+function enforceCollaboratorPermission(record, user) {
+  if (user.perfil === "admin") return;
+
+  const allowedCollaborator = collaboratorForUser(user);
+  if (record.colaborador && record.colaborador !== allowedCollaborator) {
+    const error = new Error("Você só pode preencher atividades para o seu próprio colaborador.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  record.colaborador = allowedCollaborator;
+}
+
 const FIELD_TO_COLUMN = {
   id: "id",
   colaborador: "colaborador",
@@ -53,6 +86,7 @@ module.exports = async function atividadesHandler(req, res) {
       const record = toDatabaseRecord(body);
       record.usuario_id = user.id;
       record.criado_por_nome = user.nome;
+      enforceCollaboratorPermission(record, user);
       record.colaborador = record.colaborador || user.nome;
       const data = await supabaseRequest(SUPABASE_TABLE, "", {
         method: "POST",
@@ -82,6 +116,7 @@ module.exports = async function atividadesHandler(req, res) {
       }
 
       const record = toDatabaseRecord(body);
+      enforceCollaboratorPermission(record, user);
       delete record.usuario_id;
       delete record.criado_por_nome;
       const data = await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(body.id)}`, {

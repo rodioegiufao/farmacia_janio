@@ -1,3 +1,5 @@
+const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
+
 const SUPABASE_TABLE = "atividades_colaboradores";
 
 const FIELD_TO_COLUMN = {
@@ -15,59 +17,10 @@ const FIELD_TO_COLUMN = {
   dataPrevista: "data_prevista",
   status: "status",
   observacoes: "observacoes",
-  criadoEm: "criado_em"
+  criadoEm: "criado_em",
+  usuarioId: "usuario_id",
+  criadoPorNome: "criado_por_nome"
 };
-
-function sendJson(res, statusCode, payload) {
-  res
-    .status(statusCode)
-    .setHeader("Content-Type", "application/json; charset=utf-8")
-    .send(JSON.stringify(payload));
-}
-
-function parseRequestBody(req) {
-  if (!req?.body) return {};
-  if (typeof req.body === "object") return req.body;
-
-  try {
-    return JSON.parse(req.body);
-  } catch (_error) {
-    return {};
-  }
-}
-
-function normalizeSupabaseRestUrl(rawUrl) {
-  const parsedUrl = new URL(rawUrl);
-  const pathSegments = parsedUrl.pathname.split("/").filter(Boolean);
-  const restIndex = pathSegments.findIndex((segment, index) => segment === "rest" && pathSegments[index + 1] === "v1");
-
-  parsedUrl.pathname = restIndex >= 0
-    ? `/${pathSegments.slice(0, restIndex + 2).join("/")}`
-    : `${parsedUrl.pathname.replace(/\/$/, "")}/rest/v1`;
-  parsedUrl.search = "";
-  parsedUrl.hash = "";
-
-  return parsedUrl.toString().replace(/\/$/, "");
-}
-
-function getSupabaseConfig() {
-  const url = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error("As variáveis SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY precisam estar configuradas na Vercel.");
-  }
-
-  return {
-    baseUrl: `${normalizeSupabaseRestUrl(url)}/${SUPABASE_TABLE}`,
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      "Content-Type": "application/json",
-      Prefer: "return=representation"
-    }
-  };
-}
 
 function toDatabaseRecord(activity) {
   return Object.entries(FIELD_TO_COLUMN).reduce((record, [field, column]) => {
@@ -85,63 +38,62 @@ function fromDatabaseRecord(record) {
   }, {});
 }
 
-async function supabaseRequest(path = "", options = {}) {
-  const { baseUrl, headers } = getSupabaseConfig();
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...options,
-    headers: {
-      ...headers,
-      ...(options.headers || {})
-    }
-  });
-
-  const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
-
-  if (!response.ok) {
-    const message = data?.message || data?.error || "Erro ao acessar o Supabase.";
-    const error = new Error(message);
-    error.statusCode = response.status;
-    throw error;
-  }
-
-  return data;
-}
-
 module.exports = async function atividadesHandler(req, res) {
   try {
     if (req.method === "GET") {
-      const data = await supabaseRequest("?select=*&order=criado_em.desc");
+      const user = await requireUser(req);
+      const data = await supabaseRequest(SUPABASE_TABLE, "?select=*&order=criado_em.desc");
       sendJson(res, 200, Array.isArray(data) ? data.map(fromDatabaseRecord) : []);
       return;
     }
 
     if (req.method === "POST") {
+      const user = await requireUser(req);
       const body = parseRequestBody(req);
-      const data = await supabaseRequest("", {
+      const record = toDatabaseRecord(body);
+      record.usuario_id = user.id;
+      record.criado_por_nome = user.nome;
+      record.colaborador = record.colaborador || user.nome;
+      const data = await supabaseRequest(SUPABASE_TABLE, "", {
         method: "POST",
-        body: JSON.stringify(toDatabaseRecord(body))
+        body: JSON.stringify(record)
       });
       sendJson(res, 201, fromDatabaseRecord(data[0] || {}));
       return;
     }
 
     if (req.method === "PUT") {
+      const user = await requireUser(req);
       const body = parseRequestBody(req);
       if (!body.id) {
         sendJson(res, 400, { error: "ID da atividade não informado." });
         return;
       }
 
-      const data = await supabaseRequest(`?id=eq.${encodeURIComponent(body.id)}`, {
+      const atuais = await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(body.id)}&select=id,usuario_id`);
+      const atual = Array.isArray(atuais) ? atuais[0] : null;
+      if (!atual) {
+        sendJson(res, 404, { error: "Atividade não encontrada." });
+        return;
+      }
+      if (user.perfil !== "admin" && atual.usuario_id !== user.id) {
+        sendJson(res, 403, { error: "Você só pode editar atividades criadas por você." });
+        return;
+      }
+
+      const record = toDatabaseRecord(body);
+      delete record.usuario_id;
+      delete record.criado_por_nome;
+      const data = await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(body.id)}`, {
         method: "PATCH",
-        body: JSON.stringify(toDatabaseRecord(body))
+        body: JSON.stringify(record)
       });
       sendJson(res, 200, fromDatabaseRecord(data[0] || {}));
       return;
     }
 
     if (req.method === "DELETE") {
+      const user = await requireUser(req);
       const id = typeof req.query?.id === "string" ? req.query.id : "";
       const all = req.query?.all === "true";
 
@@ -150,8 +102,26 @@ module.exports = async function atividadesHandler(req, res) {
         return;
       }
 
+      if (all && user.perfil !== "admin") {
+        sendJson(res, 403, { error: "Apenas administradores podem limpar todos os registros." });
+        return;
+      }
+
+      if (!all) {
+        const atuais = await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(id)}&select=id,usuario_id`);
+        const atual = Array.isArray(atuais) ? atuais[0] : null;
+        if (!atual) {
+          sendJson(res, 404, { error: "Atividade não encontrada." });
+          return;
+        }
+        if (user.perfil !== "admin" && atual.usuario_id !== user.id) {
+          sendJson(res, 403, { error: "Você só pode excluir atividades criadas por você." });
+          return;
+        }
+      }
+
       const filter = all ? "?id=not.is.null" : `?id=eq.${encodeURIComponent(id)}`;
-      await supabaseRequest(filter, { method: "DELETE" });
+      await supabaseRequest(SUPABASE_TABLE, filter, { method: "DELETE" });
       sendJson(res, 200, { ok: true });
       return;
     }

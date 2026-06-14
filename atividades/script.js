@@ -125,6 +125,7 @@ function aplicarUsuarioLogado(user) {
   }
   loginForm.hidden = Boolean(user);
   cadastroForm.hidden = Boolean(user) && !adminLogado;
+  authPanel.hidden = Boolean(user);
   appContent.hidden = !user;
   btnLogout.hidden = !user;
   usuarioLogado.textContent = user ? `${user.nome} (${user.perfil})` : "";

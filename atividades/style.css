@@ -191,7 +191,7 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 .empty { text-align: center; opacity: 0.85; padding: 28px; }
 
 @media (max-width: 900px) {
-  dashboard, .form-grid { grid-template-columns: 1fr; }
+  .dashboard, .form-grid { grid-template-columns: 1fr; }
     .span-2 { grid-column: span 1; }
     .panel-header, .logo { align-items: flex-start; flex-direction: column; }
 }
@@ -219,4 +219,46 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 .users-list-admin { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .user-card { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--primary-medium); color: var(--text-light); }
 .user-card strong { color: var(--text-lighter); }
+
 .user-card span { font-size: 0.9rem; opacity: 0.9; }
+.dashboard-panel { overflow: hidden; }
+.dashboard-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.dashboard { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.card:nth-child(3) { border-left-color: var(--success); }
+.card:nth-child(4) { border-left-color: var(--error); }
+.card:nth-child(5) { border-left-color: var(--paused); }
+.card:nth-child(6) { border-left-color: var(--warning); }
+.collaborator-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin: 8px 0 24px;
+}
+.collaborator-card, .chart-card {
+  background: rgba(99, 179, 237, 0.06);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+.collaborator-card { display: grid; gap: 6px; padding: 14px; }
+.collaborator-card strong, .chart-card h3 { color: var(--text-lighter); }
+.collaborator-card span, .collaborator-card small { opacity: 0.88; }
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 18px;
+}
+.chart-card { min-height: 330px; padding: 18px; }
+.chart-card h3 { margin-bottom: 14px; font-size: 1rem; }
+.chart-card canvas { width: 100% !important; height: 260px !important; }
+.dashboard-empty { grid-column: 1 / -1; border: 1px dashed var(--border-color); border-radius: 12px; }
+
+@media (max-width: 900px) {
+  .dashboard, .form-grid, .charts-grid { grid-template-columns: 1fr; }
+  .delivery-date-field { width: 100%; }
+  .chart-card { min-height: 300px; }
+}

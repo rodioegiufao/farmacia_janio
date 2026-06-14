@@ -86,6 +86,8 @@ const filtrosDashboard = {
 };
 
 const dashboardCharts = {};
+const sectionTabs = document.querySelectorAll("[data-section-target]");
+const sectionPanels = document.querySelectorAll("[data-section-panel]");
 
 inicializar();
 
@@ -114,6 +116,7 @@ async function inicializar() {
   btnCancelarEdicao.addEventListener("click", cancelarEdicao);
   btnLimparTudo.addEventListener("click", limparTodosRegistros);
   btnExportarCSV.addEventListener("click", exportarCSV);
+  sectionTabs.forEach((tab) => tab.addEventListener("click", alternarSecao));
 
   Object.values(filtros).forEach((filtro) => {
     filtro.addEventListener("input", renderizarTabela);
@@ -126,6 +129,21 @@ async function inicializar() {
    if (usuarioAtual) await carregarAtividades();
 }
 
+function alternarSecao(event) {
+  const targetId = event.currentTarget.dataset.sectionTarget;
+
+  sectionTabs.forEach((tab) => {
+    const ativo = tab.dataset.sectionTarget === targetId;
+    tab.classList.toggle("active", ativo);
+    tab.setAttribute("aria-selected", String(ativo));
+  });
+
+  sectionPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.sectionPanel !== targetId;
+  });
+
+  if (targetId === "dashboardSection") atualizarDashboard();
+}
 async function verificarSessao() {
   try {
     const data = await fetch(AUTH_URL).then(validarResposta);

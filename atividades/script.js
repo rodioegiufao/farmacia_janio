@@ -29,13 +29,10 @@ const statusLista = ["Atrasado", "Em progresso", "Pausado", "Finalizado"];
 
 const API_URL = "/api/atividades";
 const AUTH_URL = "/api/auth";
-const USUARIOS_URL = "/api/usuarios";
 
 const authPanel = document.getElementById("authPanel");
-const authGrid = document.getElementById("authGrid");
 const appContent = document.getElementById("appContent");
 const loginForm = document.getElementById("loginForm");
-const cadastroForm = document.getElementById("cadastroForm");
 const btnLogout = document.getElementById("btnLogout");
 const usuarioLogado = document.getElementById("usuarioLogado");
 const adminLink = document.getElementById("adminLink");
@@ -93,7 +90,6 @@ inicializar();
 
 async function inicializar() {
   loginForm.addEventListener("submit", entrar);
-  cadastroForm.addEventListener("submit", cadastrarUsuario);
   btnLogout.addEventListener("click", sair);
   await verificarSessao();
   
@@ -158,14 +154,12 @@ function aplicarUsuarioLogado(user) {
   const adminLogado = user?.perfil === "admin";
 
   loginForm.hidden = Boolean(user);
-  cadastroForm.hidden = Boolean(user);
   authPanel.hidden = Boolean(user);
   appContent.hidden = !user;
   btnLogout.hidden = !user;
   adminLink.hidden = !adminLogado;
   usuarioLogado.textContent = user ? `${user.nome} (${user.perfil})` : "";
   btnLimparTudo.hidden = !adminLogado;
-  document.getElementById("cadastroPerfilWrapper").hidden = !adminLogado;
   preencherColaboradoresPermitidos();
 }
 
@@ -229,26 +223,6 @@ async function sair() {
   atividades = [];
   atualizarOpcoesDashboard();
   renderizarTabela();
-}
-
-async function cadastrarUsuario(event) {
-  event.preventDefault();
-  try {
-    const data = await fetch(USUARIOS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nome: document.getElementById("cadastroNome").value,
-        usuario: document.getElementById("cadastroUsuario").value,
-        senha: document.getElementById("cadastroSenha").value,
-        perfil: document.getElementById("cadastroPerfil").value
-      })
-    }).then(validarResposta);
-    cadastroForm.reset();
-    alert(`Usuário ${data.nome} cadastrado com sucesso.`);
-  } catch (erro) {
-    alert(`Não foi possível cadastrar: ${erro.message}`);
-  }
 }
 
 function preencherSelect(select, opcoes, placeholder = "Selecione") {

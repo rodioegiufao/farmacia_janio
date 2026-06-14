@@ -151,6 +151,11 @@ input:focus, select:focus, textarea:focus {
     box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.2);
 }
 .span-2 { grid-column: span 2; }
+.delivery-date-field {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc(50% - 9px);
+}
 .form-actions, .filters { display: flex; gap: 12px; flex-wrap: wrap; }
 button {
   border: 0;

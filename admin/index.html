@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administração - Controle de Atividades</title>
+  <link rel="icon" href="/images/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
+  <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/atividades/style.css">
+</head>
+<body>
+  <div id="theme-selector" class="theme-selector">
+    <div class="theme-selector-content">
+      <a href="/atividades/" class="theme-logo theme-logo-link">Controle de Atividades do Setor</a>
+      <div class="theme-controls">
+        <span id="usuarioLogado" class="logged-user"></span>
+        <a href="/atividades/" class="secondary nav-button">Atividades</a>
+        <button type="button" class="secondary logout-button" id="btnLogout" hidden>Sair</button>
+        <label class="theme-switch">
+          <input type="checkbox" id="theme-toggle">
+          <span class="theme-slider">
+            <span class="theme-icon sun">☀️</span>
+            <span class="theme-icon moon">🌙</span>
+          </span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <main class="container admin-container">
+    <header class="header">
+      <div class="logo">
+        <i class="fas fa-user-shield"></i>
+        <div>
+          <h1>Administração do site</h1>
+          <p class="subtitle">Cadastro de usuários e controle de acesso aos dados do sistema.</p>
+        </div>
+      </div>
+    </header>
+
+    <section class="panel" id="adminPanel" hidden>
+      <div class="panel-header">
+        <div>
+          <h2>Usuários cadastrados</h2>
+          <p>Somente administradores podem acessar esta área para cadastrar e acompanhar os usuários.</p>
+        </div>
+      </div>
+
+      <form id="cadastroForm" class="auth-form admin-user-form">
+        <h3>Cadastrar usuário</h3>
+        <label>
+          Nome
+          <input type="text" id="cadastroNome" required />
+        </label>
+        <label>
+          Usuário
+          <input type="text" id="cadastroUsuario" autocomplete="username" required />
+        </label>
+        <label>
+          Senha
+          <input type="password" id="cadastroSenha" autocomplete="new-password" minlength="6" required />
+        </label>
+        <label>
+          Perfil
+          <select id="cadastroPerfil">
+            <option value="colaborador">Colaborador</option>
+            <option value="admin">Admin / dono do setor</option>
+          </select>
+        </label>
+        <button type="submit" class="secondary">Cadastrar</button>
+        <p class="help-text">Novos usuários cadastrados aqui passam a acessar o controle de atividades conforme o perfil escolhido.</p>
+      </form>
+
+      <div id="usuariosLista" class="users-list users-list-admin"></div>
+    </section>
+
+    <section class="panel" id="accessDeniedPanel" hidden>
+      <div class="panel-header">
+        <div>
+          <h2>Acesso restrito</h2>
+          <p>Faça login como administrador para acessar esta página.</p>
+        </div>
+        <a href="/atividades/" class="primary nav-button">Ir para login</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="/admin/script.js"></script>
+</body>
+</html>

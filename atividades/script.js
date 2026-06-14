@@ -28,6 +28,17 @@ const etapas = [
 const statusLista = ["Atrasado", "Em progresso", "Pausado", "Finalizado"];
 
 const API_URL = "/api/atividades";
+const AUTH_URL = "/api/auth";
+const USUARIOS_URL = "/api/usuarios";
+
+const authPanel = document.getElementById("authPanel");
+const appContent = document.getElementById("appContent");
+const loginForm = document.getElementById("loginForm");
+const cadastroForm = document.getElementById("cadastroForm");
+const btnLogout = document.getElementById("btnLogout");
+const usuarioLogado = document.getElementById("usuarioLogado");
+const usuariosPanel = document.getElementById("usuariosPanel");
+const usuariosLista = document.getElementById("usuariosLista");
 
 const form = document.getElementById("atividadeForm");
 const tabela = document.getElementById("atividadesTabela");
@@ -37,6 +48,7 @@ const btnExportarCSV = document.getElementById("btnExportarCSV");
 
 let atividades = [];
 let carregando = false;
+let usuarioAtual = null;
 
 const campos = {
   id: document.getElementById("atividadeId"),
@@ -65,6 +77,11 @@ const filtros = {
 inicializar();
 
 async function inicializar() {
+  loginForm.addEventListener("submit", entrar);
+  cadastroForm.addEventListener("submit", cadastrarUsuario);
+  btnLogout.addEventListener("click", sair);
+  await verificarSessao();
+  
   preencherSelect(campos.colaborador, colaboradores);
   preencherSelect(campos.prioridade, prioridades);
   preencherSelect(campos.projeto, projetos);
@@ -85,7 +102,86 @@ async function inicializar() {
     filtro.addEventListener("change", renderizarTabela);
   });
 
-  await carregarAtividades();
+   if (usuarioAtual) await carregarAtividades();
+}
+
+async function verificarSessao() {
+  try {
+    const data = await fetch(AUTH_URL).then(validarResposta);
+    aplicarUsuarioLogado(data.user);
+  } catch (_erro) {
+    aplicarUsuarioLogado(null);
+  }
+}
+
+function aplicarUsuarioLogado(user) {
+  usuarioAtual = user;
+  authPanel.hidden = Boolean(user) && user.perfil !== "admin";
+  loginForm.hidden = Boolean(user);
+  cadastroForm.hidden = Boolean(user) && user.perfil !== "admin";
+  appContent.hidden = !user;
+  btnLogout.hidden = !user;
+  usuarioLogado.textContent = user ? `${user.nome} (${user.perfil})` : "";
+  btnLimparTudo.hidden = user?.perfil !== "admin";
+  usuariosPanel.hidden = user?.perfil !== "admin";
+  document.getElementById("cadastroPerfilWrapper").hidden = user?.perfil !== "admin";
+  if (user?.perfil === "admin") carregarUsuarios();
+}
+
+async function entrar(event) {
+  event.preventDefault();
+  try {
+    const data = await fetch(AUTH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        usuario: document.getElementById("loginUsuario").value,
+        senha: document.getElementById("loginSenha").value
+      })
+    }).then(validarResposta);
+    loginForm.reset();
+    aplicarUsuarioLogado(data.user);
+    await carregarAtividades();
+  } catch (erro) {
+    alert(`Não foi possível entrar: ${erro.message}`);
+  }
+}
+
+async function sair() {
+  await fetch(AUTH_URL, { method: "DELETE" }).catch(() => null);
+  aplicarUsuarioLogado(null);
+  atividades = [];
+  renderizarTabela();
+}
+
+async function cadastrarUsuario(event) {
+  event.preventDefault();
+  try {
+    const data = await fetch(USUARIOS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nome: document.getElementById("cadastroNome").value,
+        usuario: document.getElementById("cadastroUsuario").value,
+        senha: document.getElementById("cadastroSenha").value,
+        perfil: document.getElementById("cadastroPerfil").value
+      })
+    }).then(validarResposta);
+    cadastroForm.reset();
+    alert(`Usuário ${data.nome} cadastrado com sucesso.`);
+    if (usuarioAtual?.perfil === "admin") carregarUsuarios();
+  } catch (erro) {
+    alert(`Não foi possível cadastrar: ${erro.message}`);
+  }
+}
+
+async function carregarUsuarios() {
+  try {
+    const usuarios = await fetch(USUARIOS_URL).then(validarResposta);
+    usuariosLista.innerHTML = usuarios.map((user) => `<span class="user-pill">${escapeHtml(user.nome)} - ${escapeHtml(user.perfil)}</span>`).join("");
+  } catch (erro) {
+    usuariosLista.innerHTML = `<p class="help-text">${escapeHtml(erro.message)}</p>`;
+  }
 }
 
 function preencherSelect(select, opcoes, placeholder = "Selecione") {
@@ -200,8 +296,8 @@ function renderizarTabela() {
       <td>${escapeHtml(atividade.observacoes || "-")}</td>
       <td>
         <div class="actions">
-          <button type="button" class="secondary" onclick="editarAtividade('${atividade.id}')">Editar</button>
-          <button type="button" class="ghost" onclick="excluirAtividade('${atividade.id}')">Excluir</button>
+          ${podeAlterar(atividade) ? `<button type="button" class="secondary" onclick="editarAtividade('${atividade.id}')">Editar</button>` : ""}
+          ${podeAlterar(atividade) ? `<button type="button" class="ghost" onclick="excluirAtividade('${atividade.id}')">Excluir</button>` : ""}
         </div>
       </td>
     `;
@@ -209,6 +305,10 @@ function renderizarTabela() {
   });
 
   atualizarDashboard();
+}
+
+function podeAlterar(atividade) {
+  return usuarioAtual?.perfil === "admin" || atividade.usuarioId === usuarioAtual?.id;
 }
 
 function atualizarStatusAtrasadoAutomaticamente() {

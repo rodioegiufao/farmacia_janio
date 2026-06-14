@@ -91,77 +91,16 @@
         </div>
       </div>
     </header>
-    <section class="panel dashboard-panel" aria-label="Dashboard de produtividade">
-      <div class="panel-header">
-        <div>
-          <h2>Dashboard</h2>
-          <p>Indicadores e gráficos de produtividade individual e coletiva da equipe.</p>
-        </div>
-      </div>
+    <nav class="section-tabs" aria-label="Seções do controle de atividades">
+      <button type="button" class="tab-button active" data-section-target="atividadeSection" aria-controls="atividadeSection" aria-selected="true">
+        <i class="fas fa-clipboard-list"></i> Atividade
+      </button>
+      <button type="button" class="tab-button" data-section-target="dashboardSection" aria-controls="dashboardSection" aria-selected="false">
+        <i class="fas fa-chart-line"></i> Dashboard
+      </button>
+    </nav>
 
-      <div class="dashboard-filters">
-        <label>
-          Período
-          <select id="dashboardPeriodo">
-            <option value="mes-atual">Este mês</option>
-            <option value="mes-anterior">Mês anterior</option>
-            <option value="ultimos-30">Últimos 30 dias</option>
-            <option value="ano-atual">Este ano</option>
-            <option value="personalizado">Período personalizado</option>
-          </select>
-        </label>
-        <label class="dashboard-custom-period">
-          Início
-          <input type="date" id="dashboardDataInicio">
-        </label>
-        <label class="dashboard-custom-period">
-          Fim
-          <input type="date" id="dashboardDataFim">
-        </label>
-        <label>
-          Colaborador
-          <select id="dashboardColaborador"></select>
-        </label>
-        <label>
-          Status
-          <select id="dashboardStatus"></select>
-        </label>
-        <label>
-          Prioridade
-          <select id="dashboardPrioridade"></select>
-        </label>
-        <label>
-          Projeto
-          <select id="dashboardProjeto"></select>
-        </label>
-        <label>
-          Obra
-          <select id="dashboardObra"></select>
-        </label>
-      </div>
-
-      <div class="dashboard" aria-label="Indicadores gerais da equipe">
-        <article class="card"><span>Total</span><strong id="totalAtividades">0</strong></article>
-        <article class="card"><span>Em progresso</span><strong id="totalProgresso">0</strong></article>
-        <article class="card"><span>Finalizadas</span><strong id="totalFinalizado">0</strong></article>
-        <article class="card"><span>Atrasadas</span><strong id="totalAtrasado">0</strong></article>
-        <article class="card"><span>Projetos/obras</span><strong id="totalProjetosObras">0</strong></article>
-        <article class="card"><span>Conclusão geral</span><strong id="percentualConclusao">0%</strong></article>
-      </div>
-
-      <div class="collaborator-summary" id="dashboardResumoColaboradores"></div>
-
-      <div class="charts-grid">
-        <article class="chart-card"><h3>Atividades por colaborador</h3><canvas id="chartAtividadesColaborador"></canvas></article>
-        <article class="chart-card"><h3>Projetos/obras por colaborador</h3><canvas id="chartProjetosColaborador"></canvas></article>
-        <article class="chart-card"><h3>Distribuição por status</h3><canvas id="chartStatus"></canvas></article>
-        <article class="chart-card"><h3>Finalizadas por mês</h3><canvas id="chartFinalizadasMes"></canvas></article>
-        <article class="chart-card"><h3>Atividades por tipo de projeto</h3><canvas id="chartTipoProjeto"></canvas></article>
-        <article class="chart-card"><h3>Atividades por prioridade</h3><canvas id="chartPrioridade"></canvas></article>
-      </div>
-    </section>
-
-    <section class="panel">
+    <section class="panel" id="atividadeSection" data-section-panel="atividadeSection">
       <div class="panel-header">
         <div>
           <h2>Nova atividade</h2>
@@ -243,47 +182,117 @@
           <button type="button" class="secondary" id="btnCancelarEdicao">Cancelar edição</button>
         </div>
       </form>
+      <div class="records-area">
+        <div class="panel-header records-header">
+          <div>
+            <h2>Atividades registradas</h2>
+            <p>Use os filtros para visualizar as demandas por colaborador, obra, projeto ou status.</p>
+          </div>
+          <button type="button" class="primary" id="btnExportarCSV">Exportar CSV</button>
+        </div>
+
+        <div class="filters">
+          <input type="search" id="busca" placeholder="Buscar por obra, trabalho ou observação" />
+          <select id="filtroColaborador"></select>
+          <select id="filtroStatus"></select>
+          <select id="filtroPrioridade"></select>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Colaborador</th>
+                <th>Obra</th>
+                <th>Prioridade</th>
+                <th>Projeto</th>
+                <th>Trabalhos</th>
+                <th>Etapa</th>
+                <th>Início</th>
+                <th>Término</th>
+                <th>Entrega</th>
+                <th>Cadastro</th>
+                <th>Status</th>
+                <th>Observações</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="atividadesTabela"></tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
-    <section class="panel">
+    <section class="panel dashboard-panel" id="dashboardSection" data-section-panel="dashboardSection" aria-label="Dashboard de produtividade" hidden>
       <div class="panel-header">
         <div>
-          <h2>Atividades registradas</h2>
-          <p>Use os filtros para visualizar as demandas por colaborador, obra, projeto ou status.</p>
+          <h2>Dashboard</h2>
+          <p>Indicadores e gráficos de produtividade individual e coletiva da equipe.</p>
         </div>
-        <button type="button" class="primary" id="btnExportarCSV">Exportar CSV</button>
       </div>
 
-      <div class="filters">
-        <input type="search" id="busca" placeholder="Buscar por obra, trabalho ou observação" />
-        <select id="filtroColaborador"></select>
-        <select id="filtroStatus"></select>
-        <select id="filtroPrioridade"></select>
+      <div class="dashboard-filters">
+        <label>
+          Período
+          <select id="dashboardPeriodo">
+            <option value="mes-atual">Este mês</option>
+            <option value="mes-anterior">Mês anterior</option>
+            <option value="ultimos-30">Últimos 30 dias</option>
+            <option value="ano-atual">Este ano</option>
+            <option value="personalizado">Período personalizado</option>
+          </select>
+        </label>
+        <label class="dashboard-custom-period">
+          Início
+          <input type="date" id="dashboardDataInicio">
+        </label>
+        <label class="dashboard-custom-period">
+          Fim
+          <input type="date" id="dashboardDataFim">
+        </label>
+        <label>
+          Colaborador
+          <select id="dashboardColaborador"></select>
+        </label>
+        <label>
+          Status
+          <select id="dashboardStatus"></select>
+        </label>
+        <label>
+          Prioridade
+          <select id="dashboardPrioridade"></select>
+        </label>
+        <label>
+          Projeto
+          <select id="dashboardProjeto"></select>
+        </label>
+        <label>
+          Obra
+          <select id="dashboardObra"></select>
+        </label>
       </div>
 
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Colaborador</th>
-              <th>Obra</th>
-              <th>Prioridade</th>
-              <th>Projeto</th>
-              <th>Trabalhos</th>
-              <th>Etapa</th>
-              <th>Início</th>
-              <th>Término</th>
-              <th>Entrega</th>
-              <th>Cadastro</th>
-              <th>Status</th>
-              <th>Observações</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody id="atividadesTabela"></tbody>
-        </table>
+      <div class="dashboard" aria-label="Indicadores gerais da equipe">
+        <article class="card"><span>Total</span><strong id="totalAtividades">0</strong></article>
+        <article class="card"><span>Em progresso</span><strong id="totalProgresso">0</strong></article>
+        <article class="card"><span>Finalizadas</span><strong id="totalFinalizado">0</strong></article>
+        <article class="card"><span>Atrasadas</span><strong id="totalAtrasado">0</strong></article>
+        <article class="card"><span>Projetos/obras</span><strong id="totalProjetosObras">0</strong></article>
+        <article class="card"><span>Conclusão geral</span><strong id="percentualConclusao">0%</strong></article>
+      </div>
+
+      <div class="collaborator-summary" id="dashboardResumoColaboradores"></div>
+
+      <div class="charts-grid">
+        <article class="chart-card"><h3>Atividades por colaborador</h3><canvas id="chartAtividadesColaborador"></canvas></article>
+        <article class="chart-card"><h3>Projetos/obras por colaborador</h3><canvas id="chartProjetosColaborador"></canvas></article>
+        <article class="chart-card"><h3>Distribuição por status</h3><canvas id="chartStatus"></canvas></article>
+        <article class="chart-card"><h3>Finalizadas por mês</h3><canvas id="chartFinalizadasMes"></canvas></article>
+        <article class="chart-card"><h3>Atividades por tipo de projeto</h3><canvas id="chartTipoProjeto"></canvas></article>
+        <article class="chart-card"><h3>Atividades por prioridade</h3><canvas id="chartPrioridade"></canvas></article>
       </div>
     </section>
+      </div>
   </main>
 
   <script src="/atividades/script.js"></script>

@@ -36,6 +36,8 @@ const loginForm = document.getElementById("loginForm");
 const btnLogout = document.getElementById("btnLogout");
 const usuarioLogado = document.getElementById("usuarioLogado");
 const adminLink = document.getElementById("adminLink");
+const loginSenha = document.getElementById("loginSenha");
+const toggleLoginSenha = document.getElementById("toggleLoginSenha");
 
 const form = document.getElementById("atividadeForm");
 const tabela = document.getElementById("atividadesTabela");
@@ -91,6 +93,7 @@ inicializar();
 async function inicializar() {
   loginForm.addEventListener("submit", entrar);
   btnLogout.addEventListener("click", sair);
+  toggleLoginSenha.addEventListener("click", alternarVisibilidadeSenha);
   await verificarSessao();
   
   preencherColaboradoresPermitidos();
@@ -196,6 +199,14 @@ function normalizarTexto(texto) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
+}
+
+function alternarVisibilidadeSenha() {
+  const senhaVisivel = loginSenha.type === "text";
+  loginSenha.type = senhaVisivel ? "password" : "text";
+  toggleLoginSenha.setAttribute("aria-label", senhaVisivel ? "Mostrar senha" : "Ocultar senha");
+  toggleLoginSenha.setAttribute("aria-pressed", String(!senhaVisivel));
+  toggleLoginSenha.querySelector("i").className = senhaVisivel ? "fa-regular fa-eye" : "fa-regular fa-eye-slash";
 }
 
 async function entrar(event) {

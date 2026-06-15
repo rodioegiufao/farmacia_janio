@@ -506,6 +506,10 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 }
 
 #btnCancelarEdicaoSemanal { display: none; }
+.weekly-activities-section {
+  padding-top: 28px;
+  border-top: 1px solid var(--border-color);
+}
 .weekly-panel .records-area { margin-top: 28px; }
 .weekly-table { min-width: 900px; }
 .weekly-table th:nth-child(3),
@@ -608,6 +612,7 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 
 @media (max-width: 640px) {
   .weekly-dashboard { padding: 18px; }
+  .weekly-activities-section { padding-top: 22px; }
   .weekly-dashboard-header { align-items: flex-start; }
   .weekly-dashboard-header i { width: 42px; height: 42px; flex-basis: 42px; }
 }

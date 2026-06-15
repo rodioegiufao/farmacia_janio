@@ -1,5 +1,11 @@
 const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Estagiário"];
 const prioridades = ["P0", "P1", "P2", "P3"];
+const coresPrioridade = {
+  P0: "#48bb78",
+  P1: "#ecc94b",
+  P2: "#ed8936",
+  P3: "#f56565"
+};
 const projetos = [
   "CFTV",
   "Cabeamento",
@@ -932,7 +938,7 @@ function criarOuAtualizarGrafico(canvasId, tipo, labels, valores, label) {
 
   dashboardCharts[canvasId] = new Chart(document.getElementById(canvasId), {
     type: tipo,
-    data: { labels, datasets: [{ label, data: valores, backgroundColor: ["#3182ce", "#48bb78", "#ed8936", "#f56565", "#9f7aea", "#63b3ed"], borderColor: "#63b3ed", tension: 0.3 }] },
+    data: { labels, datasets: [{ label, data: valores, backgroundColor: obterCoresGrafico(labels), borderColor: "#63b3ed", tension: 0.3 }] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -1128,6 +1134,11 @@ function formatarDataHoraCadastro(dataHora) {
 
 function classePrioridade(prioridade) {
   return prioridade.toLowerCase();
+}
+
+function obterCoresGrafico(labels) {
+  const coresPadrao = ["#3182ce", "#48bb78", "#ed8936", "#f56565", "#9f7aea", "#63b3ed"];
+  return labels.map((label, index) => coresPrioridade[label] || coresPadrao[index % coresPadrao.length]);
 }
 
 function classeStatus(status) {

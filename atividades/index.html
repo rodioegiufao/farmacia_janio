@@ -217,7 +217,7 @@
             </thead>
             <tbody id="atividadesTabela"></tbody>
           </table>
-        </div>
+          </div>
       </div>
     </section>
 
@@ -293,12 +293,6 @@
       </div>
     </section>
     <section class="panel weekly-panel" id="semanaSection" data-section-panel="semanaSection" aria-label="Atividades da semana" hidden>
-      <div class="panel-header">
-        <div>
-          <h2>Atividades da Semana</h2>
-          <p>Registro simples das atividades planejadas ou executadas por semana.</p>
-        </div>
-      </div>
       <section class="weekly-dashboard" aria-labelledby="weeklyDashboardTitle">
         <div class="weekly-dashboard-header">
           <div>
@@ -309,33 +303,38 @@
         </div>
         <div id="dashboardAtividadesSemanais" class="weekly-dashboard-list" aria-live="polite"></div>
       </section>
-      <!-- Formulário simples para cadastro e edição de atividades semanais. -->
-      <form id="atividadeSemanalForm" class="form-grid">
-        <input type="hidden" id="atividadeSemanalId" />
-
-        <label class="span-2">
-          Semana
-          <input type="text" id="semanaAtividade" placeholder="Ex.: Semana 25: 15 de junho à 21 de junho 2026" required />
-        </label>
-
-        <label class="span-2">
-          Atividade
-          <input type="text" id="tituloAtividadeSemanal" placeholder="Ex.: Revisão dos projetos elétricos" required />
-        </label>
-
-        <label class="span-2">
-          Descrição da atividade
-          <textarea id="descricaoAtividadeSemanal" rows="4" placeholder="Descreva o planejamento, execução ou observações da atividade semanal"></textarea>
-        </label>
-
-        <div class="form-actions span-2">
-          <button type="submit" class="primary" id="btnSalvarAtividadeSemanal">Salvar atividade semanal</button>
-          <button type="button" class="secondary" id="btnCancelarEdicaoSemanal">Cancelar edição</button>
-          <button type="button" class="secondary" id="btnLimparFormularioSemanal">Limpar formulário</button>
+      <div class="weekly-activities-section">
+        <div class="panel-header">
+          <div>
+            <h2>Atividades da Semana</h2>
+            <p>Registro simples das atividades planejadas ou executadas por semana.</p>
+          </div>
         </div>
-      </form>
+        <!-- Formulário simples para cadastro e edição de atividades semanais. -->
+        <form id="atividadeSemanalForm" class="form-grid">
+          <input type="hidden" id="atividadeSemanalId" />
 
-      <div class="records-area">
+          <label class="span-2">
+            Semana
+            <input type="text" id="semanaAtividade" placeholder="Ex.: Semana 25: 15 de junho à 21 de junho 2026" required />
+          </label>
+
+          <label class="span-2">
+            Atividade
+            <input type="text" id="tituloAtividadeSemanal" placeholder="Ex.: Revisão dos projetos elétricos" required />
+          </label>
+          <label class="span-2">
+            Descrição da atividade
+            <textarea id="descricaoAtividadeSemanal" rows="4" placeholder="Descreva o planejamento, execução ou observações da atividade semanal"></textarea>
+          </label>
+        <div class="form-actions span-2">
+            <button type="submit" class="primary" id="btnSalvarAtividadeSemanal">Salvar atividade semanal</button>
+            <button type="button" class="secondary" id="btnCancelarEdicaoSemanal">Cancelar edição</button>
+            <button type="button" class="secondary" id="btnLimparFormularioSemanal">Limpar formulário</button>
+          </div>
+        </form>
+
+        <div class="records-area">
         <div class="panel-header records-header">
           <div>
             <h2>Atividades semanais registradas</h2>
@@ -362,6 +361,7 @@
             </thead>
             <tbody id="tabelaAtividadesSemanais"></tbody>
           </table>
+        </div>
         </div>
       </div>
     </section>

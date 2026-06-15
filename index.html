@@ -57,10 +57,10 @@
                 <li class="menu-item-has-children">
                     <a href="#ferramentas">Ferramentas ▾</a>
                     <ul class="sub-menu">
-                        <li><a href="/viabilidade">📄 Viabilidades</a></li>
-                        <li><a href="/Memorial">📝 Memorial Descritivo Elétrico</a></li>
-                        <li><a href="/alimentador">📏 Dimensionamento do Alimentador</a></li>
-                        <li><a href="/carimbo">🔍 Analisador de Carimbos PDF</a></li>
+                        <li><a href="/viabilidade" data-auth-required="true">📄 Viabilidades</a></li>
+                        <li><a href="/Memorial" data-auth-required="true">📝 Memorial Descritivo Elétrico</a></li>
+                        <li><a href="/alimentador" data-auth-required="true">📏 Dimensionamento do Alimentador</a></li>
+                        <li><a href="/carimbo" data-auth-required="true">🔍 Analisador de Carimbos PDF</a></li>
                         <li><a href="/3D">🧱 Modelos 3D</a></li>
                     </ul>
                 </li>
@@ -262,7 +262,8 @@
             &copy; 2024 Rodrigo Damasceno Nascimento. Engenheiro Eletricista CREA/RR 092019291-2. Todos os direitos reservados.
         </div>
     </footer>
-
+    
+    <script src="./js/auth-guard.js"></script>
     <script src="./js/main.js"></script>
 </body>
 </html>

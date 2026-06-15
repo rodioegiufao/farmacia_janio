@@ -7,6 +7,8 @@ const FIELD_TO_COLUMN = {
   semana: "semana",
   atividade: "atividade",
   descricao: "descricao",
+  prioridade: "prioridade",
+  entregas: "entregas",
   criadoEm: "criado_em",
   atualizadoEm: "atualizado_em"
 };

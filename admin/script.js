@@ -131,23 +131,30 @@ function garantirModalPerfil() {
   });
   return modal;
 }
+function obterIconeSenhaPerfil(estaVisivel) {
+  return estaVisivel
+    ? `<svg class="profile-password-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5c5.05 0 8.63 4.06 10 7-1.37 2.94-4.95 7-10 7S3.37 14.94 2 12c1.37-2.94 4.95-7 10-7Zm0 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><circle cx="12" cy="12" r="2.15"/></svg>`
+    : `<svg class="profile-password-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m3.28 2 18.72 18.72-1.28 1.28-3.3-3.3A10.7 10.7 0 0 1 12 20C6.95 20 3.37 15.94 2 13c.7-1.49 2.01-3.28 3.8-4.71L2 4.49 3.28 2Zm6.22 9.43a3 3 0 0 0 3.91 3.91L9.5 11.43Zm2.5-6.43c5.05 0 8.63 4.06 10 7a13.53 13.53 0 0 1-3.1 4.17l-2.84-2.84A4 4 0 0 0 10.67 7.94L8.85 6.12A10.1 10.1 0 0 1 12 5Z"/></svg>`;
+}
+
+function atualizarBotaoSenhaPerfil(button, estaVisivel) {
+  button.setAttribute("aria-pressed", String(estaVisivel));
+  button.setAttribute("aria-label", `${estaVisivel ? "Ocultar" : "Mostrar"} ${button.dataset.target === "profileSenhaAtual" ? "senha atual" : "nova senha"}`);
+  button.innerHTML = obterIconeSenhaPerfil(estaVisivel);
+}
 function alternarVisibilidadeSenhaPerfil(event) {
   const button = event.currentTarget;
   const input = document.getElementById(button.dataset.target);
   if (!input) return;
   const mostrarSenha = input.type === "password";
   input.type = mostrarSenha ? "text" : "password";
-  button.setAttribute("aria-pressed", String(mostrarSenha));
-  button.setAttribute("aria-label", `${mostrarSenha ? "Ocultar" : "Mostrar"} ${button.dataset.target === "profileSenhaAtual" ? "senha atual" : "nova senha"}`);
-  button.textContent = mostrarSenha ? "🙈" : "👁";
+  atualizarBotaoSenhaPerfil(button, false);
 }
 
 function redefinirVisibilidadeSenhasPerfil() {
   document.querySelectorAll("#profileSenhaAtual, #profileNovaSenha").forEach((input) => { input.type = "password"; });
   document.querySelectorAll(".profile-password-toggle").forEach((button) => {
-    button.setAttribute("aria-pressed", "false");
-    button.setAttribute("aria-label", `Mostrar ${button.dataset.target === "profileSenhaAtual" ? "senha atual" : "nova senha"}`);
-    button.textContent = "👁";
+    atualizarBotaoSenhaPerfil(button, false);
   });
 }
 async function abrirPerfil() {

@@ -509,3 +509,104 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 .weekly-table { min-width: 900px; }
 .weekly-table th:nth-child(3),
 .weekly-table td:nth-child(3) { min-width: 320px; }
+
+.weekly-dashboard {
+  margin-bottom: 26px;
+  padding: 22px;
+  border: 1px solid rgba(99, 179, 237, 0.28);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(49, 130, 206, 0.16), rgba(99, 179, 237, 0.05));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.weekly-dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.weekly-dashboard-kicker {
+  display: inline-block;
+  margin-bottom: 4px;
+  color: var(--accent-light);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.weekly-dashboard-header h3 {
+  color: var(--text-lighter);
+  font-size: 1.25rem;
+}
+
+.weekly-dashboard-header i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border-radius: 14px;
+  color: var(--text-lighter);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-light));
+  box-shadow: 0 10px 22px rgba(49, 130, 206, 0.22);
+}
+
+.weekly-dashboard-list {
+  display: grid;
+  gap: 16px;
+}
+
+.weekly-summary-card {
+  padding: 18px;
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--accent-light);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.24);
+}
+
+.weekly-summary-card h4 {
+  margin-bottom: 14px;
+  color: var(--text-lighter);
+  font-size: 1.1rem;
+}
+
+.weekly-summary-items {
+  display: grid;
+  gap: 12px;
+}
+
+.weekly-summary-item {
+  padding-left: 14px;
+  border-left: 2px solid rgba(99, 179, 237, 0.42);
+}
+
+.weekly-summary-item strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text-lighter);
+  font-size: 0.98rem;
+}
+
+.weekly-summary-item p {
+  color: var(--text-light);
+  opacity: 0.9;
+}
+
+.weekly-dashboard-empty {
+  border: 1px dashed rgba(99, 179, 237, 0.35);
+  border-radius: 12px;
+}
+
+[data-theme="light"] .weekly-summary-card {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+@media (max-width: 640px) {
+  .weekly-dashboard { padding: 18px; }
+  .weekly-dashboard-header { align-items: flex-start; }
+  .weekly-dashboard-header i { width: 42px; height: 42px; flex-basis: 42px; }
+}

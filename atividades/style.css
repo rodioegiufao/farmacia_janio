@@ -837,7 +837,30 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
   color: var(--text-lighter);
   margin-bottom: 4px;
 }
+.weekly-activity-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
 
+.weekly-activity-title-row strong { margin-bottom: 0; }
+
+.weekly-activity-deliveries {
+  margin-bottom: 6px;
+  color: var(--text-lighter);
+}
+
+.weekly-activity-deliveries i {
+  color: var(--accent-light);
+  margin-right: 4px;
+}
+
+.weekly-activity-deliveries strong {
+  display: inline;
+  margin: 0;
+}
 .weekly-activity-item p {
   opacity: 0.88;
 }

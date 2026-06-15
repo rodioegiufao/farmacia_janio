@@ -55,6 +55,7 @@ const btnExportarCSV = document.getElementById("btnExportarCSV");
 
 const formSemanal = document.getElementById("atividadeSemanalForm");
 const tabelaSemanal = document.getElementById("tabelaAtividadesSemanais");
+const dashboardAtividadesSemanais = document.getElementById("dashboardAtividadesSemanais");
 const btnSalvarAtividadeSemanal = document.getElementById("btnSalvarAtividadeSemanal");
 const btnCancelarEdicaoSemanal = document.getElementById("btnCancelarEdicaoSemanal");
 const btnLimparFormularioSemanal = document.getElementById("btnLimparFormularioSemanal");
@@ -540,10 +541,12 @@ async function carregarAtividadesSemanais() {
     renderizarTabelaSemanal();
     atividadesSemanais = await fetch(API_SEMANA_URL).then(validarResposta);
     preencherFiltroSemanas();
+    renderizarDashboardSemanal();
   } catch (erro) {
     alert(`Não foi possível carregar as atividades semanais do Supabase: ${erro.message}`);
     atividadesSemanais = [];
     preencherFiltroSemanas();
+    renderizarDashboardSemanal();
   } finally {
     carregandoSemanais = false;
     renderizarTabelaSemanal();
@@ -573,6 +576,7 @@ async function salvarAtividadeSemanal(event) {
 
     limparFormularioSemanal();
     preencherFiltroSemanas();
+    renderizarDashboardSemanal();
     renderizarTabelaSemanal();
   } catch (erro) {
     alert(`Não foi possível salvar a atividade semanal no Supabase: ${erro.message}`);
@@ -581,16 +585,58 @@ async function salvarAtividadeSemanal(event) {
   }
 }
 
-function renderizarTabelaSemanal() {
+function obterAtividadesSemanaisFiltradas() {
   const termo = filtrosSemanais.busca.value.toLowerCase().trim();
   const semanaSelecionada = filtrosSemanais.semana.value;
-  const listaFiltrada = atividadesSemanais.filter((atividadeSemanal) => {
+  return atividadesSemanais.filter((atividadeSemanal) => {
     const textoBusca = `${atividadeSemanal.semana} ${atividadeSemanal.atividade} ${atividadeSemanal.descricao}`.toLowerCase();
     const correspondeBusca = !termo || textoBusca.includes(termo);
     const correspondeSemana = !semanaSelecionada || atividadeSemanal.semana === semanaSelecionada;
     return correspondeBusca && correspondeSemana;
   });
+}
 
+function renderizarDashboardSemanal() {
+  if (!dashboardAtividadesSemanais) return;
+
+  if (carregandoSemanais) {
+    dashboardAtividadesSemanais.innerHTML = '<p class="empty weekly-dashboard-empty">Carregando resumo semanal...</p>';
+    return;
+  }
+
+  const listaFiltrada = obterAtividadesSemanaisFiltradas();
+  if (!listaFiltrada.length) {
+    dashboardAtividadesSemanais.innerHTML = '<p class="empty weekly-dashboard-empty">Nenhuma atividade semanal para resumir.</p>';
+    return;
+  }
+
+  const atividadesPorSemana = listaFiltrada.reduce((grupo, atividadeSemanal) => {
+    const semana = atividadeSemanal.semana || "Semana não informada";
+    if (!grupo[semana]) grupo[semana] = [];
+    grupo[semana].push(atividadeSemanal);
+    return grupo;
+  }, {});
+
+  dashboardAtividadesSemanais.innerHTML = Object.entries(atividadesPorSemana)
+    .map(([semana, atividadesDaSemana]) => `
+      <article class="weekly-summary-card">
+        <h4>${escapeHtml(semana)}</h4>
+        <div class="weekly-summary-items">
+          ${atividadesDaSemana.map((atividadeSemanal) => `
+            <div class="weekly-summary-item">
+              <strong>${escapeHtml(atividadeSemanal.atividade || "Atividade sem título")}</strong>
+              <p>${escapeHtml(atividadeSemanal.descricao || "Sem descrição cadastrada.")}</p>
+            </div>
+          `).join("")}
+        </div>
+      </article>
+    `)
+    .join("");
+}
+
+function renderizarTabelaSemanal() {
+  const listaFiltrada = obterAtividadesSemanaisFiltradas();
+  renderizarDashboardSemanal()
   tabelaSemanal.innerHTML = "";
 
   if (carregandoSemanais) {
@@ -650,6 +696,7 @@ async function excluirAtividadeSemanal(id) {
     await fetch(`${API_SEMANA_URL}?id=${encodeURIComponent(id)}`, { method: "DELETE" }).then(validarResposta);
     atividadesSemanais = atividadesSemanais.filter((item) => item.id !== id);
     preencherFiltroSemanas();
+    renderizarDashboardSemanal();
     renderizarTabelaSemanal();
   } catch (erro) {
     alert(`Não foi possível excluir a atividade semanal no Supabase: ${erro.message}`);

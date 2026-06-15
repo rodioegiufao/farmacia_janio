@@ -91,6 +91,8 @@ const camposSemanais = {
   id: document.getElementById("atividadeSemanalId"),
   semana: document.getElementById("semanaAtividade"),
   atividade: document.getElementById("tituloAtividadeSemanal"),
+  prioridade: document.getElementById("prioridadeAtividadeSemanal"),
+  entregas: document.getElementById("entregasAtividadeSemanal"),
   descricao: document.getElementById("descricaoAtividadeSemanal")
 };
 
@@ -126,6 +128,7 @@ async function inicializar() {
   
   preencherColaboradoresPermitidos();
   preencherSelect(campos.prioridade, prioridades);
+  preencherSelect(camposSemanais.prioridade, prioridades);
   preencherSelect(campos.projeto, projetos);
   preencherSelect(campos.etapa, etapas);
   preencherSelect(campos.status, statusLista);
@@ -556,6 +559,8 @@ async function salvarAtividadeSemanal(event) {
     id: camposSemanais.id.value || undefined,
     semana: camposSemanais.semana.value.trim(),
     atividade: camposSemanais.atividade.value.trim(),
+    prioridade: camposSemanais.prioridade.value,
+    entregas: camposSemanais.entregas.value.trim(),
     descricao: camposSemanais.descricao.value.trim()
   };
 
@@ -585,7 +590,7 @@ function obterAtividadesSemanaisFiltradas() {
   const termo = filtrosSemanais.busca.value.toLowerCase().trim();
   const semanaSelecionada = filtrosSemanais.semana.value;
   return atividadesSemanais.filter((atividadeSemanal) => {
-    const textoBusca = `${atividadeSemanal.semana} ${atividadeSemanal.atividade} ${atividadeSemanal.descricao}`.toLowerCase();
+    const textoBusca = `${atividadeSemanal.semana} ${atividadeSemanal.atividade} ${atividadeSemanal.descricao} ${atividadeSemanal.prioridade} ${atividadeSemanal.entregas}`.toLowerCase();
     const correspondeBusca = !termo || textoBusca.includes(termo);
     const correspondeSemana = !semanaSelecionada || atividadeSemanal.semana === semanaSelecionada;
     return correspondeBusca && correspondeSemana;
@@ -691,17 +696,15 @@ function criarItemAtividadeSemanal(atividadeSemanal, podeGerenciarAtividadesSema
   return `
     <div class="weekly-activity-item">
       <div>
-        <strong>${escapeHtml(atividadeSemanal.atividade || "Atividade sem título")}</strong>
+        <div class="weekly-activity-title-row">
+          <strong>${escapeHtml(atividadeSemanal.atividade || "Atividade sem título")}</strong>
+          ${atividadeSemanal.prioridade ? `<span class="badge ${classePrioridade(atividadeSemanal.prioridade)}">${escapeHtml(atividadeSemanal.prioridade)}</span>` : ""}
+        </div>
+        ${atividadeSemanal.entregas ? `<p class="weekly-activity-deliveries"><i class="fas fa-box-open" aria-hidden="true"></i> <strong>Entregas:</strong> ${escapeHtml(atividadeSemanal.entregas)}</p>` : ""}
         <p>${escapeHtml(atividadeSemanal.descricao || "Sem descrição cadastrada.")}</p>
         <small>Criado em ${escapeHtml(formatarDataHoraCadastro(atividadeSemanal.criadoEm))}</small>
       </div>
       ${podeGerenciarAtividadesSemanais ? `
-        <td>
-          <div class="actions">
-            <button type="button" class="secondary" onclick="editarAtividadeSemanal('${atividadeSemanal.id}')">Editar</button>
-            <button type="button" class="ghost" onclick="excluirAtividadeSemanal('${atividadeSemanal.id}')">Excluir</button>
-          </div>
-        </td>
         <div class="actions weekly-actions">
           <button type="button" class="secondary" onclick="editarAtividadeSemanal('${atividadeSemanal.id}')">Editar</button>
           <button type="button" class="ghost" onclick="excluirAtividadeSemanal('${atividadeSemanal.id}')">Excluir</button>
@@ -750,6 +753,8 @@ function editarAtividadeSemanal(id) {
   camposSemanais.id.value = atividadeSemanal.id;
   camposSemanais.semana.value = atividadeSemanal.semana || "";
   camposSemanais.atividade.value = atividadeSemanal.atividade || "";
+  camposSemanais.prioridade.value = atividadeSemanal.prioridade || prioridades[0];
+  camposSemanais.entregas.value = atividadeSemanal.entregas || "";
   camposSemanais.descricao.value = atividadeSemanal.descricao || "";
   btnCancelarEdicaoSemanal.style.display = "inline-block";
   btnSalvarAtividadeSemanal.textContent = "Atualizar atividade semanal";

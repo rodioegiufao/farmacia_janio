@@ -29,9 +29,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const loginForm = document.getElementById('homeLoginForm');
         const loginUsuario = document.getElementById('homeLoginUsuario');
         const loginSenha = document.getElementById('homeLoginSenha');
-        const userMenu = document.getElementById('homeUserMenu');
-        const userName = document.getElementById('homeUserName');
-        const logoutButton = document.getElementById('homeLogoutButton');
         const protectedLinks = document.querySelectorAll('[data-auth-required="true"]');
         let currentUser = null;
 
@@ -48,8 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
         function updateAuthUi(user) {
             currentUser = user;
             loginForm.hidden = Boolean(user);
-            userMenu.hidden = !user;
-            userName.textContent = user?.nome || '';
+            window.SiteAuth.aplicarUsuarioNoMenu?.(user);
         }
 
         async function refreshSession() {
@@ -78,11 +74,6 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (error) {
                 alert(error.message || 'Usuário ou senha inválidos.');
             }
-        });
-
-        logoutButton.addEventListener('click', async () => {
-            await window.SiteAuth.requestJson('/api/auth', { method: 'DELETE', credentials: 'same-origin' });
-            updateAuthUi(null);
         });
 
         protectedLinks.forEach((link) => {

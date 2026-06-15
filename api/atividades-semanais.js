@@ -27,6 +27,14 @@ function fromDatabaseRecord(record) {
   }, {});
 }
 
+function requireAdmin(user) {
+  if (user?.perfil === "admin") return;
+
+  const error = new Error("Apenas administradores podem cadastrar, editar ou excluir atividades semanais.");
+  error.statusCode = 403;
+  throw error;
+}
+
 function validateRequiredFields(record) {
   if (!record.semana || !record.atividade) {
     const error = new Error("Semana e atividade são campos obrigatórios.");
@@ -45,7 +53,8 @@ module.exports = async function atividadesSemanaisHandler(req, res) {
     }
 
     if (req.method === "POST") {
-      await requireUser(req);
+      const user = await requireUser(req);
+      requireAdmin(user);
       const body = parseRequestBody(req);
       const record = toDatabaseRecord(body);
       delete record.atualizado_em;
@@ -60,7 +69,8 @@ module.exports = async function atividadesSemanaisHandler(req, res) {
     }
 
     if (req.method === "PUT") {
-      await requireUser(req);
+      const user = await requireUser(req);
+      requireAdmin(user);
       const body = parseRequestBody(req);
       if (!body.id) {
         sendJson(res, 400, { error: "ID da atividade semanal não informado." });
@@ -86,7 +96,8 @@ module.exports = async function atividadesSemanaisHandler(req, res) {
     }
 
     if (req.method === "DELETE") {
-      await requireUser(req);
+      const user = await requireUser(req);
+      requireAdmin(user);
       const id = typeof req.query?.id === "string" ? req.query.id : "";
       if (!id) {
         sendJson(res, 400, { error: "Informe o ID da atividade semanal." });

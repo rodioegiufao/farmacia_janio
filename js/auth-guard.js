@@ -80,10 +80,16 @@
             <input type="text" id="profileUsuario" autocomplete="username" required>
           </label>
           <label>Senha atual <small>(necessária para trocar a senha)</small>
-            <input type="password" id="profileSenhaAtual" autocomplete="current-password">
+            <span class="profile-password-field">
+              <input type="password" id="profileSenhaAtual" autocomplete="current-password">
+              <button type="button" class="profile-password-toggle" data-target="profileSenhaAtual" aria-label="Mostrar senha atual" aria-pressed="false">👁</button>
+            </span>
           </label>
           <label>Nova senha
-            <input type="password" id="profileNovaSenha" autocomplete="new-password" minlength="6">
+            <span class="profile-password-field">
+              <input type="password" id="profileNovaSenha" autocomplete="new-password" minlength="6">
+              <button type="button" class="profile-password-toggle" data-target="profileNovaSenha" aria-label="Mostrar nova senha" aria-pressed="false">👁</button>
+            </span>
           </label>
           <div class="profile-modal-actions">
             <button type="button" id="profileCancel">Cancelar</button>
@@ -96,15 +102,37 @@
     document.getElementById("profileModalClose")?.addEventListener("click", closeProfileModal);
     document.getElementById("profileCancel")?.addEventListener("click", closeProfileModal);
     document.getElementById("profileForm")?.addEventListener("submit", saveProfile);
+    modal.querySelectorAll(".profile-password-toggle").forEach((button) => {
+      button.addEventListener("click", toggleProfilePasswordVisibility);
+    });
     return modal;
   }
+  function toggleProfilePasswordVisibility(event) {
+    const button = event.currentTarget;
+    const input = document.getElementById(button.dataset.target);
+    if (!input) return;
+    const showPassword = input.type === "password";
+    input.type = showPassword ? "text" : "password";
+    button.setAttribute("aria-pressed", String(showPassword));
+    button.setAttribute("aria-label", `${showPassword ? "Ocultar" : "Mostrar"} ${button.dataset.target === "profileSenhaAtual" ? "senha atual" : "nova senha"}`);
+    button.textContent = showPassword ? "🙈" : "👁";
+  }
 
+  function resetProfilePasswordVisibility() {
+    document.querySelectorAll("#profileSenhaAtual, #profileNovaSenha").forEach((input) => { input.type = "password"; });
+    document.querySelectorAll(".profile-password-toggle").forEach((button) => {
+      button.setAttribute("aria-pressed", "false");
+      button.setAttribute("aria-label", `Mostrar ${button.dataset.target === "profileSenhaAtual" ? "senha atual" : "nova senha"}`);
+      button.textContent = "👁";
+    });
+  }
   function openProfileModal(user) {
     const modal = ensureProfileModal();
     document.getElementById("profileNome").value = user?.nome || "";
     document.getElementById("profileUsuario").value = user?.usuario || "";
     document.getElementById("profileSenhaAtual").value = "";
     document.getElementById("profileNovaSenha").value = "";
+    resetProfilePasswordVisibility();
     modal.hidden = false;
     document.getElementById("profileNome")?.focus();
   }

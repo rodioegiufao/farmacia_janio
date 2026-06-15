@@ -293,33 +293,43 @@
       </div>
     </section>
     <section class="panel weekly-panel" id="semanaSection" data-section-panel="semanaSection" aria-label="Atividades da semana" hidden>
-      <section class="weekly-dashboard" aria-labelledby="weeklyDashboardTitle">
-        <div class="weekly-dashboard-header">
-          <div>
-            <span class="weekly-dashboard-kicker">Dashboard semanal</span>
-            <h3 id="weeklyDashboardTitle">Resumo das atividades por semana</h3>
-          </div>
-          <i class="fas fa-calendar-check" aria-hidden="true"></i>
+      <div class="weekly-hero">
+        <div>
+          <span class="weekly-dashboard-kicker">Painel semanal</span>
+          <h2>Atividades da Semana</h2>
+          <p>Acompanhe o planejamento e a execução semanal da equipe.</p>
         </div>
-        <div id="dashboardAtividadesSemanais" class="weekly-dashboard-list" aria-live="polite"></div>
-      </section>
-      <div class="weekly-activities-section">
-        <div class="panel-header">
+        <i class="fas fa-calendar-week" aria-hidden="true"></i>
+      </div>
+
+      <div id="dashboardAtividadesSemanais" class="weekly-metrics" aria-live="polite"></div>
+
+      <div class="weekly-controls">
+        <div class="weekly-controls-header">
           <div>
-            <h2>Atividades da Semana</h2>
-            <p>Registro simples das atividades planejadas ou executadas por semana.</p>
+            <h3>Filtros e cadastro</h3>
+            <p>Encontre rapidamente uma semana ou registre uma nova atividade semanal.</p>
           </div>
+          <button type="button" class="primary" id="btnNovaAtividadeSemanal">
+            <i class="fas fa-plus" aria-hidden="true"></i> Nova atividade semanal
+          </button>
+        </div>
+
+        <!-- Filtros independentes da aba Atividade para não interferir no controle detalhado. -->
+        <div class="filters weekly-filters">
+          <input type="search" id="filtroBuscaSemana" placeholder="Buscar por semana, atividade ou descrição" />
+          <select id="filtroSemana"></select>
         </div>
         <!-- Formulário simples para cadastro e edição de atividades semanais. -->
-        <form id="atividadeSemanalForm" class="form-grid">
+        <form id="atividadeSemanalForm" class="form-grid weekly-form">
           <input type="hidden" id="atividadeSemanalId" />
 
-          <label class="span-2">
+          <label>
             Semana
             <input type="text" id="semanaAtividade" placeholder="Ex.: Semana 25: 15 de junho à 21 de junho 2026" required />
           </label>
 
-          <label class="span-2">
+          <label>
             Atividade
             <input type="text" id="tituloAtividadeSemanal" placeholder="Ex.: Revisão dos projetos elétricos" required />
           </label>
@@ -327,43 +337,22 @@
             Descrição da atividade
             <textarea id="descricaoAtividadeSemanal" rows="4" placeholder="Descreva o planejamento, execução ou observações da atividade semanal"></textarea>
           </label>
-        <div class="form-actions span-2">
+          <div class="form-actions span-2">
             <button type="submit" class="primary" id="btnSalvarAtividadeSemanal">Salvar atividade semanal</button>
             <button type="button" class="secondary" id="btnCancelarEdicaoSemanal">Cancelar edição</button>
             <button type="button" class="secondary" id="btnLimparFormularioSemanal">Limpar formulário</button>
           </div>
         </form>
-
-        <div class="records-area">
+      </div>
+      <section class="weekly-list-section" aria-labelledby="weeklyListTitle">
         <div class="panel-header records-header">
           <div>
-            <h2>Atividades semanais registradas</h2>
-            <p>Use os filtros para buscar por semana, atividade ou descrição.</p>
+            <h2 id="weeklyListTitle">Planejamento semanal</h2>
+            <p>Semanas agrupadas com atividades, descrições e datas de atualização.</p>
           </div>
         </div>
-
-        <!-- Filtros independentes da aba Atividade para não interferir no controle detalhado. -->
-        <div class="filters">
-          <input type="search" id="filtroBuscaSemana" placeholder="Buscar por semana, atividade ou descrição" />
-          <select id="filtroSemana"></select>
-        </div>
-
-        <div class="table-wrapper weekly-table-wrapper">
-          <table class="weekly-table">
-            <thead>
-              <tr>
-                <th>Semana</th>
-                <th>Atividade</th>
-                <th>Descrição</th>
-                <th>Criado em</th>
-                <th id="colunaAcoesSemanais">Ações</th>
-              </tr>
-            </thead>
-            <tbody id="tabelaAtividadesSemanais"></tbody>
-          </table>
-        </div>
-        </div>
-      </div>
+        <div id="tabelaAtividadesSemanais" class="weekly-weeks-list" aria-live="polite"></div>
+      </section>
     </section>
       </div>
   </main>

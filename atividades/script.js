@@ -32,9 +32,7 @@ const API_URL = "/api/atividades";
 const API_SEMANA_URL = "/api/atividades-semanais";
 const AUTH_URL = "/api/auth";
 
-const authPanel = document.getElementById("authPanel");
 const appContent = document.getElementById("appContent");
-const loginForm = document.getElementById("loginForm");
 const btnLogout = document.getElementById("btnLogout");
 const userMenu = document.getElementById("userMenu");
 const userMenuTrigger = document.getElementById("userMenuTrigger");
@@ -44,8 +42,6 @@ const usuarioIniciaisMenu = document.getElementById("usuarioIniciaisMenu");
 const usuarioLogado = document.getElementById("usuarioLogado");
 const usuarioPerfil = document.getElementById("usuarioPerfil");
 const adminLink = document.getElementById("adminLink");
-const loginSenha = document.getElementById("loginSenha");
-const toggleLoginSenha = document.getElementById("toggleLoginSenha");
 
 const form = document.getElementById("atividadeForm");
 const tabela = document.getElementById("atividadesTabela");
@@ -121,13 +117,12 @@ const sectionPanels = document.querySelectorAll("[data-section-panel]");
 inicializar();
 
 async function inicializar() {
-  loginForm.addEventListener("submit", entrar);
   btnLogout.addEventListener("click", sair);
   userMenuTrigger.addEventListener("click", alternarMenuUsuario);
   document.addEventListener("click", fecharMenuUsuarioAoClicarFora);
   document.addEventListener("keydown", fecharMenuUsuarioComTeclado);
-  toggleLoginSenha.addEventListener("click", alternarVisibilidadeSenha);
   await verificarSessao();
+  if (!usuarioAtual) return;
   
   preencherColaboradoresPermitidos();
   preencherSelect(campos.prioridade, prioridades);
@@ -217,18 +212,25 @@ function aplicarPermissoesAtividadesSemanais() {
 async function verificarSessao() {
   try {
     const data = await fetch(AUTH_URL).then(validarResposta);
+    if (!data.user) {
+      redirecionarParaLoginInicial();
+      return;
+    }
     aplicarUsuarioLogado(data.user);
   } catch (_erro) {
-    aplicarUsuarioLogado(null);
+    redirecionarParaLoginInicial();
   }
+}
+
+function redirecionarParaLoginInicial() {
+  const redirect = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  window.location.replace(`/?login=necessario&redirect=${encodeURIComponent(redirect)}`);
 }
 
 function aplicarUsuarioLogado(user) {
   usuarioAtual = user;
   const adminLogado = user?.perfil === "admin";
 
-  loginForm.hidden = Boolean(user);
-  authPanel.hidden = Boolean(user);
   appContent.hidden = !user;
   userMenu.hidden = !user;
   adminLink.hidden = !adminLogado;
@@ -313,37 +315,9 @@ function normalizarTexto(texto) {
     .trim();
 }
 
-function alternarVisibilidadeSenha() {
-  const senhaVisivel = loginSenha.type === "text";
-  loginSenha.type = senhaVisivel ? "password" : "text";
-  toggleLoginSenha.setAttribute("aria-label", senhaVisivel ? "Mostrar senha" : "Ocultar senha");
-  toggleLoginSenha.setAttribute("aria-pressed", String(!senhaVisivel));
-  toggleLoginSenha.querySelector("i").className = senhaVisivel ? "fa-regular fa-eye" : "fa-regular fa-eye-slash";
-}
-
-async function entrar(event) {
-  event.preventDefault();
-  try {
-    const data = await fetch(AUTH_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        usuario: document.getElementById("loginUsuario").value,
-        senha: document.getElementById("loginSenha").value
-      })
-    }).then(validarResposta);
-    loginForm.reset();
-    aplicarUsuarioLogado(data.user);
-    await carregarAtividades();
-    await carregarAtividadesSemanais();
-  } catch (erro) {
-    alert(`Não foi possível entrar: ${erro.message}`);
-  }
-}
-
 async function sair() {
   await fetch(AUTH_URL, { method: "DELETE" }).catch(() => null);
-  aplicarUsuarioLogado(null);
+  redirecionarParaLoginInicial();
   atividades = [];
   atividadesSemanais = [];
   atualizarOpcoesDashboard();

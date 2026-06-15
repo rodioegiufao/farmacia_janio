@@ -778,6 +778,12 @@ body {
     font-size: 16px;
 }
 
+.theme-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
 /* ===== TOGGLE SWITCH ESTILIZADO ===== */
 .theme-switch {
     position: relative;
@@ -996,4 +1002,84 @@ body {
 
 [data-theme="light"] .dot.active {
     background: var(--primary);
+}
+
+/* Login da tela principal */
+.home-auth {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.home-login-form,
+.home-user-menu {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.home-login-form[hidden],
+.home-user-menu[hidden] {
+    display: none;
+}
+
+.home-login-form input {
+    width: 120px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--foreground);
+    padding: 0.45rem 0.75rem;
+    outline: none;
+}
+
+.home-login-form input::placeholder {
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.home-login-form button,
+.home-user-menu button {
+    border: none;
+    border-radius: 999px;
+    background: var(--primary);
+    color: var(--background);
+    cursor: pointer;
+    font-weight: 700;
+    padding: 0.48rem 0.9rem;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.home-login-form button:hover,
+.home-user-menu button:hover {
+    background: var(--accent);
+    transform: translateY(-1px);
+}
+
+.home-user-menu span {
+    color: var(--foreground);
+    font-weight: 700;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .theme-selector-content {
+        flex-wrap: wrap;
+        height: auto;
+        gap: 0.75rem;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .theme-controls,
+    .home-login-form {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .home-login-form input {
+        width: 105px;
+    }
 }

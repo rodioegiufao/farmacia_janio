@@ -503,3 +503,9 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 .user-menu-item[hidden] {
   display: none;
 }
+
+#btnCancelarEdicaoSemanal { display: none; }
+.weekly-panel .records-area { margin-top: 28px; }
+.weekly-table { min-width: 900px; }
+.weekly-table th:nth-child(3),
+.weekly-table td:nth-child(3) { min-width: 320px; }

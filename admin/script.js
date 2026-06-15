@@ -6,13 +6,23 @@ const accessDeniedPanel = document.getElementById("accessDeniedPanel");
 const cadastroForm = document.getElementById("cadastroForm");
 const usuariosLista = document.getElementById("usuariosLista");
 const btnLogout = document.getElementById("btnLogout");
+const userMenu = document.getElementById("userMenu");
+const userMenuTrigger = document.getElementById("userMenuTrigger");
+const userMenuPanel = document.getElementById("userMenuPanel");
+const usuarioIniciais = document.getElementById("usuarioIniciais");
+const usuarioIniciaisMenu = document.getElementById("usuarioIniciaisMenu");
 const usuarioLogado = document.getElementById("usuarioLogado");
+const usuarioPerfil = document.getElementById("usuarioPerfil");
+const adminLink = document.getElementById("adminLink");
 
 inicializarAdmin();
 
 async function inicializarAdmin() {
   cadastroForm.addEventListener("submit", cadastrarUsuario);
   btnLogout.addEventListener("click", sair);
+  userMenuTrigger.addEventListener("click", alternarMenuUsuario);
+  document.addEventListener("click", fecharMenuUsuarioAoClicarFora);
+  document.addEventListener("keydown", fecharMenuUsuarioComTeclado);
   initThemeSelector();
   await verificarAcessoAdmin();
 }
@@ -23,18 +33,62 @@ async function verificarAcessoAdmin() {
     const user = data.user;
     const adminLogado = user?.perfil === "admin";
 
-    usuarioLogado.textContent = user ? `${user.nome} (${user.perfil})` : "";
-    btnLogout.hidden = !user;
+    aplicarUsuarioNoMenu(user);
     adminPanel.hidden = !adminLogado;
     accessDeniedPanel.hidden = adminLogado;
 
     if (adminLogado) await carregarUsuarios();
   } catch (_erro) {
-    usuarioLogado.textContent = "";
-    btnLogout.hidden = true;
+    aplicarUsuarioNoMenu(null);
     adminPanel.hidden = true;
     accessDeniedPanel.hidden = false;
   }
+}
+
+function aplicarUsuarioNoMenu(user) {
+  const adminLogado = user?.perfil === "admin";
+  userMenu.hidden = !user;
+  adminLink.hidden = !adminLogado;
+  usuarioLogado.textContent = user?.nome || "";
+  usuarioPerfil.textContent = user?.perfil || "";
+  const iniciais = obterIniciais(user?.nome);
+  usuarioIniciais.textContent = iniciais;
+  usuarioIniciaisMenu.textContent = iniciais;
+  if (!user) fecharMenuUsuario();
+}
+
+function obterIniciais(nome) {
+  const partes = String(nome || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!partes.length) return "?";
+
+  const primeira = partes[0][0] || "";
+  const ultima = partes.length > 1 ? partes[partes.length - 1][0] : (partes[0][1] || "");
+  return `${primeira}${ultima}`.toUpperCase();
+}
+
+function alternarMenuUsuario(event) {
+  event.stopPropagation();
+  const abrir = userMenuPanel.hidden;
+  userMenuPanel.hidden = !abrir;
+  userMenuTrigger.setAttribute("aria-expanded", String(abrir));
+}
+
+function fecharMenuUsuario() {
+  userMenuPanel.hidden = true;
+  userMenuTrigger.setAttribute("aria-expanded", "false");
+}
+
+function fecharMenuUsuarioAoClicarFora(event) {
+  if (userMenu.hidden || userMenu.contains(event.target)) return;
+  fecharMenuUsuario();
+}
+
+function fecharMenuUsuarioComTeclado(event) {
+  if (event.key === "Escape") fecharMenuUsuario();
 }
 
 async function cadastrarUsuario(event) {

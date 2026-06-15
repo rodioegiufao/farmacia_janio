@@ -69,25 +69,7 @@ body {
     flex-direction: column;
     align-items: center;
 }
-.site-branding {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.9rem;
-}
 
-.site-logo-circle {
-    width: 86px;
-    height: 86px;
-    border-radius: 50%;
-    background: var(--foreground);
-    color: var(--foreground-dark);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2.6rem;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-}
 .site-title {
     margin: 0;
 }

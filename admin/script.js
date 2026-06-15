@@ -6,6 +6,7 @@ const accessDeniedPanel = document.getElementById("accessDeniedPanel");
 const cadastroForm = document.getElementById("cadastroForm");
 const usuariosLista = document.getElementById("usuariosLista");
 const btnLogout = document.getElementById("btnLogout");
+const btnPerfil = document.getElementById("btnPerfil");
 const userMenu = document.getElementById("userMenu");
 const userMenuTrigger = document.getElementById("userMenuTrigger");
 const userMenuPanel = document.getElementById("userMenuPanel");
@@ -20,6 +21,7 @@ inicializarAdmin();
 async function inicializarAdmin() {
   cadastroForm.addEventListener("submit", cadastrarUsuario);
   btnLogout.addEventListener("click", sair);
+  btnPerfil?.addEventListener("click", abrirPerfil);
   userMenuTrigger.addEventListener("click", alternarMenuUsuario);
   document.addEventListener("click", fecharMenuUsuarioAoClicarFora);
   document.addEventListener("keydown", fecharMenuUsuarioComTeclado);
@@ -88,7 +90,81 @@ function fecharMenuUsuarioAoClicarFora(event) {
 }
 
 function fecharMenuUsuarioComTeclado(event) {
-  if (event.key === "Escape") fecharMenuUsuario();
+  if (event.key === "Escape") {
+    fecharMenuUsuario();
+    fecharModalPerfil();
+  }
+}
+
+
+function garantirModalPerfil() {
+  let modal = document.getElementById("profileModal");
+  if (modal) return modal;
+
+  modal = document.createElement("div");
+  modal.id = "profileModal";
+  modal.className = "profile-modal";
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="profile-modal-card" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+      <button type="button" class="profile-modal-close" id="profileModalClose" aria-label="Fechar perfil">×</button>
+      <h2 id="profileModalTitle">Perfil</h2>
+      <p class="profile-modal-help">Atualize seu nome, login ou senha. Deixe a nova senha em branco se não quiser alterá-la.</p>
+      <form id="profileForm" class="profile-form">
+        <label>Nome<input type="text" id="profileNome" required></label>
+        <label>Login<input type="text" id="profileUsuario" autocomplete="username" required></label>
+        <label>Senha atual <small>(necessária para trocar a senha)</small><input type="password" id="profileSenhaAtual" autocomplete="current-password"></label>
+        <label>Nova senha<input type="password" id="profileNovaSenha" autocomplete="new-password" minlength="6"></label>
+        <div class="profile-modal-actions">
+          <button type="button" id="profileCancel">Cancelar</button>
+          <button type="submit">Salvar perfil</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener("click", (event) => { if (event.target === modal) fecharModalPerfil(); });
+  document.getElementById("profileModalClose")?.addEventListener("click", fecharModalPerfil);
+  document.getElementById("profileCancel")?.addEventListener("click", fecharModalPerfil);
+  document.getElementById("profileForm")?.addEventListener("submit", salvarPerfil);
+  return modal;
+}
+
+async function abrirPerfil() {
+  const data = await fetch(AUTH_URL).then(validarResposta);
+  const modal = garantirModalPerfil();
+  document.getElementById("profileNome").value = data.user?.nome || "";
+  document.getElementById("profileUsuario").value = data.user?.usuario || "";
+  document.getElementById("profileSenhaAtual").value = "";
+  document.getElementById("profileNovaSenha").value = "";
+  fecharMenuUsuario();
+  modal.hidden = false;
+  document.getElementById("profileNome")?.focus();
+}
+
+function fecharModalPerfil() {
+  const modal = document.getElementById("profileModal");
+  if (modal) modal.hidden = true;
+}
+
+async function salvarPerfil(event) {
+  event.preventDefault();
+  try {
+    const data = await fetch(AUTH_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nome: document.getElementById("profileNome").value,
+        usuario: document.getElementById("profileUsuario").value,
+        senhaAtual: document.getElementById("profileSenhaAtual").value,
+        novaSenha: document.getElementById("profileNovaSenha").value
+      })
+    }).then(validarResposta);
+    aplicarUsuarioNoMenu(data.user);
+    fecharModalPerfil();
+    alert("Perfil atualizado com sucesso.");
+  } catch (erro) {
+    alert(`Não foi possível atualizar o perfil: ${erro.message}`);
+  }
 }
 
 async function cadastrarUsuario(event) {

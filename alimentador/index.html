@@ -9,6 +9,7 @@
     <link rel="icon" type="image/png" href="./images/favicon-16x16.png" sizes="16x16">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/user-menu.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
@@ -319,6 +320,28 @@
         <div class="theme-selector-content">
             <div class="theme-logo">Dimensionamento do Alimentador</div>
             <div class="theme-controls">
+                <div class="user-menu" id="userMenu" hidden>
+                    <button type="button" class="user-menu-trigger" id="userMenuTrigger" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu do usuário">
+                        <span id="usuarioIniciais" class="user-avatar" aria-hidden="true"></span>
+                    </button>
+                    <div class="user-menu-panel" id="userMenuPanel" role="menu" hidden>
+                        <div class="user-menu-profile">
+                            <span id="usuarioIniciaisMenu" class="user-avatar user-avatar-large" aria-hidden="true"></span>
+                            <div>
+                                <strong id="usuarioLogado" class="logged-user"></strong>
+                                <small id="usuarioPerfil"></small>
+                            </div>
+                        </div>
+                        <a href="/admin/" class="user-menu-item" id="adminLink" role="menuitem" hidden>
+                            <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
+                            Administração
+                        </a>
+                        <button type="button" class="user-menu-item" id="btnLogout" role="menuitem">
+                            <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
+                            Sair
+                        </button>
+                    </div>
+                </div>
                 <label class="theme-switch">
                     <input type="checkbox" id="theme-toggle">
                     <span class="theme-slider">

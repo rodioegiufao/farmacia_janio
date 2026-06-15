@@ -8,6 +8,7 @@
     <link rel="icon" type="image/png" href="../images/favicon-32x32.png" sizes="32x32">
     <link rel="icon" type="image/png" href="../images/favicon-16x16.png" sizes="16x16">
     <link rel="stylesheet" href="viabilidade/style.css">
+    <link rel="stylesheet" href="/styles/user-menu.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -20,6 +21,28 @@
         <div class="theme-selector-content">
             <div class="theme-logo">Gerador de Documentos Técnicos</div>
             <div class="theme-controls">
+                <div class="user-menu" id="userMenu" hidden>
+                    <button type="button" class="user-menu-trigger" id="userMenuTrigger" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu do usuário">
+                        <span id="usuarioIniciais" class="user-avatar" aria-hidden="true"></span>
+                    </button>
+                    <div class="user-menu-panel" id="userMenuPanel" role="menu" hidden>
+                        <div class="user-menu-profile">
+                            <span id="usuarioIniciaisMenu" class="user-avatar user-avatar-large" aria-hidden="true"></span>
+                            <div>
+                                <strong id="usuarioLogado" class="logged-user"></strong>
+                                <small id="usuarioPerfil"></small>
+                            </div>
+                        </div>
+                        <a href="/admin/" class="user-menu-item" id="adminLink" role="menuitem" hidden>
+                            <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
+                            Administração
+                        </a>
+                        <button type="button" class="user-menu-item" id="btnLogout" role="menuitem">
+                            <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
+                            Sair
+                        </button>
+                    </div>
+                </div>
                 <label class="theme-switch">
                     <input type="checkbox" id="theme-toggle">
                     <span class="theme-slider">

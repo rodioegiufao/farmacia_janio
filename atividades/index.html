@@ -299,7 +299,16 @@
           <p>Registro simples das atividades planejadas ou executadas por semana.</p>
         </div>
       </div>
-
+      <section class="weekly-dashboard" aria-labelledby="weeklyDashboardTitle">
+        <div class="weekly-dashboard-header">
+          <div>
+            <span class="weekly-dashboard-kicker">Dashboard semanal</span>
+            <h3 id="weeklyDashboardTitle">Resumo das atividades por semana</h3>
+          </div>
+          <i class="fas fa-calendar-check" aria-hidden="true"></i>
+        </div>
+        <div id="dashboardAtividadesSemanais" class="weekly-dashboard-list" aria-live="polite"></div>
+      </section>
       <!-- Formulário simples para cadastro e edição de atividades semanais. -->
       <form id="atividadeSemanalForm" class="form-grid">
         <input type="hidden" id="atividadeSemanalId" />

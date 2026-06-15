@@ -34,7 +34,13 @@ const authPanel = document.getElementById("authPanel");
 const appContent = document.getElementById("appContent");
 const loginForm = document.getElementById("loginForm");
 const btnLogout = document.getElementById("btnLogout");
+const userMenu = document.getElementById("userMenu");
+const userMenuTrigger = document.getElementById("userMenuTrigger");
+const userMenuPanel = document.getElementById("userMenuPanel");
+const usuarioIniciais = document.getElementById("usuarioIniciais");
+const usuarioIniciaisMenu = document.getElementById("usuarioIniciaisMenu");
 const usuarioLogado = document.getElementById("usuarioLogado");
+const usuarioPerfil = document.getElementById("usuarioPerfil");
 const adminLink = document.getElementById("adminLink");
 const loginSenha = document.getElementById("loginSenha");
 const toggleLoginSenha = document.getElementById("toggleLoginSenha");
@@ -93,6 +99,9 @@ inicializar();
 async function inicializar() {
   loginForm.addEventListener("submit", entrar);
   btnLogout.addEventListener("click", sair);
+  userMenuTrigger.addEventListener("click", alternarMenuUsuario);
+  document.addEventListener("click", fecharMenuUsuarioAoClicarFora);
+  document.addEventListener("keydown", fecharMenuUsuarioComTeclado);
   toggleLoginSenha.addEventListener("click", alternarVisibilidadeSenha);
   await verificarSessao();
   
@@ -159,11 +168,50 @@ function aplicarUsuarioLogado(user) {
   loginForm.hidden = Boolean(user);
   authPanel.hidden = Boolean(user);
   appContent.hidden = !user;
-  btnLogout.hidden = !user;
+  userMenu.hidden = !user;
   adminLink.hidden = !adminLogado;
-  usuarioLogado.textContent = user ? `${user.nome} (${user.perfil})` : "";
+  usuarioLogado.textContent = user?.nome || "";
+  usuarioPerfil.textContent = user?.perfil || "";
+  const iniciais = obterIniciais(user?.nome);
+  usuarioIniciais.textContent = iniciais;
+  usuarioIniciaisMenu.textContent = iniciais;
+  if (!user) fecharMenuUsuario();
   btnLimparTudo.hidden = !adminLogado;
   preencherColaboradoresPermitidos();
+}
+
+function obterIniciais(nome) {
+  const partes = String(nome || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!partes.length) return "?";
+
+  const primeira = partes[0][0] || "";
+  const ultima = partes.length > 1 ? partes[partes.length - 1][0] : (partes[0][1] || "");
+  return `${primeira}${ultima}`.toUpperCase();
+}
+
+function alternarMenuUsuario(event) {
+  event.stopPropagation();
+  const abrir = userMenuPanel.hidden;
+  userMenuPanel.hidden = !abrir;
+  userMenuTrigger.setAttribute("aria-expanded", String(abrir));
+}
+
+function fecharMenuUsuario() {
+  userMenuPanel.hidden = true;
+  userMenuTrigger.setAttribute("aria-expanded", "false");
+}
+
+function fecharMenuUsuarioAoClicarFora(event) {
+  if (userMenu.hidden || userMenu.contains(event.target)) return;
+  fecharMenuUsuario();
+}
+
+function fecharMenuUsuarioComTeclado(event) {
+  if (event.key === "Escape") fecharMenuUsuario();
 }
 
 function colaboradorDoUsuario(user = usuarioAtual) {

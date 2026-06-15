@@ -161,6 +161,35 @@
   color: #0f172a;
   background: #ffffff;
 }
+.profile-password-field {
+  position: relative;
+  display: block;
+}
+.profile-password-field input {
+  padding-right: 44px;
+}
+.profile-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  color: #334155;
+  background: transparent;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+.profile-password-toggle:hover,
+.profile-password-toggle:focus-visible {
+  color: #0f172a;
+  background: rgba(15, 23, 42, 0.08);
+}
 .profile-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
 .profile-modal-actions button, .profile-modal-close { cursor: pointer; }
 .profile-modal-actions button { padding: 10px 14px; border: 0; border-radius: 10px; font-weight: 700; }

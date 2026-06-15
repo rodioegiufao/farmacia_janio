@@ -17,9 +17,28 @@
     <div class="theme-selector-content">
       <div class="theme-logo">Controle de Atividades do Setor</div>
       <div class="theme-controls">
-        <span id="usuarioLogado" class="logged-user"></span>
-        <a href="/admin/" class="secondary nav-button" id="adminLink" hidden>Admin</a>
-        <button type="button" class="secondary logout-button" id="btnLogout" hidden>Sair</button>
+        <div class="user-menu" id="userMenu" hidden>
+          <button type="button" class="user-menu-trigger" id="userMenuTrigger" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu do usuário">
+            <span id="usuarioIniciais" class="user-avatar" aria-hidden="true"></span>
+          </button>
+          <div class="user-menu-panel" id="userMenuPanel" role="menu" hidden>
+            <div class="user-menu-profile">
+              <span id="usuarioIniciaisMenu" class="user-avatar user-avatar-large" aria-hidden="true"></span>
+              <div>
+                <strong id="usuarioLogado" class="logged-user"></strong>
+                <small id="usuarioPerfil"></small>
+              </div>
+            </div>
+            <a href="https://www.engrodrigodamasceno.com.br/admin" class="user-menu-item" id="adminLink" role="menuitem" hidden>
+              <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
+              Administração
+            </a>
+            <button type="button" class="user-menu-item" id="btnLogout" role="menuitem">
+              <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
+              Sair
+            </button>
+          </div>
+        </div>
         <label class="theme-switch">
           <input type="checkbox" id="theme-toggle">
           <span class="theme-slider">

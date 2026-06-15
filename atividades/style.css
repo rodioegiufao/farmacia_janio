@@ -175,10 +175,10 @@ th, td { padding: 13px; border-bottom: 1px solid var(--border-color); text-align
 th { position: sticky; top: 0; z-index: 1; color: #fff; background: var(--primary-medium); }
 tr:hover td { background: rgba(99, 179, 237, 0.08); }
 .badge { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 5px 10px; font-size: 0.78rem; font-weight: 800; white-space: nowrap; }
-.badge.p0 { background: #fed7d7; color: #9b2c2c; }
-.badge.p1 { background: #feebc8; color: #9c4221; }
-.badge.p2 { background: #fefcbf; color: #975a16; }
-.badge.p3 { background: #c6f6d5; color: #22543d; }
+.badge.p0 { background: #c6f6d5; color: #22543d; }
+.badge.p1 { background: #fefcbf; color: #975a16; }
+.badge.p2 { background: #feebc8; color: #9c4221; }
+.badge.p3 { background: #fed7d7; color: #9b2c2c; }
 .badge.atrasado { background: #fed7d7; color: #9b2c2c; }
 .badge.em-progresso { background: #bee3f8; color: #2c5282; }
 .badge.pausado { background: #e9d8fd; color: #553c9a; }

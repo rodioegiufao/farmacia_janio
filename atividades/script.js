@@ -59,6 +59,7 @@ const dashboardAtividadesSemanais = document.getElementById("dashboardAtividades
 const btnSalvarAtividadeSemanal = document.getElementById("btnSalvarAtividadeSemanal");
 const btnCancelarEdicaoSemanal = document.getElementById("btnCancelarEdicaoSemanal");
 const btnLimparFormularioSemanal = document.getElementById("btnLimparFormularioSemanal");
+const btnNovaAtividadeSemanal = document.getElementById("btnNovaAtividadeSemanal");
 
 let atividades = [];
 let atividadesSemanais = [];
@@ -150,6 +151,7 @@ async function inicializar() {
   formSemanal.addEventListener("submit", salvarAtividadeSemanal);
   btnCancelarEdicaoSemanal.addEventListener("click", limparFormularioSemanal);
   btnLimparFormularioSemanal.addEventListener("click", limparFormularioSemanal);
+  btnNovaAtividadeSemanal?.addEventListener("click", focarFormularioSemanal);
   sectionTabs.forEach((tab) => tab.addEventListener("click", alternarSecao));
 
   Object.values(filtros).forEach((filtro) => {
@@ -206,6 +208,7 @@ function aplicarPermissoesAtividadesSemanais() {
 
   const podeGerenciarAtividadesSemanais = usuarioAtualEhAdmin();
   formSemanal.hidden = !podeGerenciarAtividadesSemanais;
+  if (btnNovaAtividadeSemanal) btnNovaAtividadeSemanal.hidden = !podeGerenciarAtividadesSemanais;
 
   if (!podeGerenciarAtividadesSemanais) {
     limparFormularioSemanal();
@@ -619,67 +622,105 @@ function renderizarDashboardSemanal() {
   if (!dashboardAtividadesSemanais) return;
 
   if (carregandoSemanais) {
-    dashboardAtividadesSemanais.innerHTML = '<p class="empty weekly-dashboard-empty">Carregando resumo semanal...</p>';
+    dashboardAtividadesSemanais.innerHTML = criarMetricCard("Carregando", "...", "Resumo semanal", "fa-spinner");
     return;
   }
 
+  const semanas = [...new Set(atividadesSemanais.map((item) => item.semana).filter(Boolean))];
   const listaFiltrada = obterAtividadesSemanaisFiltradas();
-  if (!listaFiltrada.length) {
-    dashboardAtividadesSemanais.innerHTML = '<p class="empty weekly-dashboard-empty">Nenhuma atividade semanal para resumir.</p>';
-    return;
-  }
+  const semanaSelecionada = filtrosSemanais.semana.value;
+  const atividadesSemanaSelecionada = semanaSelecionada
+    ? atividadesSemanais.filter((item) => item.semana === semanaSelecionada).length
+    : listaFiltrada.length;
+  const ultimaAtualizacao = obterUltimaAtualizacaoSemanal(atividadesSemanais);
 
-  const atividadesPorSemana = listaFiltrada.reduce((grupo, atividadeSemanal) => {
-    const semana = atividadeSemanal.semana || "Semana não informada";
-    if (!grupo[semana]) grupo[semana] = [];
-    grupo[semana].push(atividadeSemanal);
-    return grupo;
-  }, {});
+  dashboardAtividadesSemanais.innerHTML = [
+    criarMetricCard("Semanas cadastradas", semanas.length, "Total de ciclos planejados", "fa-layer-group"),
+    criarMetricCard("Atividades cadastradas", atividadesSemanais.length, "Registros semanais no Supabase", "fa-list-check"),
+    criarMetricCard("Semana selecionada", atividadesSemanaSelecionada, semanaSelecionada || "Todas as semanas", "fa-calendar-day"),
+    criarMetricCard("Última atualização", ultimaAtualizacao, "Movimentação mais recente", "fa-clock")
+  ].join("");
+}
 
-  dashboardAtividadesSemanais.innerHTML = Object.entries(atividadesPorSemana)
-    .map(([semana, atividadesDaSemana]) => `
-      <article class="weekly-summary-card">
-        <h4>${escapeHtml(semana)}</h4>
-        <div class="weekly-summary-items">
-          ${atividadesDaSemana.map((atividadeSemanal) => `
-            <div class="weekly-summary-item">
-              <strong>${escapeHtml(atividadeSemanal.atividade || "Atividade sem título")}</strong>
-              <p>${escapeHtml(atividadeSemanal.descricao || "Sem descrição cadastrada.")}</p>
-            </div>
-          `).join("")}
-        </div>
-      </article>
-    `)
-    .join("");
+function criarMetricCard(titulo, valor, descricao, icone) {
+  return `
+    <article class="weekly-metric-card">
+      <div>
+        <span>${escapeHtml(titulo)}</span>
+        <strong>${escapeHtml(valor)}</strong>
+        <small>${escapeHtml(descricao)}</small>
+      </div>
+      <i class="fas ${icone}" aria-hidden="true"></i>
+    </article>
+  `;
 }
 
 function renderizarTabelaSemanal() {
   const listaFiltrada = obterAtividadesSemanaisFiltradas();
   const podeGerenciarAtividadesSemanais = usuarioAtualEhAdmin();
-  const colunaAcoesSemanais = document.getElementById("colunaAcoesSemanais");
-  const totalColunas = podeGerenciarAtividadesSemanais ? 5 : 4;
 
   renderizarDashboardSemanal();
   tabelaSemanal.innerHTML = "";
-  if (colunaAcoesSemanais) colunaAcoesSemanais.hidden = !podeGerenciarAtividadesSemanais;
 
   if (carregandoSemanais) {
-    tabelaSemanal.innerHTML = `<tr><td colspan="${totalColunas}" class="empty">Carregando atividades semanais do Supabase...</td></tr>`;
+    tabelaSemanal.innerHTML = '<p class="empty weekly-empty-state">Carregando atividades semanais do Supabase...</p>';
     return;
   }
 
   if (!listaFiltrada.length) {
-    tabelaSemanal.innerHTML = `<tr><td colspan="${totalColunas}" class="empty">Nenhuma atividade semanal encontrada.</td></tr>`;
+    tabelaSemanal.innerHTML = '<p class="empty weekly-empty-state">Nenhuma atividade semanal encontrada.</p>';
     return;
   }
 
-  listaFiltrada.forEach((atividadeSemanal) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${escapeHtml(atividadeSemanal.semana)}</td>
-      <td>${escapeHtml(atividadeSemanal.atividade)}</td>
-      <td>${escapeHtml(atividadeSemanal.descricao || "-")}</td>
-      <td>${formatarDataHoraCadastro(atividadeSemanal.criadoEm)}</td>
+  const atividadesPorSemana = agruparAtividadesPorSemana(listaFiltrada);
+  tabelaSemanal.innerHTML = Object.entries(atividadesPorSemana)
+    .map(([semana, atividadesDaSemana]) => criarBlocoSemana(semana, atividadesDaSemana, podeGerenciarAtividadesSemanais))
+    .join("");
+}
+
+function agruparAtividadesPorSemana(lista) {
+  return lista.reduce((grupo, atividadeSemanal) => {
+    const semana = atividadeSemanal.semana || "Semana não informada";
+    if (!grupo[semana]) grupo[semana] = [];
+    grupo[semana].push(atividadeSemanal);
+    return grupo;
+  }, {});
+}
+
+function criarBlocoSemana(semana, atividadesDaSemana, podeGerenciarAtividadesSemanais) {
+  const detalhes = obterDetalhesSemana(semana);
+  const ultimaAtualizacao = obterUltimaAtualizacaoSemanal(atividadesDaSemana);
+
+  return `
+    <article class="weekly-week-card">
+      <header class="weekly-week-header">
+        <div>
+          <span class="weekly-week-label">${escapeHtml(detalhes.titulo)}</span>
+          <h3>${escapeHtml(detalhes.periodo)}</h3>
+        </div>
+        <div class="weekly-week-count">
+          <strong>${atividadesDaSemana.length}</strong>
+          <span>${atividadesDaSemana.length === 1 ? "atividade" : "atividades"}</span>
+        </div>
+      </header>
+      <div class="weekly-week-meta">
+        <span><i class="fas fa-clock" aria-hidden="true"></i> Última atualização: ${escapeHtml(ultimaAtualizacao)}</span>
+      </div>
+      <div class="weekly-activity-list">
+        ${atividadesDaSemana.map((atividadeSemanal) => criarItemAtividadeSemanal(atividadeSemanal, podeGerenciarAtividadesSemanais)).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function criarItemAtividadeSemanal(atividadeSemanal, podeGerenciarAtividadesSemanais) {
+  return `
+    <div class="weekly-activity-item">
+      <div>
+        <strong>${escapeHtml(atividadeSemanal.atividade || "Atividade sem título")}</strong>
+        <p>${escapeHtml(atividadeSemanal.descricao || "Sem descrição cadastrada.")}</p>
+        <small>Criado em ${escapeHtml(formatarDataHoraCadastro(atividadeSemanal.criadoEm))}</small>
+      </div>
       ${podeGerenciarAtividadesSemanais ? `
         <td>
           <div class="actions">
@@ -687,10 +728,36 @@ function renderizarTabelaSemanal() {
             <button type="button" class="ghost" onclick="excluirAtividadeSemanal('${atividadeSemanal.id}')">Excluir</button>
           </div>
         </td>
+        <div class="actions weekly-actions">
+          <button type="button" class="secondary" onclick="editarAtividadeSemanal('${atividadeSemanal.id}')">Editar</button>
+          <button type="button" class="ghost" onclick="excluirAtividadeSemanal('${atividadeSemanal.id}')">Excluir</button>
+        </div>
       ` : ""}
-    `;
-    tabelaSemanal.appendChild(tr);
-  });
+    </div>
+  `;
+}
+
+function obterDetalhesSemana(semana) {
+  const partes = String(semana || "Semana não informada").split(":");
+  const titulo = (partes.shift() || "Semana não informada").trim();
+  const periodo = partes.join(":").trim() || "Período não informado";
+  return { titulo, periodo };
+}
+
+function obterUltimaAtualizacaoSemanal(lista) {
+  const datas = lista
+    .map((item) => new Date(item.atualizadoEm || item.criadoEm))
+    .filter((data) => !Number.isNaN(data.getTime()))
+    .sort((a, b) => b - a);
+
+  if (!datas.length) return "-";
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(datas[0]);
+}
+
+function focarFormularioSemanal() {
+  formSemanal.hidden = false;
+  camposSemanais.semana.focus();
+  formSemanal.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function preencherFiltroSemanas() {

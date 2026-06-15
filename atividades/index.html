@@ -295,7 +295,7 @@
 
         <!-- Filtros independentes da aba Atividade para não interferir no controle detalhado. -->
         <div class="filters weekly-filters">
-          <input type="search" id="filtroBuscaSemana" placeholder="Buscar por semana, atividade ou descrição" />
+          <input type="search" id="filtroBuscaSemana" placeholder="Buscar por semana, atividade, descrição, prioridade ou entregas" />
           <select id="filtroSemana"></select>
         </div>
         <!-- Formulário simples para cadastro e edição de atividades semanais. -->
@@ -310,6 +310,15 @@
           <label>
             Atividade
             <input type="text" id="tituloAtividadeSemanal" placeholder="Ex.: Revisão dos projetos elétricos" required />
+          </label>
+          <label>
+            Prioridade
+            <select id="prioridadeAtividadeSemanal" required></select>
+          </label>
+
+          <label>
+            Entregas
+            <input type="text" id="entregasAtividadeSemanal" placeholder="Ex.: Relatório, prancha revisada ou checklist aprovado" />
           </label>
           <label class="span-2">
             Descrição da atividade
@@ -326,7 +335,7 @@
         <div class="panel-header records-header">
           <div>
             <h2 id="weeklyListTitle">Planejamento semanal</h2>
-            <p>Semanas agrupadas com atividades, descrições e datas de atualização.</p>
+            <p>Semanas agrupadas com atividades, prioridades, entregas, descrições e datas de atualização.</p>
           </div>
         </div>
         <div id="tabelaAtividadesSemanais" class="weekly-weeks-list" aria-live="polite"></div>

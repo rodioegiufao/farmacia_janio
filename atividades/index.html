@@ -87,11 +87,14 @@
       </div>
     </header>
     <nav class="section-tabs" aria-label="Seções do controle de atividades">
-      <button type="button" class="tab-button active" data-section-target="atividadeSection" aria-controls="atividadeSection" aria-selected="true">
+      <button type="button" class="tab-button active" id="abaAtividade" data-section-target="atividadeSection" aria-controls="atividadeSection" aria-selected="true">
         <i class="fas fa-clipboard-list"></i> Atividade
       </button>
-      <button type="button" class="tab-button" data-section-target="dashboardSection" aria-controls="dashboardSection" aria-selected="false">
+      <button type="button" class="tab-button" id="abaDashboard" data-section-target="dashboardSection" aria-controls="dashboardSection" aria-selected="false">
         <i class="fas fa-chart-line"></i> Dashboard
+      </button>
+      <button type="button" class="tab-button" id="abaSemana" data-section-target="semanaSection" aria-controls="semanaSection" aria-selected="false">
+        <i class="fas fa-calendar-week"></i> Semana
       </button>
     </nav>
 
@@ -287,6 +290,70 @@
         <article class="chart-card"><h3>Finalizadas por mês</h3><canvas id="chartFinalizadasMes"></canvas></article>
         <article class="chart-card"><h3>Atividades por tipo de projeto</h3><canvas id="chartTipoProjeto"></canvas></article>
         <article class="chart-card"><h3>Atividades por prioridade</h3><canvas id="chartPrioridade"></canvas></article>
+      </div>
+    </section>
+    <section class="panel weekly-panel" id="semanaSection" data-section-panel="semanaSection" aria-label="Atividades da semana" hidden>
+      <div class="panel-header">
+        <div>
+          <h2>Atividades da Semana</h2>
+          <p>Registro simples das atividades planejadas ou executadas por semana.</p>
+        </div>
+      </div>
+
+      <!-- Formulário simples para cadastro e edição de atividades semanais. -->
+      <form id="atividadeSemanalForm" class="form-grid">
+        <input type="hidden" id="atividadeSemanalId" />
+
+        <label class="span-2">
+          Semana
+          <input type="text" id="semanaAtividade" placeholder="Ex.: Semana 25: 15 de junho à 21 de junho 2026" required />
+        </label>
+
+        <label class="span-2">
+          Atividade
+          <input type="text" id="tituloAtividadeSemanal" placeholder="Ex.: Revisão dos projetos elétricos" required />
+        </label>
+
+        <label class="span-2">
+          Descrição da atividade
+          <textarea id="descricaoAtividadeSemanal" rows="4" placeholder="Descreva o planejamento, execução ou observações da atividade semanal"></textarea>
+        </label>
+
+        <div class="form-actions span-2">
+          <button type="submit" class="primary" id="btnSalvarAtividadeSemanal">Salvar atividade semanal</button>
+          <button type="button" class="secondary" id="btnCancelarEdicaoSemanal">Cancelar edição</button>
+          <button type="button" class="secondary" id="btnLimparFormularioSemanal">Limpar formulário</button>
+        </div>
+      </form>
+
+      <div class="records-area">
+        <div class="panel-header records-header">
+          <div>
+            <h2>Atividades semanais registradas</h2>
+            <p>Use os filtros para buscar por semana, atividade ou descrição.</p>
+          </div>
+        </div>
+
+        <!-- Filtros independentes da aba Atividade para não interferir no controle detalhado. -->
+        <div class="filters">
+          <input type="search" id="filtroBuscaSemana" placeholder="Buscar por semana, atividade ou descrição" />
+          <select id="filtroSemana"></select>
+        </div>
+
+        <div class="table-wrapper weekly-table-wrapper">
+          <table class="weekly-table">
+            <thead>
+              <tr>
+                <th>Semana</th>
+                <th>Atividade</th>
+                <th>Descrição</th>
+                <th>Criado em</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaAtividadesSemanais"></tbody>
+          </table>
+        </div>
       </div>
     </section>
       </div>

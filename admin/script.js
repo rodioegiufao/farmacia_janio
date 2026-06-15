@@ -113,8 +113,8 @@ function garantirModalPerfil() {
       <form id="profileForm" class="profile-form">
         <label>Nome<input type="text" id="profileNome" required></label>
         <label>Login<input type="text" id="profileUsuario" autocomplete="username" required></label>
-        <label>Senha atual <small>(necessária para trocar a senha)</small><input type="password" id="profileSenhaAtual" autocomplete="current-password"></label>
-        <label>Nova senha<input type="password" id="profileNovaSenha" autocomplete="new-password" minlength="6"></label>
+        <label>Senha atual <small>(necessária para trocar a senha)</small><span class="profile-password-field"><input type="password" id="profileSenhaAtual" autocomplete="current-password"><button type="button" class="profile-password-toggle" data-target="profileSenhaAtual" aria-label="Mostrar senha atual" aria-pressed="false">👁</button></span></label>
+        <label>Nova senha<span class="profile-password-field"><input type="password" id="profileNovaSenha" autocomplete="new-password" minlength="6"><button type="button" class="profile-password-toggle" data-target="profileNovaSenha" aria-label="Mostrar nova senha" aria-pressed="false">👁</button></span></label>
         <div class="profile-modal-actions">
           <button type="button" id="profileCancel">Cancelar</button>
           <button type="submit">Salvar perfil</button>
@@ -126,9 +126,30 @@ function garantirModalPerfil() {
   document.getElementById("profileModalClose")?.addEventListener("click", fecharModalPerfil);
   document.getElementById("profileCancel")?.addEventListener("click", fecharModalPerfil);
   document.getElementById("profileForm")?.addEventListener("submit", salvarPerfil);
+  modal.querySelectorAll(".profile-password-toggle").forEach((button) => {
+    button.addEventListener("click", alternarVisibilidadeSenhaPerfil);
+  });
   return modal;
 }
+function alternarVisibilidadeSenhaPerfil(event) {
+  const button = event.currentTarget;
+  const input = document.getElementById(button.dataset.target);
+  if (!input) return;
+  const mostrarSenha = input.type === "password";
+  input.type = mostrarSenha ? "text" : "password";
+  button.setAttribute("aria-pressed", String(mostrarSenha));
+  button.setAttribute("aria-label", `${mostrarSenha ? "Ocultar" : "Mostrar"} ${button.dataset.target === "profileSenhaAtual" ? "senha atual" : "nova senha"}`);
+  button.textContent = mostrarSenha ? "🙈" : "👁";
+}
 
+function redefinirVisibilidadeSenhasPerfil() {
+  document.querySelectorAll("#profileSenhaAtual, #profileNovaSenha").forEach((input) => { input.type = "password"; });
+  document.querySelectorAll(".profile-password-toggle").forEach((button) => {
+    button.setAttribute("aria-pressed", "false");
+    button.setAttribute("aria-label", `Mostrar ${button.dataset.target === "profileSenhaAtual" ? "senha atual" : "nova senha"}`);
+    button.textContent = "👁";
+  });
+}
 async function abrirPerfil() {
   const data = await fetch(AUTH_URL).then(validarResposta);
   const modal = garantirModalPerfil();
@@ -136,6 +157,7 @@ async function abrirPerfil() {
   document.getElementById("profileUsuario").value = data.user?.usuario || "";
   document.getElementById("profileSenhaAtual").value = "";
   document.getElementById("profileNovaSenha").value = "";
+  redefinirVisibilidadeSenhasPerfil();
   fecharMenuUsuario();
   modal.hidden = false;
   document.getElementById("profileNome")?.focus();

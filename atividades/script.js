@@ -197,6 +197,20 @@ function alternarAba(aba) {
   const tab = targetId ? document.querySelector(`[data-section-target="${targetId}"]`) : null;
   if (tab) alternarSecao({ currentTarget: tab });
 }
+function usuarioAtualEhAdmin() {
+  return usuarioAtual?.perfil === "admin";
+}
+
+function aplicarPermissoesAtividadesSemanais() {
+  if (!formSemanal) return;
+
+  const podeGerenciarAtividadesSemanais = usuarioAtualEhAdmin();
+  formSemanal.hidden = !podeGerenciarAtividadesSemanais;
+
+  if (!podeGerenciarAtividadesSemanais) {
+    limparFormularioSemanal();
+  }
+}
 async function verificarSessao() {
   try {
     const data = await fetch(AUTH_URL).then(validarResposta);
@@ -223,6 +237,8 @@ function aplicarUsuarioLogado(user) {
   if (!user) fecharMenuUsuario();
   btnLimparTudo.hidden = !adminLogado;
   preencherColaboradoresPermitidos();
+  aplicarPermissoesAtividadesSemanais();
+  renderizarTabelaSemanal();
 }
 
 function obterIniciais(nome) {
@@ -555,7 +571,10 @@ async function carregarAtividadesSemanais() {
 
 async function salvarAtividadeSemanal(event) {
   event.preventDefault();
-
+  if (!usuarioAtualEhAdmin()) {
+    alert("Apenas administradores podem cadastrar ou editar atividades semanais.");
+    return;
+  }
   const atividadeSemanal = {
     id: camposSemanais.id.value || undefined,
     semana: camposSemanais.semana.value.trim(),
@@ -636,16 +655,21 @@ function renderizarDashboardSemanal() {
 
 function renderizarTabelaSemanal() {
   const listaFiltrada = obterAtividadesSemanaisFiltradas();
-  renderizarDashboardSemanal()
+  const podeGerenciarAtividadesSemanais = usuarioAtualEhAdmin();
+  const colunaAcoesSemanais = document.getElementById("colunaAcoesSemanais");
+  const totalColunas = podeGerenciarAtividadesSemanais ? 5 : 4;
+
+  renderizarDashboardSemanal();
   tabelaSemanal.innerHTML = "";
+  if (colunaAcoesSemanais) colunaAcoesSemanais.hidden = !podeGerenciarAtividadesSemanais;
 
   if (carregandoSemanais) {
-    tabelaSemanal.innerHTML = `<tr><td colspan="5" class="empty">Carregando atividades semanais do Supabase...</td></tr>`;
+    tabelaSemanal.innerHTML = `<tr><td colspan="${totalColunas}" class="empty">Carregando atividades semanais do Supabase...</td></tr>`;
     return;
   }
 
   if (!listaFiltrada.length) {
-    tabelaSemanal.innerHTML = `<tr><td colspan="5" class="empty">Nenhuma atividade semanal encontrada.</td></tr>`;
+    tabelaSemanal.innerHTML = `<tr><td colspan="${totalColunas}" class="empty">Nenhuma atividade semanal encontrada.</td></tr>`;
     return;
   }
 
@@ -656,12 +680,14 @@ function renderizarTabelaSemanal() {
       <td>${escapeHtml(atividadeSemanal.atividade)}</td>
       <td>${escapeHtml(atividadeSemanal.descricao || "-")}</td>
       <td>${formatarDataHoraCadastro(atividadeSemanal.criadoEm)}</td>
-      <td>
-        <div class="actions">
-          <button type="button" class="secondary" onclick="editarAtividadeSemanal('${atividadeSemanal.id}')">Editar</button>
-          <button type="button" class="ghost" onclick="excluirAtividadeSemanal('${atividadeSemanal.id}')">Excluir</button>
-        </div>
-      </td>
+      ${podeGerenciarAtividadesSemanais ? `
+        <td>
+          <div class="actions">
+            <button type="button" class="secondary" onclick="editarAtividadeSemanal('${atividadeSemanal.id}')">Editar</button>
+            <button type="button" class="ghost" onclick="excluirAtividadeSemanal('${atividadeSemanal.id}')">Excluir</button>
+          </div>
+        </td>
+      ` : ""}
     `;
     tabelaSemanal.appendChild(tr);
   });
@@ -676,6 +702,7 @@ function preencherFiltroSemanas() {
 }
 
 function editarAtividadeSemanal(id) {
+  if (!usuarioAtualEhAdmin()) return;
   const atividadeSemanal = atividadesSemanais.find((item) => item.id === id);
   if (!atividadeSemanal) return;
 
@@ -689,6 +716,10 @@ function editarAtividadeSemanal(id) {
 }
 
 async function excluirAtividadeSemanal(id) {
+  if (!usuarioAtualEhAdmin()) {
+    alert("Apenas administradores podem excluir atividades semanais.");
+    return;
+  }
   const confirmar = confirm("Deseja excluir esta atividade semanal do Supabase?");
   if (!confirmar) return;
 

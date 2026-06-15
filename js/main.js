@@ -23,6 +23,79 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') menuItems.forEach(item => item.classList.remove('active'));
     });
+    
+    // ========== LOGIN NA TELA PRINCIPAL ==========
+    (function initHomeLogin() {
+        const loginForm = document.getElementById('homeLoginForm');
+        const loginUsuario = document.getElementById('homeLoginUsuario');
+        const loginSenha = document.getElementById('homeLoginSenha');
+        const userMenu = document.getElementById('homeUserMenu');
+        const userName = document.getElementById('homeUserName');
+        const logoutButton = document.getElementById('homeLogoutButton');
+        const protectedLinks = document.querySelectorAll('[data-auth-required="true"]');
+        let currentUser = null;
+
+        if (!loginForm || !window.SiteAuth) return;
+
+        function redirectAfterLogin() {
+            const params = new URLSearchParams(window.location.search);
+            const redirect = params.get('redirect');
+            if (redirect) {
+                window.location.href = redirect;
+            }
+        }
+
+        function updateAuthUi(user) {
+            currentUser = user;
+            loginForm.hidden = Boolean(user);
+            userMenu.hidden = !user;
+            userName.textContent = user?.nome || '';
+        }
+
+        async function refreshSession() {
+            const user = await window.SiteAuth.getCurrentUser();
+            updateAuthUi(user);
+            if (!user && new URLSearchParams(window.location.search).get('login') === 'necessario') {
+                loginUsuario.focus();
+            }
+        }
+
+        loginForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            try {
+                const data = await window.SiteAuth.requestJson('/api/auth', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        usuario: loginUsuario.value,
+                        senha: loginSenha.value
+                    })
+                });
+                loginSenha.value = '';
+                updateAuthUi(data.user);
+                redirectAfterLogin();
+            } catch (error) {
+                alert(error.message || 'Usuário ou senha inválidos.');
+            }
+        });
+
+        logoutButton.addEventListener('click', async () => {
+            await window.SiteAuth.requestJson('/api/auth', { method: 'DELETE', credentials: 'same-origin' });
+            updateAuthUi(null);
+        });
+
+        protectedLinks.forEach((link) => {
+            link.addEventListener('click', (event) => {
+                if (currentUser) return;
+                event.preventDefault();
+                alert('Faça login na tela principal para acessar esta ferramenta.');
+                loginUsuario.focus();
+            });
+        });
+
+        refreshSession();
+    })();
 
     // ========== FORMULÁRIO DE CONTATO ==========
     const contactForm = document.getElementById('contactForm');

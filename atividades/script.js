@@ -1,4 +1,4 @@
-const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Estagiário"];
+const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Estagiário"];
 const prioridades = ["P0", "P1", "P2", "P3"];
 const projetos = [
   "CFTV",
@@ -12,7 +12,8 @@ const projetos = [
   "Mapa Chave/Situação",
   "Sonorização",
   "Solar",
-  "Automação"
+  "Automação",
+  "Outros",
 ];
 const etapas = [
   "QI Builder",

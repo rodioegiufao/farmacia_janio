@@ -29,6 +29,7 @@ const etapas = [
 const statusLista = ["Atrasado", "Em progresso", "Pausado", "Finalizado"];
 
 const API_URL = "/api/atividades";
+const API_SEMANA_URL = "/api/atividades-semanais";
 const AUTH_URL = "/api/auth";
 
 const authPanel = document.getElementById("authPanel");
@@ -52,8 +53,16 @@ const btnCancelarEdicao = document.getElementById("btnCancelarEdicao");
 const btnLimparTudo = document.getElementById("btnLimparTudo");
 const btnExportarCSV = document.getElementById("btnExportarCSV");
 
+const formSemanal = document.getElementById("atividadeSemanalForm");
+const tabelaSemanal = document.getElementById("tabelaAtividadesSemanais");
+const btnSalvarAtividadeSemanal = document.getElementById("btnSalvarAtividadeSemanal");
+const btnCancelarEdicaoSemanal = document.getElementById("btnCancelarEdicaoSemanal");
+const btnLimparFormularioSemanal = document.getElementById("btnLimparFormularioSemanal");
+
 let atividades = [];
+let atividadesSemanais = [];
 let carregando = false;
+let carregandoSemanais = false;
 let usuarioAtual = null;
 
 const campos = {
@@ -78,6 +87,18 @@ const filtros = {
   colaborador: document.getElementById("filtroColaborador"),
   status: document.getElementById("filtroStatus"),
   prioridade: document.getElementById("filtroPrioridade")
+};
+
+const camposSemanais = {
+  id: document.getElementById("atividadeSemanalId"),
+  semana: document.getElementById("semanaAtividade"),
+  atividade: document.getElementById("tituloAtividadeSemanal"),
+  descricao: document.getElementById("descricaoAtividadeSemanal")
+};
+
+const filtrosSemanais = {
+  busca: document.getElementById("filtroBuscaSemana"),
+  semana: document.getElementById("filtroSemana")
 };
 
 const filtrosDashboard = {
@@ -125,17 +146,27 @@ async function inicializar() {
   btnCancelarEdicao.addEventListener("click", cancelarEdicao);
   btnLimparTudo.addEventListener("click", limparTodosRegistros);
   btnExportarCSV.addEventListener("click", exportarCSV);
+  formSemanal.addEventListener("submit", salvarAtividadeSemanal);
+  btnCancelarEdicaoSemanal.addEventListener("click", limparFormularioSemanal);
+  btnLimparFormularioSemanal.addEventListener("click", limparFormularioSemanal);
   sectionTabs.forEach((tab) => tab.addEventListener("click", alternarSecao));
 
   Object.values(filtros).forEach((filtro) => {
     filtro.addEventListener("input", renderizarTabela);
     filtro.addEventListener("change", renderizarTabela);
   });
+  Object.values(filtrosSemanais).forEach((filtro) => {
+    filtro.addEventListener("input", renderizarTabelaSemanal);
+    filtro.addEventListener("change", renderizarTabelaSemanal);
+  });
   Object.values(filtrosDashboard).forEach((filtro) => {
     filtro.addEventListener("input", atualizarDashboard);
     filtro.addEventListener("change", atualizarDashboard);
   });
-   if (usuarioAtual) await carregarAtividades();
+  if (usuarioAtual) {
+    await carregarAtividades();
+    await carregarAtividadesSemanais();
+  }
 }
 
 function alternarSecao(event) {
@@ -152,6 +183,18 @@ function alternarSecao(event) {
   });
 
   if (targetId === "dashboardSection") atualizarDashboard();
+  if (targetId === "semanaSection" && usuarioAtual && !atividadesSemanais.length) carregarAtividadesSemanais();
+}
+
+function alternarAba(aba) {
+  const mapa = {
+    atividade: "atividadeSection",
+    dashboard: "dashboardSection",
+    semana: "semanaSection"
+  };
+  const targetId = mapa[aba];
+  const tab = targetId ? document.querySelector(`[data-section-target="${targetId}"]`) : null;
+  if (tab) alternarSecao({ currentTarget: tab });
 }
 async function verificarSessao() {
   try {
@@ -272,6 +315,7 @@ async function entrar(event) {
     loginForm.reset();
     aplicarUsuarioLogado(data.user);
     await carregarAtividades();
+    await carregarAtividadesSemanais();
   } catch (erro) {
     alert(`Não foi possível entrar: ${erro.message}`);
   }
@@ -281,8 +325,11 @@ async function sair() {
   await fetch(AUTH_URL, { method: "DELETE" }).catch(() => null);
   aplicarUsuarioLogado(null);
   atividades = [];
+  atividadesSemanais = [];
   atualizarOpcoesDashboard();
   renderizarTabela();
+  preencherFiltroSemanas();
+  renderizarTabelaSemanal();
 }
 
 function preencherSelect(select, opcoes, placeholder = "Selecione") {
@@ -486,7 +533,149 @@ async function limparTodosRegistros() {
     alert(`Não foi possível limpar os registros no Supabase: ${erro.message}`);
   }
 }
+// Carrega as atividades semanais em uma lista independente da aba Atividade.
+async function carregarAtividadesSemanais() {
+  try {
+    carregandoSemanais = true;
+    renderizarTabelaSemanal();
+    atividadesSemanais = await fetch(API_SEMANA_URL).then(validarResposta);
+    preencherFiltroSemanas();
+  } catch (erro) {
+    alert(`Não foi possível carregar as atividades semanais do Supabase: ${erro.message}`);
+    atividadesSemanais = [];
+    preencherFiltroSemanas();
+  } finally {
+    carregandoSemanais = false;
+    renderizarTabelaSemanal();
+  }
+}
 
+async function salvarAtividadeSemanal(event) {
+  event.preventDefault();
+
+  const atividadeSemanal = {
+    id: camposSemanais.id.value || undefined,
+    semana: camposSemanais.semana.value.trim(),
+    atividade: camposSemanais.atividade.value.trim(),
+    descricao: camposSemanais.descricao.value.trim()
+  };
+
+  try {
+    setFormSemanalDisabled(true);
+    const atividadeSalva = await apiRequestSemanal(camposSemanais.id.value ? "PUT" : "POST", atividadeSemanal);
+    const indice = atividadesSemanais.findIndex((item) => item.id === atividadeSalva.id);
+
+    if (indice >= 0) {
+      atividadesSemanais[indice] = atividadeSalva;
+    } else {
+      atividadesSemanais.unshift(atividadeSalva);
+    }
+
+    limparFormularioSemanal();
+    preencherFiltroSemanas();
+    renderizarTabelaSemanal();
+  } catch (erro) {
+    alert(`Não foi possível salvar a atividade semanal no Supabase: ${erro.message}`);
+  } finally {
+    setFormSemanalDisabled(false);
+  }
+}
+
+function renderizarTabelaSemanal() {
+  const termo = filtrosSemanais.busca.value.toLowerCase().trim();
+  const semanaSelecionada = filtrosSemanais.semana.value;
+  const listaFiltrada = atividadesSemanais.filter((atividadeSemanal) => {
+    const textoBusca = `${atividadeSemanal.semana} ${atividadeSemanal.atividade} ${atividadeSemanal.descricao}`.toLowerCase();
+    const correspondeBusca = !termo || textoBusca.includes(termo);
+    const correspondeSemana = !semanaSelecionada || atividadeSemanal.semana === semanaSelecionada;
+    return correspondeBusca && correspondeSemana;
+  });
+
+  tabelaSemanal.innerHTML = "";
+
+  if (carregandoSemanais) {
+    tabelaSemanal.innerHTML = `<tr><td colspan="5" class="empty">Carregando atividades semanais do Supabase...</td></tr>`;
+    return;
+  }
+
+  if (!listaFiltrada.length) {
+    tabelaSemanal.innerHTML = `<tr><td colspan="5" class="empty">Nenhuma atividade semanal encontrada.</td></tr>`;
+    return;
+  }
+
+  listaFiltrada.forEach((atividadeSemanal) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(atividadeSemanal.semana)}</td>
+      <td>${escapeHtml(atividadeSemanal.atividade)}</td>
+      <td>${escapeHtml(atividadeSemanal.descricao || "-")}</td>
+      <td>${formatarDataHoraCadastro(atividadeSemanal.criadoEm)}</td>
+      <td>
+        <div class="actions">
+          <button type="button" class="secondary" onclick="editarAtividadeSemanal('${atividadeSemanal.id}')">Editar</button>
+          <button type="button" class="ghost" onclick="excluirAtividadeSemanal('${atividadeSemanal.id}')">Excluir</button>
+        </div>
+      </td>
+    `;
+    tabelaSemanal.appendChild(tr);
+  });
+}
+
+function preencherFiltroSemanas() {
+  const valorAtual = filtrosSemanais.semana.value;
+  const semanas = [...new Set(atividadesSemanais.map((item) => item.semana).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+  preencherSelect(filtrosSemanais.semana, semanas, "Todas as semanas");
+  if (semanas.includes(valorAtual)) filtrosSemanais.semana.value = valorAtual;
+}
+
+function editarAtividadeSemanal(id) {
+  const atividadeSemanal = atividadesSemanais.find((item) => item.id === id);
+  if (!atividadeSemanal) return;
+
+  camposSemanais.id.value = atividadeSemanal.id;
+  camposSemanais.semana.value = atividadeSemanal.semana || "";
+  camposSemanais.atividade.value = atividadeSemanal.atividade || "";
+  camposSemanais.descricao.value = atividadeSemanal.descricao || "";
+  btnCancelarEdicaoSemanal.style.display = "inline-block";
+  btnSalvarAtividadeSemanal.textContent = "Atualizar atividade semanal";
+  document.getElementById("semanaSection").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function excluirAtividadeSemanal(id) {
+  const confirmar = confirm("Deseja excluir esta atividade semanal do Supabase?");
+  if (!confirmar) return;
+
+  try {
+    await fetch(`${API_SEMANA_URL}?id=${encodeURIComponent(id)}`, { method: "DELETE" }).then(validarResposta);
+    atividadesSemanais = atividadesSemanais.filter((item) => item.id !== id);
+    preencherFiltroSemanas();
+    renderizarTabelaSemanal();
+  } catch (erro) {
+    alert(`Não foi possível excluir a atividade semanal no Supabase: ${erro.message}`);
+  }
+}
+
+function limparFormularioSemanal() {
+  formSemanal.reset();
+  camposSemanais.id.value = "";
+  btnCancelarEdicaoSemanal.style.display = "none";
+  btnSalvarAtividadeSemanal.textContent = "Salvar atividade semanal";
+}
+
+async function apiRequestSemanal(method, atividadeSemanal) {
+  return fetch(API_SEMANA_URL, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(atividadeSemanal)
+  }).then(validarResposta);
+}
+
+function setFormSemanalDisabled(disabled) {
+  formSemanal.querySelectorAll("button, input, select, textarea").forEach((elemento) => {
+    elemento.disabled = disabled;
+  });
+}
 function atualizarDashboard() {
   const listaDashboard = filtrarAtividadesDashboard();
   const total = listaDashboard.length;

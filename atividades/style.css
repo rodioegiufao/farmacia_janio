@@ -209,12 +209,10 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
   width: min(100%, 420px);
   margin: 0 auto;
   padding: 44px 30px 38px;
-  border: 1px solid rgba(226, 232, 240, 0.22);
-  border-radius: 42px;
-  background:
-    linear-gradient(90deg, rgba(20, 166, 160, 0.92) 0%, rgba(49, 130, 206, 0.82) 52%, rgba(88, 67, 133, 0.95) 100%),
-    var(--bg-card);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
 }
 .auth-copy { text-align: center; margin-bottom: 8px; }
 .auth-copy h2 {
@@ -254,7 +252,7 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
   border-radius: 999px;
   font-size: 1.25rem;
   color: var(--text-lighter);
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-light));
+  background: linear-gradient(135deg, #4a5568, #718096);
 }
 .password-field { position: relative; display: block; }
 .password-toggle {

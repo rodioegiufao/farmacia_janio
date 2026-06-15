@@ -20,6 +20,17 @@
         <div class="theme-selector-content">
             <div class="theme-logo">Rodrigo Damasceno</div>
             <div class="theme-controls">
+                <div class="home-auth" id="homeAuth">
+                    <form class="home-login-form" id="homeLoginForm" hidden>
+                        <input type="text" id="homeLoginUsuario" placeholder="Usuário" autocomplete="username" required>
+                        <input type="password" id="homeLoginSenha" placeholder="Senha" autocomplete="current-password" required>
+                        <button type="submit">Entrar</button>
+                    </form>
+                    <div class="home-user-menu" id="homeUserMenu" hidden>
+                        <span id="homeUserName"></span>
+                        <button type="button" id="homeLogoutButton">Sair</button>
+                    </div>
+                </div>
                 <label class="theme-switch">
                     <input type="checkbox" id="theme-toggle">
                     <span class="theme-slider">

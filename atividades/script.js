@@ -38,6 +38,7 @@ const API_URL = "/api/atividades";
 const API_SEMANA_URL = "/api/atividades-semanais";
 const AUTH_URL = "/api/auth";
 const API_RELATORIO_WORD_URL = "/api/gerar-relatorio-word";
+const LIMITE_VISUALIZACAO_ATIVIDADES = 10;
 
 const appContent = document.getElementById("appContent");
 const btnLogout = document.getElementById("btnLogout");
@@ -52,6 +53,7 @@ const adminLink = document.getElementById("adminLink");
 
 const form = document.getElementById("atividadeForm");
 const tabela = document.getElementById("atividadesTabela");
+const atividadesLimiteInfo = document.getElementById("atividadesLimiteInfo");
 const btnCancelarEdicao = document.getElementById("btnCancelarEdicao");
 const btnLimparTudo = document.getElementById("btnLimparTudo");
 const btnExportarCSV = document.getElementById("btnExportarCSV");
@@ -430,6 +432,7 @@ function renderizarTabela() {
   });
 
   tabela.innerHTML = "";
+  if (atividadesLimiteInfo) atividadesLimiteInfo.textContent = "";
   
   if (carregando) {
     tabela.innerHTML = `<tr><td colspan="13" class="empty">Carregando atividades do Supabase...</td></tr>`;
@@ -443,7 +446,16 @@ function renderizarTabela() {
     return;
   }
 
-  listaFiltrada.forEach((atividade) => {
+  const listaVisivel = listaFiltrada.slice(0, LIMITE_VISUALIZACAO_ATIVIDADES);
+
+  if (atividadesLimiteInfo) {
+    const totalOculto = listaFiltrada.length - listaVisivel.length;
+    atividadesLimiteInfo.textContent = totalOculto > 0
+      ? `Mostrando as ${listaVisivel.length} primeiras atividades de ${listaFiltrada.length} encontradas. Use os filtros para refinar a visualização.`
+      : `Mostrando ${listaVisivel.length} ${listaVisivel.length === 1 ? "atividade" : "atividades"}.`;
+  }
+
+  listaVisivel.forEach((atividade) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(atividade.colaborador)}</td>

@@ -37,6 +37,7 @@ const statusLista = ["Atrasado", "Em progresso", "Pausado", "Finalizado"];
 const API_URL = "/api/atividades";
 const API_SEMANA_URL = "/api/atividades-semanais";
 const AUTH_URL = "/api/auth";
+const API_RELATORIO_WORD_URL = "/api/gerar-relatorio-word";
 
 const appContent = document.getElementById("appContent");
 const btnLogout = document.getElementById("btnLogout");
@@ -62,6 +63,7 @@ const btnSalvarAtividadeSemanal = document.getElementById("btnSalvarAtividadeSem
 const btnCancelarEdicaoSemanal = document.getElementById("btnCancelarEdicaoSemanal");
 const btnLimparFormularioSemanal = document.getElementById("btnLimparFormularioSemanal");
 const btnNovaAtividadeSemanal = document.getElementById("btnNovaAtividadeSemanal");
+const btnGerarRelatorioWord = document.getElementById("btnGerarRelatorioWord");
 
 let atividades = [];
 let atividadesSemanais = [];
@@ -156,6 +158,7 @@ async function inicializar() {
   btnCancelarEdicaoSemanal.addEventListener("click", limparFormularioSemanal);
   btnLimparFormularioSemanal.addEventListener("click", limparFormularioSemanal);
   btnNovaAtividadeSemanal?.addEventListener("click", focarFormularioSemanal);
+  btnGerarRelatorioWord?.addEventListener("click", gerarRelatorioWord);
   sectionTabs.forEach((tab) => tab.addEventListener("click", alternarSecao));
 
   Object.values(filtros).forEach((filtro) => {
@@ -985,6 +988,69 @@ function atualizarOpcoesDashboard() {
   const obras = [...new Set(atividades.map((a) => a.obra).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   preencherSelect(filtrosDashboard.obra, obras, "Todas as obras");
   if (obras.includes(valorObra)) filtrosDashboard.obra.value = valorObra;
+}
+
+async function gerarRelatorioWord() {
+  if (!usuarioAtual) {
+    alert("Faça login para gerar o relatório Word.");
+    return;
+  }
+
+  const textoOriginal = btnGerarRelatorioWord?.innerHTML;
+
+  try {
+    if (btnGerarRelatorioWord) {
+      btnGerarRelatorioWord.disabled = true;
+      btnGerarRelatorioWord.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Gerando...';
+    }
+
+    const payload = {
+      atividades: filtrarAtividadesDashboard(),
+      atividadesSemanais: obterAtividadesSemanaisFiltradas(),
+      filtros: obterFiltrosDashboardRelatorio()
+    };
+
+    const response = await fetch(API_RELATORIO_WORD_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const erro = await response.json().catch(() => null);
+      throw new Error(erro?.error || "Erro inesperado ao gerar relatório Word.");
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `relatorio-atividades-setor-${new Date().toISOString().slice(0, 10)}.docx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (erro) {
+    alert(`Não foi possível gerar o relatório Word: ${erro.message}`);
+  } finally {
+    if (btnGerarRelatorioWord) {
+      btnGerarRelatorioWord.disabled = false;
+      btnGerarRelatorioWord.innerHTML = textoOriginal;
+    }
+  }
+}
+
+function obterFiltrosDashboardRelatorio() {
+  return {
+    periodo: filtrosDashboard.periodo.value,
+    dataInicio: filtrosDashboard.dataInicio.value,
+    dataFim: filtrosDashboard.dataFim.value,
+    colaborador: filtrosDashboard.colaborador.value,
+    status: filtrosDashboard.status.value,
+    prioridade: filtrosDashboard.prioridade.value,
+    projeto: filtrosDashboard.projeto.value,
+    obra: filtrosDashboard.obra.value
+  };
 }
 
 function exportarCSV() {

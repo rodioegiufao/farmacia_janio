@@ -1034,7 +1034,7 @@ async function gerarRelatorioWord() {
     atualizarDashboard();
     const atividadesRelatorio = filtrarAtividadesDashboard();
     
-    const atividadesSemanaisRelatorio = obterAtividadesSemanaisFiltradas();
+    const atividadesSemanaisRelatorio = filtrarAtividadesSemanaisPorPeriodo(obterAtividadesSemanaisFiltradas());
     const payload = {
       atividades: atividadesRelatorio,
       atividadesSemanais: atividadesSemanaisRelatorio,
@@ -1203,6 +1203,60 @@ function capturarGraficosRelatorio() {
     obrasPegando: capturarCanvasRelatorio("chartObrasPegando")
   };
 }
+const MESES_SEMANA = {
+  janeiro: 0,
+  fevereiro: 1,
+  março: 2,
+  marco: 2,
+  abril: 3,
+  maio: 4,
+  junho: 5,
+  julho: 6,
+  agosto: 7,
+  setembro: 8,
+  outubro: 9,
+  novembro: 10,
+  dezembro: 11
+};
+
+function extrairIntervaloSemana(semana) {
+  const texto = normalizarTexto(semana).replace(/\s+/g, " ");
+  const padrao = /(\d{1,2}) de ([a-zç]+)(?: de (\d{4}))?\s*(?:a|à|ate|até)\s*(\d{1,2}) de ([a-zç]+)(?: de (\d{4}))?/i;
+  const correspondencia = texto.match(padrao);
+  if (!correspondencia) return null;
+
+  const [, diaInicio, mesInicioNome, anoInicioTexto, diaFim, mesFimNome, anoFimTexto] = correspondencia;
+  const mesInicio = MESES_SEMANA[mesInicioNome];
+  const mesFim = MESES_SEMANA[mesFimNome];
+  const anoFim = Number(anoFimTexto || anoInicioTexto);
+  const anoInicio = Number(anoInicioTexto || anoFimTexto);
+
+  if (mesInicio === undefined || mesFim === undefined || !anoInicio || !anoFim) return null;
+
+  const inicio = new Date(anoInicio, mesInicio, Number(diaInicio));
+  const fim = new Date(anoFim, mesFim, Number(diaFim));
+  fim.setHours(23, 59, 59, 999);
+
+  return Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime()) ? null : { inicio, fim };
+}
+
+function dataDentroDoIntervalo(data, intervalo) {
+  return data >= intervalo.inicio && data <= intervalo.fim;
+}
+
+function filtrarAtividadesSemanaisPorPeriodo(lista) {
+  if (filtrosDashboard.periodo.value !== "semana-atual") return lista;
+
+  const hoje = new Date();
+  hoje.setHours(12, 0, 0, 0);
+  const filtradas = lista.filter((atividadeSemanal) => {
+    const intervaloSemana = extrairIntervaloSemana(atividadeSemanal.semana);
+    return intervaloSemana ? dataDentroDoIntervalo(hoje, intervaloSemana) : false;
+  });
+
+  return filtradas.length ? filtradas : lista;
+}
+
 function obterTituloRelatorioWord(atividadesSemanaisRelatorio) {
   if (filtrosDashboard.periodo.value === "semana-atual") {
     const semanas = [...new Set((atividadesSemanaisRelatorio || []).map((item) => item.semana).filter(Boolean))];

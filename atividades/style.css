@@ -170,6 +170,8 @@ button:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0, 0, 0,
 .filters { margin-bottom: 16px; }
 .filters input, .filters select { flex: 1; min-width: 210px; }
 .table-wrapper { overflow: auto; border: 1px solid var(--border-color); border-radius: 12px; }
+.table-limit-info { padding: 12px 14px; border-top: 1px solid var(--border-color); color: var(--accent-light); background: rgba(15, 23, 42, 0.18); font-size: 0.86rem; font-weight: 600; }
+.table-limit-info:empty { display: none; }
 table { width: 100%; min-width: 1300px; border-collapse: collapse; background: var(--bg-card); }
 th, td { padding: 13px; border-bottom: 1px solid var(--border-color); text-align: left; vertical-align: top; font-size: 0.88rem; }
 th { position: sticky; top: 0; z-index: 1; color: #fff; background: var(--primary-medium); }

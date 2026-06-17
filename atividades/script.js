@@ -933,6 +933,36 @@ function renderizarGraficosDashboard(lista) {
   criarOuAtualizarGrafico("chartPrioridade", "bar", prioridades, prioridades.map((prioridade) => lista.filter((a) => a.prioridade === prioridade).length), "Prioridades");
   const obrasPegando = obterObrasPegando(lista);
   criarOuAtualizarGrafico("chartObrasPegando", "bar", obrasPegando.labels, obrasPegando.valores, "Horas por obra");
+  const porProjeto = agruparIndicadoresPorProjetoObra(lista);
+  criarOuAtualizarGrafico("chartAtividadesProjetoRelatorio", "bar", porProjeto.labels, porProjeto.atividades, "Atividades", true);
+  criarOuAtualizarGrafico("chartHorasProjetoRelatorio", "bar", porProjeto.labels, porProjeto.horas, "Horas", true);
+}
+
+function obterChaveProjetoObra(atividade) {
+  const obra = (atividade.obra || "Obra não informada").trim();
+  const projeto = (atividade.projeto || "Projeto não informado").trim();
+  return `${obra} — ${projeto}`;
+}
+
+function agruparIndicadoresPorProjetoObra(lista) {
+  const mapa = new Map();
+  lista.forEach((atividade) => {
+    const chave = obterChaveProjetoObra(atividade);
+    const atual = mapa.get(chave) || { atividades: 0, horas: 0 };
+    atual.atividades += 1;
+    atual.horas += calcularHorasAtividade(atividade);
+    mapa.set(chave, atual);
+  });
+
+  const labels = [...mapa.keys()]
+    .sort((a, b) => mapa.get(b).horas - mapa.get(a).horas || mapa.get(b).atividades - mapa.get(a).atividades || a.localeCompare(b))
+    .slice(0, 10);
+
+  return {
+    labels,
+    atividades: labels.map((label) => mapa.get(label).atividades),
+    horas: labels.map((label) => Number(mapa.get(label).horas.toFixed(2)))
+  };
 }
 
 function obterObrasPegando(lista) {
@@ -949,22 +979,26 @@ function obterObrasPegando(lista) {
   return { labels, valores: labels.map((label) => Number(mapa.get(label).toFixed(2))) };
 }
 
-function criarOuAtualizarGrafico(canvasId, tipo, labels, valores, label) {
+function criarOuAtualizarGrafico(canvasId, tipo, labels, valores, label, horizontal = false) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
   if (dashboardCharts[canvasId]) dashboardCharts[canvasId].destroy();
 
   const corTexto = getComputedStyle(document.documentElement).getPropertyValue("--text-light").trim() || "#e2e8f0";
   const corGrade = getComputedStyle(document.documentElement).getPropertyValue("--border-color").trim() || "#334155";
 
-  dashboardCharts[canvasId] = new Chart(document.getElementById(canvasId), {
+  dashboardCharts[canvasId] = new Chart(canvas, {
     type: tipo,
     data: { labels, datasets: [{ label, data: valores, backgroundColor: obterCoresGrafico(labels), borderColor: "#63b3ed", tension: 0.3 }] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: { legend: { display: tipo === "doughnut", labels: { color: corTexto } } },
+      indexAxis: horizontal ? "y" : "x",
+      animation: false,
       scales: tipo === "doughnut" ? {} : {
-        x: { ticks: { color: corTexto }, grid: { color: corGrade } },
-        y: { beginAtZero: true, ticks: { color: corTexto, precision: 0 }, grid: { color: corGrade } }
+        x: { beginAtZero: horizontal, ticks: { color: corTexto, precision: 0 }, grid: { color: corGrade } },
+        y: { beginAtZero: !horizontal, ticks: { color: corTexto, precision: 0 }, grid: { color: corGrade } }
       }
     }
   });
@@ -1003,11 +1037,14 @@ async function gerarRelatorioWord() {
       btnGerarRelatorioWord.disabled = true;
       btnGerarRelatorioWord.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Gerando...';
     }
-
+    atualizarDashboard();
+    await aguardarRenderizacaoGraficos();
+    
     const payload = {
       atividades: filtrarAtividadesDashboard(),
       atividadesSemanais: obterAtividadesSemanaisFiltradas(),
-      filtros: obterFiltrosDashboardRelatorio()
+      filtros: obterFiltrosDashboardRelatorio(),
+      graficos: capturarGraficosRelatorio()
     };
 
     const response = await fetch(API_RELATORIO_WORD_URL, {
@@ -1039,7 +1076,34 @@ async function gerarRelatorioWord() {
     }
   }
 }
+function aguardarRenderizacaoGraficos() {
+  return new Promise((resolve) => setTimeout(resolve, 350));
+}
 
+function capturarCanvasRelatorio(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !canvas.width || !canvas.height) return null;
+
+  try {
+    return canvas.toDataURL("image/png");
+  } catch (erro) {
+    console.warn(`Não foi possível capturar o gráfico ${canvasId}:`, erro);
+    return null;
+  }
+}
+
+function capturarGraficosRelatorio() {
+  return {
+    atividadesProjeto: capturarCanvasRelatorio("chartAtividadesProjetoRelatorio"),
+    horasProjeto: capturarCanvasRelatorio("chartHorasProjetoRelatorio"),
+    atividadesColaborador: capturarCanvasRelatorio("chartAtividadesColaborador"),
+    horasColaborador: capturarCanvasRelatorio("chartHorasColaborador"),
+    status: capturarCanvasRelatorio("chartStatus"),
+    tipoProjeto: capturarCanvasRelatorio("chartTipoProjeto"),
+    prioridade: capturarCanvasRelatorio("chartPrioridade"),
+    obrasPegando: capturarCanvasRelatorio("chartObrasPegando")
+  };
+}
 function obterFiltrosDashboardRelatorio() {
   return {
     periodo: filtrosDashboard.periodo.value,

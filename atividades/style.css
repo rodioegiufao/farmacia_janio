@@ -947,3 +947,11 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 .profile-modal-actions button[type="submit"] { color: #ffffff; background: #2563eb; }
 .profile-modal-close { position: absolute; top: 12px; right: 14px; border: 0; color: var(--text-primary); background: transparent; font-size: 1.6rem; }
 .profile-modal[hidden] { display: none; }
+
+.dashboard-header { align-items: flex-start; }
+.report-button { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.report-button:disabled { cursor: wait; opacity: 0.75; }
+
+@media (max-width: 768px) {
+  .dashboard-header .report-button { width: 100%; justify-content: center; }
+}

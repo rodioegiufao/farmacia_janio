@@ -955,3 +955,19 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 @media (max-width: 768px) {
   .dashboard-header .report-button { width: 100%; justify-content: center; }
 }
+
+.report-chart-buffer {
+  position: fixed;
+  left: -10000px;
+  top: -10000px;
+  width: 1200px;
+  height: 1500px;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.report-chart-buffer canvas {
+  display: block;
+  width: 1200px !important;
+  height: 700px !important;
+}

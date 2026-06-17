@@ -8,165 +8,62 @@ const TEMPLATE_PATH = path.join(process.cwd(), "atividades", "template", "Relato
 const MESES = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
 const STATUS = ["Atrasado", "Em progresso", "Pausado", "Finalizado"];
 const PRIORIDADES = ["P0", "P1", "P2", "P3"];
-const PROJETOS = ["CFTV", "Cabeamento", "Telefonia", "Elétrico Baixa Tensão", "Iluminação Externa", "SPDA", "Subestação", "Alimentador", "Mapa Chave/Situação", "Sonorização", "Solar", "Automação", "Outros"];
 const SEM_REGISTROS = "Não foram identificados registros para o período analisado.";
 
-function normalizarTexto(texto) {
-  return String(texto || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-}
+function normalizarTexto(texto) { return String(texto || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(); }
+function textoSeguro(texto) { return String(texto || "").replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c])); }
+function obterIntervaloAtividade(a) { if (!a.dataInicio || !a.horaInicio || !a.dataTermino || !a.horaTermino) return null; const i = new Date(`${a.dataInicio}T${a.horaInicio}`); const f = new Date(`${a.dataTermino}T${a.horaTermino}`); return Number.isNaN(i.getTime()) || Number.isNaN(f.getTime()) || f <= i ? null : { inicio: i, fim: f }; }
+function calcularHorasAtividade(a) { const intervalo = obterIntervaloAtividade(a); return intervalo ? (intervalo.fim - intervalo.inicio) / 36e5 : Number(a.horas || 0) || 0; }
+function pluralizar(valor, singular, plural) { return Number(valor) === 1 ? singular : plural; }
+function formatarNumero(valor, casas = 2) { return Number(valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: casas }); }
+function formatarPercentual(valor) { return `${formatarNumero(valor, 0)}%`; }
+function formatarHorasRelatorio(valor) { const horas = Number(valor || 0); return `${formatarNumero(horas)} ${pluralizar(horas, "hora trabalhada", "horas trabalhadas")}`; }
+function percentual(parte, total) { return total ? Math.round((parte / total) * 100) : 0; }
+function chaveProjeto(a) { const obra = (a.obra || "Obra não informada").trim(); const projeto = (a.projeto || "Projeto não informado").trim(); return `${obra} — ${projeto}`; }
+function contarProjetosTrabalhados(lista) { return new Set(lista.map(chaveProjeto)).size; }
+function contarPor(lista, campo, valor) { return lista.filter((a) => normalizarTexto(a[campo]) === normalizarTexto(valor)).length; }
+function topDescricao(lista) { return [...new Set(lista.map((a) => a.descricao || a.atividade || a.titulo).filter(Boolean).map((t) => String(t).trim()).filter(Boolean))].slice(0, 4); }
+function mapaOrdenado(obj) { return Object.entries(obj).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); }
 
-function obterIntervaloAtividade(atividade) {
-  if (!atividade.dataInicio || !atividade.horaInicio || !atividade.dataTermino || !atividade.horaTermino) return null;
-  const inicio = new Date(`${atividade.dataInicio}T${atividade.horaInicio}`);
-  const fim = new Date(`${atividade.dataTermino}T${atividade.horaTermino}`);
-  if (Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime()) || fim <= inicio) return null;
-  return { inicio, fim };
-}
-
-function calcularHorasAtividade(atividade) {
-  const intervalo = obterIntervaloAtividade(atividade);
-  return intervalo ? (intervalo.fim - intervalo.inicio) / 36e5 : 0;
-}
-
-function formatarNumero(valor, casas = 2) {
-  return Number(valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: casas });
-}
-
-function percentual(parte, total) {
-  return total ? Math.round((parte / total) * 100) : 0;
-}
-
-function contarProjetosTrabalhados(lista) {
-  return new Set(lista.map((a) => `${normalizarTexto(a.obra)}|${normalizarTexto(a.projeto)}`).filter((chave) => chave !== "|")).size;
-}
-
-function agruparPorColaborador(lista) {
-  return lista.reduce((acc, atividade) => {
-    const nome = atividade.colaborador || "Sem colaborador";
-    acc[nome] ||= { total: 0, finalizadas: 0, progresso: 0, atrasadas: 0, horas: 0, projetosSet: new Set() };
-    acc[nome].total += 1;
-    acc[nome].finalizadas += atividade.status === "Finalizado" ? 1 : 0;
-    acc[nome].progresso += atividade.status === "Em progresso" ? 1 : 0;
-    acc[nome].atrasadas += atividade.status === "Atrasado" ? 1 : 0;
-    acc[nome].horas += calcularHorasAtividade(atividade);
-    if (atividade.obra || atividade.projeto) acc[nome].projetosSet.add(`${normalizarTexto(atividade.obra)}|${normalizarTexto(atividade.projeto)}`);
-    return acc;
-  }, {});
-}
-
-function itemMaximo(entries, campo) {
-  return entries.reduce((max, atual) => (!max || atual[1][campo] > max[1][campo] ? atual : max), null);
+function gerarAnalisePorProjeto(listaAtividades) {
+  const mapa = new Map();
+  listaAtividades.forEach((a) => {
+    const chave = chaveProjeto(a);
+    if (!mapa.has(chave)) mapa.set(chave, { chave, obra: a.obra || "Obra não informada", projeto: a.projeto || "Projeto não informado", atividades: 0, horas: 0, colaboradores: new Set(), status: {}, prioridades: {}, trabalhos: [] });
+    const item = mapa.get(chave);
+    item.atividades += 1; item.horas += calcularHorasAtividade(a);
+    if (a.colaborador) item.colaboradores.add(a.colaborador);
+    item.status[a.status || "Sem status"] = (item.status[a.status || "Sem status"] || 0) + 1;
+    item.prioridades[a.prioridade || "Sem prioridade"] = (item.prioridades[a.prioridade || "Sem prioridade"] || 0) + 1;
+    const desc = a.descricao || a.atividade || a.titulo; if (desc) item.trabalhos.push(String(desc).trim());
+  });
+  return [...mapa.values()].map((p) => ({ ...p, colaboradores: [...p.colaboradores].sort(), trabalhos: [...new Set(p.trabalhos)].slice(0, 5) }))
+    .sort((a, b) => b.horas - a.horas || b.atividades - a.atividades || a.chave.localeCompare(b.chave));
 }
 
 function gerarResumoGeral(atividades) {
   if (!atividades.length) return SEM_REGISTROS;
-  const total = atividades.length;
-  const finalizadas = atividades.filter((a) => a.status === "Finalizado").length;
-  const progresso = atividades.filter((a) => a.status === "Em progresso").length;
-  const atrasadas = atividades.filter((a) => a.status === "Atrasado").length;
-  const projetos = contarProjetosTrabalhados(atividades);
-  const horas = atividades.reduce((soma, atividade) => soma + calcularHorasAtividade(atividade), 0);
-  return `No período analisado, foram registradas ${total} atividade(s) no setor, sendo ${progresso} em progresso, ${finalizadas} finalizada(s) e ${atrasadas} atrasada(s). Foram identificados ${projetos} projeto(s)/obra(s) distinto(s), com total aproximado de ${formatarNumero(horas)} hora(s) trabalhada(s). O percentual geral de conclusão da equipe foi de ${percentual(finalizadas, total)}%.`;
+  const total = atividades.length, finalizadas = contarPor(atividades, "status", "Finalizado"), progresso = contarPor(atividades, "status", "Em progresso"), atrasadas = contarPor(atividades, "status", "Atrasado");
+  const colaboradores = new Set(atividades.map((a) => a.colaborador).filter(Boolean)).size;
+  const horas = atividades.reduce((s, a) => s + calcularHorasAtividade(a), 0);
+  return `No período analisado, foram registradas ${total} ${pluralizar(total, "atividade", "atividades")} distribuídas em ${contarProjetosTrabalhados(atividades)} ${pluralizar(contarProjetosTrabalhados(atividades), "projeto/obra distinto", "projetos/obras distintos")}, com participação de ${colaboradores} ${pluralizar(colaboradores, "colaborador", "colaboradores")}. O total aproximado foi de ${formatarHorasRelatorio(horas)}. Do total de registros, ${finalizadas} ${pluralizar(finalizadas, "atividade foi finalizada", "atividades foram finalizadas")}, ${progresso} ${pluralizar(progresso, "permanece", "permanecem")} em progresso e ${atrasadas ? `${atrasadas} ${pluralizar(atrasadas, "atividade atrasada foi identificada", "atividades atrasadas foram identificadas")}` : "não foram identificadas atividades atrasadas"}, resultando em percentual geral de conclusão de ${formatarPercentual(percentual(finalizadas, total))}.`;
 }
 
-function gerarDesempenhoColaboradores(atividades) {
-  const resumo = Object.entries(agruparPorColaborador(atividades));
-  if (!resumo.length) return SEM_REGISTROS;
-  const linhas = resumo.map(([nome, dados]) => `${nome} registrou ${dados.total} atividade(s) no período, sendo ${dados.finalizadas} finalizada(s), ${dados.progresso} em progresso e ${dados.atrasadas} atrasada(s), atuando em ${dados.projetosSet.size} projeto(s)/obra(s) distinto(s), com ${formatarNumero(dados.horas)} hora(s) trabalhada(s).`);
-  const maiorTotal = itemMaximo(resumo, "total");
-  const maiorFinalizadas = itemMaximo(resumo, "finalizadas");
-  const maiorHoras = itemMaximo(resumo, "horas");
-  linhas.push(`Como destaques do período, ${maiorTotal[0]} apresentou o maior número de atividades registradas (${maiorTotal[1].total}), ${maiorFinalizadas[0]} apresentou o maior número de atividades finalizadas (${maiorFinalizadas[1].finalizadas}) e ${maiorHoras[0]} concentrou a maior carga horária registrada (${formatarNumero(maiorHoras[1].horas)} hora(s)).`);
-  return linhas.join("\n\n");
-}
+function agruparPorColaborador(lista) { return lista.reduce((acc, a) => { const n = a.colaborador || "Sem colaborador"; acc[n] ||= { total: 0, finalizadas: 0, progresso: 0, horas: 0, projetosSet: new Set() }; acc[n].total++; acc[n].finalizadas += a.status === "Finalizado" ? 1 : 0; acc[n].progresso += a.status === "Em progresso" ? 1 : 0; acc[n].horas += calcularHorasAtividade(a); acc[n].projetosSet.add(chaveProjeto(a)); return acc; }, {}); }
+function itemMaximo(entries, campo) { return entries.reduce((max, atual) => (!max || atual[1][campo] > max[1][campo] ? atual : max), null); }
+function gerarDesempenhoColaboradores(atividades) { const resumo = Object.entries(agruparPorColaborador(atividades)).sort((a,b)=>b[1].horas-a[1].horas); if (!resumo.length) return SEM_REGISTROS; const linhas = resumo.map(([n,d]) => `${n} registrou ${d.total} ${pluralizar(d.total,"atividade","atividades")}, atuando em ${d.projetosSet.size} ${pluralizar(d.projetosSet.size,"projeto/obra","projetos/obras")}, com ${formatarHorasRelatorio(d.horas)}. Foram ${d.finalizadas} ${pluralizar(d.finalizadas,"entrega finalizada","entregas finalizadas")} e ${d.progresso} em progresso.`); const maiorTotal=itemMaximo(resumo,"total"), maiorFinalizadas=itemMaximo(resumo,"finalizadas"), maiorHoras=itemMaximo(resumo,"horas"); linhas.push(`Destaques: maior carga horária registrada por ${maiorHoras[0]} (${formatarHorasRelatorio(maiorHoras[1].horas)}), maior volume de atividades por ${maiorTotal[0]} (${maiorTotal[1].total}) e maior número de entregas finalizadas por ${maiorFinalizadas[0]} (${maiorFinalizadas[1].finalizadas}).`); return linhas.join("\n\n"); }
+function gerarDistribuicaoStatus(atividades) { if (!atividades.length) return SEM_REGISTROS; const total=atividades.length; const partes=STATUS.map((s)=>{const q=contarPor(atividades,"status",s); return `${q} ${s.toLowerCase()} (${formatarPercentual(percentual(q,total))})`;}); return `A distribuição por status apresenta ${partes.join(", ")}. A leitura permite identificar o equilíbrio entre demandas concluídas, em execução, pausadas e pontos que exigem regularização.`; }
+function gerarDistribuicaoProjeto(atividades) { const projetos=gerarAnalisePorProjeto(atividades); if(!projetos.length) return SEM_REGISTROS; const principais=projetos.slice(0,8).map((p)=>{ const statusPred=mapaOrdenado(p.status)[0]?.[0] || "não informado"; const trabalhos=p.trabalhos.length ? ` As principais frentes envolveram ${p.trabalhos.join("; ")}.` : ""; return `No projeto ${p.chave}, foram registradas ${p.atividades} ${pluralizar(p.atividades,"atividade","atividades")}, executadas por ${p.colaboradores.join(", ") || "colaborador não informado"}, totalizando aproximadamente ${formatarHorasRelatorio(p.horas)}. Houve predominância de registros com status ${statusPred}.${trabalhos}`; }); if (projetos.length > principais.length) principais.push(`Os demais ${projetos.length-principais.length} ${pluralizar(projetos.length-principais.length,"projeto/obra","projetos/obras")} concentraram menor volume relativo e permanecem consolidados nos indicadores gerais.`); return principais.join("\n\n"); }
+function gerarDistribuicaoPrioridade(atividades) { if(!atividades.length) return SEM_REGISTROS; const total=atividades.length; const cont=PRIORIDADES.map((p)=>[p, contarPor(atividades,"prioridade",p)]); const maior=[...cont].sort((a,b)=>b[1]-a[1])[0]; const crit=cont.filter(([p,q])=>["P0","P1"].includes(p)&&q>0); return `A distribuição por prioridade foi: ${cont.map(([p,q])=>`${p}: ${q} (${formatarPercentual(percentual(q,total))})`).join("; ")}. ${crit.length ? `Observou-se concentração predominante em ${maior[0]}, indicando demandas que devem ser acompanhadas conforme criticidade operacional.` : "Não foram identificadas demandas críticas classificadas como P0 ou P1 no período analisado."}`; }
+function gerarAtividadesSemana(semanais) { if(!semanais.length) return SEM_REGISTROS; const grupos=semanais.reduce((a,i)=>{const s=i.semana||"Semana não informada"; a[s] ||= []; a[s].push(i); return a;},{}); return Object.entries(grupos).map(([semana,itens])=>{ const projetos=[...new Set(itens.map((i)=>i.obra||i.projeto).filter(Boolean))].slice(0,6); const demandas=topDescricao(itens).slice(0,4); const prioridades=[...new Set(itens.map((i)=>i.prioridade).filter(Boolean))]; const entregas=itens.map((i)=>i.entregas).filter(Boolean).slice(0,3); return `Na ${semana}, foram registradas atividades relacionadas ${projetos.length ? `aos projetos ${projetos.join(", ")}` : "aos planejamentos do setor"}. As demandas envolveram ${demandas.length ? demandas.join("; ") : "atividades planejadas e acompanhamento técnico"}.${prioridades.length ? ` Prioridades observadas: ${prioridades.join(", ")}.` : ""}${entregas.length ? ` Entregas previstas: ${entregas.join("; ")}.` : ""}`; }).join("\n\n"); }
+function gerarConclusao(atividades) { const projetos=gerarAnalisePorProjeto(atividades); const top=projetos.slice(0,3).map((p)=>p.chave).join(", "); const p0=contarPor(atividades,"prioridade","P0"); return `Conclui-se que o acompanhamento sistematizado permite visualizar a distribuição dos esforços por projeto, colaborador, prioridade e status. No período analisado, a maior concentração de atividades esteve vinculada ${top ? `a ${top}` : "aos projetos registrados"}, apoiando o planejamento técnico e gerencial do setor. Recomenda-se manter a atualização contínua dos registros para garantir a confiabilidade dos indicadores e permitir melhor planejamento das demandas futuras.${p0 ? " Destaca-se a necessidade de acompanhamento gerencial das atividades classificadas como P0, em razão de sua criticidade e impacto no planejamento do setor." : ""}`; }
 
-function gerarDistribuicaoStatus(atividades) {
-  if (!atividades.length) return SEM_REGISTROS;
-  const total = atividades.length;
-  const partes = STATUS.map((status) => {
-    const qtd = atividades.filter((a) => a.status === status).length;
-    return `${status}: ${qtd} atividade(s), correspondendo a ${percentual(qtd, total)}%`;
-  });
-  const predominante = STATUS.map((status) => [status, atividades.filter((a) => a.status === status).length]).sort((a, b) => b[1] - a[1])[0];
-  return `Quanto ao status das atividades, a distribuição observada foi: ${partes.join("; ")}. Observa-se predominância de demandas classificadas como ${predominante[0]}, representando ${percentual(predominante[1], total)}% do total analisado.`;
-}
+function normalizarImagemBase64(valor) { const texto=String(valor||""); const m=texto.match(/^data:image\/(png|jpeg|jpg);base64,(.+)$/); return m ? Buffer.from(m[2], "base64") : null; }
+function paragrafoXml(texto, bold=false) { return `<w:p><w:r>${bold?"<w:rPr><w:b/></w:rPr>":""}<w:t xml:space="preserve">${textoSeguro(texto)}</w:t></w:r></w:p>`; }
+function imagemXml(rId, idx) { const cx=5486400, cy=3086100; return `<w:p><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${900+idx}" name="Grafico ${idx}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${idx}" name="grafico-${idx}.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`; }
+function prepararGraficos(zip, graficos={}) { const defs=[ ["atividadesProjeto","Gráfico 1 — Atividades por projeto/obra.","Demonstra a distribuição quantitativa das atividades por obra e disciplina."], ["horasProjeto","Gráfico 2 — Horas por projeto/obra.","Evidencia a concentração de esforço técnico por projeto/obra."], ["atividadesColaborador","Gráfico 3 — Atividades por colaborador.","Informa a distribuição quantitativa das atividades entre a equipe."], ["status","Gráfico 4 — Distribuição por status.","Apresenta a situação geral das demandas cadastradas."], ["prioridade","Gráfico 5 — Distribuição por prioridade.","Indica a criticidade relativa das demandas do período."], ["horasColaborador","Gráfico 6 — Horas por colaborador.","Complementa a leitura de esforço por integrante."], ["tipoProjeto","Gráfico 7 — Atividades por tipo de projeto.","Apresenta a distribuição por disciplina técnica."], ["obrasPegando","Gráfico 8 — Obras que estamos pegando.","Resume as obras com esforço em andamento."] ]; let xml=paragrafoXml("A seguir, são apresentados os principais gráficos de acompanhamento gerados a partir dos registros do sistema."); const rels=zip.file("word/_rels/document.xml.rels").asText(); let relInsert=""; defs.forEach(([key,titulo,legenda],i)=>{ xml+=paragrafoXml(titulo,true); const buf=normalizarImagemBase64(graficos[key]); if(buf){ const rId=`rIdRelChart${i+1}`; zip.file(`word/media/relatorio-grafico-${i+1}.png`, buf); relInsert += `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/relatorio-grafico-${i+1}.png"/>`; xml+=imagemXml(rId,i+1); } else { xml+=paragrafoXml("Gráfico não disponível no momento da geração do relatório."); } xml+=paragrafoXml(legenda); }); zip.file("word/_rels/document.xml.rels", rels.replace("</Relationships>", `${relInsert}</Relationships>`)); const ct=zip.file("[Content_Types].xml").asText(); if(!ct.includes('Extension="png"')) zip.file("[Content_Types].xml", ct.replace("</Types>", '<Default Extension="png" ContentType="image/png"/></Types>')); return xml; }
+function prepararTemplateParaGraficos(zip) { const doc=zip.file("word/document.xml").asText(); zip.file("word/document.xml", doc.replace("[IIII]", "[@IIII]")); }
 
-function gerarDistribuicaoProjeto(atividades) {
-  if (!atividades.length) return SEM_REGISTROS;
-  const contagem = PROJETOS.map((projeto) => [projeto, atividades.filter((a) => a.projeto === projeto).length]);
-  const maior = [...contagem].sort((a, b) => b[1] - a[1])[0];
-  const semAtividades = contagem.filter(([, qtd]) => qtd === 0).map(([projeto]) => projeto);
-  const obras = Object.entries(atividades.reduce((acc, a) => { if (a.obra) acc[a.obra] = (acc[a.obra] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  return `As atividades concentraram-se principalmente em projetos de ${maior[0]}, com ${maior[1]} registro(s), indicando a disciplina técnica com maior demanda no período. ${semAtividades.length ? `Não foram identificadas atividades para os seguintes tipos de projeto: ${semAtividades.join(", ")}.` : "Todos os tipos de projeto cadastrados apresentaram ao menos uma atividade."} As obras/projetos mais recorrentes foram: ${obras.length ? obras.map(([obra, qtd]) => `${obra} (${qtd})`).join(", ") : "não informado"}.`;
-}
+function montarDadosRelatorio(body, zip) { const hoje = new Date(); const atividades = Array.isArray(body.atividades) ? body.atividades : []; const atividadesSemanais = Array.isArray(body.atividadesSemanais) ? body.atividadesSemanais : []; return { AAAA: "Relatório mensal de acompanhamento das atividades do setor.", MES_ATUAL: MESES[hoje.getMonth()], ANO_ATUAL: String(hoje.getFullYear()), BBBB: "O presente relatório tem por finalidade apresentar o acompanhamento das atividades desenvolvidas pelo Setor de Engenharia Elétrica, com base nos registros cadastrados no sistema de controle de atividades. O documento consolida informações por projeto, colaborador, status, prioridade, horas trabalhadas e planejamento semanal, permitindo visualizar o andamento das demandas e subsidiar a tomada de decisão.", CCCC: gerarResumoGeral(atividades), DDDD: gerarDesempenhoColaboradores(atividades), EEEE: gerarDistribuicaoStatus(atividades), FFFF: gerarDistribuicaoProjeto(atividades), GGGG: gerarDistribuicaoPrioridade(atividades), HHHH: gerarAtividadesSemana(atividadesSemanais), IIII: prepararGraficos(zip, body.graficos || {}), JJJJ: gerarConclusao(atividades) }; }
 
-function gerarDistribuicaoPrioridade(atividades) {
-  if (!atividades.length) return SEM_REGISTROS;
-  const contagem = PRIORIDADES.map((p) => [p, atividades.filter((a) => a.prioridade === p).length]);
-  const criticas = contagem.filter(([p, qtd]) => ["P0", "P1"].includes(p) && qtd > 0);
-  const maior = [...contagem].sort((a, b) => b[1] - a[1])[0];
-  return `No período analisado, a distribuição por prioridade foi: ${contagem.map(([p, qtd]) => `${p}: ${qtd} atividade(s)`).join("; ")}. A maior concentração ocorreu em ${maior[0]}, com ${maior[1]} registro(s). ${criticas.length ? `Foram identificadas demandas críticas ou prioritárias em ${criticas.map(([p, qtd]) => `${p} (${qtd})`).join(" e ")}, recomendando acompanhamento gerencial direto.` : "Não foram identificadas atividades classificadas como P0 ou P1, indicando ausência de demandas críticas ou de maior prioridade no período analisado."}`;
-}
-
-function gerarAtividadesSemana(semanais) {
-  if (!semanais.length) return SEM_REGISTROS;
-  const grupos = semanais.reduce((acc, item) => { const semana = item.semana || "Semana não informada"; acc[semana] ||= []; acc[semana].push(item); return acc; }, {});
-  return Object.entries(grupos).map(([semana, itens]) => {
-    const descricoes = itens.slice(0, 8).map((item) => `${item.atividade || "Atividade sem título"}${item.prioridade ? `, prioridade ${item.prioridade}` : ""}${item.entregas ? `, com entregas previstas: ${item.entregas}` : ""}${item.descricao ? `. ${item.descricao}` : ""}`);
-    return `Na ${semana}, foram registradas ${itens.length} atividade(s): ${descricoes.join("; ")}.`;
-  }).join("\n\n");
-}
-
-function gerarConclusao(atividades) {
-  const atrasadas = atividades.filter((a) => a.status === "Atrasado").length;
-  const criticas = atividades.filter((a) => ["P0", "P1"].includes(a.prioridade)).length;
-  return `Conclui-se que o controle sistematizado das atividades contribui para o acompanhamento do desempenho individual e coletivo da equipe, permitindo identificar demandas em andamento, atividades finalizadas, atrasos, prioridades e concentração de esforços por projeto. ${atrasadas || criticas ? `No período, foram observados ${atrasadas} registro(s) atrasado(s) e ${criticas} demanda(s) de prioridade P0/P1, pontos que devem permanecer sob acompanhamento.` : "No período analisado, não foram evidenciados atrasos ou demandas críticas em volume significativo a partir dos registros encaminhados."} Recomenda-se a atualização contínua dos registros para garantir a confiabilidade dos indicadores e subsidiar a tomada de decisão no âmbito do Setor de Engenharia Elétrica.`;
-}
-
-function montarDadosRelatorio(body) {
-  const hoje = new Date();
-  const atividades = Array.isArray(body.atividades) ? body.atividades : [];
-  const atividadesSemanais = Array.isArray(body.atividadesSemanais) ? body.atividadesSemanais : [];
-  return {
-    AAAA: "Relatório de acompanhamento das atividades desenvolvidas pelo Setor de Engenharia Elétrica, elaborado com base nos registros cadastrados no sistema de controle de atividades, considerando produtividade individual, produtividade coletiva, status das demandas, prioridades, projetos e atividades semanais.",
-    MES_ATUAL: MESES[hoje.getMonth()],
-    ANO_ATUAL: String(hoje.getFullYear()),
-    BBBB: "O presente relatório tem por finalidade apresentar o acompanhamento das atividades desenvolvidas pelo Setor de Engenharia Elétrica, com base nos registros inseridos no sistema de controle de atividades. O documento consolida informações relativas à produtividade individual e coletiva, distribuição das demandas por status, projetos, prioridades, obras, horas trabalhadas e planejamento semanal, permitindo melhor visualização do desempenho da equipe e das demandas em andamento.",
-    CCCC: gerarResumoGeral(atividades),
-    DDDD: gerarDesempenhoColaboradores(atividades),
-    EEEE: gerarDistribuicaoStatus(atividades),
-    FFFF: gerarDistribuicaoProjeto(atividades),
-    GGGG: gerarDistribuicaoPrioridade(atividades),
-    HHHH: gerarAtividadesSemana(atividadesSemanais),
-    IIII: "Os gráficos de acompanhamento encontram-se disponíveis no dashboard do sistema, contemplando atividades por colaborador, projetos/obras por colaborador, horas trabalhadas, distribuição por status, atividades finalizadas por mês, atividades por tipo de projeto, prioridades e obras em andamento. A inserção automática de imagens dos gráficos poderá ser incorporada em etapa posterior.",
-    JJJJ: gerarConclusao(atividades)
-  };
-}
-
-module.exports = async function gerarRelatorioWordHandler(req, res) {
-  try {
-    if (req.method !== "POST") {
-      sendJson(res, 405, { error: "Método não suportado." });
-      return;
-    }
-    await requireUser(req);
-    if (!fs.existsSync(TEMPLATE_PATH)) {
-      sendJson(res, 404, { error: "Modelo Relatorio.docx não encontrado em /atividades/template." });
-      return;
-    }
-
-    const body = parseRequestBody(req);
-    const zip = new PizZip(fs.readFileSync(TEMPLATE_PATH));
-    const doc = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true });
-    doc.render(montarDadosRelatorio(body));
-    const buffer = doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
-    const data = new Date().toISOString().slice(0, 10);
-
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-    res.setHeader("Content-Disposition", `attachment; filename=\"relatorio-atividades-setor-${data}.docx\"`);
-    res.status(200).send(buffer);
-  } catch (error) {
-    console.error("Erro ao gerar relatório Word:", error);
-    sendJson(res, error.statusCode || 500, { error: error.message || "Erro interno ao gerar relatório Word." });
-  }
-};
+module.exports = async function gerarRelatorioWordHandler(req, res) { try { if (req.method !== "POST") { sendJson(res, 405, { error: "Método não suportado." }); return; } await requireUser(req); if (!fs.existsSync(TEMPLATE_PATH)) { sendJson(res, 404, { error: "Modelo Relatorio.docx não encontrado em /atividades/template." }); return; } const body = parseRequestBody(req); const zip = new PizZip(fs.readFileSync(TEMPLATE_PATH)); prepararTemplateParaGraficos(zip); const doc = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true }); doc.render(montarDadosRelatorio(body, zip)); const buffer = doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" }); const data = new Date().toISOString().slice(0, 10); res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"); res.setHeader("Content-Disposition", `attachment; filename=\"relatorio-atividades-setor-${data}.docx\"`); res.status(200).send(buffer); } catch (error) { console.error("Erro ao gerar relatório Word:", error); sendJson(res, error.statusCode || 500, { error: error.message || "Erro interno ao gerar relatório Word." }); } };

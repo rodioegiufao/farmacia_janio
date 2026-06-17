@@ -929,7 +929,7 @@ function renderizarGraficosDashboard(lista) {
   criarOuAtualizarGrafico("chartTipoProjeto", "bar", projetos, projetos.map((projeto) => lista.filter((a) => a.projeto === projeto).length), "Projetos");
   criarOuAtualizarGrafico("chartPrioridade", "bar", prioridades, prioridades.map((prioridade) => lista.filter((a) => a.prioridade === prioridade).length), "Prioridades");
   const obrasPegando = obterObrasPegando(lista);
-  criarOuAtualizarGrafico("chartObrasPegando", "bar", obrasPegando.labels, obrasPegando.valores, "Atividades por obra");
+  criarOuAtualizarGrafico("chartObrasPegando", "bar", obrasPegando.labels, obrasPegando.valores, "Horas por obra");
 }
 
 function obterObrasPegando(lista) {
@@ -938,11 +938,12 @@ function obterObrasPegando(lista) {
     .filter((atividade) => atividade.obra && atividade.status !== "Finalizado")
     .forEach((atividade) => {
       const obra = atividade.obra.trim();
-      mapa.set(obra, (mapa.get(obra) || 0) + 1);
+      const horas = calcularHorasAtividade(atividade);
+      mapa.set(obra, (mapa.get(obra) || 0) + horas);
     });
 
   const labels = [...mapa.keys()].sort((a, b) => mapa.get(b) - mapa.get(a) || a.localeCompare(b));
-  return { labels, valores: labels.map((label) => mapa.get(label)) };
+  return { labels, valores: labels.map((label) => Number(mapa.get(label).toFixed(2))) };
 }
 
 function criarOuAtualizarGrafico(canvasId, tipo, labels, valores, label) {

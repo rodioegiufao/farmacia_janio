@@ -1038,13 +1038,13 @@ async function gerarRelatorioWord() {
       btnGerarRelatorioWord.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Gerando...';
     }
     atualizarDashboard();
-    await aguardarRenderizacaoGraficos();
+    const atividadesRelatorio = filtrarAtividadesDashboard();
     
     const payload = {
-      atividades: filtrarAtividadesDashboard(),
+      atividades: atividadesRelatorio,
       atividadesSemanais: obterAtividadesSemanaisFiltradas(),
       filtros: obterFiltrosDashboardRelatorio(),
-      graficos: capturarGraficosRelatorio()
+      graficos: await prepararGraficosParaRelatorio(atividadesRelatorio)
     };
 
     const response = await fetch(API_RELATORIO_WORD_URL, {
@@ -1075,6 +1075,109 @@ async function gerarRelatorioWord() {
       btnGerarRelatorioWord.innerHTML = textoOriginal;
     }
   }
+}
+const fundoBrancoRelatorioPlugin = {
+  id: "fundoBrancoRelatorio",
+  beforeDraw(chart) {
+    const { ctx, width, height } = chart;
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-over";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+};
+
+function clonarDadosGraficoRelatorio(data) {
+  return {
+    labels: [...(data?.labels || [])],
+    datasets: (data?.datasets || []).map((dataset) => ({
+      ...dataset,
+      data: [...(dataset.data || [])],
+      borderColor: dataset.borderColor || "#1d4ed8",
+      backgroundColor: Array.isArray(dataset.backgroundColor) ? [...dataset.backgroundColor] : dataset.backgroundColor,
+      borderWidth: dataset.type === "line" ? 3 : 1.5,
+      tension: dataset.tension ?? 0.3
+    }))
+  };
+}
+
+function criarOpcoesGraficoRelatorio(tipo, horizontal = false) {
+  return {
+    responsive: false,
+    maintainAspectRatio: false,
+    animation: false,
+    devicePixelRatio: 2,
+    layout: { padding: 18 },
+    plugins: {
+      legend: {
+        display: tipo === "doughnut",
+        position: "bottom",
+        labels: { color: "#000000", font: { size: 13, weight: "bold" }, padding: 18 }
+      },
+      title: { color: "#000000", font: { size: 15, weight: "bold" } }
+    },
+    indexAxis: horizontal ? "y" : "x",
+    scales: tipo === "doughnut" ? {} : {
+      x: {
+        beginAtZero: horizontal,
+        ticks: { color: "#000000", precision: 0, font: { size: 12, weight: "bold" } },
+        grid: { color: "#d1d5db" }
+      },
+      y: {
+        beginAtZero: !horizontal,
+        ticks: { color: "#000000", precision: 0, font: { size: 12, weight: "bold" } },
+        grid: { color: "#d1d5db" }
+      }
+    }
+  };
+}
+
+function capturarGraficoTemporarioRelatorio(canvasId, largura = 1400, altura = 800) {
+  const graficoOrigem = dashboardCharts[canvasId];
+  if (!graficoOrigem || typeof Chart === "undefined") return capturarCanvasRelatorio(canvasId);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = largura;
+  canvas.height = altura;
+  canvas.style.cssText = "position:fixed;left:-99999px;top:-99999px;background:#fff;";
+  document.body.appendChild(canvas);
+
+  try {
+    const tipo = graficoOrigem.config.type;
+    const horizontal = graficoOrigem.options?.indexAxis === "y";
+    const graficoRelatorio = new Chart(canvas, {
+      type: tipo,
+      data: clonarDadosGraficoRelatorio(graficoOrigem.data),
+      options: criarOpcoesGraficoRelatorio(tipo, horizontal),
+      plugins: [fundoBrancoRelatorioPlugin]
+    });
+    graficoRelatorio.update("none");
+    const imagem = canvas.toDataURL("image/png", 1);
+    graficoRelatorio.destroy();
+    return imagem;
+  } catch (erro) {
+    console.warn(`Não foi possível preparar o gráfico ${canvasId} para relatório:`, erro);
+    return capturarCanvasRelatorio(canvasId);
+  } finally {
+    canvas.remove();
+  }
+}
+
+async function prepararGraficosParaRelatorio(lista) {
+  if (typeof Chart === "undefined") return capturarGraficosRelatorio();
+  renderizarGraficosDashboard(lista);
+  await aguardarRenderizacaoGraficos();
+  return {
+    atividadesProjeto: capturarGraficoTemporarioRelatorio("chartAtividadesProjetoRelatorio", 1500, 850),
+    horasProjeto: capturarGraficoTemporarioRelatorio("chartHorasProjetoRelatorio", 1500, 850),
+    atividadesColaborador: capturarGraficoTemporarioRelatorio("chartAtividadesColaborador", 1400, 800),
+    horasColaborador: capturarGraficoTemporarioRelatorio("chartHorasColaborador", 1400, 800),
+    status: capturarGraficoTemporarioRelatorio("chartStatus", 1200, 760),
+    tipoProjeto: capturarGraficoTemporarioRelatorio("chartTipoProjeto", 1400, 800),
+    prioridade: capturarGraficoTemporarioRelatorio("chartPrioridade", 1200, 760),
+    obrasPegando: capturarGraficoTemporarioRelatorio("chartObrasPegando", 1400, 800)
+  };
 }
 function aguardarRenderizacaoGraficos() {
   return new Promise((resolve) => setTimeout(resolve, 350));

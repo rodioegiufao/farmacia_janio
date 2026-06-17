@@ -848,21 +848,15 @@ function obterIntervaloDashboard() {
   const inicioHoje = new Date(hoje);
   inicioHoje.setHours(0, 0, 0, 0);
 
-  if (filtrosDashboard.periodo.value === "personalizado") {
-    return {
-      inicio: filtrosDashboard.dataInicio.value ? new Date(`${filtrosDashboard.dataInicio.value}T00:00:00`) : new Date(0),
-      fim: filtrosDashboard.dataFim.value ? new Date(`${filtrosDashboard.dataFim.value}T23:59:59`) : hoje
-    };
-  }
-
-  if (filtrosDashboard.periodo.value === "mes-anterior") {
-    return { inicio: new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1), fim: new Date(hoje.getFullYear(), hoje.getMonth(), 0, 23, 59, 59, 999) };
-  }
-
-  if (filtrosDashboard.periodo.value === "ultimos-30") {
+  if (filtrosDashboard.periodo.value === "semana-atual") {
     const inicio = new Date(inicioHoje);
-    inicio.setDate(inicio.getDate() - 29);
-    return { inicio, fim: hoje };
+    const diaSemana = inicio.getDay();
+    const diasDesdeSegunda = diaSemana === 0 ? 6 : diaSemana - 1;
+    inicio.setDate(inicio.getDate() - diasDesdeSegunda);
+    const fim = new Date(inicio);
+    fim.setDate(fim.getDate() + 6);
+    fim.setHours(23, 59, 59, 999);
+    return { inicio, fim };
   }
 
   if (filtrosDashboard.periodo.value === "ano-atual") {
@@ -1040,9 +1034,11 @@ async function gerarRelatorioWord() {
     atualizarDashboard();
     const atividadesRelatorio = filtrarAtividadesDashboard();
     
+    const atividadesSemanaisRelatorio = obterAtividadesSemanaisFiltradas();
     const payload = {
       atividades: atividadesRelatorio,
-      atividadesSemanais: obterAtividadesSemanaisFiltradas(),
+      atividadesSemanais: atividadesSemanaisRelatorio,
+      tituloRelatorio: obterTituloRelatorioWord(atividadesSemanaisRelatorio),
       filtros: obterFiltrosDashboardRelatorio(),
       graficos: await prepararGraficosParaRelatorio(atividadesRelatorio)
     };
@@ -1206,6 +1202,18 @@ function capturarGraficosRelatorio() {
     prioridade: capturarCanvasRelatorio("chartPrioridade"),
     obrasPegando: capturarCanvasRelatorio("chartObrasPegando")
   };
+}
+function obterTituloRelatorioWord(atividadesSemanaisRelatorio) {
+  if (filtrosDashboard.periodo.value === "semana-atual") {
+    const semanas = [...new Set((atividadesSemanaisRelatorio || []).map((item) => item.semana).filter(Boolean))];
+    return semanas.length ? semanas.join("; ") : "Relatório semanal de acompanhamento das atividades do setor.";
+  }
+
+  if (filtrosDashboard.periodo.value === "ano-atual") {
+    return "Relatório anual de acompanhamento das atividades do setor.";
+  }
+
+  return "Relatório mensal de acompanhamento das atividades do setor.";
 }
 function obterFiltrosDashboardRelatorio() {
   return {

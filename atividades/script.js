@@ -933,8 +933,7 @@ function renderizarGraficosDashboard(lista) {
   criarOuAtualizarGrafico("chartHorasColaborador", "bar", colaboradoresLabels, colaboradoresLabels.map((nome) => Number(porColaborador[nome].horas.toFixed(2))), "Horas");
   criarOuAtualizarGrafico("chartProjetosColaborador", "bar", colaboradoresLabels, colaboradoresLabels.map((nome) => porColaborador[nome].projetos), "Projetos/obras");
   criarOuAtualizarGrafico("chartStatus", "doughnut", statusLista, statusLista.map((status) => lista.filter((a) => a.status === status).length), "Status");
-  const finalizadasPorMes = obterMesesFinalizados(lista);
-  criarOuAtualizarGrafico("chartFinalizadasMes", "line", finalizadasPorMes.labels, finalizadasPorMes.valores, "Finalizadas");
+  renderizarAtividadesFinalizadas(lista);
   criarOuAtualizarGrafico("chartTipoProjeto", "bar", projetos, projetos.map((projeto) => lista.filter((a) => a.projeto === projeto).length), "Projetos");
   criarOuAtualizarGrafico("chartPrioridade", "bar", prioridades, prioridades.map((prioridade) => lista.filter((a) => a.prioridade === prioridade).length), "Prioridades");
   const obrasPegando = obterObrasPegando(lista);

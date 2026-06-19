@@ -1009,6 +1009,45 @@ function criarOuAtualizarGrafico(canvasId, tipo, labels, valores, label, horizon
     }
   });
 }
+function renderizarAtividadesFinalizadas(lista) {
+  const container = document.getElementById("listaAtividadesFinalizadas");
+  if (!container) return;
+
+  const finalizadas = lista
+    .filter((atividade) => atividade.status === "Finalizado")
+    .sort((a, b) => {
+      const dataA = obterDataReferenciaAtividade(a)?.getTime() || 0;
+      const dataB = obterDataReferenciaAtividade(b)?.getTime() || 0;
+      return dataB - dataA || String(a.trabalhos || "").localeCompare(String(b.trabalhos || ""));
+    });
+
+  if (!finalizadas.length) {
+    container.innerHTML = '<p class="empty dashboard-empty completed-activities-empty">Nenhuma atividade finalizada para os filtros selecionados.</p>';
+    return;
+  }
+
+  container.innerHTML = `
+    <ul>
+      ${finalizadas.map((atividade) => `
+        <li>
+          <strong>${escapeHtml(obterNomeAtividade(atividade))}</strong>
+          <small>${escapeHtml(obterDetalheAtividadeFinalizada(atividade))}</small>
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
+function obterNomeAtividade(atividade) {
+  return atividade.trabalhos || atividade.etapa || atividade.projeto || atividade.obra || "Atividade sem nome";
+}
+
+function obterDetalheAtividadeFinalizada(atividade) {
+  const partes = [atividade.colaborador, atividade.obra, atividade.projeto].filter(Boolean);
+  const data = atividade.dataTermino || atividade.dataInicio || atividade.criadoEm || atividade.criado_em;
+  if (data) partes.push(`Finalizada em ${formatarData(data)}`);
+  return partes.join(" • ") || "Sem detalhes adicionais";
+}
 
 function obterMesesFinalizados(lista) {
   const mapa = new Map();

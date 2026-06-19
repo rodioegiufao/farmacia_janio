@@ -334,6 +334,13 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 .chart-card { min-height: 330px; padding: 18px; }
 .chart-card h3 { margin-bottom: 14px; font-size: 1rem; }
 .chart-card canvas { width: 100% !important; height: 260px !important; }
+.completed-activities-card { display: flex; flex-direction: column; }
+.completed-activities-list { flex: 1; min-height: 260px; max-height: 260px; overflow-y: auto; padding-right: 4px; }
+.completed-activities-list ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.completed-activities-list li { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid rgba(99, 179, 237, 0.22); border-radius: 10px; background: rgba(99, 179, 237, 0.08); }
+.completed-activities-list strong { color: var(--text-lighter); line-height: 1.3; }
+.completed-activities-list small { color: var(--text-secondary); line-height: 1.35; }
+.completed-activities-empty { margin: 0; padding: 16px; }
 .dashboard-empty { grid-column: 1 / -1; border: 1px dashed var(--border-color); border-radius: 12px; }
 
 @media (max-width: 900px) {

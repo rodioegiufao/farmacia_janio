@@ -73,7 +73,7 @@ function criarBlocoImagem() {
   item.innerHTML = `
     <legend>Imagem do projeto</legend>
     <label>Arquivo da imagem
-      <input type="file" class="imagem-arquivo" accept="image/png,image/jpeg" multiple>
+      <input type="file" class="imagem-arquivo" accept="image/png,image/jpeg,image/jpg" multiple>
     </label>
     <label>Título da imagem
       <input type="text" class="imagem-titulo" placeholder="Figura 1 — Local de interferência">
@@ -107,6 +107,9 @@ async function coletarImagens() {
     const descricao = item.querySelector(".imagem-descricao")?.value || "";
 
     for (const arquivo of arquivos) {
+      if (!["image/png", "image/jpeg", "image/jpg"].includes(arquivo.type)) {
+        throw new Error("Use apenas imagens PNG ou JPEG/JPG.");
+      }
       imagens.push({
         arquivo: await arquivoParaBase64(arquivo),
         titulo,

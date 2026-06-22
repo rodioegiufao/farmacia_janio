@@ -73,7 +73,7 @@ function criarBlocoImagem() {
   item.innerHTML = `
     <legend>Imagem do projeto</legend>
     <label>Arquivo da imagem
-      <input type="file" class="imagem-arquivo" accept="image/png,image/jpeg">
+      <input type="file" class="imagem-arquivo" accept="image/png,image/jpeg" multiple>
     </label>
     <label>Título da imagem
       <input type="text" class="imagem-titulo" placeholder="Figura 1 — Local de interferência">
@@ -100,13 +100,19 @@ async function coletarImagens() {
   const itens = [...document.querySelectorAll(".image-item")];
   const imagens = [];
   for (const item of itens) {
-    const arquivo = item.querySelector(".imagem-arquivo")?.files?.[0];
-    if (!arquivo) continue;
-    imagens.push({
-      arquivo: await arquivoParaBase64(arquivo),
-      titulo: item.querySelector(".imagem-titulo")?.value || "",
-      descricao: item.querySelector(".imagem-descricao")?.value || ""
-    });
+    const arquivos = [...(item.querySelector(".imagem-arquivo")?.files || [])];
+    if (!arquivos.length) continue;
+
+    const titulo = item.querySelector(".imagem-titulo")?.value || "";
+    const descricao = item.querySelector(".imagem-descricao")?.value || "";
+
+    for (const arquivo of arquivos) {
+      imagens.push({
+        arquivo: await arquivoParaBase64(arquivo),
+        titulo,
+        descricao
+      });
+    }
   }
   return imagens;
 }

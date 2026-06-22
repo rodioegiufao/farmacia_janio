@@ -48,7 +48,18 @@
           <div class="preview" id="codigoPreview">MEMO-[SET]-[XYX]-[ABC]</div>
         </div>
         <div class="form-grid three">
-          <label>Código do setor *<input id="codigoSetor" name="codigoSetor" autocomplete="off" required placeholder="ELE"></label>
+          <label>Código do setor *
+            <select id="codigoSetor" name="codigoSetor" required>
+              <option value="">Selecione...</option>
+              <option value="ARQ">ARQ</option>
+              <option value="SIC">SIC</option>
+              <option value="EST">EST</option>
+              <option value="ELE">ELE</option>
+              <option value="INF">INF</option>
+              <option value="CLI">CLI</option>
+              <option value="ORÇ">ORÇ</option>
+            </select>
+          </label>
           <label>Número do memorando *<input id="numeroMemorando" name="numeroMemorando" inputmode="numeric" required placeholder="001"></label>
           <label>Ano do memorando *<input id="anoMemorando" name="anoMemorando" inputmode="numeric" maxlength="4" required placeholder="2026"></label>
         </div>
@@ -62,7 +73,7 @@
           </div>
         </div>
         <div class="form-grid">
-          <label>Setor de origem *<input id="setorOrigem" name="setorOrigem" required></label>
+          <label>Setor de origem *<input id="setorOrigem" name="setorOrigem" required readonly></label>
           <label>Setor de destino *<input id="setorDestino" name="setorDestino" required></label>
           <label class="span-2">Assunto *<input id="assunto" name="assunto" required></label>
           <label class="span-2">Tipo de assunto *

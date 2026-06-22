@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gerador de Memorando Word</title>
+  <link rel="icon" href="/images/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="/memo/style.css">
+</head>
+<body>
+  <main class="memo-page">
+    <section class="hero">
+      <p class="eyebrow">Documento institucional</p>
+      <h1>Gerador de Memorando Word</h1>
+      <p>Preencha os dados técnicos, revise as sugestões automáticas e gere o arquivo .docx usando o modelo em <code>/memo/template/memo.docx</code>.</p>
+    </section>
+
+    <form id="memoForm" class="memo-form">
+      <section class="card">
+        <h2>Identificação do memorando</h2>
+        <div class="grid three">
+          <label>Código do setor *<input id="codigoSetor" name="codigoSetor" autocomplete="off" required placeholder="ELE"></label>
+          <label>Número do memorando *<input id="numeroMemorando" name="numeroMemorando" inputmode="numeric" required placeholder="001"></label>
+          <label>Ano do memorando *<input id="anoMemorando" name="anoMemorando" inputmode="numeric" maxlength="4" required placeholder="2026"></label>
+        </div>
+        <div class="preview" id="codigoPreview">MEMO-[SET]-[XYX]-[ABC]</div>
+      </section>
+
+      <section class="card">
+        <h2>Dados principais</h2>
+        <div class="grid two">
+          <label>Setor de origem *<input id="setorOrigem" name="setorOrigem" required></label>
+          <label>Setor de destino *<input id="setorDestino" name="setorDestino" required></label>
+          <label class="span-2">Assunto *<input id="assunto" name="assunto" required></label>
+          <label class="span-2">Tipo de assunto *
+            <select id="tipoAssunto" name="tipoAssunto" required>
+              <option value="">Selecione...</option>
+              <option>Subestação</option>
+              <option>Definição de shafts</option>
+              <option>Solicitação de alteração de locais de equipamentos e objetos</option>
+              <option>Solicitação de alturas de trabalho de projetos de instalação</option>
+              <option>Outro</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Conteúdo técnico</h2>
+        <label>Título do memorando<textarea id="tituloMemo" name="tituloMemo" rows="2"></textarea></label>
+        <label>Objetivo<textarea id="objetivo" name="objetivo" rows="4"></textarea></label>
+        <label>Diretriz geral<textarea id="diretrizGeral" name="diretrizGeral" rows="4"></textarea></label>
+        <label>Título do problema *<input id="problema" name="problema" required placeholder="Ex.: Necessidade de definição da área da subestação"></label>
+        <label>Descrição do problema *<textarea id="descricaoProblema" name="descricaoProblema" rows="5" required></textarea></label>
+        <label>Considerações finais<textarea id="consideracoesFinais" name="consideracoesFinais" rows="5"></textarea></label>
+      </section>
+
+      <section class="card">
+        <h2>Responsável e data</h2>
+        <div class="grid two">
+          <label>Data *<input type="date" id="data" name="data" required></label>
+          <label>Nome do responsável *<input id="nomeResponsavel" name="nomeResponsavel" required></label>
+          <label>E-mail<input type="email" id="email" name="email"></label>
+          <label>WhatsApp<input id="numero" name="numero"></label>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <h2>Imagens do projeto</h2>
+            <p>Opcional. Adicione uma ou mais imagens, com título e descrição para cada figura.</p>
+          </div>
+          <button type="button" class="secondary" id="btnAdicionarImagem">Adicionar imagem</button>
+        </div>
+        <div id="imagensContainer" class="image-list"></div>
+      </section>
+
+      <div class="actions">
+        <button type="submit" id="btnGerar">Gerar memorando Word</button>
+        <p id="status" role="status" aria-live="polite"></p>
+      </div>
+    </form>
+  </main>
+  <script src="/js/auth-guard.js"></script>
+  <script src="/memo/script.js"></script>
+</body>
+</html>

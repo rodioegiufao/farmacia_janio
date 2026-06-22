@@ -1,5 +1,15 @@
 const API_MEMORANDO_WORD_URL = "/api/gerar-memorando-word";
 
+const setoresPorCodigo = {
+  ARQ: "Setor de Arquitetura",
+  SIC: "Setor de Instalações Civis",
+  EST: "Setor de Estruturas",
+  ELE: "Setor de Instalações Elétricas",
+  INF: "Setor de Infraestruturas",
+  CLI: "Setor de Climatização",
+  "ORÇ": "Setor de Orçamentos"
+};
+
 const sugestoesTipoAssunto = {
   "Subestação": {
     tituloMemo: "MEMORANDO DE DIRETRIZES PARA SUBESTAÇÃO",
@@ -38,6 +48,7 @@ const codigoSetor = document.getElementById("codigoSetor");
 const numeroMemorando = document.getElementById("numeroMemorando");
 const anoMemorando = document.getElementById("anoMemorando");
 const codigoPreview = document.getElementById("codigoPreview");
+const setorOrigem = document.getElementById("setorOrigem");
 const tipoAssunto = document.getElementById("tipoAssunto");
 const imagensContainer = document.getElementById("imagensContainer");
 const btnAdicionarImagem = document.getElementById("btnAdicionarImagem");
@@ -56,6 +67,10 @@ function normalizarCodigoMemo(setor, numero, ano) {
 
 function atualizarPreviewCodigo() {
   codigoPreview.textContent = normalizarCodigoMemo(codigoSetor.value, numeroMemorando.value, anoMemorando.value);
+}
+
+function atualizarSetorOrigem() {
+  setorOrigem.value = setoresPorCodigo[codigoSetor.value] || "";
 }
 
 function aplicarSugestoes() {
@@ -168,12 +183,17 @@ async function gerarMemorando(event) {
 }
 
 [codigoSetor, numeroMemorando, anoMemorando].forEach((input) => input.addEventListener("input", atualizarPreviewCodigo));
+codigoSetor.addEventListener("change", () => {
+  atualizarPreviewCodigo();
+  atualizarSetorOrigem();
+});
 tipoAssunto.addEventListener("change", aplicarSugestoes);
 btnAdicionarImagem.addEventListener("click", criarBlocoImagem);
 form.addEventListener("submit", gerarMemorando);
 
 document.getElementById("data").value = new Date().toISOString().slice(0, 10);
 atualizarPreviewCodigo();
+atualizarSetorOrigem();
 const themeToggle = document.getElementById("theme-toggle");
 const savedTheme = localStorage.getItem("memo-theme") || "dark";
 

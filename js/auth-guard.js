@@ -1,6 +1,6 @@
 (function () {
   const AUTH_URL = "/api/auth";
-  const PROTECTED_PATHS = ["/viabilidade", "/Memorial", "/alimentador", "/carimbo"];
+  const PROTECTED_PATHS = ["/viabilidade", "/Memorial", "/alimentador", "/carimbo", "/memo"];
 
   async function requestJson(url, options) {
     const response = await fetch(url, options);

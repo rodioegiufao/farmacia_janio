@@ -11,6 +11,7 @@ const RELATIONSHIP_IMAGE_TYPE = "http://schemas.openxmlformats.org/officeDocumen
 const CONTENT_TYPES_PATH = "[Content_Types].xml";
 const DOCUMENT_RELS_PATH = "word/_rels/document.xml.rels";
 const DOCUMENT_XML_PATH = "word/document.xml";
+const PLACEHOLDER_IMAGENS_MEMO = "__BLOCO_IMAGENS_MEMO__";
 
 const SUGESTOES_TIPO_ASSUNTO = {
   "Subestação": {
@@ -72,12 +73,92 @@ function dimensoesEmu(buffer, extension) { const { width, height } = dimensoesIm
 function imagemXml(rId, idx, buffer, extension) { const { cx, cy } = dimensoesEmu(buffer, extension); const nomeArquivo = `memorando-imagem-${idx}.${extension}`; return `<w:p>${propriedadesParagrafo({ alignment: "center", firstLine: 0, before: 160, after: 120 })}<w:r><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${1200 + idx}" name="Imagem do memorando ${idx}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${idx}" name="${nomeArquivo}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`; }
 function garantirContentTypeImagem(zip, extension) { const contentType = extension === "png" ? "image/png" : "image/jpeg"; const ct = zip.file(CONTENT_TYPES_PATH).asText(); if (!new RegExp(`<Default\\s+Extension="${extension}"\\s+ContentType="${contentType}"\\s*/>`).test(ct)) zip.file(CONTENT_TYPES_PATH, ct.replace("</Types>", `<Default Extension="${extension}" ContentType="${contentType}"/></Types>`)); }
 function proximoRelationshipId(rels) { const ids = [...rels.matchAll(/Id="rId(\d+)"/g)].map((match) => Number(match[1])).filter(Number.isFinite); return Math.max(0, ...ids) + 1; }
-function gerarBlocoImagens(zip, imagens = []) { const lista = Array.isArray(imagens) ? imagens : []; let rels = zip.file(DOCUMENT_RELS_PATH).asText(); let relInsert = ""; let xml = ""; let contador = 0; let nextRelId = proximoRelationshipId(rels); lista.forEach((imagem) => { const normalizada = normalizarImagemBase64(imagem?.arquivo || imagem?.base64 || imagem); if (!normalizada?.buffer?.length) return; contador += 1; const rId = `rId${nextRelId++}`; const extension = normalizada.extension; const mediaPath = `word/media/memorando-imagem-${contador}.${extension}`; zip.file(mediaPath, normalizada.buffer); relInsert += `<Relationship Id="${rId}" Type="${RELATIONSHIP_IMAGE_TYPE}" Target="media/memorando-imagem-${contador}.${extension}"/>`; garantirContentTypeImagem(zip, extension); const titulo = textoLimpo(imagem?.titulo) || `Figura ${contador} — Imagem do projeto`; const descricao = textoLimpo(imagem?.descricao); xml += paragrafoXml(titulo, { alignment: "center", firstLine: 0, before: contador === 1 ? 120 : 260, after: 80, bold: true }); xml += imagemXml(rId, contador, normalizada.buffer, extension); if (descricao) xml += paragrafoXml(descricao, { alignment: "both", firstLine: 0, before: 40, after: 180, italic: true }); }); if (relInsert) zip.file(DOCUMENT_RELS_PATH, rels.replace("</Relationships>", `${relInsert}</Relationships>`)); return xml || paragrafoXml("Não foram inseridas imagens do projeto."); }
+function criarXmlImagensMemo(zip, imagens = []) {
+  const lista = Array.isArray(imagens) ? imagens : [];
+  console.log("Imagens recebidas:", lista.length);
+
+  let rels = zip.file(DOCUMENT_RELS_PATH).asText();
+  let relInsert = "";
+  let xml = "";
+  let contador = 0;
+  let nextRelId = proximoRelationshipId(rels);
+
+  lista.forEach((imagem, indiceOriginal) => {
+    const origem = imagem?.arquivo || imagem?.base64 || imagem;
+    const normalizada = normalizarImagemBase64(origem);
+    if (!normalizada?.buffer?.length) {
+      console.log(`Imagem ${indiceOriginal + 1} ignorada: formato inválido ou buffer vazio.`, {
+        prefixo: String(origem || "").slice(0, 30)
+      });
+      return;
+    }
+
+    contador += 1;
+    const rId = `rId${nextRelId++}`;
+    const { buffer, extension } = normalizada;
+    const mediaFilename = `memorando-imagem-${contador}.${extension}`;
+    const mediaPath = `word/media/${mediaFilename}`;
+
+    zip.file(mediaPath, buffer);
+    relInsert += `<Relationship Id="${rId}" Type="${RELATIONSHIP_IMAGE_TYPE}" Target="media/${mediaFilename}"/>`;
+    garantirContentTypeImagem(zip, extension);
+
+    const titulo = textoLimpo(imagem?.titulo) || `Figura ${contador} — Imagem do projeto`;
+    const descricao = textoLimpo(imagem?.descricao);
+
+    console.log(`Imagem ${contador}:`, {
+      prefixo: String(origem || "").slice(0, 30),
+      extension,
+      bufferSize: buffer.length,
+      rId,
+      mediaPath
+    });
+
+    xml += paragrafoXml(titulo, { alignment: "center", firstLine: 0, before: contador === 1 ? 120 : 260, after: 80, bold: true });
+    xml += imagemXml(rId, contador, buffer, extension);
+    if (descricao) xml += paragrafoXml(descricao, { alignment: "both", firstLine: 0, before: 40, after: 180, italic: true });
+  });
+
+  if (relInsert) zip.file(DOCUMENT_RELS_PATH, rels.replace("</Relationships>", `${relInsert}</Relationships>`));
+
+  const xmlFinal = xml || paragrafoXml("Não foram inseridas imagens do projeto.", { alignment: "both", firstLine: 0, before: 120, after: 180 });
+  console.log("Tamanho do XML de imagens:", xmlFinal.length);
+  return xmlFinal;
+}
+
+function substituirPlaceholderPorXml(zip, placeholder, xmlSubstituto) {
+  const arquivo = zip.file(DOCUMENT_XML_PATH);
+  if (!arquivo) throw new Error("word/document.xml não encontrado no modelo do memorando.");
+
+  const documentXml = arquivo.asText();
+  const paragrafos = documentXml.match(/<w:p[\s\S]*?<\/w:p>/g) || [];
+  const paragrafoPlaceholder = paragrafos.find((paragrafo) => extrairTextoParagrafo(paragrafo).includes(placeholder));
+  const placeholderEncontrado = Boolean(paragrafoPlaceholder);
+
+  console.log("Placeholder encontrado:", placeholderEncontrado);
+
+  if (!placeholderEncontrado) {
+    zip.file(DOCUMENT_XML_PATH, documentXml.replace(placeholder, xmlSubstituto));
+  } else {
+    zip.file(DOCUMENT_XML_PATH, documentXml.replace(paragrafoPlaceholder, xmlSubstituto));
+  }
+
+  const documentXmlFinal = zip.file(DOCUMENT_XML_PATH).asText();
+  console.log("Contém drawing:", documentXmlFinal.includes("<w:drawing>"));
+  console.log("Contém r:embed:", documentXmlFinal.includes("r:embed"));
+  console.log("Placeholder permaneceu no XML final:", documentXmlFinal.includes(placeholder));
+  return placeholderEncontrado;
+}
 function extrairTextoParagrafo(paragrafoXml) { return [...paragrafoXml.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map((match) => match[1]).join("").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"'); }
 function removerParagrafoVirgulaAposMarcador(doc) { const paragrafos = doc.match(/<w:p[\s\S]*?<\/w:p>/g) || []; const marcador = "[IMAGENS_PROJETO]"; for (let i = 0; i < paragrafos.length - 1; i += 1) { if (extrairTextoParagrafo(paragrafos[i]).includes(marcador) && extrairTextoParagrafo(paragrafos[i + 1]).trim() === ",") { return doc.replace(paragrafos[i] + paragrafos[i + 1], paragrafos[i]); } } return doc; }
-function substituirMarcadorTextoPorRawXml(doc, marcador) { const raw = `[@${marcador}]`; return doc.replace(/<w:p[\s\S]*?<\/w:p>/g, (paragrafo) => { const texto = extrairTextoParagrafo(paragrafo); if (texto.trim() !== `[${marcador}]`) return paragrafo; let substituiu = false; return paragrafo.replace(/<w:r[\s\S]*?<\/w:r>/g, () => { if (substituiu) return ""; substituiu = true; return `<w:r><w:t>${raw}</w:t></w:r>`; }); }); }
-function prepararTemplateMemo(zip) { let doc = zip.file(DOCUMENT_XML_PATH).asText(); doc = removerParagrafoVirgulaAposMarcador(doc); doc = substituirMarcadorTextoPorRawXml(doc, "IMAGENS_PROJETO"); doc = substituirMarcadorTextoPorRawXml(doc, "DESCRICAO_PROBLEMA"); doc = doc.replace(/\[IMAGENS_PROJETO\]\s*,/g, "[IMAGENS_PROJETO]"); doc = doc.replace(/\[(IMAGENS_PROJETO|DESCRICAO_PROBLEMA)\]/g, "[@$1]"); zip.file(DOCUMENT_XML_PATH, doc); return doc.includes("[@DESCRICAO_PROBLEMA]") || doc.includes("[DESCRICAO_PROBLEMA]"); }
-function montarDadosMemo(body, zip, possuiDescricaoProblema) { const sugestao = obterSugestao(body.tipoAssunto); const codigo = normalizarCodigoMemo(body.codigoSetor, body.numeroMemorando, body.anoMemorando); const problema = textoLimpo(body.problema); const descricaoProblema = textoLimpo(body.descricaoProblema); return { SETOR_ORIGEM: textoLimpo(body.setorOrigem), SETOR_DESTINO: textoLimpo(body.setorDestino), ASSUNTO: textoLimpo(body.assunto), SET: codigo.set, XYX: codigo.xyx, ABC: codigo.abc, TITULO_MEMO: textoLimpo(body.tituloMemo) || sugestao.tituloMemo, OBJETIVO: textoLimpo(body.objetivo) || sugestao.objetivo, DIRETRIZ_GERAL: textoLimpo(body.diretrizGeral) || sugestao.diretrizGeral, PROBLEMA: possuiDescricaoProblema ? problema : `${problema}\n\n${descricaoProblema}`, DESCRICAO_PROBLEMA: paragrafoXml(descricaoProblema), IMAGENS_PROJETO: gerarBlocoImagens(zip, body.imagens), CONSIDERACOES_FINAIS: textoLimpo(body.consideracoesFinais) || sugestao.consideracoesFinais, DATA: textoLimpo(body.data), NOME: textoLimpo(body.nomeResponsavel), EMAILL: textoLimpo(body.email), NUMERO: textoLimpo(body.numero), _codigoCompleto: codigo.codigoCompleto } }
+function prepararTemplateMemo(zip) {
+  let doc = zip.file(DOCUMENT_XML_PATH).asText();
+  doc = removerParagrafoVirgulaAposMarcador(doc);
+  doc = doc.replace(/\[IMAGENS_PROJETO\]\s*,/g, "[IMAGENS_PROJETO]");
+  zip.file(DOCUMENT_XML_PATH, doc);
+  return doc.includes("[DESCRICAO_PROBLEMA]");
+}
+function montarDadosMemo(body, possuiDescricaoProblema) { const sugestao = obterSugestao(body.tipoAssunto); const codigo = normalizarCodigoMemo(body.codigoSetor, body.numeroMemorando, body.anoMemorando); const problema = textoLimpo(body.problema); const descricaoProblema = textoLimpo(body.descricaoProblema); return { SETOR_ORIGEM: textoLimpo(body.setorOrigem), SETOR_DESTINO: textoLimpo(body.setorDestino), ASSUNTO: textoLimpo(body.assunto), SET: codigo.set, XYX: codigo.xyx, ABC: codigo.abc, TITULO_MEMO: textoLimpo(body.tituloMemo) || sugestao.tituloMemo, OBJETIVO: textoLimpo(body.objetivo) || sugestao.objetivo, DIRETRIZ_GERAL: textoLimpo(body.diretrizGeral) || sugestao.diretrizGeral, PROBLEMA: possuiDescricaoProblema ? problema : `${problema}\n\n${descricaoProblema}`, DESCRICAO_PROBLEMA: descricaoProblema, IMAGENS_PROJETO: PLACEHOLDER_IMAGENS_MEMO, CONSIDERACOES_FINAIS: textoLimpo(body.consideracoesFinais) || sugestao.consideracoesFinais, DATA: textoLimpo(body.data), NOME: textoLimpo(body.nomeResponsavel), EMAILL: textoLimpo(body.email), NUMERO: textoLimpo(body.numero), _codigoCompleto: codigo.codigoCompleto } }
 
 module.exports = async function gerarMemorandoWordHandler(req, res) {
   try {
@@ -88,10 +169,13 @@ module.exports = async function gerarMemorandoWordHandler(req, res) {
     validarBody(body);
     const zip = new PizZip(fs.readFileSync(TEMPLATE_PATH));
     const possuiDescricaoProblema = prepararTemplateMemo(zip);
-    const dados = montarDadosMemo(body, zip, possuiDescricaoProblema);
+    const blocoImagensXml = criarXmlImagensMemo(zip, body.imagens);
+    const dados = montarDadosMemo(body, possuiDescricaoProblema);
     const doc = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true });
     doc.render(dados);
-    const buffer = doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
+    const finalZip = doc.getZip();
+    substituirPlaceholderPorXml(finalZip, PLACEHOLDER_IMAGENS_MEMO, blocoImagensXml);
+    const buffer = finalZip.generate({ type: "nodebuffer", compression: "DEFLATE" });
     const dataArquivo = new Date().toISOString().slice(0, 10);
     const filename = `memorando-${dados._codigoCompleto}-${dataArquivo}.docx`;
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
@@ -105,3 +189,4 @@ module.exports = async function gerarMemorandoWordHandler(req, res) {
 
 module.exports.normalizarCodigoMemo = normalizarCodigoMemo;
 module.exports.SUGESTOES_TIPO_ASSUNTO = SUGESTOES_TIPO_ASSUNTO;
+module.exports._internals = { criarXmlImagensMemo, substituirPlaceholderPorXml, prepararTemplateMemo, montarDadosMemo, normalizarImagemBase64 };

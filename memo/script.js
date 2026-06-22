@@ -165,3 +165,16 @@ form.addEventListener("submit", gerarMemorando);
 
 document.getElementById("data").value = new Date().toISOString().slice(0, 10);
 atualizarPreviewCodigo();
+const themeToggle = document.getElementById("theme-toggle");
+const savedTheme = localStorage.getItem("memo-theme") || "dark";
+
+document.documentElement.dataset.theme = savedTheme;
+if (themeToggle) themeToggle.checked = savedTheme === "light";
+
+if (themeToggle) {
+  themeToggle.addEventListener("change", () => {
+    const nextTheme = themeToggle.checked ? "light" : "dark";
+    document.documentElement.dataset.theme = nextTheme;
+    localStorage.setItem("memo-theme", nextTheme);
+  });
+}

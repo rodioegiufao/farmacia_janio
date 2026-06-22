@@ -1,17 +1,21 @@
-const fs = require("fs");
-const path = require("path");
-const PizZip = require("pizzip");
-const Docxtemplater = require("docxtemplater");
+const {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  AlignmentType,
+  ImageRun,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  BorderStyle
+} = require("docx");
 const { parseRequestBody, requireUser, sendJson } = require("./_auth");
 
-const TEMPLATE_PATH = path.join(process.cwd(), "memo", "template", "memo.docx");
-const IMAGE_MAX_WIDTH_EMU = 5486400; // aprox. 15,2 cm
-const IMAGE_MAX_HEIGHT_EMU = 5486400;
-const RELATIONSHIP_IMAGE_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
-const CONTENT_TYPES_PATH = "[Content_Types].xml";
-const DOCUMENT_RELS_PATH = "word/_rels/document.xml.rels";
-const DOCUMENT_XML_PATH = "word/document.xml";
-const PLACEHOLDER_IMAGENS_MEMO = "__BLOCO_IMAGENS_MEMO__";
+const FONTE_PADRAO = "Arial";
+const LARGURA_MAXIMA_IMAGEM_PX = 520;
 
 const SUGESTOES_TIPO_ASSUNTO = {
   "Subestação": {
@@ -46,147 +50,280 @@ const SUGESTOES_TIPO_ASSUNTO = {
   }
 };
 
-function textoSeguro(texto) { return String(texto || "").replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c])); }
-function textoLimpo(valor) { return String(valor || "").trim(); }
-function runXml(texto, bold = false, italic = false) { const pr = bold || italic ? `<w:rPr>${bold ? "<w:b/>" : ""}${italic ? "<w:i/>" : ""}</w:rPr>` : ""; return `<w:r>${pr}<w:t xml:space="preserve">${textoSeguro(texto)}</w:t></w:r>`; }
-function propriedadesParagrafo({ alignment = "both", firstLine = 709, before = 0, after = 160, line = 276 } = {}) { const indent = firstLine ? `<w:ind w:firstLine="${firstLine}"/>` : ""; return `<w:pPr><w:jc w:val="${alignment}"/>${indent}<w:spacing w:before="${before}" w:after="${after}" w:line="${line}" w:lineRule="auto"/></w:pPr>`; }
-function paragrafoXml(texto, options = {}) { return `<w:p>${propriedadesParagrafo(options)}${runXml(texto, options.bold, options.italic)}</w:p>`; }
-function normalizarCodigoMemo(codigoSetor, numeroMemorando, anoMemorando) { const set = textoLimpo(codigoSetor).toUpperCase(); const xyx = textoLimpo(numeroMemorando).padStart(3, "0"); const abc = textoLimpo(anoMemorando); return { set, xyx, abc, codigoCompleto: `MEMO-${set}-${xyx}-${abc}` }; }
-function validarBody(body) { const obrigatorios = ["codigoSetor", "numeroMemorando", "anoMemorando", "setorOrigem", "setorDestino", "assunto", "tipoAssunto", "problema", "descricaoProblema", "data", "nomeResponsavel"]; const faltando = obrigatorios.filter((campo) => !textoLimpo(body[campo])); if (faltando.length) { const error = new Error(`Campos obrigatórios ausentes: ${faltando.join(", ")}.`); error.statusCode = 400; throw error; } const { abc } = normalizarCodigoMemo(body.codigoSetor, body.numeroMemorando, body.anoMemorando); if (!/^\d{4}$/.test(abc)) { const error = new Error("O ano do memorando deve ter 4 dígitos."); error.statusCode = 400; throw error; } }
-function obterSugestao(tipoAssunto) { return SUGESTOES_TIPO_ASSUNTO[textoLimpo(tipoAssunto)] || SUGESTOES_TIPO_ASSUNTO.Outro; }
-function normalizarImagemBase64(valor) {
+function textoLimpo(valor) {
+  return String(valor || "").trim();
+}
+
+function normalizarCodigoMemo(codigoSetor, numeroMemorando, anoMemorando) {
+  const set = textoLimpo(codigoSetor).toUpperCase();
+  const xyx = textoLimpo(numeroMemorando).padStart(3, "0");
+  const abc = textoLimpo(anoMemorando);
+  return { set, xyx, abc, codigoCompleto: `MEMO-${set}-${xyx}-${abc}` };
+}
+
+function validarBody(body) {
+  const obrigatorios = ["codigoSetor", "numeroMemorando", "anoMemorando", "setorOrigem", "setorDestino", "assunto", "tipoAssunto", "problema", "descricaoProblema", "data", "nomeResponsavel"];
+  const faltando = obrigatorios.filter((campo) => !textoLimpo(body[campo]));
+
+  if (faltando.length) {
+    const error = new Error(`Campos obrigatórios ausentes: ${faltando.join(", ")}.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const { abc } = normalizarCodigoMemo(body.codigoSetor, body.numeroMemorando, body.anoMemorando);
+  if (!/^\d{4}$/.test(abc)) {
+    const error = new Error("O ano do memorando deve ter 4 dígitos.");
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
+function obterSugestao(tipoAssunto) {
+  return SUGESTOES_TIPO_ASSUNTO[textoLimpo(tipoAssunto)] || SUGESTOES_TIPO_ASSUNTO.Outro;
+}
+
+function montarDadosMemo(body) {
+  const sugestao = obterSugestao(body.tipoAssunto);
+  const codigo = normalizarCodigoMemo(body.codigoSetor, body.numeroMemorando, body.anoMemorando);
+
+  return {
+    codigoCompleto: codigo.codigoCompleto,
+    set: codigo.set,
+    xyx: codigo.xyx,
+    abc: codigo.abc,
+    setorOrigem: textoLimpo(body.setorOrigem),
+    setorDestino: textoLimpo(body.setorDestino),
+    assunto: textoLimpo(body.assunto),
+    tipoAssunto: textoLimpo(body.tipoAssunto),
+    tituloMemo: textoLimpo(body.tituloMemo) || sugestao.tituloMemo,
+    objetivo: textoLimpo(body.objetivo) || sugestao.objetivo,
+    diretrizGeral: textoLimpo(body.diretrizGeral) || sugestao.diretrizGeral,
+    problema: textoLimpo(body.problema),
+    descricaoProblema: textoLimpo(body.descricaoProblema),
+    consideracoesFinais: textoLimpo(body.consideracoesFinais) || sugestao.consideracoesFinais,
+    data: textoLimpo(body.data),
+    nomeResponsavel: textoLimpo(body.nomeResponsavel),
+    email: textoLimpo(body.email),
+    numero: textoLimpo(body.numero),
+    imagens: Array.isArray(body.imagens) ? body.imagens : []
+  };
+}
+
+function criarRun(texto, options = {}) {
+  return new TextRun({
+    text: String(texto || ""),
+    font: FONTE_PADRAO,
+    size: options.size || 22,
+    bold: Boolean(options.bold),
+    italics: Boolean(options.italic)
+  });
+}
+
+function criarParagrafoTexto(texto, options = {}) {
+  const linhas = String(texto || "").split(/\r?\n/);
+  return new Paragraph({
+    children: linhas.flatMap((linha, index) => (index === 0 ? [criarRun(linha, options)] : [new TextRun({ break: 1 }), criarRun(linha, options)])),
+    alignment: options.alignment || AlignmentType.JUSTIFIED,
+    spacing: { before: options.before || 0, after: options.after ?? 160, line: options.line || 276 },
+    indent: options.firstLine === false ? undefined : { firstLine: options.firstLine ?? 360 }
+  });
+}
+
+function criarTitulo(texto, nivel = 1) {
+  return new Paragraph({
+    heading: nivel === 1 ? HeadingLevel.HEADING_1 : HeadingLevel.HEADING_2,
+    spacing: { before: 240, after: 120 },
+    children: [criarRun(texto, { bold: true, size: nivel === 1 ? 24 : 22 })]
+  });
+}
+
+function criarLinhaCabecalho(rotulo, valor) {
+  return new TableRow({
+    children: [
+      new TableCell({
+        width: { size: 18, type: WidthType.PERCENTAGE },
+        borders: bordasSemLinha(),
+        children: [criarParagrafoTexto(rotulo, { bold: true, firstLine: false, after: 60, alignment: AlignmentType.LEFT })]
+      }),
+      new TableCell({
+        width: { size: 82, type: WidthType.PERCENTAGE },
+        borders: bordasSemLinha(),
+        children: [criarParagrafoTexto(valor, { firstLine: false, after: 60, alignment: AlignmentType.LEFT })]
+      })
+    ]
+  });
+}
+
+function bordasSemLinha() {
+  return {
+    top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }
+  };
+}
+
+function normalizarImagemBase64ParaDocx(valor) {
   const texto = String(valor || "").trim();
   const match = texto.match(/^data:image\/(png|jpe?g);base64,([\s\S]+)$/i);
   if (!match) return null;
 
-  const mimeSubtype = match[1].toLowerCase();
+  const tipo = match[1].toLowerCase();
+  const extension = tipo === "png" ? "png" : "jpg";
   const buffer = Buffer.from(match[2].replace(/\s/g, ""), "base64");
-  const isPng = buffer.length >= 24 && buffer.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-  const isJpeg = buffer.length >= 4 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[buffer.length - 2] === 0xff && buffer[buffer.length - 1] === 0xd9;
 
-  if (mimeSubtype === "png" && isPng) return { buffer, extension: "png", contentType: "image/png" };
-  if ((mimeSubtype === "jpg" || mimeSubtype === "jpeg") && isJpeg) return { buffer, extension: "jpg", contentType: "image/jpeg" };
-  return null;
+  return { buffer, extension };
 }
-function dimensoesImagem(buffer, extension) { if (extension === "png" && buffer.length >= 24) return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) }; if (extension === "jpg") { let offset = 2; while (offset + 9 < buffer.length) { if (buffer[offset] !== 0xff) { offset += 1; continue; } const marker = buffer[offset + 1]; if (marker === 0xd9 || marker === 0xda) break; const length = buffer.readUInt16BE(offset + 2); if (length < 2) break; if (marker >= 0xc0 && marker <= 0xc3) return { height: buffer.readUInt16BE(offset + 5), width: buffer.readUInt16BE(offset + 7) }; offset += 2 + length; } } return { width: 1200, height: 800 }; }
-function dimensoesEmu(buffer, extension) { const { width, height } = dimensoesImagem(buffer, extension); const ratio = Math.min(IMAGE_MAX_WIDTH_EMU / width, IMAGE_MAX_HEIGHT_EMU / height, 1); return { cx: Math.round(width * ratio), cy: Math.round(height * ratio) }; }
-function imagemXml(rId, idx, buffer, extension) { const { cx, cy } = dimensoesEmu(buffer, extension); const nomeArquivo = `memorando-imagem-${idx}.${extension}`; return `<w:p>${propriedadesParagrafo({ alignment: "center", firstLine: 0, before: 160, after: 120 })}<w:r><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${1200 + idx}" name="Imagem do memorando ${idx}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${idx}" name="${nomeArquivo}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`; }
-function garantirContentTypeImagem(zip, extension) { const contentType = extension === "png" ? "image/png" : "image/jpeg"; const ct = zip.file(CONTENT_TYPES_PATH).asText(); if (!new RegExp(`<Default\\s+Extension="${extension}"\\s+ContentType="${contentType}"\\s*/>`).test(ct)) zip.file(CONTENT_TYPES_PATH, ct.replace("</Types>", `<Default Extension="${extension}" ContentType="${contentType}"/></Types>`)); }
-function proximoRelationshipId(rels) { const ids = [...rels.matchAll(/Id="rId(\d+)"/g)].map((match) => Number(match[1])).filter(Number.isFinite); return Math.max(0, ...ids) + 1; }
-function criarXmlImagensMemo(zip, imagens = []) {
-  const lista = Array.isArray(imagens) ? imagens : [];
-  console.log("Imagens recebidas:", lista.length);
 
-  let rels = zip.file(DOCUMENT_RELS_PATH).asText();
-  let relInsert = "";
-  let xml = "";
-  let contador = 0;
-  let nextRelId = proximoRelationshipId(rels);
-
-  lista.forEach((imagem, indiceOriginal) => {
-    const origem = imagem?.arquivo || imagem?.base64 || imagem;
-    const normalizada = normalizarImagemBase64(origem);
-    if (!normalizada?.buffer?.length) {
-      console.log(`Imagem ${indiceOriginal + 1} ignorada: formato inválido ou buffer vazio.`, {
-        prefixo: String(origem || "").slice(0, 30)
-      });
-      return;
+function dimensoesImagem(buffer, extension) {
+  if (extension === "png" && buffer.length >= 24) return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+  if (extension === "jpg") {
+    let offset = 2;
+    while (offset + 9 < buffer.length) {
+      if (buffer[offset] !== 0xff) { offset += 1; continue; }
+      const marker = buffer[offset + 1];
+      if (marker === 0xd9 || marker === 0xda) break;
+      const length = buffer.readUInt16BE(offset + 2);
+      if (length < 2) break;
+      if (marker >= 0xc0 && marker <= 0xc3) return { height: buffer.readUInt16BE(offset + 5), width: buffer.readUInt16BE(offset + 7) };
+      offset += 2 + length;
     }
+  }
+  return { width: 1200, height: 800 };
+}
+
+function calcularTamanhoImagem(buffer, extension, larguraMaxima = LARGURA_MAXIMA_IMAGEM_PX) {
+  const { width, height } = dimensoesImagem(buffer, extension);
+  if (!width || !height) return { width: larguraMaxima, height: 300 };
+  const ratio = Math.min(larguraMaxima / width, 1);
+  return { width: Math.round(width * ratio), height: Math.round(height * ratio) };
+}
+
+function criarImagemRun(base64, larguraMaximaPx = LARGURA_MAXIMA_IMAGEM_PX) {
+  const normalizada = normalizarImagemBase64ParaDocx(base64);
+  if (!normalizada?.buffer?.length) return null;
+
+  const transformation = calcularTamanhoImagem(normalizada.buffer, normalizada.extension, larguraMaximaPx);
+  return new ImageRun({
+    data: normalizada.buffer,
+    transformation
+  });
+}
+
+function criarBlocoImagensDocx(imagens) {
+  const children = [];
+  const lista = Array.isArray(imagens) ? imagens : [];
+  let contador = 0;
+
+  lista.forEach((imagem) => {
+    const arquivo = imagem?.arquivo || imagem?.base64 || imagem;
+    const imageRun = criarImagemRun(arquivo);
+    if (!imageRun) return;
 
     contador += 1;
-    const rId = `rId${nextRelId++}`;
-    const { buffer, extension } = normalizada;
-    const mediaFilename = `memorando-imagem-${contador}.${extension}`;
-    const mediaPath = `word/media/${mediaFilename}`;
-
-    zip.file(mediaPath, buffer);
-    relInsert += `<Relationship Id="${rId}" Type="${RELATIONSHIP_IMAGE_TYPE}" Target="media/${mediaFilename}"/>`;
-    garantirContentTypeImagem(zip, extension);
-
     const titulo = textoLimpo(imagem?.titulo) || `Figura ${contador} — Imagem do projeto`;
     const descricao = textoLimpo(imagem?.descricao);
 
-    console.log(`Imagem ${contador}:`, {
-      prefixo: String(origem || "").slice(0, 30),
-      extension,
-      bufferSize: buffer.length,
-      rId,
-      mediaPath
-    });
-
-    xml += paragrafoXml(titulo, { alignment: "center", firstLine: 0, before: contador === 1 ? 120 : 260, after: 80, bold: true });
-    xml += imagemXml(rId, contador, buffer, extension);
-    if (descricao) xml += paragrafoXml(descricao, { alignment: "both", firstLine: 0, before: 40, after: 180, italic: true });
+    children.push(criarParagrafoTexto(titulo, { bold: true, firstLine: false, before: contador === 1 ? 120 : 260, after: 100, alignment: AlignmentType.CENTER }));
+    children.push(new Paragraph({ children: [imageRun], alignment: AlignmentType.CENTER, spacing: { after: 120 } }));
+    if (descricao) children.push(criarParagrafoTexto(descricao, { italic: true, firstLine: false, after: 220, alignment: AlignmentType.JUSTIFIED }));
   });
 
-  if (relInsert) zip.file(DOCUMENT_RELS_PATH, rels.replace("</Relationships>", `${relInsert}</Relationships>`));
-
-  const xmlFinal = xml || paragrafoXml("Não foram inseridas imagens do projeto.", { alignment: "both", firstLine: 0, before: 120, after: 180 });
-  console.log("Tamanho do XML de imagens:", xmlFinal.length);
-  return xmlFinal;
+  if (!contador) children.push(criarParagrafoTexto("Não foram inseridas imagens do projeto.", { firstLine: false, before: 120, after: 180 }));
+  return children;
 }
 
-function substituirPlaceholderPorXml(zip, placeholder, xmlSubstituto) {
-  const arquivo = zip.file(DOCUMENT_XML_PATH);
-  if (!arquivo) throw new Error("word/document.xml não encontrado no modelo do memorando.");
+function criarMemorandoDocx(dados) {
+  const children = [
+    criarParagrafoTexto("Ribeiro Lopes Consultoria E Serviços", { bold: true, firstLine: false, after: 120, alignment: AlignmentType.LEFT }),
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: bordasSemLinha(),
+      rows: [
+        criarLinhaCabecalho("De:", dados.setorOrigem),
+        criarLinhaCabecalho("Para:", dados.setorDestino),
+        criarLinhaCabecalho("Assunto:", dados.assunto)
+      ]
+    }),
+    criarParagrafoTexto(dados.codigoCompleto, { bold: true, size: 24, firstLine: false, before: 360, after: 180, alignment: AlignmentType.CENTER }),
+    criarParagrafoTexto(dados.tituloMemo, { bold: true, size: 24, firstLine: false, after: 180, alignment: AlignmentType.CENTER }),
+    criarParagrafoTexto(dados.objetivo),
+    criarParagrafoTexto(`PARA: ${dados.setorDestino}`, { bold: true, firstLine: false, before: 120, after: 180, alignment: AlignmentType.LEFT }),
+    criarTitulo("1. Diretriz Geral de Instalações", 2),
+    criarParagrafoTexto(dados.diretrizGeral),
+    criarTitulo(`2. ${dados.problema}`, 2),
+    criarParagrafoTexto(dados.descricaoProblema),
+    ...criarBlocoImagensDocx(dados.imagens),
+    criarTitulo("3. Considerações Finais", 2),
+    criarParagrafoTexto(dados.consideracoesFinais),
+    criarParagrafoTexto(`Data: ${dados.data}`, { firstLine: false, before: 260, after: 260, alignment: AlignmentType.LEFT }),
+    criarParagrafoTexto("Atenciosamente", { firstLine: false, after: 260, alignment: AlignmentType.LEFT }),
+    criarParagrafoTexto(`${dados.setorOrigem} - ${dados.set}`, { bold: true, firstLine: false, after: 80, alignment: AlignmentType.LEFT }),
+    criarParagrafoTexto(dados.nomeResponsavel, { firstLine: false, after: 80, alignment: AlignmentType.LEFT }),
+    criarParagrafoTexto(`Email: ${dados.email}`, { firstLine: false, after: 80, alignment: AlignmentType.LEFT }),
+    criarParagrafoTexto(`WhatsApp: ${dados.numero}`, { firstLine: false, after: 80, alignment: AlignmentType.LEFT })
+  ];
 
-  const documentXml = arquivo.asText();
-  const paragrafos = documentXml.match(/<w:p[\s\S]*?<\/w:p>/g) || [];
-  const paragrafoPlaceholder = paragrafos.find((paragrafo) => extrairTextoParagrafo(paragrafo).includes(placeholder));
-  const placeholderEncontrado = Boolean(paragrafoPlaceholder);
-
-  console.log("Placeholder encontrado:", placeholderEncontrado);
-
-  if (!placeholderEncontrado) {
-    zip.file(DOCUMENT_XML_PATH, documentXml.replace(placeholder, xmlSubstituto));
-  } else {
-    zip.file(DOCUMENT_XML_PATH, documentXml.replace(paragrafoPlaceholder, xmlSubstituto));
-  }
-
-  const documentXmlFinal = zip.file(DOCUMENT_XML_PATH).asText();
-  console.log("Contém drawing:", documentXmlFinal.includes("<w:drawing>"));
-  console.log("Contém r:embed:", documentXmlFinal.includes("r:embed"));
-  console.log("Placeholder permaneceu no XML final:", documentXmlFinal.includes(placeholder));
-  return placeholderEncontrado;
+  return new Document({
+    styles: {
+      default: {
+        document: { run: { font: FONTE_PADRAO, size: 22 } }
+      }
+    },
+    sections: [{
+      properties: {
+        page: {
+          margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 }
+        }
+      },
+      children
+    }]
+  });
 }
-function extrairTextoParagrafo(paragrafoXml) { return [...paragrafoXml.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map((match) => match[1]).join("").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"'); }
-function removerParagrafoVirgulaAposMarcador(doc) { const paragrafos = doc.match(/<w:p[\s\S]*?<\/w:p>/g) || []; const marcador = "[IMAGENS_PROJETO]"; for (let i = 0; i < paragrafos.length - 1; i += 1) { if (extrairTextoParagrafo(paragrafos[i]).includes(marcador) && extrairTextoParagrafo(paragrafos[i + 1]).trim() === ",") { return doc.replace(paragrafos[i] + paragrafos[i + 1], paragrafos[i]); } } return doc; }
-function prepararTemplateMemo(zip) {
-  let doc = zip.file(DOCUMENT_XML_PATH).asText();
-  doc = removerParagrafoVirgulaAposMarcador(doc);
-  doc = doc.replace(/\[IMAGENS_PROJETO\]\s*,/g, "[IMAGENS_PROJETO]");
-  zip.file(DOCUMENT_XML_PATH, doc);
-  return doc.includes("[DESCRICAO_PROBLEMA]");
-}
-function montarDadosMemo(body, possuiDescricaoProblema) { const sugestao = obterSugestao(body.tipoAssunto); const codigo = normalizarCodigoMemo(body.codigoSetor, body.numeroMemorando, body.anoMemorando); const problema = textoLimpo(body.problema); const descricaoProblema = textoLimpo(body.descricaoProblema); return { SETOR_ORIGEM: textoLimpo(body.setorOrigem), SETOR_DESTINO: textoLimpo(body.setorDestino), ASSUNTO: textoLimpo(body.assunto), SET: codigo.set, XYX: codigo.xyx, ABC: codigo.abc, TITULO_MEMO: textoLimpo(body.tituloMemo) || sugestao.tituloMemo, OBJETIVO: textoLimpo(body.objetivo) || sugestao.objetivo, DIRETRIZ_GERAL: textoLimpo(body.diretrizGeral) || sugestao.diretrizGeral, PROBLEMA: possuiDescricaoProblema ? problema : `${problema}\n\n${descricaoProblema}`, DESCRICAO_PROBLEMA: descricaoProblema, IMAGENS_PROJETO: PLACEHOLDER_IMAGENS_MEMO, CONSIDERACOES_FINAIS: textoLimpo(body.consideracoesFinais) || sugestao.consideracoesFinais, DATA: textoLimpo(body.data), NOME: textoLimpo(body.nomeResponsavel), EMAILL: textoLimpo(body.email), NUMERO: textoLimpo(body.numero), _codigoCompleto: codigo.codigoCompleto } }
 
 module.exports = async function gerarMemorandoWordHandler(req, res) {
   try {
-    if (req.method !== "POST") { sendJson(res, 405, { error: "Método não suportado." }); return; }
+    if (req.method !== "POST") {
+      sendJson(res, 405, { error: "Método não suportado." });
+      return;
+    }
+
     await requireUser(req);
-    if (!fs.existsSync(TEMPLATE_PATH)) { sendJson(res, 404, { error: "Modelo memo.docx não encontrado em /memo/template." }); return; }
+
     const body = parseRequestBody(req);
     validarBody(body);
-    const zip = new PizZip(fs.readFileSync(TEMPLATE_PATH));
-    const possuiDescricaoProblema = prepararTemplateMemo(zip);
-    const blocoImagensXml = criarXmlImagensMemo(zip, body.imagens);
-    const dados = montarDadosMemo(body, possuiDescricaoProblema);
-    const doc = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true });
-    doc.render(dados);
-    const finalZip = doc.getZip();
-    substituirPlaceholderPorXml(finalZip, PLACEHOLDER_IMAGENS_MEMO, blocoImagensXml);
-    const buffer = finalZip.generate({ type: "nodebuffer", compression: "DEFLATE" });
+
+    const dados = montarDadosMemo(body);
+    const doc = criarMemorandoDocx(dados);
+
+    const buffer = await Packer.toBuffer(doc);
+
     const dataArquivo = new Date().toISOString().slice(0, 10);
-    const filename = `memorando-${dados._codigoCompleto}-${dataArquivo}.docx`;
+    const filename = `memorando-${dados.codigoCompleto}-${dataArquivo}.docx`;
+
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-    res.setHeader("Content-Disposition", `attachment; filename=\"${filename}\"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.status(200).send(buffer);
   } catch (error) {
     console.error("Erro ao gerar memorando Word:", error);
-    sendJson(res, error.statusCode || 500, { error: error.message || "Erro interno ao gerar memorando Word." });
+    sendJson(res, error.statusCode || 500, {
+      error: error.message || "Erro interno ao gerar memorando Word."
+    });
   }
 };
 
 module.exports.normalizarCodigoMemo = normalizarCodigoMemo;
 module.exports.SUGESTOES_TIPO_ASSUNTO = SUGESTOES_TIPO_ASSUNTO;
-module.exports._internals = { criarXmlImagensMemo, substituirPlaceholderPorXml, prepararTemplateMemo, montarDadosMemo, normalizarImagemBase64 };
+module.exports._internals = {
+  montarDadosMemo,
+  criarParagrafoTexto,
+  criarTitulo,
+  criarLinhaCabecalho,
+  criarImagemRun,
+  normalizarImagemBase64ParaDocx,
+  dimensoesImagem,
+  calcularTamanhoImagem,
+  criarBlocoImagensDocx,
+  criarMemorandoDocx
+};

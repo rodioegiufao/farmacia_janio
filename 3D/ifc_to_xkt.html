@@ -181,7 +181,7 @@
         const progressFill = document.getElementById("progressFill");
 
         let selectedFile = null;
-        
+
         function setStatus(message, type = "") {
             statusElement.textContent = message;
             statusElement.className = `status ${type}`.trim();
@@ -218,7 +218,7 @@
             a.remove();
             URL.revokeObjectURL(url);
         }
-        
+
         async function readErrorMessage(response) {
             try {
                 const payload = await response.json();
@@ -226,6 +226,64 @@
             } catch (error) {
                 return response.statusText || "Erro desconhecido.";
             }
+        }
+
+        async function uploadIfcToSupabaseStorage(file) {
+            setProgress(15);
+            setStatus("Preparando upload direto para o armazenamento...", "");
+
+            const uploadUrlResponse = await fetch("/api/ifc-upload-url", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    fileName: file.name,
+                    contentType: file.type || "application/octet-stream"
+                })
+            });
+
+            if (!uploadUrlResponse.ok) {
+                throw new Error(await readErrorMessage(uploadUrlResponse));
+            }
+
+            const { storagePath, signedUploadUrl } = await uploadUrlResponse.json();
+            if (!storagePath || !signedUploadUrl) {
+                throw new Error("A API não retornou a URL assinada de upload.");
+            }
+
+            setProgress(35);
+            setStatus("Enviando IFC direto para o Supabase Storage...", "");
+
+            const uploadResponse = await fetch(signedUploadUrl, {
+                method: "PUT",
+                headers: { "Content-Type": file.type || "application/octet-stream" },
+                body: file
+            });
+
+            if (!uploadResponse.ok) {
+                throw new Error(`Falha no upload direto para o armazenamento: ${uploadResponse.status} ${uploadResponse.statusText}`);
+            }
+
+            return storagePath;
+        }
+
+        async function convertUploadedIfc(storagePath, originalName) {
+            setProgress(60);
+            setStatus("Convertendo IFC no servidor com convert2xkt...", "");
+
+            const response = await fetch("/api/ifc-to-xkt", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ storagePath, originalName })
+            });
+
+            if (!response.ok) {
+                if (response.status === 413) {
+                    throw new Error("O arquivo é grande demais para envio direto à Vercel. Use o fluxo de upload direto para o armazenamento.");
+                }
+                throw new Error(await readErrorMessage(response));
+            }
+
+            return response.json();
         }
 
         async function convertIfcToXkt() {
@@ -237,45 +295,33 @@
                 setStatus("Selecione apenas arquivos com extensão .ifc.", "error");
                 return;
             }
-            
+
             convertButton.disabled = true;
-            setProgress(10);
-            setStatus("Enviando IFC para conversão oficial no servidor...", "")
+            setProgress(5);
+            setStatus("Iniciando fluxo de upload direto para evitar limite 413 da Vercel...", "")
 
             try {
-                const formData = new FormData();
-                formData.append("file", selectedFile, selectedFile.name);
+                const storagePath = await uploadIfcToSupabaseStorage(selectedFile);
+                const result = await convertUploadedIfc(storagePath, selectedFile.name);
 
-                setProgress(35);
-                const response = await fetch("/api/ifc-to-xkt", {
-                    method: "POST",
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    throw new Error(await readErrorMessage(response));
+                if (!result?.ok || !result.downloadUrl) {
+                    throw new Error(result?.error || "A conversão não retornou uma URL de download.");
                 }
 
-                setProgress(85);
-                setStatus("Baixando XKT gerado pelo convert2xkt...", "");
-
-                const blob = await response.blob();
-                if (!blob.size) {
-                    throw new Error("O servidor retornou um arquivo XKT vazio.");
-                }
-
-                const contentDisposition = response.headers.get("content-disposition") || "";
-                const fileNameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-                const outputName = fileNameMatch?.[1] || `${baseNameWithoutExtension(selectedFile.name) || "modelo"}.xkt`;
-
-                downloadBlob(blob, outputName);
+                setProgress(90);
+                setStatus("XKT gerado. Abrindo URL assinada de download...", "");
+                window.location.href = result.downloadUrl;
 
                 setProgress(100);
-                setStatus(`Conversão concluída! Arquivo salvo: ${outputName}`, "ok");
+                setStatus(`Conversão concluída! Arquivo disponível: ${result.fileName || `${baseNameWithoutExtension(selectedFile.name) || "modelo"}.xkt`}`, "ok");
             } catch (error) {
                 console.error("Falha na conversão IFC → XKT", error);
                 setProgress(0);
-                setStatus(`Erro ao converter: ${error?.message || error}`, "error");
+                const message = String(error?.message || error || "Erro desconhecido.");
+                const friendlyMessage = message.includes("413")
+                    ? "O arquivo é grande demais para envio direto à Vercel. Use o fluxo de upload direto para o armazenamento."
+                    : message;
+                setStatus(`Erro ao converter: ${friendlyMessage}`, "error");
             } finally {
                 convertButton.disabled = !selectedFile;
             }

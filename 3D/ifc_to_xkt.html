@@ -289,11 +289,20 @@
                 setProgress(85);
                 setStatus("Gerando arquivo .xkt...", "");
 
-                // Não force { zip: false }: essa opção pode gerar um ArrayBuffer XKT
-                // incompatível com o XKTLoaderPlugin, resultando em modelo carregado
-                // sem geometria visível. O serializer usa o formato compactado padrão,
-                // igual ao fluxo recomendado do xeokit-convert/CLI.
-                const xktArrayBuffer = writeXKTModelToArrayBuffer(xktModel);
+                // O serializer do xeokit-convert espera os argumentos opcionais
+                // (metamodel, stats e options). Quando options fica undefined, algumas
+                // versões da biblioteca tentam ler options.zip e disparam
+                // "Cannot read properties of undefined (reading 'zip')".
+                const conversionStats = {
+                    numCompressedTextures: 0,
+                    texturesSize: 0
+                };
+                const xktArrayBuffer = writeXKTModelToArrayBuffer(
+                    xktModel,
+                    undefined,
+                    conversionStats,
+                    { zip: true }
+                );
                 const outputName = `${baseNameWithoutExtension(selectedFile.name) || "modelo"}.xkt`;
 
                 downloadArrayBuffer(xktArrayBuffer, outputName);

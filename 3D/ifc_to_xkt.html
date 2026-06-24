@@ -149,8 +149,7 @@
     <main class="card" aria-labelledby="pageTitle">
         <h1 id="pageTitle">Conversor IFC → XKT</h1>
         <p>
-            Selecione um arquivo <code>.ifc</code>, converta no navegador e baixe o <code>.xkt</code>.
-            Para arquivos muito grandes, prefira a conversão no servidor/CLI.
+            Selecione um arquivo <code>.ifc</code>; a conversão principal será feita no backend com <code>convert2xkt</code>, seguindo o fluxo oficial da xeokit.
         </p>
 
         <label id="dropzone" class="dropzone" for="ifcFileInput">
@@ -173,15 +172,7 @@
         <div id="status" class="status" aria-live="polite"></div>
     </main>
 
-    <script type="module">
-        import * as WebIFC from "https://cdn.jsdelivr.net/npm/web-ifc@0.0.34/web-ifc-api.js";
-        const XKT_UTILS_IMPORT_CANDIDATES = [
-            "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-convert/dist/xeokit-convert.es.js",
-            "https://unpkg.com/@xeokit/xeokit-convert/dist/xeokit-convert.es.js"
-        ];
-        
-        const WASM_PATH = "https://cdn.jsdelivr.net/npm/web-ifc@0.0.34/";
-
+    <script>
         const ifcFileInput = document.getElementById("ifcFileInput");
         const dropzone = document.getElementById("dropzone");
         const selectedFileName = document.getElementById("selectedFileName");
@@ -190,36 +181,7 @@
         const progressFill = document.getElementById("progressFill");
 
         let selectedFile = null;
-        let xktUtils = null;
-
-        async function loadXktUtils() {
-            if (xktUtils) {
-                return xktUtils;
-            }
-
-            let lastError = null;
-
-            for (const url of XKT_UTILS_IMPORT_CANDIDATES) {
-                try {
-                    const imported = await import(url);
-                    if (
-                        imported?.XKTModel &&
-                        imported?.parseIFCIntoXKTModel &&
-                        imported?.writeXKTModelToArrayBuffer
-                    ) {
-                        xktUtils = imported;
-                        return xktUtils;
-                    }
-                } catch (error) {
-                    lastError = error;
-                }
-            }
-
-            throw new Error(
-                `Não foi possível carregar a biblioteca xeokit-xkt-utils. Detalhe: ${lastError?.message || lastError || "desconhecido"}`
-            );
-        }
-
+        
         function setStatus(message, type = "") {
             statusElement.textContent = message;
             statusElement.className = `status ${type}`.trim();
@@ -246,8 +208,7 @@
             convertButton.disabled = false;
         }
 
-        function downloadArrayBuffer(arrayBuffer, fileName) {
-            const blob = new Blob([arrayBuffer], { type: "application/octet-stream" });
+        function downloadBlob(blob, fileName) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
@@ -257,77 +218,68 @@
             a.remove();
             URL.revokeObjectURL(url);
         }
+        
+        async function readErrorMessage(response) {
+            try {
+                const payload = await response.json();
+                return payload?.error || payload?.message || response.statusText;
+            } catch (error) {
+                return response.statusText || "Erro desconhecido.";
+            }
+        }
 
         async function convertIfcToXkt() {
             if (!selectedFile) {
                 return;
             }
 
+            if (!selectedFile.name.toLowerCase().endsWith(".ifc")) {
+                setStatus("Selecione apenas arquivos com extensão .ifc.", "error");
+                return;
+            }
+            
             convertButton.disabled = true;
-            setProgress(5);
-            setStatus("Lendo arquivo IFC...", "");
+            setProgress(10);
+            setStatus("Enviando IFC para conversão oficial no servidor...", "")
 
             try {
-                const data = await selectedFile.arrayBuffer();
-                const { XKTModel, parseIFCIntoXKTModel, writeXKTModelToArrayBuffer } = await loadXktUtils();
-                const xktModel = new XKTModel();
+                const formData = new FormData();
+                formData.append("file", selectedFile, selectedFile.name);
 
-                setProgress(20);
-                setStatus("Convertendo IFC para modelo XKT...", "");
-
-                await parseIFCIntoXKTModel({
-                    WebIFC,
-                    data,
-                    xktModel,
-                    wasmPath: WASM_PATH,
-                    autoNormals: true,
-                    log: (msg) => console.log(msg)
+                setProgress(35);
+                const response = await fetch("/api/ifc-to-xkt", {
+                    method: "POST",
+                    body: formData
                 });
 
-                xktModel.finalize();
+                if (!response.ok) {
+                    throw new Error(await readErrorMessage(response));
+                }
 
                 setProgress(85);
-                setStatus("Gerando arquivo .xkt...", "");
+                setStatus("Baixando XKT gerado pelo convert2xkt...", "");
 
-                // O serializer do xeokit-convert espera os argumentos opcionais
-                // (metamodel, stats e options). Quando options fica undefined, algumas
-                // versões da biblioteca tentam ler options.zip e disparam
-                // "Cannot read properties of undefined (reading 'zip')".
-                const conversionStats = {
-                    numCompressedTextures: 0,
-                    texturesSize: 0
-                };
-                const xktArrayBuffer = writeXKTModelToArrayBuffer(
-                    xktModel,
-                    undefined,
-                    conversionStats,
-                    { zip: true }
-                );
-                const outputName = `${baseNameWithoutExtension(selectedFile.name) || "modelo"}.xkt`;
+                const blob = await response.blob();
+                if (!blob.size) {
+                    throw new Error("O servidor retornou um arquivo XKT vazio.");
+                }
 
-                downloadArrayBuffer(xktArrayBuffer, outputName);
+                const contentDisposition = response.headers.get("content-disposition") || "";
+                const fileNameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+                const outputName = fileNameMatch?.[1] || `${baseNameWithoutExtension(selectedFile.name) || "modelo"}.xkt`;
+
+                downloadBlob(blob, outputName);
 
                 setProgress(100);
                 setStatus(`Conversão concluída! Arquivo salvo: ${outputName}`, "ok");
             } catch (error) {
                 console.error("Falha na conversão IFC → XKT", error);
                 setProgress(0);
-                setStatus(
-                    `Erro ao converter: ${error?.message || error}. Verifique se o IFC é válido e tente novamente.`,
-                    "error"
-                );
+                setStatus(`Erro ao converter: ${error?.message || error}`, "error");
             } finally {
                 convertButton.disabled = !selectedFile;
             }
         }
-
-        loadXktUtils().catch((error) => {
-            console.error("Falha ao carregar bibliotecas de conversão", error);
-            setStatus(
-                "Não foi possível carregar as bibliotecas de conversão IFC/XKT. Recarregue a página ou tente novamente mais tarde.",
-                "error"
-            );
-        });
 
         ifcFileInput.addEventListener("change", (event) => {
             const file = event.target.files?.[0] || null;

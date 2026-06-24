@@ -2,10 +2,12 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { spawn } = require("child_process");
+const { createClient } = require("@supabase/supabase-js");
 
 const MIN_SUSPICIOUS_XKT_SIZE_BYTES = 50 * 1024;
 const LARGE_IFC_SIZE_BYTES = 500 * 1024;
 const MAX_UPLOAD_SIZE_BYTES = 250 * 1024 * 1024;
+const SUPABASE_BUCKET = "ifc-conversions"; // Crie este bucket no Supabase Storage; pode ser privado.
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -17,9 +19,61 @@ function safeBaseName(fileName) {
   return path.basename(String(fileName || "modelo.ifc")).replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
+function baseNameWithoutIfc(fileName) {
+  return safeBaseName(fileName).replace(/\.ifc$/i, "") || "modelo";
+}
+
 function getUploadedFile(files) {
   const candidate = files?.file || files?.ifc || files?.upload || Object.values(files || {})[0];
   return Array.isArray(candidate) ? candidate[0] : candidate;
+}
+
+function isMultipart(req) {
+  return String(req.headers["content-type"] || "").toLowerCase().includes("multipart/form-data");
+}
+
+function isJson(req) {
+  return String(req.headers["content-type"] || "").toLowerCase().includes("application/json");
+}
+
+function readJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let raw = "";
+    req.on("data", (chunk) => {
+      raw += chunk.toString("utf8");
+      if (raw.length > 1024 * 1024) {
+        reject(new Error("JSON da requisição é grande demais."));
+        req.destroy();
+      }
+    });
+    req.on("end", () => {
+      try {
+        resolve(raw ? JSON.parse(raw) : {});
+      } catch (error) {
+        reject(new Error("JSON inválido."));
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+function getSupabaseClient() {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Configure SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY na Vercel para usar o fluxo de Storage.");
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+}
+
+function validateStoragePath(storagePath) {
+  const normalized = String(storagePath || "").trim();
+  if (!normalized || normalized.startsWith("/") || normalized.includes("..") || !normalized.toLowerCase().endsWith(".ifc")) {
+    throw new Error("storagePath inválido. Informe um caminho de IFC dentro do bucket ifc-conversions.");
+  }
+  return normalized;
 }
 
 function parseMultipartForm(req) {
@@ -181,85 +235,159 @@ function cleanup(paths) {
   });
 }
 
+async function convertLocalIfc({ inputIfcPath, outputXktPath }) {
+  const ifcSize = (await fs.promises.stat(inputIfcPath)).size;
+  console.log(`[ifc-to-xkt] Tamanho do IFC: ${ifcSize} bytes`);
+
+  const wasmPath = await ensureWebIfcWasm();
+  logWebIfcDiagnostics(wasmPath);
+
+  if (!wasmPath) {
+    throw new Error("Arquivo web-ifc-node.wasm não encontrado. Adicione 'web-ifc' nas dependencies do package.json e faça novo deploy.");
+  }
+
+  await convertIfcToXkt(inputIfcPath, outputXktPath, wasmPath);
+
+  if (!fs.existsSync(outputXktPath)) {
+    throw new Error("A conversão terminou, mas o arquivo XKT não foi criado.");
+  }
+
+  const xktSize = (await fs.promises.stat(outputXktPath)).size;
+  console.log(`[ifc-to-xkt] Tamanho do XKT: ${xktSize} bytes`);
+  console.log("[ifc-to-xkt] XKT gerado:", xktSize);
+
+  if (xktSize === 0) {
+    throw new Error("O XKT gerado ficou com 0 bytes. A conversão falhou.");
+  }
+
+  if (ifcSize > LARGE_IFC_SIZE_BYTES && xktSize < MIN_SUSPICIOUS_XKT_SIZE_BYTES) {
+    throw new Error("O XKT gerado ficou muito pequeno em relação ao IFC. A conversão provavelmente falhou.");
+  }
+
+  return { ifcSize, xktSize };
+}
+
+async function handleJsonStorageConversion(req, res, tempPaths) {
+  const body = await readJsonBody(req);
+  const storagePath = validateStoragePath(body.storagePath);
+  const originalName = safeBaseName(body.originalName || path.basename(storagePath));
+
+  console.log("[ifc-to-xkt] storagePath:", storagePath);
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.storage.from(SUPABASE_BUCKET).download(storagePath);
+  if (error) {
+    throw new Error(`Não foi possível baixar o IFC do Supabase Storage: ${error.message}`);
+  }
+
+  const ifcBuffer = Buffer.from(await data.arrayBuffer());
+  const uniquePrefix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const outputName = `${baseNameWithoutIfc(originalName)}.xkt`;
+  const inputIfcPath = path.join(os.tmpdir(), `${uniquePrefix}-${originalName}`);
+  const outputXktPath = path.join(os.tmpdir(), `${uniquePrefix}-${outputName}`);
+  tempPaths.push(inputIfcPath, outputXktPath);
+
+  await fs.promises.writeFile(inputIfcPath, ifcBuffer);
+  const ifcSize = ifcBuffer.length;
+  console.log("[ifc-to-xkt] IFC baixado do Supabase:", ifcSize);
+
+  const sizes = await convertLocalIfc({ inputIfcPath, outputXktPath });
+  const xktBuffer = await fs.promises.readFile(outputXktPath);
+  const outputPath = `outputs/${new Date().toISOString().slice(0, 10)}/${uniquePrefix}-${outputName}`;
+
+  const upload = await supabase.storage.from(SUPABASE_BUCKET).upload(outputPath, xktBuffer, {
+    contentType: "application/octet-stream",
+    upsert: true
+  });
+  if (upload.error) {
+    throw new Error(`Não foi possível salvar o XKT no Supabase Storage: ${upload.error.message}`);
+  }
+
+  console.log("[ifc-to-xkt] outputPath:", outputPath);
+
+  const signed = await supabase.storage.from(SUPABASE_BUCKET).createSignedUrl(outputPath, 60 * 60);
+  if (signed.error) {
+    throw new Error(`Não foi possível criar URL assinada para download: ${signed.error.message}`);
+  }
+
+  sendJson(res, 200, {
+    ok: true,
+    downloadUrl: signed.data.signedUrl,
+    outputPath,
+    fileName: outputName,
+    ifcSize: sizes.ifcSize,
+    xktSize: sizes.xktSize
+  });
+}
+
+async function handleMultipartConversion(req, res, tempPaths) {
+  const { files } = await parseMultipartForm(req);
+  const file = getUploadedFile(files);
+
+  if (!file) {
+    sendJson(res, 400, { error: "Nenhum arquivo IFC foi enviado." });
+    return;
+  }
+
+  let uploadedPath = file.filepath || file.path;
+  tempPaths.push(uploadedPath);
+  const originalName = safeBaseName(file.originalFilename || file.name || "modelo.ifc");
+
+  if (!originalName.toLowerCase().endsWith(".ifc")) {
+    sendJson(res, 400, { error: "Envie um arquivo com extensão .ifc." });
+    return;
+  }
+
+  const uniquePrefix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const inputIfcPath = path.join(os.tmpdir(), `${uniquePrefix}-${originalName}`);
+  const outputXktPath = path.join(os.tmpdir(), `${uniquePrefix}-${originalName.replace(/\.ifc$/i, ".xkt")}`);
+  tempPaths.push(inputIfcPath, outputXktPath);
+
+  await fs.promises.rename(uploadedPath, inputIfcPath);
+  tempPaths.splice(tempPaths.indexOf(uploadedPath), 1);
+
+  const { xktSize } = await convertLocalIfc({ inputIfcPath, outputXktPath });
+  const downloadName = path.basename(outputXktPath).replace(`${uniquePrefix}-`, "");
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Content-Disposition", `attachment; filename=\"${downloadName}\"`);
+  res.setHeader("Content-Length", String(xktSize));
+
+  const stream = fs.createReadStream(outputXktPath);
+  stream.on("close", () => cleanup(tempPaths));
+  stream.on("error", (error) => {
+    console.error("[ifc-to-xkt] Erro ao enviar XKT", error);
+    cleanup(tempPaths);
+    if (!res.headersSent) sendJson(res, 500, { error: "Erro ao enviar o arquivo XKT gerado." });
+  });
+  stream.pipe(res);
+}
+
 async function ifcToXktHandler(req, res) {
-  let uploadedPath = null;
-  let inputIfcPath = null;
-  let outputXktPath = null;
+  const tempPaths = [];
 
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
-    sendJson(res, 405, { error: "Método não permitido. Use POST com multipart/form-data." });
+    sendJson(res, 405, { error: "Método não permitido. Use POST com JSON de storagePath ou multipart/form-data para arquivos pequenos." });
     return;
   }
 
   try {
-    const { files } = await parseMultipartForm(req);
-    const file = getUploadedFile(files);
-
-    if (!file) {
-      sendJson(res, 400, { error: "Nenhum arquivo IFC foi enviado." });
+    if (isJson(req)) {
+      await handleJsonStorageConversion(req, res, tempPaths);
+      cleanup(tempPaths);
       return;
     }
 
-    uploadedPath = file.filepath || file.path;
-    const originalName = safeBaseName(file.originalFilename || file.name || "modelo.ifc");
-
-    if (!originalName.toLowerCase().endsWith(".ifc")) {
-      sendJson(res, 400, { error: "Envie um arquivo com extensão .ifc." });
+    if (isMultipart(req)) {
+      await handleMultipartConversion(req, res, tempPaths);
       return;
     }
 
-    const uniquePrefix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    inputIfcPath = path.join(os.tmpdir(), `${uniquePrefix}-${originalName}`);
-    outputXktPath = path.join(os.tmpdir(), `${uniquePrefix}-${originalName.replace(/\.ifc$/i, ".xkt")}`);
-
-    await fs.promises.rename(uploadedPath, inputIfcPath);
-    uploadedPath = null;
-
-    const ifcSize = (await fs.promises.stat(inputIfcPath)).size;
-    console.log(`[ifc-to-xkt] Tamanho do IFC: ${ifcSize} bytes`);
-
-    const wasmPath = await ensureWebIfcWasm();
-    logWebIfcDiagnostics(wasmPath);
-
-    if (!wasmPath) {
-      throw new Error("Arquivo web-ifc-node.wasm não encontrado. Adicione 'web-ifc' nas dependencies do package.json e faça novo deploy.");
-    }
-
-    await convertIfcToXkt(inputIfcPath, outputXktPath, wasmPath);
-
-    if (!fs.existsSync(outputXktPath)) {
-      throw new Error("A conversão terminou, mas o arquivo XKT não foi criado.");
-    }
-
-    const xktSize = (await fs.promises.stat(outputXktPath)).size;
-    console.log(`[ifc-to-xkt] Tamanho do XKT: ${xktSize} bytes`);
-
-    if (xktSize === 0) {
-      throw new Error("O XKT gerado ficou com 0 bytes. A conversão falhou.");
-    }
-
-    if (ifcSize > LARGE_IFC_SIZE_BYTES && xktSize < MIN_SUSPICIOUS_XKT_SIZE_BYTES) {
-      throw new Error("O XKT gerado ficou muito pequeno em relação ao IFC. A conversão provavelmente falhou.");
-    }
-
-    const downloadName = path.basename(outputXktPath).replace(`${uniquePrefix}-`, "");
-    res.statusCode = 200;
-    res.setHeader("Content-Type", "application/octet-stream");
-    res.setHeader("Content-Disposition", `attachment; filename=\"${downloadName}\"`);
-    res.setHeader("Content-Length", String(xktSize));
-
-    const stream = fs.createReadStream(outputXktPath);
-    stream.on("close", () => cleanup([inputIfcPath, outputXktPath]));
-    stream.on("error", (error) => {
-      console.error("[ifc-to-xkt] Erro ao enviar XKT", error);
-      cleanup([inputIfcPath, outputXktPath]);
-      if (!res.headersSent) sendJson(res, 500, { error: "Erro ao enviar o arquivo XKT gerado." });
-    });
-    stream.pipe(res);
+    sendJson(res, 415, { error: "Content-Type não suportado. Use application/json com storagePath ou multipart/form-data para arquivos pequenos." });
   } catch (error) {
     console.error("[ifc-to-xkt] Erro detalhado:", error);
-    cleanup([uploadedPath, inputIfcPath, outputXktPath]);
+    cleanup(tempPaths);
     const message = isWebIfcWasmError(error)
       ? "Falha na conversão: o arquivo WASM do web-ifc não foi encontrado no servidor. Adicione a dependência web-ifc ao package.json e faça novo deploy na Vercel."
       : error.message || "Falha ao converter IFC para XKT.";

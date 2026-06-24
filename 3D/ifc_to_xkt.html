@@ -174,14 +174,11 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        const SUPABASE_URL = "COLOCAR_SUPABASE_URL_AQUI";
-        const SUPABASE_ANON_KEY = "COLOCAR_SUPABASE_ANON_KEY_AQUI";
         const SUPABASE_BUCKET = "ifc-conversions";
-        const SUPABASE_PLACEHOLDER_VALUES = new Set([
-            "",
-            "COLOCAR_SUPABASE_URL_AQUI",
-            "COLOCAR_SUPABASE_ANON_KEY_AQUI"
-        ]);
+
+        let supabaseClient = null;
+        let supabaseBucket = SUPABASE_BUCKET;
+        let supabaseConfigPromise = null;
 
         function isValidHttpUrl(value) {
             try {
@@ -192,17 +189,41 @@
             }
         }
 
-        function hasSupabaseStorageConfig() {
-            return (
-                !SUPABASE_PLACEHOLDER_VALUES.has(SUPABASE_URL) &&
-                !SUPABASE_PLACEHOLDER_VALUES.has(SUPABASE_ANON_KEY) &&
-                isValidHttpUrl(SUPABASE_URL)
-            );
-        }
+        async function carregarSupabaseConfig() {
+            if (supabaseClient) {
+                return supabaseClient;
+            }
 
-        const supabaseClient = hasSupabaseStorageConfig()
-            ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-            : null;
+            if (!supabaseConfigPromise) {
+                supabaseConfigPromise = fetch("/api/supabase-public-config")
+                    .then(async (response) => {
+                        if (!response.ok) {
+                            throw new Error(await readErrorMessage(response));
+                        }
+
+                        const config = await response.json();
+                        const supabaseUrl = String(config?.supabaseUrl || "").trim();
+                        const supabaseAnonKey = String(config?.supabaseAnonKey || "").trim();
+                        const bucket = String(config?.bucket || SUPABASE_BUCKET).trim();
+
+                        if (!isValidHttpUrl(supabaseUrl) || !supabaseAnonKey || !bucket) {
+                            throw new Error(
+                                "Supabase Storage não configurado. Arquivos grandes não podem ser enviados diretamente para a Vercel. Configure SUPABASE_URL, SUPABASE_ANON_KEY e o bucket ifc-conversions."
+                            );
+                        }
+
+                        supabaseBucket = bucket;
+                        supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+                        return supabaseClient;
+                    })
+                    .catch((error) => {
+                        supabaseConfigPromise = null;
+                        throw error;
+                    });
+            }
+
+            return supabaseConfigPromise;
+        }
 
         const ifcFileInput = document.getElementById("ifcFileInput");
         const dropzone = document.getElementById("dropzone");
@@ -272,17 +293,15 @@
         }
 
         async function uploadIfcToSupabaseStorage(file) {
-            if (!supabaseClient) {
-                throw new Error("Supabase Storage não configurado no front-end.");
-            }
+            const client = await carregarSupabaseConfig();
 
             setProgress(15);
             setStatus("Enviando IFC diretamente para o Supabase Storage...", "");
 
             const storagePath = gerarStoragePath(file.name);
 
-            const { data, error } = await supabaseClient.storage
-                .from(SUPABASE_BUCKET)
+            const { data, error } = await client.storage
+                .from(supabaseBucket)
                 .upload(storagePath, file, {
                     contentType: file.type || "application/octet-stream",
                     upsert: true
@@ -290,7 +309,7 @@
 
             if (error) {
                 throw new Error(
-                    `Falha no upload para o Supabase Storage. Verifique se o bucket ifc-conversions existe e se há política de INSERT para uploads/%. Detalhes: ${error.message}`
+                    `Falha no upload para o Supabase Storage. Verifique se o bucket ${supabaseBucket} existe e se há política de INSERT para uploads/%. Detalhes: ${error.message}`
                 );
             }
 
@@ -317,39 +336,6 @@
             return response.json();
         }
 
-        async function convertIfcWithMultipartFallback(file) {
-            setProgress(25);
-            setStatus("Supabase não configurado no front-end. Enviando IFC direto para o backend...", "");
-
-            const formData = new FormData();
-            formData.append("file", file, file.name);
-
-            const response = await fetch("/api/ifc-to-xkt", {
-                method: "POST",
-                body: formData
-            });
-
-            if (!response.ok) {
-                if (response.status === 413) {
-                    throw new Error("O arquivo é grande demais para envio direto à Vercel. Configure o Supabase Storage para usar o fluxo recomendado para arquivos grandes.");
-                }
-                throw new Error(await readErrorMessage(response));
-            }
-
-            const blob = await response.blob();
-            if (!blob.size) {
-                throw new Error("A conversão retornou um arquivo XKT vazio.");
-            }
-
-            const downloadUrl = URL.createObjectURL(blob);
-            const contentDisposition = response.headers.get("Content-Disposition") || "";
-            const fileNameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?[\"]?([^\";]+)/i);
-            const fallbackName = `${baseNameWithoutExtension(file.name) || "modelo"}.xkt`;
-            const fileName = fileNameMatch ? decodeURIComponent(fileNameMatch[1].replace(/[\"]/g, "")) : fallbackName;
-
-            return { ok: true, downloadUrl, fileName, shouldRevokeUrl: true };
-        }
-
         async function convertIfcToXkt() {
             if (!selectedFile) {
                 return;
@@ -362,12 +348,11 @@
 
             convertButton.disabled = true;
             setProgress(5);
-            setStatus("Iniciando fluxo de upload direto para evitar limite 413 da Vercel...", "")
+            setStatus("Iniciando fluxo de upload direto para evitar limite 413 da Vercel...", "");
 
             try {
-                const result = supabaseClient
-                    ? await convertUploadedIfc(await uploadIfcToSupabaseStorage(selectedFile), selectedFile.name)
-                    : await convertIfcWithMultipartFallback(selectedFile);
+                const storagePath = await uploadIfcToSupabaseStorage(selectedFile);
+                const result = await convertUploadedIfc(storagePath, selectedFile.name);
 
                 if (!result?.ok || !result.downloadUrl) {
                     throw new Error(result?.error || "A conversão não retornou uma URL de download.");

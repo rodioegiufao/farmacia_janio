@@ -242,7 +242,8 @@
             });
 
             if (!uploadUrlResponse.ok) {
-                throw new Error(await readErrorMessage(uploadUrlResponse));
+                const message = await readErrorMessage(uploadUrlResponse);
+                throw new Error(`${message} Verifique se o bucket ifc-conversions existe no Supabase e se o caminho do arquivo é válido.`);
             }
 
             const { storagePath, signedUploadUrl } = await uploadUrlResponse.json();

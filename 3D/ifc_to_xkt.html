@@ -177,7 +177,32 @@
         const SUPABASE_URL = "COLOCAR_SUPABASE_URL_AQUI";
         const SUPABASE_ANON_KEY = "COLOCAR_SUPABASE_ANON_KEY_AQUI";
         const SUPABASE_BUCKET = "ifc-conversions";
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const SUPABASE_PLACEHOLDER_VALUES = new Set([
+            "",
+            "COLOCAR_SUPABASE_URL_AQUI",
+            "COLOCAR_SUPABASE_ANON_KEY_AQUI"
+        ]);
+
+        function isValidHttpUrl(value) {
+            try {
+                const url = new URL(String(value || ""));
+                return url.protocol === "http:" || url.protocol === "https:";
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function hasSupabaseStorageConfig() {
+            return (
+                !SUPABASE_PLACEHOLDER_VALUES.has(SUPABASE_URL) &&
+                !SUPABASE_PLACEHOLDER_VALUES.has(SUPABASE_ANON_KEY) &&
+                isValidHttpUrl(SUPABASE_URL)
+            );
+        }
+
+        const supabaseClient = hasSupabaseStorageConfig()
+            ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+            : null;
 
         const ifcFileInput = document.getElementById("ifcFileInput");
         const dropzone = document.getElementById("dropzone");
@@ -247,6 +272,10 @@
         }
 
         async function uploadIfcToSupabaseStorage(file) {
+            if (!supabaseClient) {
+                throw new Error("Supabase Storage não configurado no front-end.");
+            }
+
             setProgress(15);
             setStatus("Enviando IFC diretamente para o Supabase Storage...", "");
 
@@ -288,6 +317,39 @@
             return response.json();
         }
 
+        async function convertIfcWithMultipartFallback(file) {
+            setProgress(25);
+            setStatus("Supabase não configurado no front-end. Enviando IFC direto para o backend...", "");
+
+            const formData = new FormData();
+            formData.append("file", file, file.name);
+
+            const response = await fetch("/api/ifc-to-xkt", {
+                method: "POST",
+                body: formData
+            });
+
+            if (!response.ok) {
+                if (response.status === 413) {
+                    throw new Error("O arquivo é grande demais para envio direto à Vercel. Configure o Supabase Storage para usar o fluxo recomendado para arquivos grandes.");
+                }
+                throw new Error(await readErrorMessage(response));
+            }
+
+            const blob = await response.blob();
+            if (!blob.size) {
+                throw new Error("A conversão retornou um arquivo XKT vazio.");
+            }
+
+            const downloadUrl = URL.createObjectURL(blob);
+            const contentDisposition = response.headers.get("Content-Disposition") || "";
+            const fileNameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?[\"]?([^\";]+)/i);
+            const fallbackName = `${baseNameWithoutExtension(file.name) || "modelo"}.xkt`;
+            const fileName = fileNameMatch ? decodeURIComponent(fileNameMatch[1].replace(/[\"]/g, "")) : fallbackName;
+
+            return { ok: true, downloadUrl, fileName, shouldRevokeUrl: true };
+        }
+
         async function convertIfcToXkt() {
             if (!selectedFile) {
                 return;
@@ -303,8 +365,9 @@
             setStatus("Iniciando fluxo de upload direto para evitar limite 413 da Vercel...", "")
 
             try {
-                const storagePath = await uploadIfcToSupabaseStorage(selectedFile);
-                const result = await convertUploadedIfc(storagePath, selectedFile.name);
+                const result = supabaseClient
+                    ? await convertUploadedIfc(await uploadIfcToSupabaseStorage(selectedFile), selectedFile.name)
+                    : await convertIfcWithMultipartFallback(selectedFile);
 
                 if (!result?.ok || !result.downloadUrl) {
                     throw new Error(result?.error || "A conversão não retornou uma URL de download.");
@@ -313,6 +376,9 @@
                 setProgress(90);
                 setStatus("XKT gerado. Abrindo URL assinada de download...", "");
                 window.location.href = result.downloadUrl;
+                if (result.shouldRevokeUrl) {
+                    setTimeout(() => URL.revokeObjectURL(result.downloadUrl), 60 * 1000);
+                }
 
                 setProgress(100);
                 setStatus(`Conversão concluída! Arquivo disponível: ${result.fileName || `${baseNameWithoutExtension(selectedFile.name) || "modelo"}.xkt`}`, "ok");

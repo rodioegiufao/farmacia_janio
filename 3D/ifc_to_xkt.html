@@ -172,7 +172,13 @@
         <div id="status" class="status" aria-live="polite"></div>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+        const SUPABASE_URL = "COLOCAR_SUPABASE_URL_AQUI";
+        const SUPABASE_ANON_KEY = "COLOCAR_SUPABASE_ANON_KEY_AQUI";
+        const SUPABASE_BUCKET = "ifc-conversions";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         const ifcFileInput = document.getElementById("ifcFileInput");
         const dropzone = document.getElementById("dropzone");
         const selectedFileName = document.getElementById("selectedFileName");
@@ -208,17 +214,6 @@
             convertButton.disabled = false;
         }
 
-        function downloadBlob(blob, fileName) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
-        }
-
         async function readErrorMessage(response) {
             try {
                 const payload = await response.json();
@@ -228,43 +223,49 @@
             }
         }
 
+        function sanitizeStorageFileName(fileName) {
+            const base = String(fileName || "modelo.ifc").split(/[\\/]/).pop();
+            return base
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-zA-Z0-9._-]/g, "_")
+                .replace(/_+/g, "_")
+                .replace(/^_+|_+$/g, "");
+        }
+
+        function gerarStoragePath(fileName) {
+            const safeName = sanitizeStorageFileName(fileName);
+
+            if (!safeName.toLowerCase().endsWith(".ifc")) {
+                throw new Error("Envie um arquivo com extensão .ifc.");
+            }
+
+            const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+            const id = crypto.randomUUID().replace(/-/g, "");
+
+            return `uploads/${today}/${id}_${safeName}`;
+        }
+
         async function uploadIfcToSupabaseStorage(file) {
             setProgress(15);
-            setStatus("Preparando upload direto para o armazenamento...", "");
+            setStatus("Enviando IFC diretamente para o Supabase Storage...", "");
 
-            const uploadUrlResponse = await fetch("/api/ifc-upload-url", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    fileName: file.name,
-                    contentType: file.type || "application/octet-stream"
-                })
-            });
+            const storagePath = gerarStoragePath(file.name);
 
-            if (!uploadUrlResponse.ok) {
-                const message = await readErrorMessage(uploadUrlResponse);
-                throw new Error(`${message} Verifique se o bucket ifc-conversions existe no Supabase e se o caminho do arquivo é válido.`);
+            const { data, error } = await supabaseClient.storage
+                .from(SUPABASE_BUCKET)
+                .upload(storagePath, file, {
+                    contentType: file.type || "application/octet-stream",
+                    upsert: true
+                });
+
+            if (error) {
+                throw new Error(
+                    `Falha no upload para o Supabase Storage. Verifique se o bucket ifc-conversions existe e se há política de INSERT para uploads/%. Detalhes: ${error.message}`
+                );
             }
 
-            const { storagePath, signedUploadUrl } = await uploadUrlResponse.json();
-            if (!storagePath || !signedUploadUrl) {
-                throw new Error("A API não retornou a URL assinada de upload.");
-            }
-
-            setProgress(35);
-            setStatus("Enviando IFC direto para o Supabase Storage...", "");
-
-            const uploadResponse = await fetch(signedUploadUrl, {
-                method: "PUT",
-                headers: { "Content-Type": file.type || "application/octet-stream" },
-                body: file
-            });
-
-            if (!uploadResponse.ok) {
-                throw new Error(`Falha no upload direto para o armazenamento: ${uploadResponse.status} ${uploadResponse.statusText}`);
-            }
-
-            return storagePath;
+            return data.path || storagePath;
         }
 
         async function convertUploadedIfc(storagePath, originalName) {

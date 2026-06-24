@@ -70,7 +70,7 @@ function getSupabaseClient() {
 
 function validateStoragePath(storagePath) {
   const normalized = String(storagePath || "").trim();
-    if (
+  if (
     !normalized ||
     normalized.startsWith("/") ||
     normalized.includes("..") ||
@@ -310,6 +310,18 @@ async function handleJsonStorageConversion(req, res, tempPaths) {
   }
 
   console.log("[ifc-to-xkt] outputPath:", outputPath);
+
+  if (storagePath.startsWith("uploads/")) {
+    const removeUpload = await supabase.storage
+      .from(SUPABASE_BUCKET)
+      .remove([storagePath]);
+
+    if (removeUpload.error) {
+      console.warn("[ifc-to-xkt] Não foi possível remover IFC original:", removeUpload.error.message);
+    }
+  } else {
+    console.warn("[ifc-to-xkt] IFC original não foi removido porque está fora de uploads/:", storagePath);
+  }
 
   const signed = await supabase.storage.from(SUPABASE_BUCKET).createSignedUrl(outputPath, 60 * 60);
   if (signed.error) {

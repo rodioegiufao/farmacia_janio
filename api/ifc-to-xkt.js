@@ -61,10 +61,76 @@ function findConvertCommand() {
   return candidates.find((candidate) => fs.existsSync(candidate.command) || candidate.command === process.execPath) || candidates[0];
 }
 
-function convertIfcToXkt(inputIfcPath, outputXktPath) {
+function getExpectedWebIfcWasmPath() {
+  return path.join(process.cwd(), "node_modules", "web-ifc", "web-ifc-node.wasm");
+}
+
+function getWebIfcWasmCandidates() {
+  return [
+    getExpectedWebIfcWasmPath(),
+    path.join(process.cwd(), "node_modules", "web-ifc", "web-ifc.wasm"),
+    path.join(process.cwd(), "node_modules", "@xeokit", "xeokit-convert", "node_modules", "web-ifc", "web-ifc-node.wasm"),
+    path.join(process.cwd(), "node_modules", "@xeokit", "xeokit-convert", "node_modules", "web-ifc", "web-ifc.wasm")
+  ];
+}
+
+function findWebIfcWasmPath() {
+  return getWebIfcWasmCandidates().find((candidate) => fs.existsSync(candidate));
+}
+
+async function copyWasmToTmp(source) {
+  const tmpWebIfcDir = path.join(os.tmpdir(), "web-ifc");
+  const tmpWasmPath = path.join(tmpWebIfcDir, "web-ifc-node.wasm");
+
+  await fs.promises.mkdir(tmpWebIfcDir, { recursive: true });
+  await fs.promises.copyFile(source, tmpWasmPath);
+
+  return tmpWasmPath;
+}
+
+async function ensureWebIfcWasm() {
+  const expectedPath = getExpectedWebIfcWasmPath();
+
+  if (fs.existsSync(expectedPath)) {
+    return expectedPath;
+  }
+
+  const source = getWebIfcWasmCandidates()
+    .filter((candidate) => candidate !== expectedPath)
+    .find((candidate) => fs.existsSync(candidate));
+
+  if (!source) {
+    throw new Error("Não foi encontrado nenhum arquivo WASM do web-ifc. Instale a dependência 'web-ifc'.");
+  }
+
+  try {
+    await fs.promises.mkdir(path.dirname(expectedPath), { recursive: true });
+    await fs.promises.copyFile(source, expectedPath);
+    return expectedPath;
+  } catch (error) {
+    console.warn("[ifc-to-xkt] Não foi possível copiar o WASM para node_modules; usando /tmp.", error);
+    return copyWasmToTmp(source);
+  }
+}
+
+function logWebIfcDiagnostics(wasmPath) {
+  console.log("[ifc-to-xkt] cwd:", process.cwd());
+  console.log("[ifc-to-xkt] node_modules web-ifc existe:", fs.existsSync(path.join(process.cwd(), "node_modules", "web-ifc")));
+  console.log("[ifc-to-xkt] web-ifc-node.wasm existe:", fs.existsSync(getExpectedWebIfcWasmPath()));
+  console.log("[ifc-to-xkt] web-ifc.wasm existe:", fs.existsSync(path.join(process.cwd(), "node_modules", "web-ifc", "web-ifc.wasm")));
+  console.log("[ifc-to-xkt] wasm usado:", wasmPath);
+}
+
+function isWebIfcWasmError(error) {
+  const message = error?.message || String(error || "");
+  return /web-ifc.*wasm|wasm.*web-ifc|web-ifc-node\.wasm|web-ifc\.wasm|failed to asynchronously prepare wasm|ENOENT/i.test(message);
+}
+
+function convertIfcToXkt(inputIfcPath, outputXktPath, wasmPath) {
   return new Promise((resolve, reject) => {
     const converter = findConvertCommand();
     const args = [...converter.args, "-s", inputIfcPath, "-o", outputXktPath];
+    const wasmDir = path.dirname(wasmPath);
     const startedAt = Date.now();
     let stdout = "";
     let stderr = "";
@@ -73,7 +139,13 @@ function convertIfcToXkt(inputIfcPath, outputXktPath) {
 
     const proc = spawn(converter.command, args, {
       cwd: process.cwd(),
-      env: process.env,
+      env: {
+        ...process.env,
+        WEB_IFC_WASM_PATH: wasmDir,
+        WEBIFC_WASM_PATH: wasmDir,
+        WEB_IFC_PATH: wasmDir,
+        NODE_PATH: path.join(process.cwd(), "node_modules")
+      },
       stdio: ["ignore", "pipe", "pipe"]
     });
 
@@ -147,7 +219,14 @@ async function ifcToXktHandler(req, res) {
     const ifcSize = (await fs.promises.stat(inputIfcPath)).size;
     console.log(`[ifc-to-xkt] Tamanho do IFC: ${ifcSize} bytes`);
 
-    await convertIfcToXkt(inputIfcPath, outputXktPath);
+    const wasmPath = await ensureWebIfcWasm();
+    logWebIfcDiagnostics(wasmPath);
+
+    if (!wasmPath) {
+      throw new Error("Arquivo web-ifc-node.wasm não encontrado. Adicione 'web-ifc' nas dependencies do package.json e faça novo deploy.");
+    }
+
+    await convertIfcToXkt(inputIfcPath, outputXktPath, wasmPath);
 
     if (!fs.existsSync(outputXktPath)) {
       throw new Error("A conversão terminou, mas o arquivo XKT não foi criado.");
@@ -181,7 +260,10 @@ async function ifcToXktHandler(req, res) {
   } catch (error) {
     console.error("[ifc-to-xkt] Erro detalhado:", error);
     cleanup([uploadedPath, inputIfcPath, outputXktPath]);
-    sendJson(res, error.statusCode || 500, { error: error.message || "Falha ao converter IFC para XKT." });
+    const message = isWebIfcWasmError(error)
+      ? "Falha na conversão: o arquivo WASM do web-ifc não foi encontrado no servidor. Adicione a dependência web-ifc ao package.json e faça novo deploy na Vercel."
+      : error.message || "Falha ao converter IFC para XKT.";
+    sendJson(res, error.statusCode || 500, { error: message });
   }
 }
 

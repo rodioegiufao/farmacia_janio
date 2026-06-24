@@ -70,8 +70,14 @@ function getSupabaseClient() {
 
 function validateStoragePath(storagePath) {
   const normalized = String(storagePath || "").trim();
-  if (!normalized || normalized.startsWith("/") || normalized.includes("..") || !normalized.toLowerCase().endsWith(".ifc")) {
-    throw new Error("storagePath inválido. Informe um caminho de IFC dentro do bucket ifc-conversions.");
+    if (
+    !normalized ||
+    normalized.startsWith("/") ||
+    normalized.includes("..") ||
+    !normalized.toLowerCase().endsWith(".ifc") ||
+    !/^[a-zA-Z0-9._/-]+$/.test(normalized)
+  ) {
+    throw new Error("storagePath inválido.");
   }
   return normalized;
 }

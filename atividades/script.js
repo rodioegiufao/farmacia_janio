@@ -94,6 +94,7 @@ const campos = {
 
 const filtros = {
   busca: document.getElementById("busca"),
+  data: document.getElementById("filtroData"),
   colaborador: document.getElementById("filtroColaborador"),
   status: document.getElementById("filtroStatus"),
   prioridade: document.getElementById("filtroPrioridade")
@@ -424,6 +425,20 @@ function statusAtualizado(statusInformado, dataPrevista) {
   return statusInformado || "Em progresso";
 }
 
+function atividadeCorrespondeAoDia(atividade, dataSelecionada) {
+  if (!dataSelecionada) return true;
+
+  const dataInicio = atividade.dataInicio || atividade.dataTermino || atividade.dataPrevista;
+  const dataTermino = atividade.dataTermino || atividade.dataInicio || atividade.dataPrevista;
+  if (!dataInicio && !dataTermino) return false;
+
+  if (dataInicio && dataTermino) {
+    return dataInicio <= dataSelecionada && dataSelecionada <= dataTermino;
+  }
+
+  return dataInicio === dataSelecionada || dataTermino === dataSelecionada;
+}
+
 function renderizarTabela() {
   atualizarStatusAtrasadoAutomaticamente();
 
@@ -432,11 +447,12 @@ function renderizarTabela() {
     const textoBusca = `${atividade.obra} ${atividade.trabalhos} ${atividade.observacoes}`.toLowerCase();
 
     const correspondeBusca = !termo || textoBusca.includes(termo);
+    const correspondeData = atividadeCorrespondeAoDia(atividade, filtros.data.value);
     const correspondeColaborador = !filtros.colaborador.value || atividade.colaborador === filtros.colaborador.value;
     const correspondeStatus = !filtros.status.value || atividade.status === filtros.status.value;
     const correspondePrioridade = !filtros.prioridade.value || atividade.prioridade === filtros.prioridade.value;
 
-    return correspondeBusca && correspondeColaborador && correspondeStatus && correspondePrioridade;
+    return correspondeBusca && correspondeData && correspondeColaborador && correspondeStatus && correspondePrioridade;
   });
 
   tabela.innerHTML = "";

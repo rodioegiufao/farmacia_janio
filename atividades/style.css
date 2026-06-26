@@ -170,8 +170,32 @@ button:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0, 0, 0,
 .filters { margin-bottom: 16px; }
 .filters input, .filters select { flex: 1; min-width: 210px; }
 .table-wrapper { overflow: auto; border: 1px solid var(--border-color); border-radius: 12px; }
-.table-limit-info { padding: 12px 14px; border-top: 1px solid var(--border-color); color: var(--accent-light); background: rgba(15, 23, 42, 0.18); font-size: 0.86rem; font-weight: 600; }
+.table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border-color);
+  background: rgba(15, 23, 42, 0.18);
+}
+.table-limit-info { color: var(--accent-light); font-size: 0.86rem; font-weight: 600; }
 .table-limit-info:empty { display: none; }
+.pagination { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.pagination:empty { display: none; }
+.pagination-button {
+  padding: 7px 11px;
+  border: 1px solid var(--border-color);
+  color: var(--text-lighter);
+  background: var(--primary-medium);
+  font-size: 0.8rem;
+}
+.pagination-button.active {
+  color: #fff;
+  border-color: var(--accent-blue);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-light));
+}
+.pagination-button:disabled { cursor: not-allowed; opacity: 0.62; transform: none; box-shadow: none; }
 table { width: 100%; min-width: 1300px; border-collapse: collapse; background: var(--bg-card); }
 th, td { padding: 13px; border-bottom: 1px solid var(--border-color); text-align: left; vertical-align: top; font-size: 0.88rem; }
 th { position: sticky; top: 0; z-index: 1; color: #fff; background: var(--primary-medium); }
@@ -192,7 +216,8 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 @media (max-width: 900px) {
   .dashboard, .form-grid { grid-template-columns: 1fr; }
     .span-2 { grid-column: span 1; }
-    .panel-header, .logo { align-items: flex-start; flex-direction: column; }
+    .panel-header, .logo, .table-footer { align-items: flex-start; flex-direction: column; }
+    .pagination { justify-content: flex-start; }
 }
 
 .auth-panel {

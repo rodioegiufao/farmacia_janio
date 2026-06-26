@@ -54,6 +54,7 @@ const adminLink = document.getElementById("adminLink");
 const form = document.getElementById("atividadeForm");
 const tabela = document.getElementById("atividadesTabela");
 const atividadesLimiteInfo = document.getElementById("atividadesLimiteInfo");
+const atividadesPaginacao = document.getElementById("atividadesPaginacao");
 const btnCancelarEdicao = document.getElementById("btnCancelarEdicao");
 const btnLimparTudo = document.getElementById("btnLimparTudo");
 const btnExportarCSV = document.getElementById("btnExportarCSV");
@@ -72,6 +73,7 @@ let atividadesSemanais = [];
 let carregando = false;
 let carregandoSemanais = false;
 let usuarioAtual = null;
+let paginaAtividadesAtual = 1;
 
 const campos = {
   id: document.getElementById("atividadeId"),
@@ -164,8 +166,14 @@ async function inicializar() {
   sectionTabs.forEach((tab) => tab.addEventListener("click", alternarSecao));
 
   Object.values(filtros).forEach((filtro) => {
-    filtro.addEventListener("input", renderizarTabela);
-    filtro.addEventListener("change", renderizarTabela);
+    filtro.addEventListener("input", () => {
+      paginaAtividadesAtual = 1;
+      renderizarTabela();
+    });
+    filtro.addEventListener("change", () => {
+      paginaAtividadesAtual = 1;
+      renderizarTabela();
+    });
   });
   Object.values(filtrosSemanais).forEach((filtro) => {
     filtro.addEventListener("input", renderizarTabelaSemanal);
@@ -433,6 +441,7 @@ function renderizarTabela() {
 
   tabela.innerHTML = "";
   if (atividadesLimiteInfo) atividadesLimiteInfo.textContent = "";
+  if (atividadesPaginacao) atividadesPaginacao.innerHTML = "";
   
   if (carregando) {
     tabela.innerHTML = `<tr><td colspan="13" class="empty">Carregando atividades do Supabase...</td></tr>`;
@@ -446,14 +455,18 @@ function renderizarTabela() {
     return;
   }
 
-  const listaVisivel = listaFiltrada.slice(0, LIMITE_VISUALIZACAO_ATIVIDADES);
+  const totalPaginas = Math.ceil(listaFiltrada.length / LIMITE_VISUALIZACAO_ATIVIDADES);
+  paginaAtividadesAtual = Math.min(Math.max(paginaAtividadesAtual, 1), totalPaginas);
+  const indiceInicial = (paginaAtividadesAtual - 1) * LIMITE_VISUALIZACAO_ATIVIDADES;
+  const listaVisivel = listaFiltrada.slice(indiceInicial, indiceInicial + LIMITE_VISUALIZACAO_ATIVIDADES);
 
   if (atividadesLimiteInfo) {
-    const totalOculto = listaFiltrada.length - listaVisivel.length;
-    atividadesLimiteInfo.textContent = totalOculto > 0
-      ? `Mostrando as ${listaVisivel.length} primeiras atividades de ${listaFiltrada.length} encontradas. Use os filtros para refinar a visualização.`
-      : `Mostrando ${listaVisivel.length} ${listaVisivel.length === 1 ? "atividade" : "atividades"}.`;
+    const primeiraAtividade = indiceInicial + 1;
+    const ultimaAtividade = indiceInicial + listaVisivel.length;
+    atividadesLimiteInfo.textContent = `Mostrando atividades ${primeiraAtividade} a ${ultimaAtividade} de ${listaFiltrada.length} encontradas.`;
   }
+  
+  renderizarPaginacaoAtividades(totalPaginas);
 
   listaVisivel.forEach((atividade) => {
     const tr = document.createElement("tr");
@@ -483,6 +496,35 @@ function renderizarTabela() {
   atualizarDashboard();
 }
 
+function renderizarPaginacaoAtividades(totalPaginas) {
+  if (!atividadesPaginacao || totalPaginas <= 1) return;
+
+  atividadesPaginacao.innerHTML = "";
+  const botoes = [
+    { texto: "Anterior", pagina: paginaAtividadesAtual - 1, desabilitado: paginaAtividadesAtual === 1 }
+  ];
+
+  for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
+    botoes.push({ texto: String(pagina), pagina, atual: pagina === paginaAtividadesAtual });
+  }
+
+  botoes.push({ texto: "Próxima", pagina: paginaAtividadesAtual + 1, desabilitado: paginaAtividadesAtual === totalPaginas });
+
+  botoes.forEach(({ texto, pagina, atual, desabilitado }) => {
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.textContent = texto;
+    botao.className = atual ? "pagination-button active" : "pagination-button";
+    botao.disabled = desabilitado || atual;
+    botao.setAttribute("aria-label", atual ? `Página ${pagina} atual` : `Ir para página ${pagina}`);
+    if (atual) botao.setAttribute("aria-current", "page");
+    botao.addEventListener("click", () => {
+      paginaAtividadesAtual = pagina;
+      renderizarTabela();
+    });
+    atividadesPaginacao.appendChild(botao);
+  });
+}
 function podeAlterar(atividade) {
   return usuarioAtual?.perfil === "admin" || atividade.usuarioId === usuarioAtual?.id;
 }

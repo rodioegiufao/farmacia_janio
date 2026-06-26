@@ -1031,7 +1031,7 @@ function agruparIndicadoresPorProjetoObra(lista) {
 function obterObrasPegando(lista) {
   const mapa = new Map();
   lista
-    .filter((atividade) => atividade.obra && atividade.status !== "Finalizado")
+    .filter((atividade) => atividade.obra)
     .forEach((atividade) => {
       const obra = atividade.obra.trim();
       const horas = calcularHorasAtividade(atividade);

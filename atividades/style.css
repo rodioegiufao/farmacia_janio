@@ -168,9 +168,8 @@ button:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0, 0, 0,
 .ghost { color: #fff; background: linear-gradient(135deg, var(--error), #fc8181); }
 #btnCancelarEdicao { display: none; }
 .filters { margin-bottom: 16px; }
-.filters input, .filters select, .filter-date { flex: 1; min-width: 210px; }
-.filter-date { gap: 6px; font-size: 0.78rem; font-weight: 600; }
-.filter-date span { color: rgba(226, 232, 240, 0.78); }
+.filter-field { flex: 1; min-width: 210px; gap: 6px; font-size: 0.78rem; font-weight: 600; }
+.filter-field span { color: rgba(226, 232, 240, 0.78); }
 .table-wrapper { overflow: auto; border: 1px solid var(--border-color); border-radius: 12px; }
 .table-footer {
   display: flex;

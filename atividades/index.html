@@ -169,14 +169,26 @@
         </div>
 
         <div class="filters">
-          <input type="search" id="busca" placeholder="Buscar por obra, trabalho ou observação" />
-          <label class="filter-date" for="filtroData">
+          <label class="filter-field" for="busca">
+            <span>Busca</span>
+            <input type="search" id="busca" placeholder="Buscar por obra, trabalho ou observação" />
+          </label>
+          <label class="filter-field" for="filtroData">
             <span>Data da atividade</span>
             <input type="date" id="filtroData" aria-label="Filtrar atividades por data" />
           </label>
-          <select id="filtroColaborador"></select>
-          <select id="filtroStatus"></select>
-          <select id="filtroPrioridade"></select>
+          <label class="filter-field" for="filtroColaborador">
+            <span>Colaborador</span>
+            <select id="filtroColaborador"></select>
+          </label>
+          <label class="filter-field" for="filtroStatus">
+            <span>Status</span>
+            <select id="filtroStatus"></select>
+          </label>
+          <label class="filter-field" for="filtroPrioridade">
+            <span>Prioridade</span>
+            <select id="filtroPrioridade"></select>
+          </label>
         </div>
 
         <div class="table-wrapper">

@@ -1,4 +1,4 @@
-const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Estagiário"];
+const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const prioridades = ["P0", "P1", "P2", "P3"];
 const coresPrioridade = {
   P0: "#48bb78",

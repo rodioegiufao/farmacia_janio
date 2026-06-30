@@ -1,5 +1,14 @@
 const SUPABASE_BUCKET = "ifc-conversions";
 
+function normalizeSupabaseProjectUrl(value) {
+  try {
+    const url = new URL(String(value || "").trim());
+    return `${url.protocol}//${url.host}`;
+  } catch (error) {
+    return String(value || "").trim();
+  }
+}
+
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -13,7 +22,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseUrl = normalizeSupabaseProjectUrl(process.env.SUPABASE_URL);
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {

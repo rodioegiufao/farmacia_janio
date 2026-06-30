@@ -57,8 +57,17 @@ function readJsonBody(req) {
   });
 }
 
+function normalizeSupabaseProjectUrl(value) {
+  try {
+    const url = new URL(String(value || "").trim());
+    return `${url.protocol}//${url.host}`;
+  } catch (error) {
+    return String(value || "").trim();
+  }
+}
+
 function getSupabaseClient() {
-  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseUrl = normalizeSupabaseProjectUrl(process.env.SUPABASE_URL);
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !serviceRoleKey) {

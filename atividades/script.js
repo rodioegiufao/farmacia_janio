@@ -918,11 +918,16 @@ function obterIntervaloDashboard() {
   const inicioHoje = new Date(hoje);
   inicioHoje.setHours(0, 0, 0, 0);
 
-  if (filtrosDashboard.periodo.value === "semana-atual") {
+  if (["semana-atual", "semana-anterior"].includes(filtrosDashboard.periodo.value)) {
     const inicio = new Date(inicioHoje);
     const diaSemana = inicio.getDay();
     const diasDesdeSegunda = diaSemana === 0 ? 6 : diaSemana - 1;
     inicio.setDate(inicio.getDate() - diasDesdeSegunda);
+    
+    if (filtrosDashboard.periodo.value === "semana-anterior") {
+      inicio.setDate(inicio.getDate() - 7);
+    }
+    
     const fim = new Date(inicio);
     fim.setDate(fim.getDate() + 6);
     fim.setHours(23, 59, 59, 999);
@@ -1353,20 +1358,21 @@ function dataDentroDoIntervalo(data, intervalo) {
 }
 
 function filtrarAtividadesSemanaisPorPeriodo(lista) {
-  if (filtrosDashboard.periodo.value !== "semana-atual") return lista;
+  if (!["semana-atual", "semana-anterior"].includes(filtrosDashboard.periodo.value)) return lista;
 
-  const hoje = new Date();
-  hoje.setHours(12, 0, 0, 0);
+  const periodo = obterIntervaloDashboard();
+  const dataReferencia = new Date(periodo.inicio);
+  dataReferencia.setHours(12, 0, 0, 0);
   const filtradas = lista.filter((atividadeSemanal) => {
     const intervaloSemana = extrairIntervaloSemana(atividadeSemanal.semana);
-    return intervaloSemana ? dataDentroDoIntervalo(hoje, intervaloSemana) : false;
+    return intervaloSemana ? dataDentroDoIntervalo(dataReferencia, intervaloSemana) : false;
   });
 
   return filtradas.length ? filtradas : lista;
 }
 
 function obterTituloRelatorioWord(atividadesSemanaisRelatorio) {
-  if (filtrosDashboard.periodo.value === "semana-atual") {
+  if (["semana-atual", "semana-anterior"].includes(filtrosDashboard.periodo.value)) {
     const semanas = [...new Set((atividadesSemanaisRelatorio || []).map((item) => item.semana).filter(Boolean))];
     return semanas.length ? semanas.join("; ") : "Relatório semanal de acompanhamento das atividades do setor.";
   }

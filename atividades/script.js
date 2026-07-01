@@ -114,6 +114,16 @@ const filtrosSemanais = {
   semana: document.getElementById("filtroSemana")
 };
 
+const filtrosCalendario = {
+  dataReferencia: document.getElementById("calendarioDataReferencia"),
+  colaborador: document.getElementById("calendarioColaborador"),
+  status: document.getElementById("calendarioStatus")
+};
+const btnCalendarioAnterior = document.getElementById("btnCalendarioAnterior");
+const btnCalendarioProximo = document.getElementById("btnCalendarioProximo");
+const calendarioResumo = document.getElementById("calendarioResumo");
+const calendarioGrade = document.getElementById("calendarioGrade");
+const calendarioLegenda = document.querySelector(".calendar-legend");
 const filtrosDashboard = {
   periodo: document.getElementById("dashboardPeriodo"),
   dataInicio: document.getElementById("dashboardDataInicio"),
@@ -154,6 +164,9 @@ async function inicializar() {
   preencherSelect(filtrosDashboard.prioridade, prioridades, "Todas as prioridades");
   preencherSelect(filtrosDashboard.projeto, projetos, "Todos os projetos");
   preencherSelect(filtrosDashboard.obra, [], "Todas as obras");
+  preencherSelect(filtrosCalendario.colaborador, colaboradores, "Todos os colaboradores");
+  preencherSelect(filtrosCalendario.status, statusLista, "Todos os status");
+  if (filtrosCalendario.dataReferencia && !filtrosCalendario.dataReferencia.value) filtrosCalendario.dataReferencia.value = obterDataIsoLocal(new Date());
 
   form.addEventListener("submit", salvarAtividade);
   btnCancelarEdicao.addEventListener("click", cancelarEdicao);
@@ -184,6 +197,12 @@ async function inicializar() {
     filtro.addEventListener("input", atualizarDashboard);
     filtro.addEventListener("change", atualizarDashboard);
   });
+  Object.values(filtrosCalendario).forEach((filtro) => {
+    filtro?.addEventListener("input", renderizarCalendario);
+    filtro?.addEventListener("change", renderizarCalendario);
+  });
+  btnCalendarioAnterior?.addEventListener("click", () => navegarSemanaCalendario(-1));
+  btnCalendarioProximo?.addEventListener("click", () => navegarSemanaCalendario(1));
   if (usuarioAtual) {
     await carregarAtividades();
     await carregarAtividadesSemanais();
@@ -204,6 +223,7 @@ function alternarSecao(event) {
   });
 
   if (targetId === "dashboardSection") atualizarDashboard();
+  if (targetId === "calendarioSection") renderizarCalendario();
   if (targetId === "semanaSection" && usuarioAtual && !atividadesSemanais.length) carregarAtividadesSemanais();
 }
 
@@ -211,7 +231,8 @@ function alternarAba(aba) {
   const mapa = {
     atividade: "atividadeSection",
     dashboard: "dashboardSection",
-    semana: "semanaSection"
+    semana: "semanaSection",
+    calendario: "calendarioSection"
   };
   const targetId = mapa[aba];
   const tab = targetId ? document.querySelector(`[data-section-target="${targetId}"]`) : null;
@@ -404,6 +425,7 @@ async function salvarAtividade(event) {
     document.getElementById("btnSalvar").textContent = "Salvar atividade";
     atualizarOpcoesDashboard();
     renderizarTabela();
+    renderizarCalendario();
   } catch (erro) {
     alert(`Não foi possível salvar no Supabase: ${erro.message}`);
   } finally {
@@ -583,6 +605,7 @@ async function excluirAtividade(id) {
     atividades = atividades.filter((item) => item.id !== id);
     atualizarOpcoesDashboard();
     renderizarTabela();
+    renderizarCalendario();
   } catch (erro) {
     alert(`Não foi possível excluir no Supabase: ${erro.message}`);
   }
@@ -605,6 +628,7 @@ async function limparTodosRegistros() {
     atividades = [];
     atualizarOpcoesDashboard();
     renderizarTabela();
+    renderizarCalendario();
   } catch (erro) {
     alert(`Não foi possível limpar os registros no Supabase: ${erro.message}`);
   }
@@ -878,6 +902,120 @@ function setFormSemanalDisabled(disabled) {
   formSemanal.querySelectorAll("button, input, select, textarea").forEach((elemento) => {
     elemento.disabled = disabled;
   });
+}
+function obterDataIsoLocal(data) {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+}
+
+function obterInicioSemana(dataReferencia = new Date()) {
+  const inicio = new Date(dataReferencia);
+  inicio.setHours(0, 0, 0, 0);
+  const diaSemana = inicio.getDay();
+  const diasDesdeSegunda = diaSemana === 0 ? 6 : diaSemana - 1;
+  inicio.setDate(inicio.getDate() - diasDesdeSegunda);
+  return inicio;
+}
+
+function obterDiasSemanaCalendario() {
+  const referencia = filtrosCalendario.dataReferencia?.value
+    ? new Date(`${filtrosCalendario.dataReferencia.value}T00:00:00`)
+    : new Date();
+  const inicio = obterInicioSemana(referencia);
+  return Array.from({ length: 7 }, (_, indice) => {
+    const data = new Date(inicio);
+    data.setDate(inicio.getDate() + indice);
+    return data;
+  });
+}
+
+function navegarSemanaCalendario(direcao) {
+  const atual = filtrosCalendario.dataReferencia?.value
+    ? new Date(`${filtrosCalendario.dataReferencia.value}T00:00:00`)
+    : new Date();
+  atual.setDate(atual.getDate() + direcao * 7);
+  filtrosCalendario.dataReferencia.value = obterDataIsoLocal(atual);
+  renderizarCalendario();
+}
+
+function atividadeCruzaDia(atividade, dataIso) {
+  const intervalo = obterIntervaloAtividade(atividade);
+  if (!intervalo) return atividade.dataInicio === dataIso;
+  const inicioDia = new Date(`${dataIso}T00:00:00`);
+  const fimDia = new Date(`${dataIso}T23:59:59.999`);
+  return intervalo.inicio <= fimDia && intervalo.fim >= inicioDia;
+}
+
+function obterAtividadesCalendario(dias) {
+  const inicioIso = obterDataIsoLocal(dias[0]);
+  const fimIso = obterDataIsoLocal(dias[dias.length - 1]);
+  return atividades.filter((atividade) => {
+    const correspondeColaborador = !filtrosCalendario.colaborador?.value || atividade.colaborador === filtrosCalendario.colaborador.value;
+    const correspondeStatus = !filtrosCalendario.status?.value || atividade.status === filtrosCalendario.status.value;
+    const cruzaSemana = (atividade.dataInicio && atividade.dataInicio <= fimIso && (atividade.dataTermino || atividade.dataInicio) >= inicioIso)
+      || dias.some((dia) => atividadeCruzaDia(atividade, obterDataIsoLocal(dia)));
+    return correspondeColaborador && correspondeStatus && cruzaSemana;
+  });
+}
+
+function renderizarCalendario() {
+  if (!calendarioGrade || !calendarioResumo) return;
+  const dias = obterDiasSemanaCalendario();
+  const lista = obterAtividadesCalendario(dias);
+  const horas = Array.from({ length: 24 }, (_, hora) => hora);
+  const totalHoras = calcularHorasTrabalhadas(lista);
+  const colaboradoresAtivos = new Set(lista.map((atividade) => atividade.colaborador).filter(Boolean)).size;
+
+  calendarioResumo.innerHTML = [
+    criarMetricCard("Atividades na semana", lista.length, `${formatarData(obterDataIsoLocal(dias[0]))} a ${formatarData(obterDataIsoLocal(dias[6]))}`, "fa-list-check"),
+    criarMetricCard("Colaboradores ativos", colaboradoresAtivos, "Com registros no calendário", "fa-users"),
+    criarMetricCard("Horas registradas", formatarHoras(totalHoras), "Soma dos intervalos lançados", "fa-clock")
+  ].join("");
+
+  if (calendarioLegenda) {
+    calendarioLegenda.innerHTML = statusLista.map((status) => `<span><i class="calendar-legend-dot ${classeStatus(status)}"></i>${escapeHtml(status)}</span>`).join("");
+  }
+
+  calendarioGrade.innerHTML = `
+    <div class="calendar-corner">Hora</div>
+    ${dias.map((dia) => `<div class="calendar-day-header"><strong>${escapeHtml(formatarDiaSemana(dia))}</strong><span>${formatarData(obterDataIsoLocal(dia))}</span></div>`).join("")}
+    ${horas.map((hora) => `
+      <div class="calendar-hour">${String(hora).padStart(2, "0")}:00</div>
+      ${dias.map((dia) => criarCelulaCalendario(dia, hora, lista)).join("")}
+    `).join("")}
+  `;
+}
+
+function formatarDiaSemana(data) {
+  return new Intl.DateTimeFormat("pt-BR", { weekday: "short" }).format(data).replace(".", "");
+}
+
+function criarCelulaCalendario(dia, hora, lista) {
+  const dataIso = obterDataIsoLocal(dia);
+  const itens = lista.filter((atividade) => atividadeOcupaHora(atividade, dataIso, hora));
+  return `<div class="calendar-cell">${itens.map(criarEventoCalendario).join("")}</div>`;
+}
+
+function atividadeOcupaHora(atividade, dataIso, hora) {
+  const intervalo = obterIntervaloAtividade(atividade);
+  if (!intervalo) return atividade.dataInicio === dataIso && Number((atividade.horaInicio || "00:00").slice(0, 2)) === hora;
+  const inicioHora = new Date(`${dataIso}T${String(hora).padStart(2, "0")}:00:00`);
+  const fimHora = new Date(inicioHora);
+  fimHora.setHours(fimHora.getHours() + 1);
+  return intervalo.inicio < fimHora && intervalo.fim > inicioHora;
+}
+
+function criarEventoCalendario(atividade) {
+  return `
+    <article class="calendar-event ${classeStatus(atividade.status)}" title="${escapeHtml(obterTituloEventoCalendario(atividade))}">
+      <strong>${escapeHtml(atividade.colaborador || "Sem colaborador")}</strong>
+      <span>${escapeHtml(atividade.trabalhos || atividade.projeto || "Atividade")}</span>
+      <small>${escapeHtml(formatarDataHora(atividade.dataInicio, atividade.horaInicio))} → ${escapeHtml(formatarDataHora(atividade.dataTermino, atividade.horaTermino))}</small>
+    </article>
+  `;
+}
+
+function obterTituloEventoCalendario(atividade) {
+  return `${atividade.colaborador || "Sem colaborador"} - ${atividade.trabalhos || "Atividade"} (${atividade.status || "Sem status"})`;
 }
 function atualizarDashboard() {
   const listaDashboard = filtrarAtividadesDashboard();
@@ -1455,6 +1593,7 @@ async function carregarAtividades() {
     renderizarTabela();
     atividades = await fetch(API_URL).then(validarResposta);
     atualizarOpcoesDashboard();
+    renderizarCalendario();
   } catch (erro) {
     alert(`Não foi possível carregar as atividades do Supabase: ${erro.message}`);
     atividades = [];

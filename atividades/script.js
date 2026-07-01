@@ -910,9 +910,7 @@ function obterDataIsoLocal(data) {
 function obterInicioSemana(dataReferencia = new Date()) {
   const inicio = new Date(dataReferencia);
   inicio.setHours(0, 0, 0, 0);
-  const diaSemana = inicio.getDay();
-  const diasDesdeSegunda = diaSemana === 0 ? 6 : diaSemana - 1;
-  inicio.setDate(inicio.getDate() - diasDesdeSegunda);
+  inicio.setDate(inicio.getDate() - inicio.getDay());
   return inicio;
 }
 
@@ -921,6 +919,7 @@ function obterDiasSemanaCalendario() {
     ? new Date(`${filtrosCalendario.dataReferencia.value}T00:00:00`)
     : new Date();
   const inicio = obterInicioSemana(referencia);
+  if (filtrosCalendario.dataReferencia) filtrosCalendario.dataReferencia.value = obterDataIsoLocal(inicio);
   return Array.from({ length: 7 }, (_, indice) => {
     const data = new Date(inicio);
     data.setDate(inicio.getDate() + indice);
@@ -932,8 +931,9 @@ function navegarSemanaCalendario(direcao) {
   const atual = filtrosCalendario.dataReferencia?.value
     ? new Date(`${filtrosCalendario.dataReferencia.value}T00:00:00`)
     : new Date();
-  atual.setDate(atual.getDate() + direcao * 7);
-  filtrosCalendario.dataReferencia.value = obterDataIsoLocal(atual);
+  const inicio = obterInicioSemana(atual);
+  inicio.setDate(inicio.getDate() + direcao * 7);
+  filtrosCalendario.dataReferencia.value = obterDataIsoLocal(inicio);
   renderizarCalendario();
 }
 

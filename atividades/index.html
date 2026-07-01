@@ -75,6 +75,9 @@
       <button type="button" class="tab-button" id="abaSemana" data-section-target="semanaSection" aria-controls="semanaSection" aria-selected="false">
         <i class="fas fa-calendar-week"></i> Semana
       </button>
+      <button type="button" class="tab-button" id="abaCalendario" data-section-target="calendarioSection" aria-controls="calendarioSection" aria-selected="false">
+        <i class="fas fa-calendar-days"></i> Calendário
+      </button>
     </nav>
 
     <section class="panel" id="atividadeSection" data-section-panel="atividadeSection">
@@ -290,6 +293,39 @@
       <div class="report-chart-buffer" aria-hidden="true">
         <canvas id="chartAtividadesProjetoRelatorio" width="1200" height="700"></canvas>
         <canvas id="chartHorasProjetoRelatorio" width="1200" height="700"></canvas>
+      </div>
+    </section>
+    <section class="panel calendar-panel" id="calendarioSection" data-section-panel="calendarioSection" aria-label="Calendário de comportamento por horário" hidden>
+      <div class="calendar-hero">
+        <div>
+          <span class="weekly-dashboard-kicker">Visão por horário</span>
+          <h2>Calendário de Comportamento dos Colaboradores</h2>
+          <p>Visualize, em grade semanal, como cada colaborador distribuiu suas atividades ao longo dos horários.</p>
+        </div>
+        <i class="fas fa-calendar-days" aria-hidden="true"></i>
+      </div>
+
+      <div class="calendar-toolbar" aria-label="Controles do calendário">
+        <button type="button" class="secondary" id="btnCalendarioAnterior" aria-label="Semana anterior"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
+        <label>
+          Semana de referência
+          <input type="date" id="calendarioDataReferencia" />
+        </label>
+        <button type="button" class="secondary" id="btnCalendarioProximo" aria-label="Próxima semana"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+        <label>
+          Colaborador
+          <select id="calendarioColaborador"></select>
+        </label>
+        <label>
+          Status
+          <select id="calendarioStatus"></select>
+        </label>
+      </div>
+
+      <div id="calendarioResumo" class="calendar-summary" aria-live="polite"></div>
+      <div class="calendar-legend" aria-label="Legenda de status"></div>
+      <div class="calendar-grid-wrapper">
+        <div id="calendarioGrade" class="calendar-grid" aria-live="polite"></div>
       </div>
     </section>
     <section class="panel weekly-panel" id="semanaSection" data-section-panel="semanaSection" aria-label="Atividades da semana" hidden>

@@ -961,14 +961,15 @@ function renderizarCalendario() {
   if (!calendarioGrade || !calendarioResumo) return;
   const dias = obterDiasSemanaCalendario();
   const lista = obterAtividadesCalendario(dias);
-  const horas = Array.from({ length: 24 }, (_, hora) => hora);
+  const horas = obterHorasCalendario(dias, lista);
   const totalHoras = calcularHorasTrabalhadas(lista);
   const colaboradoresAtivos = new Set(lista.map((atividade) => atividade.colaborador).filter(Boolean)).size;
 
   calendarioResumo.innerHTML = [
     criarMetricCard("Atividades na semana", lista.length, `${formatarData(obterDataIsoLocal(dias[0]))} a ${formatarData(obterDataIsoLocal(dias[6]))}`, "fa-list-check"),
     criarMetricCard("Colaboradores ativos", colaboradoresAtivos, "Com registros no calendário", "fa-users"),
-    criarMetricCard("Horas registradas", formatarHoras(totalHoras), "Soma dos intervalos lançados", "fa-clock")
+    criarMetricCard("Horas registradas", formatarHoras(totalHoras), "Soma dos intervalos lançados", "fa-clock"),
+    criarMetricCard("Faixa exibida", formatarFaixaHorasCalendario(horas), "Somente horários com trabalho", "fa-business-time")
   ].join("");
 
   if (calendarioLegenda) {
@@ -978,11 +979,28 @@ function renderizarCalendario() {
   calendarioGrade.innerHTML = `
     <div class="calendar-corner">Hora</div>
     ${dias.map((dia) => `<div class="calendar-day-header"><strong>${escapeHtml(formatarDiaSemana(dia))}</strong><span>${formatarData(obterDataIsoLocal(dia))}</span></div>`).join("")}
-    ${horas.map((hora) => `
+    ${horas.length ? horas.map((hora) => `
       <div class="calendar-hour">${String(hora).padStart(2, "0")}:00</div>
       ${dias.map((dia) => criarCelulaCalendario(dia, hora, lista)).join("")}
-    `).join("")}
+    `).join("") : `<div class="calendar-empty-hours">Nenhum horário trabalhado encontrado para os filtros selecionados.</div>`}
   `;
+}
+
+function obterHorasCalendario(dias, lista) {
+  if (!lista.length) return [];
+  return Array.from({ length: 24 }, (_, hora) => hora).filter((hora) =>
+    dias.some((dia) => {
+      const dataIso = obterDataIsoLocal(dia);
+      return lista.some((atividade) => atividadeOcupaHora(atividade, dataIso, hora));
+    })
+  );
+}
+
+function formatarFaixaHorasCalendario(horas) {
+  if (!horas.length) return "Sem registros";
+  const inicio = horas[0];
+  const fim = horas[horas.length - 1] + 1;
+  return `${String(inicio).padStart(2, "0")}h às ${String(fim).padStart(2, "0")}h`;
 }
 
 function formatarDiaSemana(data) {

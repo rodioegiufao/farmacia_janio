@@ -111,3 +111,22 @@ textarea { resize: vertical; min-height: 104px; }
 
 @media (max-width: 980px) { .calculator-layout { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .container { padding: 14px; } .header, .card { padding: 1.2rem; } .form-grid, .metrics-grid { grid-template-columns: 1fr; } .button-row > * { width: 100%; } .mesh-visual { min-height: 220px; padding: 1rem; } }
+.section-heading { margin: 1.5rem 0 .5rem; }
+.section-heading p { opacity: .82; }
+.calculation-memory { margin: 1.5rem 0; padding: 1rem; border: 1px solid var(--border-color); border-radius: 12px; background: rgba(255,255,255,.035); }
+.calculation-memory h3 { margin-bottom: .75rem; }
+.calculation-memory p { margin-bottom: .65rem; }
+.metric:last-child { grid-column: 1 / -1; }
+.mesh-visual { position: relative; margin: 2.5rem auto 3rem; padding: 2.2rem; }
+.mesh-label { position: absolute; font-size: .78rem; font-weight: 700; color: var(--text-lighter); background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 999px; padding: .2rem .55rem; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+.mesh-label-length { left: 50%; bottom: -2.3rem; transform: translateX(-50%); }
+.mesh-label-width { right: -3.2rem; top: 50%; transform: translateY(-50%) rotate(90deg); }
+.mesh-label-x { left: 50%; top: .35rem; transform: translateX(-50%); }
+.mesh-label-y { left: .35rem; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+.mesh-label-x1 { left: .35rem; bottom: .35rem; }
+.mesh-label-y1 { right: .35rem; top: .35rem; }
+
+@media (max-width: 640px) {
+    .mesh-label { font-size: .68rem; }
+    .mesh-label-width { right: -2.75rem; }
+}

@@ -994,11 +994,11 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = [], buildingLoadRows =
             <Row ss:StyleID="Header">
                 <Cell><Data ss:Type="String">ID</Data></Cell>
                 <Cell><Data ss:Type="String">Ponto</Data></Cell>
+                <Cell><Data ss:Type="String">Circuito</Data></Cell>
+                <Cell><Data ss:Type="String">Quadro</Data></Cell>
                 <Cell><Data ss:Type="String">Potência (W)</Data></Cell>
                 <Cell><Data ss:Type="String">Quantidade</Data></Cell>
                 <Cell><Data ss:Type="String">Carga total (W)</Data></Cell>
-                <Cell><Data ss:Type="String">Circuito</Data></Cell>
-                <Cell><Data ss:Type="String">Quadro</Data></Cell>
             </Row>
             ${buildingLoadExcelRows}
             <Row ss:StyleID="TotalRow">

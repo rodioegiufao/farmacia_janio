@@ -1106,7 +1106,21 @@ function formatModelUploadDate(date) {
 }
 
 function getModelUploadDateCacheKey(model) {
-    return model?.src || model?.id || "";
+    return model?.uploadDateSrc || model?.src || model?.id || "";
+}
+
+function getModelUploadDateRequestUrl(model, cacheKey) {
+    const requestUrl = model?.uploadDateSrc || model?.src || "";
+
+    if (typeof requestUrl === "string" && /^(?:https?:|\/|blob:)/i.test(requestUrl)) {
+        return requestUrl;
+    }
+
+    if (typeof cacheKey === "string" && /^(?:https?:|\/|blob:)/i.test(cacheKey)) {
+        return cacheKey;
+    }
+
+    return "";
 }
 
 async function fetchModelUploadDate(model) {
@@ -1118,7 +1132,18 @@ async function fetchModelUploadDate(model) {
     modelUploadDateCache.set(cacheKey, MODEL_UPLOAD_DATE_LOADING_TEXT);
 
     try {
-        const response = await fetch(model.src || cacheKey, { method: "HEAD", cache: "no-store" });
+        const requestUrl = getModelUploadDateRequestUrl(model, cacheKey);
+
+        if (!requestUrl || requestUrl.startsWith("blob:")) {
+            modelUploadDateCache.set(cacheKey, "Data de upload indisponível");
+            scheduleExplorerRefresh(0);
+            return modelUploadDateCache.get(cacheKey) || null;
+        }
+
+        const response = await fetch(requestUrl, { method: "HEAD", cache: "no-store" });
+        if (!response.ok) {
+            throw new Error(`Resposta HTTP ${response.status} ao consultar ${requestUrl}`);
+        }
         const lastModified = response.headers.get("last-modified");
         const formattedDate = lastModified ? formatModelUploadDate(new Date(lastModified)) : null;
         modelUploadDateCache.set(cacheKey, formattedDate || "Data de upload indisponível");

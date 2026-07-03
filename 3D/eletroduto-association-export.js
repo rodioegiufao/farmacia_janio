@@ -36,8 +36,8 @@ export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStat
             const rowsAboveOccupancyLimit = rows.filter((row) => Number(row?.occupancyRate) > 0.4);
             storeOccupancyAnnotationState(rowsAboveOccupancyLimit);
             occupancyLimitAnnotationsController.syncAnnotations(rowsAboveOccupancyLimit);
-            const quadroAnnotationRows = collectQuadroAnnotationRows(viewer);
             const buildingLoadRows = collectBuildingLoadRows(viewer);
+            const quadroAnnotationRows = collectQuadroAnnotationRows(viewer, buildingLoadRows);
             downloadRowsAsExcel(rows, quadroAnnotationRows, buildingLoadRows);
             notify(setSearchStatus, `Relatório gerado com ${rows.length} eletroduto(s) e ${buildingLoadRows.length} carga(s).`, false);
         } catch (error) {
@@ -897,6 +897,7 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = [], buildingLoadRows =
             <Cell><Data ss:Type="String">${escapeXml(row.padraoProtecoes || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.esquema || "-")}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.tensao || "-")}</Data></Cell>
+            <Cell><Data ss:Type="Number">${formatSpreadsheetNumber(row.cargaTotalW)}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.protecaoPeca || "-")}</Data></Cell>
             <Cell><Data ss:Type="Number">${row.espacosFaltantes || 0}</Data></Cell>
             <Cell><Data ss:Type="String">${escapeXml(row.tamanhoQuadro || "-")}</Data></Cell>
@@ -979,6 +980,7 @@ function downloadRowsAsExcel(rows, quadroAnnotationRows = [], buildingLoadRows =
                 <Cell><Data ss:Type="String">Padrão das proteções</Data></Cell>
                 <Cell><Data ss:Type="String">Esquema</Data></Cell>
                 <Cell><Data ss:Type="String">Tensão</Data></Cell>
+                <Cell><Data ss:Type="String">Carga total (W)</Data></Cell>
                 <Cell><Data ss:Type="String">Proteção - Peça</Data></Cell>
                 <Cell><Data ss:Type="String">Espaço(s) faltante(s)</Data></Cell>
                 <Cell><Data ss:Type="String">Tamanho do quadro</Data></Cell>
@@ -1086,9 +1088,10 @@ function storeOccupancyAnnotationState(rowsAboveOccupancyLimit) {
     window.rowsComAnotacao = rows;
 }
 
-function collectQuadroAnnotationRows(viewer) {
+function collectQuadroAnnotationRows(viewer, buildingLoadRows = []) {
     const metaObjects = Object.values(viewer?.metaScene?.metaObjects || {});
     const targetTypes = new Set(["ifcelectricdistributionboard", "ifcflowfitting"]);
+    const buildingLoadTotalByQuadro = calculateBuildingLoadTotalByQuadro(buildingLoadRows);
 
     return metaObjects
         .filter((metaObject) => targetTypes.has(normalizeLabel(metaObject?.type)))
@@ -1109,6 +1112,7 @@ function collectQuadroAnnotationRows(viewer) {
                 padraoProtecoes: getAltoQiBuilderValue(metaObject, ["Padrão das proteções", "Padrao das protecoes"]),
                 esquema: getAltoQiBuilderValue(metaObject, ["Esquema"]),
                 tensao: getAltoQiBuilderValue(metaObject, ["Tensão", "Tensao"]),
+                cargaTotalW: getBuildingLoadTotalForQuadro(buildingLoadTotalByQuadro, metaObject),
                 protecaoPeca: getAltoQiBuilderValue(metaObject, ["Proteção - Peça", "Protecao - Peca"]),
                 espacosFaltantes,
                 tamanhoQuadro: Number.isFinite(tamanhoQuadro) ? `${tamanhoQuadro} polos` : "-",
@@ -1119,6 +1123,43 @@ function collectQuadroAnnotationRows(viewer) {
         });
 }
 
+function calculateBuildingLoadTotalByQuadro(buildingLoadRows = []) {
+    return buildingLoadRows.reduce((totalsByQuadro, row) => {
+        const quadroKey = normalizeQuadroReference(row?.quadro);
+        const totalPowerW = formatSpreadsheetNumber(row?.totalPowerW);
+
+        if (quadroKey && totalPowerW > 0) {
+            totalsByQuadro.set(quadroKey, (totalsByQuadro.get(quadroKey) || 0) + totalPowerW);
+        }
+
+        return totalsByQuadro;
+    }, new Map());
+}
+
+function getBuildingLoadTotalForQuadro(buildingLoadTotalByQuadro, metaObject) {
+    const keys = [
+        metaObject?.name,
+        getAltoQiBuilderValue(metaObject, ["Quadro"]),
+        metaObject?.id,
+        metaObject?.sceneObjectId
+    ].map(normalizeQuadroReference).filter(Boolean);
+
+    const matchingKey = keys.find((key) => buildingLoadTotalByQuadro.has(key));
+    if (!matchingKey) {
+        return 0;
+    }
+
+    return roundToTwoDecimals(buildingLoadTotalByQuadro.get(matchingKey) || 0);
+}
+
+function normalizeQuadroReference(value) {
+    const normalized = normalizeLabel(value)
+        .replace(/\s+/g, " ")
+        .replace(/\s*[-–—:]\s*/g, "-")
+        .trim();
+
+    return normalized === "-" ? "" : normalized;
+}
 function getAltoQiBuilderValue(metaObject, names = []) {
     const altoQiBuilderSet = getPropertySetByName(metaObject, "AltoQi_Builder");
     const property = findPropertyByNames(altoQiBuilderSet, names);

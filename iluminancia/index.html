@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Pontos de Iluminância</title>
+    <meta name="description" content="Calcule a quantidade mínima de pontos de verificação de iluminância conforme o critério de malha da ABNT NBR ISO/CIE 8995-1:2013.">
+    <link rel="stylesheet" href="/iluminancia/style.css">
+    <link rel="stylesheet" href="/styles/user-menu.css">
+    <link rel="icon" href="/images/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
+    <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
+    <script src="/js/auth-guard.js"></script>
+</head>
+<body>
+    <div id="theme-selector" class="theme-selector">
+        <div class="theme-selector-content">
+            <div class="theme-logo">Calculadora de Iluminância</div>
+            <div class="theme-controls">
+                <div class="user-menu" id="userMenu" hidden>
+                    <button type="button" class="user-menu-trigger" id="userMenuTrigger" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu do usuário">
+                        <span id="usuarioIniciais" class="user-avatar" aria-hidden="true"></span>
+                    </button>
+                    <div class="user-menu-panel" id="userMenuPanel" role="menu" hidden>
+                        <div class="user-menu-profile">
+                            <span id="usuarioIniciaisMenu" class="user-avatar user-avatar-large" aria-hidden="true"></span>
+                            <div>
+                                <strong id="usuarioLogado" class="logged-user"></strong>
+                                <small id="usuarioPerfil"></small>
+                            </div>
+                        </div>
+                        <a href="/admin/" class="user-menu-item" id="adminLink" role="menuitem" hidden>Administração</a>
+                        <button type="button" class="user-menu-item" id="btnPerfil" role="menuitem">Perfil</button>
+                        <button type="button" class="user-menu-item" id="btnLogout" role="menuitem">Sair</button>
+                    </div>
+                </div>
+                <label class="theme-switch">
+                    <input type="checkbox" id="theme-toggle">
+                    <span class="theme-slider">
+                        <span class="theme-icon sun">☀️</span>
+                        <span class="theme-icon moon">🌙</span>
+                    </span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <p class="eyebrow">Ferramentas de engenharia elétrica</p>
+                <h1>💡 Calculadora de Pontos de Iluminância</h1>
+                <p>Determine a quantidade mínima de pontos de verificação de iluminância conforme o critério de malha da ABNT NBR ISO/CIE 8995-1:2013.</p>
+            </div>
+        </header>
+
+        <main class="calculator-layout">
+            <section class="card form-card" aria-labelledby="form-title">
+                <div class="card-header">
+                    <h2 id="form-title">Dados do ambiente</h2>
+                    <p>Informe as dimensões em metros. Comprimento e largura são obrigatórios.</p>
+                </div>
+
+                <form id="iluminanciaForm" novalidate>
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label for="nomeAmbiente">Nome do ambiente</label>
+                            <input type="text" id="nomeAmbiente" name="nomeAmbiente" placeholder="Ex.: Sala de aula 01">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="comprimento">Comprimento do ambiente (m) <span>*</span></label>
+                            <input type="text" inputmode="decimal" id="comprimento" name="comprimento" placeholder="Ex.: 10,00" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="largura">Largura do ambiente (m) <span>*</span></label>
+                            <input type="text" inputmode="decimal" id="largura" name="largura" placeholder="Ex.: 6,00" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="alturaPlano">Altura do plano de trabalho (m)</label>
+                            <input type="text" inputmode="decimal" id="alturaPlano" name="alturaPlano" placeholder="Ex.: 0,75">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="tipoAmbiente">Tipo de ambiente</label>
+                            <input type="text" id="tipoAmbiente" name="tipoAmbiente" placeholder="Ex.: Escritório, sala técnica">
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="observacoes">Observações</label>
+                            <textarea id="observacoes" name="observacoes" rows="4" placeholder="Inclua informações complementares do levantamento, se necessário."></textarea>
+                        </div>
+                    </div>
+
+                    <div id="mensagemErro" class="error-message" role="alert" hidden></div>
+
+                    <div class="button-row">
+                        <button type="submit" class="primary-button">Calcular pontos</button>
+                        <button type="reset" class="secondary-button" id="limparBtn">Limpar</button>
+                        <a href="/" class="link-button">Voltar ao início</a>
+                    </div>
+                </form>
+            </section>
+
+            <section class="card result-card" id="resultadoCard" hidden aria-live="polite">
+                <div class="card-header">
+                    <h2>Resultado do cálculo</h2>
+                    <p id="resumoResultado"></p>
+                </div>
+
+                <div class="metrics-grid" id="metricasResultado"></div>
+
+                <div class="technical-note">
+                    <strong>Observação técnica:</strong> cálculo orientativo baseado no critério de malha de pontos do Anexo B da ABNT NBR ISO/CIE 8995-1:2013. Verifique a aplicação completa da norma e as condições específicas do ambiente avaliado.
+                </div>
+
+                <div class="mesh-section">
+                    <div class="mesh-title-row">
+                        <h3>Visualização esquemática da malha</h3>
+                        <span id="meshLegend"></span>
+                    </div>
+                    <div class="mesh-wrapper">
+                        <div id="malhaVisual" class="mesh-visual" aria-label="Representação visual da malha de pontos"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>Desenvolvido por Rodrigo Damasceno | © 2025 - Todos os direitos reservados</p>
+        </footer>
+    </div>
+
+    <script src="/iluminancia/script.js"></script>
+</body>
+</html>

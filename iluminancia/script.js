@@ -132,6 +132,50 @@ function calcularPontos(comprimento, largura, pontosComprimentoManual = null, po
     };
 }
 
+
+function calcularProjetoLuminotecnico(dados) {
+    const area = dados.comprimento * dados.largura;
+    const fluxoTotal = dados.iluminanciaDesejada && dados.fatorUtilizacao && dados.fatorManutencao
+        ? (dados.iluminanciaDesejada * area) / (dados.fatorUtilizacao * dados.fatorManutencao)
+        : null;
+
+    const luminariasCalculadas = fluxoTotal && dados.fluxoLampada && dados.lampadasPorLuminaria
+        ? fluxoTotal / (dados.lampadasPorLuminaria * dados.fluxoLampada)
+        : null;
+
+    const luminariasMinimas = luminariasCalculadas ? Math.ceil(luminariasCalculadas) : null;
+    const luminariasAdotadas = dados.luminariasManual || luminariasMinimas;
+    const iluminanciaEfetiva = luminariasAdotadas && dados.fluxoLampada && dados.lampadasPorLuminaria && dados.fatorUtilizacao && dados.fatorManutencao
+        ? (luminariasAdotadas * dados.lampadasPorLuminaria * dados.fluxoLampada * dados.fatorUtilizacao * dados.fatorManutencao) / area
+        : null;
+
+    const alturaOfuscamento = dados.alturaLuminaria && dados.alturaOlhos
+        ? dados.alturaLuminaria - dados.alturaOlhos
+        : null;
+    const razaoXH = alturaOfuscamento && alturaOfuscamento > 0 ? dados.comprimento / alturaOfuscamento : null;
+    const razaoYH = alturaOfuscamento && alturaOfuscamento > 0 ? dados.largura / alturaOfuscamento : null;
+    const maiorUgr = [dados.ugrTransversal, dados.ugrLongitudinal].filter(Number.isFinite).reduce((maior, valor) => Math.max(maior, valor), Number.NaN);
+    const ugrAtende = Number.isFinite(maiorUgr) && dados.limiteUgr ? maiorUgr <= dados.limiteUgr : null;
+
+    return {
+        area,
+        fluxoTotal,
+        luminariasCalculadas,
+        luminariasMinimas,
+        luminariasAdotadas,
+        iluminanciaEfetiva,
+        alturaOfuscamento,
+        razaoXH,
+        razaoYH,
+        maiorUgr: Number.isFinite(maiorUgr) ? maiorUgr : null,
+        ugrAtende
+    };
+}
+
+function textoOpcional(valor, sufixo = '', casas = 2) {
+    return Number.isFinite(valor) ? `${formatarNumero(valor, casas)}${sufixo}` : 'Informe os dados necessários';
+}
+
 function formatarNumero(valor, casas = 2) {
     return valor.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
 }
@@ -169,8 +213,9 @@ function renderizarResultado(dados) {
     const memoria = document.getElementById('memoriaConteudo');
     const nome = dados.nomeAmbiente || 'Ambiente analisado';
     const complementoManual = dados.pontosComprimentoManual || dados.pontosLarguraManual ? ' Os espaçamentos reais foram recalculados com os pontos manuais informados.' : '';
+    const fluxoResumo = Number.isFinite(dados.fluxoTotal) ? ` O fluxo luminoso total calculado é ${formatarNumero(dados.fluxoTotal, 0)} lm e o número mínimo é ${dados.luminariasMinimas} luminária(s).` : '';
 
-    resumo.textContent = `Para ${nome}, considerando comprimento de ${formatarNumero(dados.comprimento)} m e largura de ${formatarNumero(dados.largura)} m, a maior dimensão adotada foi de ${formatarNumero(dados.maiorDimensao)} m. O Lm interpolado é ${formatarNumero(dados.lm)} m e a distância da malha Ds é ${formatarNumero(dados.ds)} m. Assim, recomenda-se uma malha com ${dados.nComprimento} pontos no sentido do comprimento e ${dados.nLargura} pontos no sentido da largura, totalizando ${dados.totalPontos} pontos de verificação de iluminância.${complementoManual}`;
+    resumo.textContent = `Para ${nome}, considerando comprimento de ${formatarNumero(dados.comprimento)} m e largura de ${formatarNumero(dados.largura)} m, a maior dimensão adotada foi de ${formatarNumero(dados.maiorDimensao)} m. O Lm interpolado é ${formatarNumero(dados.lm)} m e a distância da malha Ds é ${formatarNumero(dados.ds)} m. Assim, recomenda-se uma malha com ${dados.nComprimento} pontos no sentido do comprimento e ${dados.nLargura} pontos no sentido da largura, totalizando ${dados.totalPontos} pontos de verificação de iluminância.${complementoManual}${fluxoResumo}`;
 
     const verificacaoTexto = dados.verificacaoHlp
         ? `X ${dados.verificacaoHlp.atendeX ? 'atende' : 'não atende'} e Y ${dados.verificacaoHlp.atendeY ? 'atende' : 'não atende'} ao limite de 1,5 × Hlp = ${formatarNumero(dados.verificacaoHlp.limite)} m.`
@@ -190,7 +235,16 @@ function renderizarResultado(dados) {
         ['X1', `${formatarNumero(dados.x1)} m`],
         ['Y', `${formatarNumero(dados.y)} m`],
         ['Y1', `${formatarNumero(dados.y1)} m`],
-        ['Verificação com Hlp', verificacaoTexto]
+        ['Verificação com Hlp', verificacaoTexto],
+        ['Área S', `${formatarNumero(dados.area)} m²`],
+        ['Fluxo total ψt', textoOpcional(dados.fluxoTotal, ' lm', 0), true],
+        ['Luminárias calculadas Nlu', Number.isFinite(dados.luminariasCalculadas) ? formatarNumero(dados.luminariasCalculadas, 2) : 'Informe fluxo e fatores'],
+        ['Luminárias mínimas', dados.luminariasMinimas || 'Informe fluxo e fatores', true],
+        ['Luminárias adotadas', dados.luminariasAdotadas || 'Não informado'],
+        ['Iluminância efetiva', textoOpcional(dados.iluminanciaEfetiva, ' lux')],
+        ['H para ofuscamento', textoOpcional(dados.alturaOfuscamento, ' m')],
+        ['X/H e Y/H', Number.isFinite(dados.razaoXH) && Number.isFinite(dados.razaoYH) ? `${formatarNumero(dados.razaoXH)} e ${formatarNumero(dados.razaoYH)}` : 'Informe alturas'],
+        ['Critério UGR', dados.ugrAtende === null ? 'Informe valores UGR e limite' : `${dados.ugrAtende ? 'Atende' : 'Não atende'} (maior UGR = ${formatarNumero(dados.maiorUgr, 1)}; limite = ${formatarNumero(dados.limiteUgr, 1)})`, true]
     ];
 
     metricas.innerHTML = itens.map(([rotulo, valor, destaque]) => `
@@ -207,6 +261,9 @@ function renderizarResultado(dados) {
         <p><strong>Número de pontos:</strong> Np = dimensão / Ds. Comprimento: ${formatarNumero(dados.comprimento)} / ${formatarNumero(dados.ds)} = ${formatarNumero(dados.comprimento / dados.ds)} ⇒ ${dados.nComprimentoAutomatico} ponto(s). Largura: ${formatarNumero(dados.largura)} / ${formatarNumero(dados.ds)} = ${formatarNumero(dados.largura / dados.ds)} ⇒ ${dados.nLarguraAutomatico} ponto(s).</p>
         <p><strong>Espaçamento real:</strong> X = ${formatarNumero(dados.comprimento)} / ${dados.nComprimento} = ${formatarNumero(dados.x)} m; X1 = ${formatarNumero(dados.x)} / 2 = ${formatarNumero(dados.x1)} m; Y = ${formatarNumero(dados.largura)} / ${dados.nLargura} = ${formatarNumero(dados.y)} m; Y1 = ${formatarNumero(dados.y)} / 2 = ${formatarNumero(dados.y1)} m.</p>
         <p><strong>Verificação com Hlp:</strong> ${verificacaoTexto}</p>
+        <p><strong>Fluxo luminoso:</strong> ψt = (E × S) / (Fut × Fmsi) = ${Number.isFinite(dados.fluxoTotal) ? `(${formatarNumero(dados.iluminanciaDesejada)} × ${formatarNumero(dados.area)}) / (${formatarNumero(dados.fatorUtilizacao)} × ${formatarNumero(dados.fatorManutencao)}) = ${formatarNumero(dados.fluxoTotal, 0)} lm` : 'informe E, Fut e Fmsi para calcular.'}</p>
+        <p><strong>Número de luminárias:</strong> Nlu = ψt / (Nla × ψl) = ${Number.isFinite(dados.luminariasCalculadas) ? `${formatarNumero(dados.fluxoTotal, 0)} / (${dados.lampadasPorLuminaria} × ${formatarNumero(dados.fluxoLampada, 0)}) = ${formatarNumero(dados.luminariasCalculadas, 2)} ⇒ mínimo de ${dados.luminariasMinimas} luminária(s)` : 'informe ψt, Nla e ψl para calcular.'}</p>
+        <p><strong>Ofuscamento:</strong> H = Hl − Ho = ${Number.isFinite(dados.alturaOfuscamento) && dados.alturaOfuscamento > 0 ? `${formatarNumero(dados.alturaLuminaria)} − ${formatarNumero(dados.alturaOlhos)} = ${formatarNumero(dados.alturaOfuscamento)} m; X/H = ${formatarNumero(dados.razaoXH)}; Y/H = ${formatarNumero(dados.razaoYH)}. ${dados.ugrAtende === null ? 'Informe UGR transversal, UGR longitudinal e limite para concluir.' : `Maior UGR = ${formatarNumero(dados.maiorUgr, 1)} ${dados.ugrAtende ? '≤' : '>'} ${formatarNumero(dados.limiteUgr, 1)}.`}` : 'informe Hl e Ho para calcular H.'}</p>
     `;
 
     desenharMalha(dados);
@@ -286,6 +343,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const hlp = hlpTexto ? parseNumero(hlpTexto) : null;
         const pontosComprimentoManual = parseInteiroOpcional(document.getElementById('pontosComprimentoManual').value);
         const pontosLarguraManual = parseInteiroOpcional(document.getElementById('pontosLarguraManual').value);
+        const camposDecimaisOpcionais = ['iluminanciaDesejada', 'fatorUtilizacao', 'fatorManutencao', 'fluxoLampada', 'alturaOlhos', 'alturaLuminaria', 'ugrTransversal', 'ugrLongitudinal', 'limiteUgr'];
+        const opcionais = Object.fromEntries(camposDecimaisOpcionais.map((id) => {
+            const texto = document.getElementById(id).value.trim();
+            return [id, texto ? parseNumero(texto) : null];
+        }));
+        const lampadasPorLuminariaTexto = document.getElementById('lampadasPorLuminaria').value.trim();
+        const lampadasPorLuminaria = lampadasPorLuminariaTexto ? parseInteiroOpcional(lampadasPorLuminariaTexto) : 1;
+        const luminariasManual = parseInteiroOpcional(document.getElementById('luminariasManual').value);
 
         if (!Number.isFinite(comprimento) || !Number.isFinite(largura)) {
             mostrarErro('Informe comprimento e largura válidos, usando metros como unidade. Você pode usar vírgula ou ponto como separador decimal.');
@@ -308,12 +373,29 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        if (Object.entries(opcionais).some(([, valor]) => valor !== null && (!Number.isFinite(valor) || valor <= 0)) ||
+            !Number.isInteger(lampadasPorLuminaria) || lampadasPorLuminaria <= 0 ||
+            (luminariasManual !== null && (!Number.isInteger(luminariasManual) || luminariasManual <= 0))) {
+            mostrarErro('Os campos luminotécnicos opcionais, quando preenchidos, devem ser maiores que zero.');
+            return;
+        }
+
+        if (opcionais.alturaLuminaria && opcionais.alturaOlhos && opcionais.alturaLuminaria <= opcionais.alturaOlhos) {
+            mostrarErro('Para o critério de ofuscamento, a altura da luminária deve ser maior que a altura dos olhos.');
+            return;
+        }
+
         const resultado = calcularPontos(comprimento, largura, pontosComprimentoManual, pontosLarguraManual, hlp);
+        const projeto = calcularProjetoLuminotecnico({ comprimento, largura, lampadasPorLuminaria, luminariasManual, ...opcionais });
         renderizarResultado({
             ...resultado,
+            ...projeto,
             comprimento,
             largura,
             hlp,
+            lampadasPorLuminaria,
+            luminariasManual,
+            ...opcionais,
             nomeAmbiente: document.getElementById('nomeAmbiente').value.trim(),
             alturaPlano: document.getElementById('alturaPlano').value.trim(),
             tipoAmbiente: document.getElementById('tipoAmbiente').value.trim(),

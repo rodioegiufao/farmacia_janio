@@ -84,6 +84,21 @@
                         </div>
 
                         <div class="form-group">
+                            <label for="hlp">Altura entre luminária e plano de trabalho — Hlp (m)</label>
+                            <input type="text" inputmode="decimal" id="hlp" name="hlp" placeholder="Opcional. Ex.: 2,50">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="pontosComprimentoManual">Pontos no comprimento (manual)</label>
+                            <input type="text" inputmode="numeric" id="pontosComprimentoManual" name="pontosComprimentoManual" placeholder="Opcional. Ex.: 8">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="pontosLarguraManual">Pontos na largura (manual)</label>
+                            <input type="text" inputmode="numeric" id="pontosLarguraManual" name="pontosLarguraManual" placeholder="Opcional. Ex.: 5">
+                        </div>
+
+                        <div class="form-group">
                             <label for="tipoAmbiente">Tipo de ambiente</label>
                             <input type="text" id="tipoAmbiente" name="tipoAmbiente" placeholder="Ex.: Escritório, sala técnica">
                         </div>
@@ -110,7 +125,17 @@
                     <p id="resumoResultado"></p>
                 </div>
 
+                <div class="section-heading">
+                    <h3>Tamanho da malha</h3>
+                    <p>Resultados calculados para a distribuição dos pontos no ambiente.</p>
+                </div>
+
                 <div class="metrics-grid" id="metricasResultado"></div>
+
+                <div class="calculation-memory" id="memoriaCalculo">
+                    <h3>Memória de cálculo</h3>
+                    <div id="memoriaConteudo"></div>
+                </div>
 
                 <div class="technical-note">
                     <strong>Observação técnica:</strong> cálculo orientativo baseado no critério de malha de pontos do Anexo B da ABNT NBR ISO/CIE 8995-1:2013. Verifique a aplicação completa da norma e as condições específicas do ambiente avaliado.

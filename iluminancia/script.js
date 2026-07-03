@@ -31,22 +31,68 @@ function calcularEspacamentoMalha(d) {
     return 0.2 * Math.pow(5, Math.log10(d));
 }
 
-function calcularLm(d) {
-    const d1 = 10;
-    const lm1 = 1;
-    const d2 = 50;
-    const lm2 = 3;
+const referenciasMalha = [
+    { dimensao: 1, lm: 0.2, ambiente: 'área da tarefa' },
+    { dimensao: 5, lm: 0.6, ambiente: 'sala/zona de sala pequena' },
+    { dimensao: 10, lm: 1, ambiente: 'sala média' },
+    { dimensao: 50, lm: 3, ambiente: 'sala grande' }
+];
 
-    if (d <= d1) return lm1;
-    if (d >= d2) return lm2;
+function criarResultadoReferencia(referencia) {
+    return {
+        lm: referencia.lm,
+        inferior: referencia,
+        superior: referencia,
+        interpolado: false
+    };
+}
 
-    return lm1 + ((d - d1) * (lm2 - lm1)) / (d2 - d1);
+function calcularInterpolacaoLm(d) {
+    const primeiraReferencia = referenciasMalha[0];
+    const ultimaReferencia = referenciasMalha[referenciasMalha.length - 1];
+    const referenciaExata = referenciasMalha.find((referencia) => referencia.dimensao === d);
+
+    if (referenciaExata) {
+        return criarResultadoReferencia(referenciaExata);
+    }
+
+    if (d < primeiraReferencia.dimensao) {
+        return criarResultadoReferencia(primeiraReferencia);
+    }
+
+    if (d > ultimaReferencia.dimensao) {
+        return criarResultadoReferencia(ultimaReferencia);
+    }
+
+    for (let i = 0; i < referenciasMalha.length - 1; i += 1) {
+        const inferior = referenciasMalha[i];
+        const superior = referenciasMalha[i + 1];
+
+        if (d >= inferior.dimensao && d <= superior.dimensao) {
+            const lm = inferior.lm + ((d - inferior.dimensao) * (superior.lm - inferior.lm)) / (superior.dimensao - inferior.dimensao);
+
+            return {
+                lm,
+                inferior,
+                superior,
+                interpolado: d !== inferior.dimensao && d !== superior.dimensao
+            };
+        }
+    }
+
+    return {
+        lm: ultimaReferencia.lm,
+        inferior: ultimaReferencia,
+        superior: ultimaReferencia,
+        interpolado: false
+    };
 }
 
 function calcularPontos(comprimento, largura, pontosComprimentoManual = null, pontosLarguraManual = null, hlp = null) {
     const maiorDimensao = Math.max(comprimento, largura);
     const espacamento = calcularEspacamentoMalha(maiorDimensao);
-    const lm = calcularLm(maiorDimensao);
+    const interpolacaoLm = calcularInterpolacaoLm(maiorDimensao);
+    const lm = interpolacaoLm.lm;
     const logLm = Math.log10(lm);
     const ds = 0.2 * 5 * lm;
     const nComprimentoAutomatico = Math.max(1, Math.round(comprimento / ds));
@@ -68,6 +114,7 @@ function calcularPontos(comprimento, largura, pontosComprimentoManual = null, po
         maiorDimensao,
         espacamento,
         lm,
+        interpolacaoLm,
         logLm,
         ds,
         nComprimentoAutomatico,
@@ -87,6 +134,20 @@ function calcularPontos(comprimento, largura, pontosComprimentoManual = null, po
 
 function formatarNumero(valor, casas = 2) {
     return valor.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
+}
+
+function formatarInterpolacao(dados) {
+    const { inferior, superior, interpolado } = dados.interpolacaoLm;
+
+    if (!interpolado && inferior === superior) {
+        if (dados.maiorDimensao === inferior.dimensao) {
+            return `D = ${formatarNumero(dados.maiorDimensao)} m corresponde a ${inferior.ambiente}; adota-se Lm = ${formatarNumero(dados.lm)} m.`;
+        }
+
+        return `D = ${formatarNumero(dados.maiorDimensao)} m está ${dados.maiorDimensao < inferior.dimensao ? 'abaixo de' : 'acima de'} ${formatarNumero(inferior.dimensao)} m (${inferior.ambiente}); adota-se Lm = ${formatarNumero(dados.lm)} m.`;
+    }
+
+    return `(${formatarNumero(superior.dimensao)} - ${formatarNumero(inferior.dimensao)}) / (${formatarNumero(superior.lm)} - ${formatarNumero(inferior.lm)}) = (${formatarNumero(superior.dimensao)} - ${formatarNumero(dados.maiorDimensao)}) / (${formatarNumero(superior.lm)} - Lm) ⇒ Lm = ${formatarNumero(dados.lm)} m (${inferior.ambiente} a ${superior.ambiente})`;
 }
 
 function mostrarErro(mensagem) {
@@ -141,7 +202,7 @@ function renderizarResultado(dados) {
 
     memoria.innerHTML = `
         <p><strong>D = max(comprimento, largura)</strong> = max(${formatarNumero(dados.comprimento)}; ${formatarNumero(dados.largura)}) = ${formatarNumero(dados.maiorDimensao)} m</p>
-        <p><strong>Interpolação:</strong> (50 - 10) / (3 - 1) = (50 - ${formatarNumero(dados.maiorDimensao)}) / (3 - Lm) ⇒ Lm = ${formatarNumero(dados.lm)} m</p>
+        <p><strong>Interpolação:</strong> ${formatarInterpolacao(dados)}</p>
         <p><strong>Distância da malha:</strong> Ds = 0,2 × 5 × Lm = 0,2 × 5 × ${formatarNumero(dados.lm)} = ${formatarNumero(dados.ds)} m</p>
         <p><strong>Número de pontos:</strong> Np = dimensão / Ds. Comprimento: ${formatarNumero(dados.comprimento)} / ${formatarNumero(dados.ds)} = ${formatarNumero(dados.comprimento / dados.ds)} ⇒ ${dados.nComprimentoAutomatico} ponto(s). Largura: ${formatarNumero(dados.largura)} / ${formatarNumero(dados.ds)} = ${formatarNumero(dados.largura / dados.ds)} ⇒ ${dados.nLarguraAutomatico} ponto(s).</p>
         <p><strong>Espaçamento real:</strong> X = ${formatarNumero(dados.comprimento)} / ${dados.nComprimento} = ${formatarNumero(dados.x)} m; X1 = ${formatarNumero(dados.x)} / 2 = ${formatarNumero(dados.x1)} m; Y = ${formatarNumero(dados.largura)} / ${dados.nLargura} = ${formatarNumero(dados.y)} m; Y1 = ${formatarNumero(dados.y)} / 2 = ${formatarNumero(dados.y1)} m.</p>

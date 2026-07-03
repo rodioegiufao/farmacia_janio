@@ -434,7 +434,7 @@ class PDFProcessor {
         if (!atual || !total) return null;
 
         return new RegExp(
-            `(?<!\\d)${this.escaparRegex(atual)}\\s*\\/\\s*${this.escaparRegex(total)}(?!\\d)`
+            `(?<!\\d)${this.escaparRegex(atual)}\\s*(?:\\/|\\s)\\s*${this.escaparRegex(total)}(?!\\d)`
         );
     }
 
@@ -612,11 +612,38 @@ class PDFProcessor {
             return matches[0][1].replace(/\s+/g, '');
         }
 
-        // Fallback sem barra: busca dois números em sequência separados apenas por espaço
+        const folhaSemBarra = this.extrairFolhaSemBarraPorContexto(trechoDepoisFolha);
+        if (folhaSemBarra) return folhaSemBarra;
+
+        // Fallback sem barra: busca dois números em sequência separados apenas por espaço.
+        // Esse caminho fica por último porque o carimbo pode conter CREA/CAU, datas e áreas
+        // no trecho posterior ao rótulo FOLHA.
+        const matchEspaco = trechoDepoisFolha.matc
         const matchEspaco = trechoDepoisFolha.match(/\b(\d{1,3})\s+(\d{1,3})\b/);
         if (!matchEspaco) return null;
 
         return `${matchEspaco[1]}/${matchEspaco[2]}`;
+    }
+    
+    extrairFolhaSemBarraPorContexto(texto) {
+        const textoNormalizado = (texto || '').replace(/\s+/g, ' ').trim().toUpperCase();
+        if (!textoNormalizado) return null;
+
+        const padroesContextuais = [
+            // Em alguns PDFs o campo FOLHA é extraído sem a barra, no miolo do carimbo:
+            // "ARQUITETURA 05 05 PROJETO ..." deve ser interpretado como "05/05".
+            /\b(?:ARQUITETURA|ESTRUTURAL|HIDROSSANIT[ÁA]RIO|EL[ÉE]TRICO|SPDA|INC[ÊE]NDIO|CLIMATIZA[ÇC][ÃA]O|DRENAGEM|TOPOGRAFIA|FUNDA[ÇC][ÃA]O|PAISAGISMO)\s+(\d{1,3})\s+(\d{1,3})\s+PROJETO\b/,
+            /\bFOLHA\s*:?\s*(\d{1,3})\s+(\d{1,3})\b/
+        ];
+
+        for (const padrao of padroesContextuais) {
+            const match = textoNormalizado.match(padrao);
+            if (match) {
+                return `${match[1]}/${match[2]}`;
+            }
+        }
+
+        return null;
     }
 
     validarFolhaContraEsperada(folhaLida, numeroPranchaEsperado) {

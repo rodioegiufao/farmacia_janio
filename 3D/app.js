@@ -3310,6 +3310,8 @@ async function loadDefaultModel({ id, src }) {
         saoEnabled: performanceModeEnabled ? false : defaultRenderProfile.saoEnabled,
         dtxEnabled: viewerCompatibility.enableDataTextures
     });
+    
+    model.uploadDateSrc = src;
 
     model.on("loaded", () => {
         const transform = currentModelTransforms[id];

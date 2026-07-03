@@ -1090,12 +1090,10 @@ function storeOccupancyAnnotationState(rowsAboveOccupancyLimit) {
 
 function collectQuadroAnnotationRows(viewer, buildingLoadRows = []) {
     const metaObjects = Object.values(viewer?.metaScene?.metaObjects || {});
-    const targetTypes = new Set(["ifcelectricdistributionboard", "ifcflowfitting"]);
     const buildingLoadTotalByQuadro = calculateBuildingLoadTotalByQuadro(buildingLoadRows);
 
     return metaObjects
-        .filter((metaObject) => targetTypes.has(normalizeLabel(metaObject?.type)))
-        .filter((metaObject) => Boolean(getPropertySetByName(metaObject, "Pset_ElectricalDeviceCommon-Ponto1")))
+        .filter((metaObject) => isQuadroAnnotationExportCandidate(metaObject))
         .map((metaObject) => {
             const nome = String(metaObject?.name || "").trim();
             const itensAssociados = getAssociatedItemsText(metaObject);
@@ -1121,6 +1119,19 @@ function collectQuadroAnnotationRows(viewer, buildingLoadRows = []) {
                 barramentos: getBarramentoAnnotation(metaObject)
             };
         });
+}
+
+function isQuadroAnnotationExportCandidate(metaObject) {
+    const normalizedType = normalizeLabel(metaObject?.type);
+    const isKnownQuadroType = ["ifcelectricdistributionboard", "ifcflowfitting"].includes(normalizedType);
+
+    if (isKnownQuadroType && getPropertySetByName(metaObject, "Pset_ElectricalDeviceCommon-Ponto1")) {
+        return true;
+    }
+
+    const isGenericProxy = normalizedType === "ifcbuildingelementproxy";
+    const protecaoPeca = getAltoQiBuilderValue(metaObject, ["Proteção - Peça", "Protecao - Peca"]);
+    return isGenericProxy && protecaoPeca !== "-";
 }
 
 function calculateBuildingLoadTotalByQuadro(buildingLoadRows = []) {

@@ -1088,14 +1088,70 @@ function toggleAllExplorerActiveTabVisibility() {
 
     setObjectCollectionVisibility(objectIds, shouldBeVisible);
 }
+const modelUploadDateCache = new Map();
+const MODEL_UPLOAD_DATE_LOADING_TEXT = "Carregando data de upload...";
+
+function formatModelUploadDate(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    return new Intl.DateTimeFormat("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+    }).format(date).replace(",", " -");
+}
+
+function getModelUploadDateCacheKey(model) {
+    return model?.src || model?.id || "";
+}
+
+async function fetchModelUploadDate(model) {
+    const cacheKey = getModelUploadDateCacheKey(model);
+    if (!cacheKey || modelUploadDateCache.has(cacheKey)) {
+        return modelUploadDateCache.get(cacheKey) || null;
+    }
+
+    modelUploadDateCache.set(cacheKey, MODEL_UPLOAD_DATE_LOADING_TEXT);
+
+    try {
+        const response = await fetch(model.src || cacheKey, { method: "HEAD", cache: "no-store" });
+        const lastModified = response.headers.get("last-modified");
+        const formattedDate = lastModified ? formatModelUploadDate(new Date(lastModified)) : null;
+        modelUploadDateCache.set(cacheKey, formattedDate || "Data de upload indisponível");
+    } catch (error) {
+        console.warn(`Não foi possível obter a data de upload do modelo ${model.id}:`, error);
+        modelUploadDateCache.set(cacheKey, "Data de upload indisponível");
+    }
+
+    scheduleExplorerRefresh(0);
+    return modelUploadDateCache.get(cacheKey) || null;
+}
+
+function getModelUploadDateText(model) {
+    const cacheKey = getModelUploadDateCacheKey(model);
+    if (!cacheKey) {
+        return "Data de upload indisponível";
+    }
+
+    const cachedDate = modelUploadDateCache.get(cacheKey);
+    if (cachedDate) {
+        return cachedDate;
+    }
+
+    fetchModelUploadDate(model);
+    return MODEL_UPLOAD_DATE_LOADING_TEXT;
+}
 function buildExplorerModelItem(model) {
-    const objectCount = getModelObjectIds(model.id).filter((id) => isSceneObjectId(id)).length;
     const label = model.displayName || model.src || model.id;
     const isVisible = isModelVisible(model.id);
 
     return buildExplorerToggleCard({
         primaryText: label,
-        secondaryText: `${model.id} • ${objectCount} objeto(s)`,
+        secondaryText: getModelUploadDateText(model),
         actionTitle: `Isolar modelo ${label}`,
         onAction: () => {
             focusModelById(model.id);

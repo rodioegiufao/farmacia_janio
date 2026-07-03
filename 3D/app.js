@@ -7137,15 +7137,37 @@ function getQuadroPolosAnnotation(metaObject) {
 function isSupportedQuadroAnnotationType(metaObject) {
     const supportedTypes = ["ifcelectricdistributionboard", "ifcflowfitting"];
     const normalizedType = normalizeIfcPropertyLabel(metaObject?.type || "");
-    return supportedTypes.includes(normalizedType);
+    if (supportedTypes.includes(normalizedType)) {
+        return true;
+    }
+
+    return normalizedType === "ifcbuildingelementproxy" && hasQuadroProtectionPiece(metaObject);
 }
 
 function hasElectricalDevicePonto1(metaObject) {
     return Boolean(getMetaObjectPropertySetByName(metaObject, "Pset_ElectricalDeviceCommon-Ponto1"));
 }
 
+function hasQuadroProtectionPiece(metaObject) {
+    const protectionPiece = getMetaObjectPropertyValue(metaObject, ["Proteção - Peça", "Protecao - Peca"], {
+        propertySetNames: ["AltoQi_Builder"]
+    });
+
+    return String(protectionPiece || "").trim() !== "";
+}
+
+function isQuadroAnnotationCandidate(metaObject) {
+    const normalizedType = normalizeIfcPropertyLabel(metaObject?.type || "");
+
+    if (["ifcelectricdistributionboard", "ifcflowfitting"].includes(normalizedType)) {
+        return hasElectricalDevicePonto1(metaObject);
+    }
+
+    return normalizedType === "ifcbuildingelementproxy" && hasQuadroProtectionPiece(metaObject);
+}
+
 function getQuadroAnnotations(metaObject) {
-    if (!hasElectricalDevicePonto1(metaObject)) {
+    if (!isQuadroAnnotationCandidate(metaObject)) {
         return [];
     }
     const annotations = [];

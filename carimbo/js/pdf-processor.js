@@ -618,7 +618,6 @@ class PDFProcessor {
         // Fallback sem barra: busca dois números em sequência separados apenas por espaço.
         // Esse caminho fica por último porque o carimbo pode conter CREA/CAU, datas e áreas
         // no trecho posterior ao rótulo FOLHA.
-        const matchEspaco = trechoDepoisFolha.matc
         const matchEspaco = trechoDepoisFolha.match(/\b(\d{1,3})\s+(\d{1,3})\b/);
         if (!matchEspaco) return null;
 

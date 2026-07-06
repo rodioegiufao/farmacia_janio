@@ -395,6 +395,15 @@
             <p>Semanas agrupadas com atividades, prioridades, entregas, descrições e datas de atualização.</p>
           </div>
         </div>
+        <div class="weekly-carousel-controls" aria-label="Navegação entre semanas">
+          <button type="button" class="secondary" id="btnSemanaAnterior" aria-label="Ver semana anterior">
+            <i class="fas fa-chevron-left" aria-hidden="true"></i> Semana anterior
+          </button>
+          <span id="indicadorSemanaAtual" class="weekly-carousel-indicator" aria-live="polite">Semana 0 de 0</span>
+          <button type="button" class="secondary" id="btnSemanaProxima" aria-label="Ver próxima semana">
+            Próxima semana <i class="fas fa-chevron-right" aria-hidden="true"></i>
+          </button>
+        </div>
         <div id="tabelaAtividadesSemanais" class="weekly-weeks-list" aria-live="polite"></div>
       </section>
     </section>

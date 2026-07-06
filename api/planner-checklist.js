@@ -12,7 +12,13 @@ const EXCEL_CANDIDATES = [
 ];
 
 let cachedTemplates = null;
+function requireAdmin(user) {
+  if (user?.perfil === "admin") return;
 
+  const error = new Error("Apenas administradores podem acessar o Planner.");
+  error.statusCode = 403;
+  throw error;
+}
 function xmlText(xml, tag) {
   const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`));
   return match ? match[1] : "";
@@ -132,6 +138,7 @@ function fromDatabaseRecord(record) {
 module.exports = async function plannerChecklistHandler(req, res) {
   try {
     const user = await requireUser(req);
+    requireAdmin(user);
     const templates = await readWorkbookTemplates();
 
     if (req.method === "GET") {

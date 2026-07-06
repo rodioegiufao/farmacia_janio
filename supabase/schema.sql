@@ -67,3 +67,44 @@ alter table public.planner_checklists
 
 create index if not exists idx_planner_checklists_criado_em
 on public.planner_checklists (criado_em desc);
+
+alter table public.planner_checklists
+  add column if not exists nome_tarefa text,
+  add column if not exists status text default 'Não iniciado',
+  add column if not exists data_inicio date,
+  add column if not exists data_conclusao date,
+  add column if not exists bucket text,
+  add column if not exists anotacoes text;
+
+update public.planner_checklists
+set nome_tarefa = coalesce(nome_tarefa, titulo, codigo_projeto || ' - ' || tipo),
+    data_conclusao = coalesce(data_conclusao, data_prevista),
+    anotacoes = coalesce(anotacoes, observacoes)
+where nome_tarefa is null or data_conclusao is null or anotacoes is null;
+
+alter table public.planner_checklists
+  alter column nome_tarefa set not null;
+
+create table if not exists public.planner_checklist_itens (
+  id uuid primary key default gen_random_uuid(),
+  checklist_id uuid not null references public.planner_checklists(id) on delete cascade,
+  etapa text not null,
+  atividade text not null,
+  texto text not null,
+  ordem integer default 0,
+  concluido boolean default false,
+  concluido_em timestamptz,
+  concluido_por uuid references public.usuarios_setor(id),
+  concluido_por_nome text,
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+
+create index if not exists idx_planner_checklist_itens_checklist_id
+on public.planner_checklist_itens (checklist_id, ordem);
+
+alter table public.planner_checklists enable row level security;
+alter table public.planner_checklist_itens enable row level security;
+
+alter table public.planner_checklists
+  drop constraint if exists planner_checklists_prioridade_check;

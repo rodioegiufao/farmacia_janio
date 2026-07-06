@@ -67,6 +67,9 @@ const btnCancelarEdicaoSemanal = document.getElementById("btnCancelarEdicaoSeman
 const btnLimparFormularioSemanal = document.getElementById("btnLimparFormularioSemanal");
 const btnNovaAtividadeSemanal = document.getElementById("btnNovaAtividadeSemanal");
 const btnGerarRelatorioWord = document.getElementById("btnGerarRelatorioWord");
+const btnSemanaAnterior = document.getElementById("btnSemanaAnterior");
+const btnSemanaProxima = document.getElementById("btnSemanaProxima");
+const indicadorSemanaAtual = document.getElementById("indicadorSemanaAtual");
 
 let atividades = [];
 let atividadesSemanais = [];
@@ -74,6 +77,7 @@ let carregando = false;
 let carregandoSemanais = false;
 let usuarioAtual = null;
 let paginaAtividadesAtual = 1;
+let semanaVisivelIndex = 0;
 
 const campos = {
   id: document.getElementById("atividadeId"),
@@ -177,6 +181,8 @@ async function inicializar() {
   btnLimparFormularioSemanal.addEventListener("click", limparFormularioSemanal);
   btnNovaAtividadeSemanal?.addEventListener("click", focarFormularioSemanal);
   btnGerarRelatorioWord?.addEventListener("click", gerarRelatorioWord);
+  btnSemanaAnterior?.addEventListener("click", () => navegarSemanaPlanejamento(-1));
+  btnSemanaProxima?.addEventListener("click", () => navegarSemanaPlanejamento(1));
   sectionTabs.forEach((tab) => tab.addEventListener("click", alternarSecao));
 
   Object.values(filtros).forEach((filtro) => {
@@ -190,8 +196,14 @@ async function inicializar() {
     });
   });
   Object.values(filtrosSemanais).forEach((filtro) => {
-    filtro.addEventListener("input", renderizarTabelaSemanal);
-    filtro.addEventListener("change", renderizarTabelaSemanal);
+    filtro.addEventListener("input", () => {
+      semanaVisivelIndex = 0;
+      renderizarTabelaSemanal();
+    });
+    filtro.addEventListener("change", () => {
+      semanaVisivelIndex = 0;
+      renderizarTabelaSemanal();
+    });
   });
   Object.values(filtrosDashboard).forEach((filtro) => {
     filtro.addEventListener("input", atualizarDashboard);
@@ -753,19 +765,43 @@ function renderizarTabelaSemanal() {
   tabelaSemanal.innerHTML = "";
 
   if (carregandoSemanais) {
+    atualizarControlesCarrosselSemanal(0);
     tabelaSemanal.innerHTML = '<p class="empty weekly-empty-state">Carregando atividades semanais do Supabase...</p>';
     return;
   }
 
-  if (!listaFiltrada.length) {
-    tabelaSemanal.innerHTML = '<p class="empty weekly-empty-state">Nenhuma atividade semanal encontrada.</p>';
+  const atividadesPorSemana = agruparAtividadesPorSemana(listaFiltrada);
+  const semanas = Object.entries(atividadesPorSemana);
+
+  if (!semanas.length) {
+    atualizarControlesCarrosselSemanal(0);
+    tabelaSemanal.innerHTML = '<p class="empty weekly-empty-state">Não tem nada cadastrado para esta semana.</p>';
     return;
   }
 
-  const atividadesPorSemana = agruparAtividadesPorSemana(listaFiltrada);
-  tabelaSemanal.innerHTML = Object.entries(atividadesPorSemana)
-    .map(([semana, atividadesDaSemana]) => criarBlocoSemana(semana, atividadesDaSemana, podeGerenciarAtividadesSemanais))
-    .join("");
+  semanaVisivelIndex = Math.min(Math.max(semanaVisivelIndex, 0), semanas.length - 1);
+  atualizarControlesCarrosselSemanal(semanas.length);
+
+  const [semana, atividadesDaSemana] = semanas[semanaVisivelIndex];
+  tabelaSemanal.innerHTML = criarBlocoSemana(semana, atividadesDaSemana, podeGerenciarAtividadesSemanais);
+}
+
+function atualizarControlesCarrosselSemanal(totalSemanas) {
+  const desabilitar = totalSemanas <= 1;
+  if (btnSemanaAnterior) btnSemanaAnterior.disabled = desabilitar;
+  if (btnSemanaProxima) btnSemanaProxima.disabled = desabilitar;
+  if (indicadorSemanaAtual) {
+    indicadorSemanaAtual.textContent = totalSemanas
+      ? `Semana ${semanaVisivelIndex + 1} de ${totalSemanas}`
+      : "Nenhuma semana para exibir";
+  }
+}
+
+function navegarSemanaPlanejamento(direcao) {
+  const totalSemanas = Object.keys(agruparAtividadesPorSemana(obterAtividadesSemanaisFiltradas())).length;
+  if (totalSemanas <= 1) return;
+  semanaVisivelIndex = (semanaVisivelIndex + direcao + totalSemanas) % totalSemanas;
+  renderizarTabelaSemanal();
 }
 
 function agruparAtividadesPorSemana(lista) {

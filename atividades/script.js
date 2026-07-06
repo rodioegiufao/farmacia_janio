@@ -253,6 +253,13 @@ function aplicarPermissoesAtividadesSemanais() {
     limparFormularioSemanal();
   }
 }
+function aplicarPermissaoRelatorioWord() {
+  if (!btnGerarRelatorioWord) return;
+
+  const podeGerarRelatorioWord = usuarioAtualEhAdmin();
+  btnGerarRelatorioWord.hidden = !podeGerarRelatorioWord;
+  btnGerarRelatorioWord.disabled = !podeGerarRelatorioWord;
+}
 async function verificarSessao() {
   try {
     const data = await fetch(AUTH_URL).then(validarResposta);
@@ -287,6 +294,7 @@ function aplicarUsuarioLogado(user) {
   btnLimparTudo.hidden = !adminLogado;
   preencherColaboradoresPermitidos();
   aplicarPermissoesAtividadesSemanais();
+  aplicarPermissaoRelatorioWord();
   renderizarTabelaSemanal();
 }
 
@@ -1287,6 +1295,11 @@ function atualizarOpcoesDashboard() {
 async function gerarRelatorioWord() {
   if (!usuarioAtual) {
     alert("Faça login para gerar o relatório Word.");
+    return;
+  }
+
+  if (!usuarioAtualEhAdmin()) {
+    alert("Apenas o administrador da conta pode gerar o relatório Word.");
     return;
   }
 

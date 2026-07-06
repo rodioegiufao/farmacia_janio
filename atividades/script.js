@@ -167,6 +167,8 @@ const filtrosDashboard = {
 const dashboardCharts = {};
 const sectionTabs = document.querySelectorAll("[data-section-target]");
 const sectionPanels = document.querySelectorAll("[data-section-panel]");
+const plannerTab = document.querySelector('[data-section-target="plannerSection"]');
+const plannerPanel = document.getElementById("plannerSection");
 
 inicializar();
 
@@ -244,7 +246,7 @@ async function inicializar() {
   if (usuarioAtual) {
     await carregarAtividades();
     await carregarAtividadesSemanais();
-    await carregarPlanner();
+    if (usuarioAtualEhAdmin()) await carregarPlanner();
   }
 }
 
@@ -264,7 +266,13 @@ function alternarSecao(event) {
   if (targetId === "dashboardSection") atualizarDashboard();
   if (targetId === "calendarioSection") renderizarCalendario();
   if (targetId === "semanaSection" && usuarioAtual && !atividadesSemanais.length) carregarAtividadesSemanais();
-  if (targetId === "plannerSection" && usuarioAtual && !plannerChecklists.length) carregarPlanner();
+  if (targetId === "plannerSection") {
+    if (!usuarioAtualEhAdmin()) {
+      alternarAba("atividade");
+      return;
+    }
+    if (!plannerChecklists.length) carregarPlanner();
+  }
 }
 
 function alternarAba(aba) {
@@ -281,6 +289,19 @@ function alternarAba(aba) {
 }
 function usuarioAtualEhAdmin() {
   return usuarioAtual?.perfil === "admin";
+}
+
+function aplicarPermissaoPlanner() {
+  const podeAcessarPlanner = usuarioAtualEhAdmin();
+  if (plannerTab) plannerTab.hidden = !podeAcessarPlanner;
+  if (plannerPanel) plannerPanel.hidden = !podeAcessarPlanner || plannerPanel.hidden;
+  if (plannerEls.modal) plannerEls.modal.hidden = true;
+  if (!podeAcessarPlanner) {
+    plannerModelos = [];
+    plannerChecklists = [];
+    carregandoPlanner = false;
+    if (plannerPanel && !document.getElementById("atividadeSection")?.hidden) plannerPanel.hidden = true;
+  }
 }
 
 function aplicarPermissoesAtividadesSemanais() {
@@ -336,6 +357,7 @@ function aplicarUsuarioLogado(user) {
   preencherColaboradoresPermitidos();
   aplicarPermissoesAtividadesSemanais();
   aplicarPermissaoRelatorioWord();
+  aplicarPermissaoPlanner();
   renderizarTabelaSemanal();
 }
 
@@ -1836,7 +1858,7 @@ function classeStatus(status) {
   return status.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replaceAll(" ", "-");
 }
 function inicializarPlanner() {
-  if (!plannerEls.form) return;
+  if (!plannerEls.form || !usuarioAtualEhAdmin()) return;
   preencherSelect(plannerEls.prioridade, prioridades);
   plannerEls.btnNovo?.addEventListener("click", abrirPlannerModal);
   plannerEls.btnFechar?.addEventListener("click", fecharPlannerModal);
@@ -1847,7 +1869,7 @@ function inicializarPlanner() {
 }
 
 async function carregarPlanner() {
-  if (!plannerEls.board) return;
+  if (!plannerEls.board || !usuarioAtualEhAdmin()) return;
   try {
     carregandoPlanner = true;
     renderizarPlanner();

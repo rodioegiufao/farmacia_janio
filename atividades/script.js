@@ -38,6 +38,7 @@ const statusLista = ["Atrasado", "Em progresso", "Pausado", "Finalizado"];
 
 const API_URL = "/api/atividades";
 const API_SEMANA_URL = "/api/atividades-semanais";
+const API_PLANNER_URL = "/api/planner-checklist";
 const AUTH_URL = "/api/auth";
 const API_RELATORIO_WORD_URL = "/api/gerar-relatorio-word";
 const LIMITE_VISUALIZACAO_ATIVIDADES = 10;
@@ -80,6 +81,9 @@ let carregandoSemanais = false;
 let usuarioAtual = null;
 let paginaAtividadesAtual = 1;
 let semanaVisivelIndex = 0;
+let plannerModelos = [];
+let plannerChecklists = [];
+let carregandoPlanner = false;
 
 const campos = {
   id: document.getElementById("atividadeId"),
@@ -118,6 +122,25 @@ const camposSemanais = {
 const filtrosSemanais = {
   busca: document.getElementById("filtroBuscaSemana"),
   semana: document.getElementById("filtroSemana")
+};
+
+const plannerEls = {
+  board: document.getElementById("plannerBoard"),
+  status: document.getElementById("plannerModelosStatus"),
+  modal: document.getElementById("plannerModal"),
+  form: document.getElementById("plannerForm"),
+  btnNovo: document.getElementById("btnNovoChecklistPlanner"),
+  btnFechar: document.getElementById("btnFecharPlannerModal"),
+  btnCancelar: document.getElementById("btnCancelarPlanner"),
+  btnSalvar: document.getElementById("btnSalvarPlanner"),
+  id: document.getElementById("plannerId"),
+  obra: document.getElementById("plannerObra"),
+  projeto: document.getElementById("plannerProjeto"),
+  tipo: document.getElementById("plannerTipo"),
+  responsavel: document.getElementById("plannerResponsavel"),
+  prioridade: document.getElementById("plannerPrioridade"),
+  dataPrevista: document.getElementById("plannerDataPrevista"),
+  observacoes: document.getElementById("plannerObservacoes")
 };
 
 const filtrosCalendario = {
@@ -186,6 +209,7 @@ async function inicializar() {
   btnSemanaAnterior?.addEventListener("click", () => navegarSemanaPlanejamento(-1));
   btnSemanaProxima?.addEventListener("click", () => navegarSemanaPlanejamento(1));
   sectionTabs.forEach((tab) => tab.addEventListener("click", alternarSecao));
+  inicializarPlanner();
 
   Object.values(filtros).forEach((filtro) => {
     filtro.addEventListener("input", () => {
@@ -220,6 +244,7 @@ async function inicializar() {
   if (usuarioAtual) {
     await carregarAtividades();
     await carregarAtividadesSemanais();
+    await carregarPlanner();
   }
 }
 
@@ -239,6 +264,7 @@ function alternarSecao(event) {
   if (targetId === "dashboardSection") atualizarDashboard();
   if (targetId === "calendarioSection") renderizarCalendario();
   if (targetId === "semanaSection" && usuarioAtual && !atividadesSemanais.length) carregarAtividadesSemanais();
+  if (targetId === "plannerSection" && usuarioAtual && !plannerChecklists.length) carregarPlanner();
 }
 
 function alternarAba(aba) {
@@ -246,7 +272,8 @@ function alternarAba(aba) {
     atividade: "atividadeSection",
     dashboard: "dashboardSection",
     semana: "semanaSection",
-    calendario: "calendarioSection"
+    calendario: "calendarioSection",
+    planner: "plannerSection"
   };
   const targetId = mapa[aba];
   const tab = targetId ? document.querySelector(`[data-section-target="${targetId}"]`) : null;
@@ -386,6 +413,7 @@ async function sair() {
   redirecionarParaLoginInicial();
   atividades = [];
   atividadesSemanais = [];
+  plannerChecklists = [];
   atualizarOpcoesDashboard();
   renderizarTabela();
   preencherFiltroSemanas();
@@ -1807,7 +1835,140 @@ function obterCoresGrafico(labels) {
 function classeStatus(status) {
   return status.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replaceAll(" ", "-");
 }
+function inicializarPlanner() {
+  if (!plannerEls.form) return;
+  preencherSelect(plannerEls.prioridade, prioridades);
+  plannerEls.btnNovo?.addEventListener("click", abrirPlannerModal);
+  plannerEls.btnFechar?.addEventListener("click", fecharPlannerModal);
+  plannerEls.btnCancelar?.addEventListener("click", fecharPlannerModal);
+  plannerEls.modal?.addEventListener("click", (event) => { if (event.target === plannerEls.modal) fecharPlannerModal(); });
+  plannerEls.projeto?.addEventListener("change", atualizarTiposPlanner);
+  plannerEls.form.addEventListener("submit", salvarChecklistPlanner);
+}
 
+async function carregarPlanner() {
+  if (!plannerEls.board) return;
+  try {
+    carregandoPlanner = true;
+    renderizarPlanner();
+    const data = await fetch(API_PLANNER_URL).then(validarResposta);
+    plannerModelos = data.modelos || [];
+    plannerChecklists = data.checklists || [];
+    atualizarProjetosPlanner();
+  } catch (erro) {
+    plannerEls.status.textContent = `Não foi possível carregar o Planner: ${erro.message}`;
+    plannerModelos = [];
+    plannerChecklists = [];
+  } finally {
+    carregandoPlanner = false;
+    renderizarPlanner();
+  }
+}
+
+function atualizarProjetosPlanner() {
+  const projetosPlanner = [...new Set(plannerModelos.map((modelo) => modelo.projeto).filter(Boolean))];
+  preencherSelect(plannerEls.projeto, projetosPlanner);
+  atualizarTiposPlanner();
+}
+
+function atualizarTiposPlanner() {
+  const projeto = plannerEls.projeto.value;
+  const tipos = [...new Set(plannerModelos.filter((modelo) => modelo.projeto === projeto).map((modelo) => modelo.tipo).filter(Boolean))];
+  preencherSelect(plannerEls.tipo, tipos);
+}
+
+function abrirPlannerModal() {
+  plannerEls.form.reset();
+  plannerEls.id.value = "";
+  plannerEls.btnSalvar.textContent = "Criar checklist";
+  atualizarProjetosPlanner();
+  plannerEls.modal.hidden = false;
+  plannerEls.obra.focus();
+}
+
+function fecharPlannerModal() {
+  plannerEls.modal.hidden = true;
+}
+
+async function salvarChecklistPlanner(event) {
+  event.preventDefault();
+  const payload = {
+    obra: plannerEls.obra.value.trim(),
+    projeto: plannerEls.projeto.value,
+    tipo: plannerEls.tipo.value,
+    responsavel: plannerEls.responsavel.value.trim(),
+    prioridade: plannerEls.prioridade.value,
+    dataPrevista: plannerEls.dataPrevista.value,
+    observacoes: plannerEls.observacoes.value.trim()
+  };
+  try {
+    plannerEls.btnSalvar.disabled = true;
+    const salvo = await fetch(API_PLANNER_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(validarResposta);
+    plannerChecklists.unshift(salvo);
+    fecharPlannerModal();
+    renderizarPlanner();
+  } catch (erro) {
+    alert(`Não foi possível criar o checklist: ${erro.message}`);
+  } finally {
+    plannerEls.btnSalvar.disabled = false;
+  }
+}
+
+function renderizarPlanner() {
+  if (!plannerEls.board) return;
+  if (carregandoPlanner) {
+    plannerEls.status.textContent = "Carregando modelos da planilha e checklists salvos...";
+    plannerEls.board.innerHTML = "";
+    return;
+  }
+  plannerEls.status.textContent = plannerModelos.length ? `${plannerModelos.length} combinação(ões) Projeto + Tipo carregadas da aba Descricionado.` : "Nenhum modelo da planilha foi encontrado.";
+  if (!plannerChecklists.length) {
+    plannerEls.board.innerHTML = `<div class="weekly-empty-state empty">Nenhum checklist criado. Clique em “+ Adicionar tarefa”.</div>`;
+    return;
+  }
+  plannerEls.board.innerHTML = plannerChecklists.map(criarCardPlanner).join("");
+}
+
+function criarCardPlanner(checklist) {
+  const tarefas = checklist.tarefas || [];
+  const total = tarefas.length;
+  const concluidas = tarefas.filter((tarefa) => tarefa.concluida).length;
+  const grupos = tarefas.reduce((acc, tarefa, indice) => {
+    const etapa = tarefa.etapa || "Checklist";
+    acc[etapa] = acc[etapa] || [];
+    acc[etapa].push({ ...tarefa, indice });
+    return acc;
+  }, {});
+  return `<article class="planner-card">
+    <div class="planner-card-top"><span class="planner-code">${escapeHtml(checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto))}</span><span class="badge ${classePrioridade(checklist.prioridade)}">${escapeHtml(checklist.prioridade || "P0")}</span></div>
+    <h3>${escapeHtml(checklist.titulo || `${checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto)} - ${checklist.tipo}`)}</h3>
+    <p class="planner-meta">${escapeHtml(checklist.obra)}${checklist.responsavel ? ` • ${escapeHtml(checklist.responsavel)}` : ""}${checklist.dataPrevista ? ` • ${formatarData(checklist.dataPrevista)}` : ""}</p>
+    <div class="planner-checklist">${Object.entries(grupos).map(([etapa, itens]) => `<div class="planner-stage"><strong>${escapeHtml(etapa)}</strong>${itens.map((tarefa) => `<button type="button" class="planner-task ${tarefa.concluida ? "done" : ""}" onclick="alternarTarefaPlanner('${checklist.id}', ${tarefa.indice})"><span class="planner-circle"><i class="fas fa-check"></i></span><span>${escapeHtml(tarefa.texto)}</span></button>`).join("")}</div>`).join("")}</div>
+    <footer class="planner-footer"><span><i class="far fa-square-check"></i> ${concluidas} / ${total}</span><progress value="${concluidas}" max="${total || 1}"></progress></footer>
+  </article>`;
+}
+
+async function alternarTarefaPlanner(id, indice) {
+  const checklist = plannerChecklists.find((item) => item.id === id);
+  if (!checklist || !checklist.tarefas?.[indice]) return;
+  checklist.tarefas[indice].concluida = !checklist.tarefas[indice].concluida;
+  renderizarPlanner();
+  try {
+    const salvo = await fetch(API_PLANNER_URL, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, tarefas: checklist.tarefas }) }).then(validarResposta);
+    const idx = plannerChecklists.findIndex((item) => item.id === id);
+    if (idx >= 0) plannerChecklists[idx] = salvo;
+    renderizarPlanner();
+  } catch (erro) {
+    alert(`Não foi possível atualizar o progresso: ${erro.message}`);
+    carregarPlanner();
+  }
+}
+
+function gerarCodigoProjeto(projeto) {
+  const texto = normalizarTexto(projeto);
+  if (texto.includes("eletr")) return "PRJ-ELE";
+  return `PRJ-${String(projeto || "GER").slice(0, 3).toUpperCase()}`;
+}
 function gerarId() {
   if (window.crypto && typeof window.crypto.randomUUID === "function") {
     return window.crypto.randomUUID();

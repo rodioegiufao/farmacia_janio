@@ -39,3 +39,31 @@ alter table public.atividades_colaboradores
 
 create index if not exists idx_atividades_usuario_id
 on public.atividades_colaboradores (usuario_id);
+
+create table if not exists public.planner_checklists (
+  id uuid primary key default gen_random_uuid(),
+  obra text not null,
+  projeto text not null,
+  tipo text not null,
+  codigo_projeto text,
+  titulo text,
+  responsavel text,
+  prioridade text check (prioridade in ('P0', 'P1', 'P2', 'P3')),
+  data_prevista date,
+  observacoes text,
+  tarefas jsonb not null default '[]'::jsonb,
+  criado_por uuid references public.usuarios_setor(id),
+  criado_por_nome text,
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+
+alter table public.planner_checklists
+  add column if not exists titulo text,
+  add column if not exists tarefas jsonb not null default '[]'::jsonb,
+  add column if not exists criado_por uuid references public.usuarios_setor(id),
+  add column if not exists criado_por_nome text,
+  add column if not exists atualizado_em timestamptz not null default now();
+
+create index if not exists idx_planner_checklists_criado_em
+on public.planner_checklists (criado_em desc);

@@ -2,7 +2,7 @@ const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./
 
 const SUPABASE_TABLE = "atividades_colaboradores";
 
-const COLABORADORES = ["Rodrigo", "Hellen", "Bruno", "Estagiário"];
+const COLABORADORES = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 
 function normalizeText(text) {
   return String(text || "")

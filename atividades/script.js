@@ -1,5 +1,8 @@
 const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const prioridades = ["P0", "P1", "P2", "P3"];
+const plannerStatusLista = ["Não iniciado", "Em andamento", "Concluído", "Atrasado", "Pausado"];
+const plannerPrioridades = ["P0", "P1", "P2", "P3"];
+const plannerBuckets = ["Projeto Elétrico Baixa Tensão", "SPDA", "Subestação", "Alimentador", "Cabeamento", "CFTV", "Iluminação Externa", "Outros"];
 const coresPrioridade = {
   P0: "#48bb78",
   P1: "#ecc94b",
@@ -84,6 +87,7 @@ let semanaVisivelIndex = 0;
 let plannerModelos = [];
 let plannerChecklists = [];
 let carregandoPlanner = false;
+let plannerDetalheAtualId = null;
 
 const campos = {
   id: document.getElementById("atividadeId"),
@@ -137,10 +141,32 @@ const plannerEls = {
   obra: document.getElementById("plannerObra"),
   projeto: document.getElementById("plannerProjeto"),
   tipo: document.getElementById("plannerTipo"),
+  nomeTarefa: document.getElementById("plannerNomeTarefa"),
   responsavel: document.getElementById("plannerResponsavel"),
+  statusTarefa: document.getElementById("plannerStatus"),
   prioridade: document.getElementById("plannerPrioridade"),
-  dataPrevista: document.getElementById("plannerDataPrevista"),
-  observacoes: document.getElementById("plannerObservacoes")
+  dataInicio: document.getElementById("plannerDataInicio"),
+  dataConclusao: document.getElementById("plannerDataConclusao"),
+  bucket: document.getElementById("plannerBucket"),
+  anotacoes: document.getElementById("plannerAnotacoes"),
+  detalheModal: document.getElementById("plannerDetalhesModal"),
+  detalheForm: document.getElementById("plannerDetalhesForm"),
+  detalheId: document.getElementById("plannerDetalhesId"),
+  detalheTag: document.getElementById("plannerDetalhesTag"),
+  detalheTitulo: document.getElementById("plannerDetalhesTitulo"),
+  detalheObra: document.getElementById("plannerDetalhesObra"),
+  detalheResponsavel: document.getElementById("plannerDetalhesResponsavel"),
+  detalheStatus: document.getElementById("plannerDetalhesStatus"),
+  detalhePrioridade: document.getElementById("plannerDetalhesPrioridade"),
+  detalheDataInicio: document.getElementById("plannerDetalhesDataInicio"),
+  detalheDataConclusao: document.getElementById("plannerDetalhesDataConclusao"),
+  detalheBucket: document.getElementById("plannerDetalhesBucket"),
+  detalheChecklist: document.getElementById("plannerDetalhesChecklist"),
+  detalheChecklistTitulo: document.getElementById("plannerChecklistTitulo"),
+  detalheAnotacoes: document.getElementById("plannerDetalhesAnotacoes"),
+  btnFecharDetalhes: document.getElementById("btnFecharPlannerDetalhes"),
+  btnSalvarDetalhes: document.getElementById("btnSalvarDetalhesPlanner"),
+  btnExcluir: document.getElementById("btnExcluirPlanner")
 };
 
 const filtrosCalendario = {
@@ -246,7 +272,7 @@ async function inicializar() {
   if (usuarioAtual) {
     await carregarAtividades();
     await carregarAtividadesSemanais();
-    if (usuarioAtualEhAdmin()) await carregarPlanner();
+    await carregarPlanner();
   }
 }
 
@@ -266,13 +292,7 @@ function alternarSecao(event) {
   if (targetId === "dashboardSection") atualizarDashboard();
   if (targetId === "calendarioSection") renderizarCalendario();
   if (targetId === "semanaSection" && usuarioAtual && !atividadesSemanais.length) carregarAtividadesSemanais();
-  if (targetId === "plannerSection") {
-    if (!usuarioAtualEhAdmin()) {
-      alternarAba("atividade");
-      return;
-    }
-    if (!plannerChecklists.length) carregarPlanner();
-  }
+  if (targetId === "plannerSection" && !plannerChecklists.length) carregarPlanner();
 }
 
 function alternarAba(aba) {
@@ -292,16 +312,14 @@ function usuarioAtualEhAdmin() {
 }
 
 function aplicarPermissaoPlanner() {
-  const podeAcessarPlanner = usuarioAtualEhAdmin();
+  const podeAcessarPlanner = Boolean(usuarioAtual);
   if (plannerTab) plannerTab.hidden = !podeAcessarPlanner;
+  if (plannerEls.btnNovo) plannerEls.btnNovo.hidden = !usuarioAtualEhAdmin();
+  if (plannerEls.btnSalvarDetalhes) plannerEls.btnSalvarDetalhes.hidden = !usuarioAtualEhAdmin();
+  if (plannerEls.btnExcluir) plannerEls.btnExcluir.hidden = !usuarioAtualEhAdmin();
   if (plannerPanel) plannerPanel.hidden = !podeAcessarPlanner || plannerPanel.hidden;
   if (plannerEls.modal) plannerEls.modal.hidden = true;
-  if (!podeAcessarPlanner) {
-    plannerModelos = [];
-    plannerChecklists = [];
-    carregandoPlanner = false;
-    if (plannerPanel && !document.getElementById("atividadeSection")?.hidden) plannerPanel.hidden = true;
-  }
+  if (plannerEls.detalheModal) plannerEls.detalheModal.hidden = true;
 }
 
 function aplicarPermissoesAtividadesSemanais() {
@@ -1858,18 +1876,27 @@ function classeStatus(status) {
   return status.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replaceAll(" ", "-");
 }
 function inicializarPlanner() {
-  if (!plannerEls.form || !usuarioAtualEhAdmin()) return;
-  preencherSelect(plannerEls.prioridade, prioridades);
+  if (!plannerEls.form) return;
+  preencherSelect(plannerEls.statusTarefa, plannerStatusLista);
+  preencherSelect(plannerEls.prioridade, plannerPrioridades);
+  preencherSelect(plannerEls.bucket, plannerBuckets);
+  preencherSelect(plannerEls.detalheStatus, plannerStatusLista);
+  preencherSelect(plannerEls.detalhePrioridade, plannerPrioridades);
+  preencherSelect(plannerEls.detalheBucket, plannerBuckets);
   plannerEls.btnNovo?.addEventListener("click", abrirPlannerModal);
   plannerEls.btnFechar?.addEventListener("click", fecharPlannerModal);
   plannerEls.btnCancelar?.addEventListener("click", fecharPlannerModal);
+  plannerEls.btnFecharDetalhes?.addEventListener("click", fecharDetalhesPlanner);
+  plannerEls.btnExcluir?.addEventListener("click", excluirPlannerAtual);
   plannerEls.modal?.addEventListener("click", (event) => { if (event.target === plannerEls.modal) fecharPlannerModal(); });
+  plannerEls.detalheModal?.addEventListener("click", (event) => { if (event.target === plannerEls.detalheModal) fecharDetalhesPlanner(); });
   plannerEls.projeto?.addEventListener("change", atualizarTiposPlanner);
   plannerEls.form.addEventListener("submit", salvarChecklistPlanner);
+  plannerEls.detalheForm?.addEventListener("submit", salvarDetalhesPlanner);
 }
 
 async function carregarPlanner() {
-  if (!plannerEls.board || !usuarioAtualEhAdmin()) return;
+  if (!plannerEls.board || !usuarioAtual) return;
   try {
     carregandoPlanner = true;
     renderizarPlanner();
@@ -1894,34 +1921,34 @@ function atualizarProjetosPlanner() {
 }
 
 function atualizarTiposPlanner() {
-  const projeto = plannerEls.projeto.value;
+  const projeto = plannerEls.projeto?.value;
   const tipos = [...new Set(plannerModelos.filter((modelo) => modelo.projeto === projeto).map((modelo) => modelo.tipo).filter(Boolean))];
   preencherSelect(plannerEls.tipo, tipos);
 }
 
 function abrirPlannerModal() {
+  if (!usuarioAtualEhAdmin()) return alert("Apenas administradores podem criar tarefas no Planner.");
   plannerEls.form.reset();
   plannerEls.id.value = "";
-  plannerEls.btnSalvar.textContent = "Criar checklist";
+  plannerEls.btnSalvar.textContent = "Criar tarefa";
   atualizarProjetosPlanner();
+  plannerEls.statusTarefa.value = "Não iniciado";
+  plannerEls.prioridade.value = "Média";
+  plannerEls.bucket.value = "Outros";
   plannerEls.modal.hidden = false;
   plannerEls.obra.focus();
 }
 
-function fecharPlannerModal() {
-  plannerEls.modal.hidden = true;
-}
+function fecharPlannerModal() { plannerEls.modal.hidden = true; }
+function fecharDetalhesPlanner() { plannerEls.detalheModal.hidden = true; plannerDetalheAtualId = null; }
 
 async function salvarChecklistPlanner(event) {
   event.preventDefault();
   const payload = {
-    obra: plannerEls.obra.value.trim(),
-    projeto: plannerEls.projeto.value,
-    tipo: plannerEls.tipo.value,
-    responsavel: plannerEls.responsavel.value.trim(),
-    prioridade: plannerEls.prioridade.value,
-    dataPrevista: plannerEls.dataPrevista.value,
-    observacoes: plannerEls.observacoes.value.trim()
+    obra: plannerEls.obra.value.trim(), nomeTarefa: plannerEls.nomeTarefa.value.trim(), projeto: plannerEls.projeto.value,
+    tipo: plannerEls.tipo.value, status: plannerEls.statusTarefa.value, prioridade: plannerEls.prioridade.value,
+    dataInicio: plannerEls.dataInicio.value, dataConclusao: plannerEls.dataConclusao.value, bucket: plannerEls.bucket.value,
+    responsavel: plannerEls.responsavel.value.trim(), anotacoes: plannerEls.anotacoes.value.trim()
   };
   try {
     plannerEls.btnSalvar.disabled = true;
@@ -1929,63 +1956,95 @@ async function salvarChecklistPlanner(event) {
     plannerChecklists.unshift(salvo);
     fecharPlannerModal();
     renderizarPlanner();
-  } catch (erro) {
-    alert(`Não foi possível criar o checklist: ${erro.message}`);
-  } finally {
-    plannerEls.btnSalvar.disabled = false;
-  }
+  } catch (erro) { alert(`Não foi possível criar a tarefa: ${erro.message}`); }
+  finally { plannerEls.btnSalvar.disabled = false; }
+}
+
+function calcularProgressoPlanner(checklist) {
+  const itens = checklist.itens || [];
+  const total = itens.length;
+  const concluidos = itens.filter((item) => item.concluido).length;
+  return { total, concluidos, percentual: total ? Math.round((concluidos / total) * 100) : 0 };
 }
 
 function renderizarPlanner() {
   if (!plannerEls.board) return;
-  if (carregandoPlanner) {
-    plannerEls.status.textContent = "Carregando modelos da planilha e checklists salvos...";
-    plannerEls.board.innerHTML = "";
-    return;
-  }
+  if (carregandoPlanner) { plannerEls.status.textContent = "Carregando modelos da planilha e tarefas salvas..."; plannerEls.board.innerHTML = ""; return; }
   plannerEls.status.textContent = plannerModelos.length ? `${plannerModelos.length} combinação(ões) Projeto + Tipo carregadas da aba Descricionado.` : "Nenhum modelo da planilha foi encontrado.";
-  if (!plannerChecklists.length) {
-    plannerEls.board.innerHTML = `<div class="weekly-empty-state empty">Nenhum checklist criado. Clique em “+ Adicionar tarefa”.</div>`;
-    return;
-  }
+  if (!plannerChecklists.length) { plannerEls.board.innerHTML = `<div class="weekly-empty-state empty">Nenhuma tarefa criada${usuarioAtualEhAdmin() ? ". Clique em “+ Adicionar tarefa”." : "."}</div>`; return; }
   plannerEls.board.innerHTML = plannerChecklists.map(criarCardPlanner).join("");
 }
 
 function criarCardPlanner(checklist) {
-  const tarefas = checklist.tarefas || [];
-  const total = tarefas.length;
-  const concluidas = tarefas.filter((tarefa) => tarefa.concluida).length;
-  const grupos = tarefas.reduce((acc, tarefa, indice) => {
-    const etapa = tarefa.etapa || "Checklist";
-    acc[etapa] = acc[etapa] || [];
-    acc[etapa].push({ ...tarefa, indice });
-    return acc;
-  }, {});
-  return `<article class="planner-card">
-    <div class="planner-card-top"><span class="planner-code">${escapeHtml(checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto))}</span><span class="badge ${classePrioridade(checklist.prioridade)}">${escapeHtml(checklist.prioridade || "P0")}</span></div>
-    <h3>${escapeHtml(checklist.titulo || `${checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto)} - ${checklist.tipo}`)}</h3>
-    <p class="planner-meta">${escapeHtml(checklist.obra)}${checklist.responsavel ? ` • ${escapeHtml(checklist.responsavel)}` : ""}${checklist.dataPrevista ? ` • ${formatarData(checklist.dataPrevista)}` : ""}</p>
-    <div class="planner-checklist">${Object.entries(grupos).map(([etapa, itens]) => `<div class="planner-stage"><strong>${escapeHtml(etapa)}</strong>${itens.map((tarefa) => `<button type="button" class="planner-task ${tarefa.concluida ? "done" : ""}" onclick="alternarTarefaPlanner('${checklist.id}', ${tarefa.indice})"><span class="planner-circle"><i class="fas fa-check"></i></span><span>${escapeHtml(tarefa.texto)}</span></button>`).join("")}</div>`).join("")}</div>
-    <footer class="planner-footer"><span><i class="far fa-square-check"></i> ${concluidas} / ${total}</span><progress value="${concluidas}" max="${total || 1}"></progress></footer>
+  const progresso = calcularProgressoPlanner(checklist);
+  const titulo = checklist.nomeTarefa || `${checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto)} - ${checklist.tipo}`;
+  return `<article class="planner-card" role="button" tabindex="0" onclick="abrirDetalhesPlanner('${checklist.id}')" onkeydown="if(event.key==='Enter') abrirDetalhesPlanner('${checklist.id}')">
+    <div class="planner-card-top"><span class="planner-code">${escapeHtml(checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto))}</span><span class="planner-bucket">${escapeHtml(checklist.bucket || "Outros")}</span></div>
+    <h3>${escapeHtml(titulo)}</h3>
+    <p class="planner-meta">${escapeHtml(checklist.obra)}${checklist.responsavel ? ` • ${escapeHtml(checklist.responsavel)}` : ""}</p>
+    <div class="planner-card-badges"><span class="badge ${classeStatus(checklist.status || "Não iniciado")}">${escapeHtml(checklist.status || "Não iniciado")}</span><span class="badge ${classePrioridade(checklist.prioridade || "Média")}">${escapeHtml(checklist.prioridade || "Média")}</span></div>
+    <p class="planner-meta"><i class="far fa-calendar"></i> ${checklist.dataInicio ? formatarData(checklist.dataInicio) : "Sem início"} → ${checklist.dataConclusao ? formatarData(checklist.dataConclusao) : "Sem conclusão"}</p>
+    <footer class="planner-footer"><span><i class="far fa-square-check"></i> ${progresso.concluidos} / ${progresso.total}</span><div class="planner-progress-bar"><span style="width:${progresso.percentual}%"></span></div></footer>
   </article>`;
 }
 
-async function alternarTarefaPlanner(id, indice) {
+function abrirDetalhesPlanner(id) {
   const checklist = plannerChecklists.find((item) => item.id === id);
-  if (!checklist || !checklist.tarefas?.[indice]) return;
-  checklist.tarefas[indice].concluida = !checklist.tarefas[indice].concluida;
-  renderizarPlanner();
-  try {
-    const salvo = await fetch(API_PLANNER_URL, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, tarefas: checklist.tarefas }) }).then(validarResposta);
-    const idx = plannerChecklists.findIndex((item) => item.id === id);
-    if (idx >= 0) plannerChecklists[idx] = salvo;
-    renderizarPlanner();
-  } catch (erro) {
-    alert(`Não foi possível atualizar o progresso: ${erro.message}`);
-    carregarPlanner();
-  }
+  if (!checklist) return;
+  plannerDetalheAtualId = id;
+  const progresso = calcularProgressoPlanner(checklist);
+  plannerEls.detalheId.value = checklist.id;
+  plannerEls.detalheTag.textContent = checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto);
+  plannerEls.detalheTitulo.value = checklist.nomeTarefa || "";
+  plannerEls.detalheObra.textContent = `${checklist.obra} • ${checklist.projeto} / ${checklist.tipo}`;
+  plannerEls.detalheResponsavel.value = checklist.responsavel || "";
+  plannerEls.detalheStatus.value = checklist.status || "Não iniciado";
+  plannerEls.detalhePrioridade.value = checklist.prioridade || "Média";
+  plannerEls.detalheDataInicio.value = checklist.dataInicio || "";
+  plannerEls.detalheDataConclusao.value = checklist.dataConclusao || "";
+  plannerEls.detalheBucket.value = checklist.bucket || "Outros";
+  plannerEls.detalheAnotacoes.value = checklist.anotacoes || "";
+  plannerEls.detalheChecklistTitulo.textContent = `Lista de verificação (${progresso.concluidos} de ${progresso.total} itens concluídos)`;
+  plannerEls.detalheChecklist.innerHTML = (checklist.itens || []).map((item) => `<button type="button" class="planner-checklist-row ${item.concluido ? "done" : ""}" onclick="alternarItemPlanner('${item.id}', ${!item.concluido})"><span class="planner-check-circle"><i class="fas fa-check"></i></span><span>${escapeHtml(item.texto)}</span></button>`).join("");
+  const admin = usuarioAtualEhAdmin();
+  [plannerEls.detalheTitulo, plannerEls.detalheResponsavel, plannerEls.detalheStatus, plannerEls.detalhePrioridade, plannerEls.detalheDataInicio, plannerEls.detalheDataConclusao, plannerEls.detalheBucket, plannerEls.detalheAnotacoes].forEach((el) => { if (el) el.disabled = !admin; });
+  plannerEls.detalheModal.hidden = false;
 }
 
+async function salvarDetalhesPlanner(event) {
+  event.preventDefault();
+  if (!usuarioAtualEhAdmin()) return;
+  const payload = { id: plannerEls.detalheId.value, nomeTarefa: plannerEls.detalheTitulo.value.trim(), status: plannerEls.detalheStatus.value,
+    prioridade: plannerEls.detalhePrioridade.value, dataInicio: plannerEls.detalheDataInicio.value, dataConclusao: plannerEls.detalheDataConclusao.value,
+    bucket: plannerEls.detalheBucket.value, responsavel: plannerEls.detalheResponsavel.value.trim(), anotacoes: plannerEls.detalheAnotacoes.value.trim() };
+  try {
+    const salvo = await fetch(API_PLANNER_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(validarResposta);
+    const idx = plannerChecklists.findIndex((item) => item.id === salvo.id);
+    if (idx >= 0) plannerChecklists[idx] = salvo;
+    renderizarPlanner(); abrirDetalhesPlanner(salvo.id);
+  } catch (erro) { alert(`Não foi possível salvar os detalhes: ${erro.message}`); }
+}
+async function alternarItemPlanner(itemId, concluido) {
+  const checklist = plannerChecklists.find((card) => (card.itens || []).some((item) => item.id === itemId));
+  const item = checklist?.itens?.find((linha) => linha.id === itemId);
+  if (!item) return;
+  item.concluido = concluido;
+  renderizarPlanner(); if (plannerDetalheAtualId) abrirDetalhesPlanner(plannerDetalheAtualId);
+  try {
+    const data = await fetch(API_PLANNER_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itemId, concluido }) }).then(validarResposta);
+    Object.assign(item, data.item || {});
+    renderizarPlanner(); if (plannerDetalheAtualId) abrirDetalhesPlanner(plannerDetalheAtualId);
+  } catch (erro) { alert(`Não foi possível atualizar o item: ${erro.message}`); carregarPlanner(); }
+}
+
+async function excluirPlannerAtual() {
+  if (!usuarioAtualEhAdmin() || !plannerDetalheAtualId || !confirm("Excluir esta tarefa do Planner?")) return;
+  try {
+    await fetch(`${API_PLANNER_URL}?id=${encodeURIComponent(plannerDetalheAtualId)}`, { method: "DELETE" }).then(validarResposta);
+    plannerChecklists = plannerChecklists.filter((item) => item.id !== plannerDetalheAtualId);
+    fecharDetalhesPlanner(); renderizarPlanner();
+  } catch (erro) { alert(`Não foi possível excluir: ${erro.message}`); }
+}
 function gerarCodigoProjeto(projeto) {
   const texto = normalizarTexto(projeto);
   if (texto.includes("eletr")) return "PRJ-ELE";

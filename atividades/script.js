@@ -1075,10 +1075,7 @@ function obterIntervaloDashboard() {
   inicioHoje.setHours(0, 0, 0, 0);
 
   if (["semana-atual", "semana-anterior"].includes(filtrosDashboard.periodo.value)) {
-    const inicio = new Date(inicioHoje);
-    const diaSemana = inicio.getDay();
-    const diasDesdeSegunda = diaSemana === 0 ? 6 : diaSemana - 1;
-    inicio.setDate(inicio.getDate() - diasDesdeSegunda);
+    const inicio = obterInicioSemana(inicioHoje);
     
     if (filtrosDashboard.periodo.value === "semana-anterior") {
       inicio.setDate(inicio.getDate() - 7);

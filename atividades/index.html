@@ -78,6 +78,9 @@
       <button type="button" class="tab-button" id="abaCalendario" data-section-target="calendarioSection" aria-controls="calendarioSection" aria-selected="false">
         <i class="fas fa-calendar-days"></i> Calendário
       </button>
+      <button type="button" class="tab-button" id="abaPlanner" data-section-target="plannerSection" aria-controls="plannerSection" aria-selected="false">
+        <i class="fas fa-clipboard-check"></i> Planner
+      </button>
     </nav>
 
     <section class="panel" id="atividadeSection" data-section-panel="atividadeSection">
@@ -328,6 +331,41 @@
         <div id="calendarioGrade" class="calendar-grid" aria-live="polite"></div>
       </div>
     </section>
+    <section class="panel planner-panel" id="plannerSection" data-section-panel="plannerSection" aria-label="Planner de checklist por projeto" hidden>
+      <div class="planner-hero">
+        <div>
+          <span class="weekly-dashboard-kicker">Microsoft Planner</span>
+          <h2>Planner de Checklists por Obra</h2>
+          <p>Crie cards por obra usando os projetos, tipos, etapas e atividades da planilha Check-list Geral.</p>
+        </div>
+        <button type="button" class="primary" id="btnNovoChecklistPlanner"><i class="fas fa-plus" aria-hidden="true"></i> Adicionar tarefa</button>
+      </div>
+
+      <div id="plannerModelosStatus" class="planner-status" aria-live="polite"></div>
+      <div id="plannerBoard" class="planner-board" aria-live="polite"></div>
+    </section>
+
+    <div class="planner-modal" id="plannerModal" hidden>
+      <div class="planner-modal-card" role="dialog" aria-modal="true" aria-labelledby="plannerModalTitle">
+        <button type="button" class="planner-modal-close" id="btnFecharPlannerModal" aria-label="Fechar formulário">&times;</button>
+        <h2 id="plannerModalTitle">Novo checklist de projeto</h2>
+        <p>Selecione o Projeto + Tipo para carregar automaticamente as etapas e atividades da planilha.</p>
+        <form id="plannerForm" class="form-grid planner-form">
+          <input type="hidden" id="plannerId" />
+          <label>Nome da obra<input type="text" id="plannerObra" placeholder="Ex.: Escola Nova Canaã" required /></label>
+          <label>Projeto<select id="plannerProjeto" required></select></label>
+          <label>Tipo<select id="plannerTipo" required></select></label>
+          <label>Responsável<input type="text" id="plannerResponsavel" placeholder="Ex.: Rodrigo" /></label>
+          <label>Prioridade<select id="plannerPrioridade" required></select></label>
+          <label>Data prevista<input type="date" id="plannerDataPrevista" /></label>
+          <label class="span-2">Observações<textarea id="plannerObservacoes" rows="3" placeholder="Informações complementares"></textarea></label>
+          <div class="form-actions span-2">
+            <button type="submit" class="primary" id="btnSalvarPlanner">Criar checklist</button>
+            <button type="button" class="secondary" id="btnCancelarPlanner">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
     <section class="panel weekly-panel" id="semanaSection" data-section-panel="semanaSection" aria-label="Atividades da semana" hidden>
       <div class="weekly-hero">
         <div>

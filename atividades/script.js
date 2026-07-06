@@ -30,6 +30,8 @@ const etapas = [
   "Avaliação",
   "Reunião",
   "Visita in-loco",
+  "Relatório",
+  "Estudo",
   "Outros"
 ];
 const statusLista = ["Atrasado", "Em progresso", "Pausado", "Finalizado"];
@@ -771,7 +773,7 @@ function renderizarTabelaSemanal() {
   }
 
   const atividadesPorSemana = agruparAtividadesPorSemana(listaFiltrada);
-  const semanas = Object.entries(atividadesPorSemana);
+  const semanas = ordenarSemanasPlanejamento(Object.entries(atividadesPorSemana));
 
   if (!semanas.length) {
     atualizarControlesCarrosselSemanal(0);
@@ -798,12 +800,45 @@ function atualizarControlesCarrosselSemanal(totalSemanas) {
 }
 
 function navegarSemanaPlanejamento(direcao) {
-  const totalSemanas = Object.keys(agruparAtividadesPorSemana(obterAtividadesSemanaisFiltradas())).length;
+  const totalSemanas = ordenarSemanasPlanejamento(Object.entries(agruparAtividadesPorSemana(obterAtividadesSemanaisFiltradas()))).length;
   if (totalSemanas <= 1) return;
   semanaVisivelIndex = (semanaVisivelIndex + direcao + totalSemanas) % totalSemanas;
   renderizarTabelaSemanal();
 }
+function ordenarSemanasPlanejamento(semanas) {
+  return semanas.sort(([semanaA], [semanaB]) => compararSemanasPlanejamento(semanaA, semanaB));
+}
 
+function compararSemanasPlanejamento(semanaA, semanaB) {
+  const intervaloA = extrairIntervaloSemana(semanaA);
+  const intervaloB = extrairIntervaloSemana(semanaB);
+
+  if (intervaloA && intervaloB && intervaloA.inicio.getTime() !== intervaloB.inicio.getTime()) {
+    return intervaloA.inicio - intervaloB.inicio;
+  }
+
+  const numeroA = extrairNumeroSemana(semanaA);
+  const numeroB = extrairNumeroSemana(semanaB);
+
+  if (numeroA !== null && numeroB !== null && numeroA !== numeroB) {
+    return numeroA - numeroB;
+  }
+
+  if (intervaloA && !intervaloB) return -1;
+  if (!intervaloA && intervaloB) return 1;
+  if (numeroA !== null && numeroB === null) return -1;
+  if (numeroA === null && numeroB !== null) return 1;
+
+  return String(semanaA || '').localeCompare(String(semanaB || ''), 'pt-BR', { numeric: true, sensitivity: 'base' });
+}
+
+function extrairNumeroSemana(semana) {
+  const correspondencia = String(semana || '').match(/semana\s*(\d+)/i);
+  if (!correspondencia) return null;
+
+  const numero = Number(correspondencia[1]);
+  return Number.isNaN(numero) ? null : numero;
+}
 function agruparAtividadesPorSemana(lista) {
   return lista.reduce((grupo, atividadeSemanal) => {
     const semana = atividadeSemanal.semana || "Semana não informada";
@@ -887,7 +922,7 @@ function focarFormularioSemanal() {
 function preencherFiltroSemanas() {
   const valorAtual = filtrosSemanais.semana.value;
   const semanas = [...new Set(atividadesSemanais.map((item) => item.semana).filter(Boolean))]
-    .sort((a, b) => a.localeCompare(b));
+    .sort(compararSemanasPlanejamento);
   preencherSelect(filtrosSemanais.semana, semanas, "Todas as semanas");
   if (semanas.includes(valorAtual)) filtrosSemanais.semana.value = valorAtual;
 }

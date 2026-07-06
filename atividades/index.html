@@ -348,20 +348,55 @@
     <div class="planner-modal" id="plannerModal" hidden>
       <div class="planner-modal-card" role="dialog" aria-modal="true" aria-labelledby="plannerModalTitle">
         <button type="button" class="planner-modal-close" id="btnFecharPlannerModal" aria-label="Fechar formulário">&times;</button>
-        <h2 id="plannerModalTitle">Novo checklist de projeto</h2>
-        <p>Selecione o Projeto + Tipo para carregar automaticamente as etapas e atividades da planilha.</p>
+        <h2 id="plannerModalTitle">Nova tarefa</h2>
+        <p>Selecione Projeto + Tipo para gerar automaticamente a lista de verificação da aba Descricionado.</p>
         <form id="plannerForm" class="form-grid planner-form">
           <input type="hidden" id="plannerId" />
           <label>Nome da obra<input type="text" id="plannerObra" placeholder="Ex.: Escola Nova Canaã" required /></label>
+          <label>Nome do projeto/tarefa<input type="text" id="plannerNomeTarefa" placeholder="Ex.: Projeto elétrico da escola" required /></label>
           <label>Projeto<select id="plannerProjeto" required></select></label>
           <label>Tipo<select id="plannerTipo" required></select></label>
-          <label>Responsável<input type="text" id="plannerResponsavel" placeholder="Ex.: Rodrigo" /></label>
+          <label>Status<select id="plannerStatus" required></select></label>
           <label>Prioridade<select id="plannerPrioridade" required></select></label>
-          <label>Data prevista<input type="date" id="plannerDataPrevista" /></label>
-          <label class="span-2">Observações<textarea id="plannerObservacoes" rows="3" placeholder="Informações complementares"></textarea></label>
+          <label>Data de início<input type="date" id="plannerDataInicio" /></label>
+          <label>Data de conclusão<input type="date" id="plannerDataConclusao" /></label>
+          <label>Bucket<select id="plannerBucket" required></select></label>
+          <label>Responsável<input type="text" id="plannerResponsavel" placeholder="Ex.: Rodrigo" /></label>
+          <label class="span-2">Anotações<textarea id="plannerAnotacoes" rows="5" placeholder="Recebimentos:
+- Recebimento do Projeto Arquitetônico no dia XX/XX/20XX"></textarea></label>
           <div class="form-actions span-2">
-            <button type="submit" class="primary" id="btnSalvarPlanner">Criar checklist</button>
+            <button type="submit" class="primary" id="btnSalvarPlanner">Criar tarefa</button>
             <button type="button" class="secondary" id="btnCancelarPlanner">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="planner-detail-modal" id="plannerDetalhesModal" hidden>
+      <div class="planner-detail-card" role="dialog" aria-modal="true" aria-labelledby="plannerDetalhesTitulo">
+        <button type="button" class="planner-modal-close" id="btnFecharPlannerDetalhes" aria-label="Fechar detalhes">&times;</button>
+        <div class="planner-detail-header">
+          <span class="planner-tag" id="plannerDetalhesTag"></span>
+          <input type="text" id="plannerDetalhesTitulo" class="planner-title-input" />
+          <p id="plannerDetalhesObra" class="planner-meta"></p>
+        </div>
+        <form id="plannerDetalhesForm" class="planner-detail-body">
+          <input type="hidden" id="plannerDetalhesId" />
+          <div class="planner-field-grid">
+            <label>Responsável<input type="text" id="plannerDetalhesResponsavel" /></label>
+            <label>Status<select id="plannerDetalhesStatus" class="planner-status-select"></select></label>
+            <label>Prioridade<select id="plannerDetalhesPrioridade" class="planner-priority-select"></select></label>
+            <label>Data de início<input type="date" id="plannerDetalhesDataInicio" /></label>
+            <label>Data de conclusão<input type="date" id="plannerDetalhesDataConclusao" /></label>
+            <label>Bucket<select id="plannerDetalhesBucket"></select></label>
+          </div>
+          <section class="planner-detail-section">
+            <h3 id="plannerChecklistTitulo">Lista de verificação</h3>
+            <div id="plannerDetalhesChecklist" class="planner-detail-checklist"></div>
+          </section>
+          <label class="planner-notes">Anotações<textarea id="plannerDetalhesAnotacoes" rows="7"></textarea></label>
+          <div class="form-actions">
+            <button type="submit" class="primary" id="btnSalvarDetalhesPlanner">Salvar detalhes</button>
+            <button type="button" class="secondary" id="btnExcluirPlanner">Excluir tarefa</button>
           </div>
         </form>
       </div>

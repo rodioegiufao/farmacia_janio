@@ -3,6 +3,14 @@ const prioridades = ["P0", "P1", "P2", "P3"];
 const plannerStatusLista = ["Não iniciado", "Em andamento", "Concluído", "Atrasado", "Pausado"];
 const plannerPrioridades = ["P0", "P1", "P2", "P3"];
 const plannerBuckets = ["Projeto Elétrico Baixa Tensão", "SPDA", "Subestação", "Alimentador", "Cabeamento", "CFTV", "Iluminação Externa", "Outros"];
+const plannerProjetosDisponiveis = ["Projetos Elétricos de Baixa Tensão"];
+const plannerTiposDisponiveis = [
+  "Prédios Públicos Gerais",
+  "Prédios Públicos de Saúde sem IT-Médico",
+  "Prédios Públicos de Saúde com IT-Médico",
+  "Prédios Privados Gerais",
+  "Prédios Privados Pequenos (<200m²)"
+];
 const coresPrioridade = {
   P0: "#48bb78",
   P1: "#ecc94b",

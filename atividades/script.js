@@ -272,12 +272,13 @@ async function inicializar() {
   if (usuarioAtual) {
     await carregarAtividades();
     await carregarAtividadesSemanais();
-    await carregarPlanner();
+    if (usuarioAtualEhAdmin()) await carregarPlanner();
   }
 }
 
 function alternarSecao(event) {
   const targetId = event.currentTarget.dataset.sectionTarget;
+  if (targetId === "plannerSection" && !usuarioAtualEhAdmin()) return;
 
   sectionTabs.forEach((tab) => {
     const ativo = tab.dataset.sectionTarget === targetId;
@@ -313,13 +314,13 @@ function usuarioAtualEhAdmin() {
 
 function aplicarPermissaoPlanner() {
   const podeAcessarPlanner = Boolean(usuarioAtual);
-  if (plannerTab) plannerTab.hidden = !podeAcessarPlanner;
-  if (plannerEls.btnNovo) plannerEls.btnNovo.hidden = !usuarioAtualEhAdmin();
-  if (plannerEls.btnSalvarDetalhes) plannerEls.btnSalvarDetalhes.hidden = !usuarioAtualEhAdmin();
-  if (plannerEls.btnExcluir) plannerEls.btnExcluir.hidden = !usuarioAtualEhAdmin();
+  const podeAcessarPlanner = usuarioAtualEhAdmin();
+  if (plannerEls.btnNovo) plannerEls.btnNovo.hidden = !podeAcessarPlanner;
+  if (plannerEls.btnSalvarDetalhes) plannerEls.btnSalvarDetalhes.hidden = !podeAcessarPlanner;
+  if (plannerEls.btnExcluir) plannerEls.btnExcluir.hidden = !podeAcessarPlanner;
   if (plannerPanel) plannerPanel.hidden = !podeAcessarPlanner || plannerPanel.hidden;
   if (plannerEls.modal) plannerEls.modal.hidden = true;
-  if (plannerEls.detalheModal) plannerEls.detalheModal.hidden = true;
+  if (!podeAcessarPlanner && plannerTab?.classList.contains("active")) alternarAba("atividade");
 }
 
 function aplicarPermissoesAtividadesSemanais() {
@@ -1896,7 +1897,7 @@ function inicializarPlanner() {
 }
 
 async function carregarPlanner() {
-  if (!plannerEls.board || !usuarioAtual) return;
+  if (!plannerEls.board || !usuarioAtualEhAdmin()) return;
   try {
     carregandoPlanner = true;
     renderizarPlanner();

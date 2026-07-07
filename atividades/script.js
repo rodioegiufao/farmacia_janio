@@ -314,6 +314,7 @@ function usuarioAtualEhAdmin() {
 
 function aplicarPermissaoPlanner() {
   const podeAcessarPlanner = usuarioAtualEhAdmin();
+  if (plannerTab) plannerTab.hidden = !podeAcessarPlanner;
   if (plannerEls.btnNovo) plannerEls.btnNovo.hidden = !podeAcessarPlanner;
   if (plannerEls.btnSalvarDetalhes) plannerEls.btnSalvarDetalhes.hidden = !podeAcessarPlanner;
   if (plannerEls.btnExcluir) plannerEls.btnExcluir.hidden = !podeAcessarPlanner;

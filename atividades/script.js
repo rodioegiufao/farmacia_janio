@@ -1924,14 +1924,18 @@ async function carregarPlanner() {
 }
 
 function atualizarProjetosPlanner() {
-  const projetosPlanner = [...new Set(plannerModelos.map((modelo) => modelo.projeto).filter(Boolean))];
+  const projetosPlanner = [...new Set([
+    ...plannerProjetosDisponiveis,
+    ...plannerModelos.map((modelo) => modelo.projeto).filter(Boolean)
+  ])];
   preencherSelect(plannerEls.projeto, projetosPlanner);
   atualizarTiposPlanner();
 }
 
 function atualizarTiposPlanner() {
   const projeto = plannerEls.projeto?.value;
-  const tipos = [...new Set(plannerModelos.filter((modelo) => modelo.projeto === projeto).map((modelo) => modelo.tipo).filter(Boolean))];
+  const tiposModelo = plannerModelos.filter((modelo) => modelo.projeto === projeto).map((modelo) => modelo.tipo).filter(Boolean);
+  const tipos = [...new Set([...plannerTiposDisponiveis, ...tiposModelo])];
   preencherSelect(plannerEls.tipo, tipos);
 }
 

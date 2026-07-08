@@ -772,12 +772,14 @@ if (!bridge) {
             },
             body: payloadBody
         });
+        
+        const payload = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            throw new Error(`Falha HTTP ${response.status} ao gerar link compartilhável.`);
+            const errorMessage = payload?.error || `Falha HTTP ${response.status} ao gerar link compartilhável.`;
+            throw new Error(errorMessage);
         }
 
-        const payload = await response.json();
         if (!payload?.shareCode || !payload?.shareLink || !payload?.expiresAt) {
             throw new Error("Resposta inválida ao gerar compartilhamento.");
         }
@@ -870,10 +872,14 @@ if (!bridge) {
             setPanelState(true);
 
             try {
-                const { shareCode, shareLink, expiresAt } = await createShareSnapshot(shareableFiles);
+                const { shareCode, shareLink, expiresAt, warning } = await createShareSnapshot(shareableFiles);
                 shareLinkInput.value = shareLink;
-                shareCodeElement.textContent = `Código: ${shareCode} • expira em ${new Date(expiresAt).toLocaleString("pt-BR")}`;
-                bridge.setUploadStatus("Link temporário gerado com os modelos anexados.");
+                shareCodeElement.textContent = `Código: ${shareCode} • expira em ${new Date(expiresAt).toLocaleString("pt-BR")}${warning ? " • armazenamento temporário" : ""}`;
+                bridge.setUploadStatus(
+                    warning
+                        ? "Link temporário gerado, mas o armazenamento persistente falhou; use o link imediatamente."
+                        : "Link temporário gerado com os modelos anexados."
+                );
             } catch (error) {
                 console.error("Falha ao gerar link compartilhável:", error);
                 shareLinkInput.value = "";

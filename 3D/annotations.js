@@ -1,4 +1,4 @@
-import { AnnotationsPlugin } from "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@latest/dist/xeokit-sdk.min.es.js";
+import { AnnotationsPlugin } from "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@2.6.107/dist/xeokit-sdk.min.es.js";
 
 //const CLI_ANNOTATION_ID = "CLI-1";
 //const CLI_ANNOTATION_POSITION = [13.757, 3.150, -5.724];
@@ -481,14 +481,15 @@ export function createUserAnnotationsController({ viewer, requestRenderFrame } =
     }
 
     const annotationsPlugin = new AnnotationsPlugin(viewer, {
-        markerHTML: "<div class='annotation-marker user-annotation-marker' style='background-color: {{markerBGColor}}'>{{glyph}}</div>",
+        markerHTML: "<div class='annotation-marker user-annotation-marker' style='background-color: {{markerBGColor}};'>{{glyph}}</div>",
         labelHTML: "<div class='annotation-label user-annotation-label'><div class='annotation-title'>{{title}}</div><div class='annotation-desc'>{{description}}</div></div>",
         values: {
             markerBGColor: USER_ANNOTATION_MARKER_COLOR,
             glyph: "📝",
             title: "Anotação",
             description: "Sem descrição"
-        }
+        },
+        surfaceOffset: 0.1
     });
     const records = new Map();
     const render = typeof requestRenderFrame === "function" ? requestRenderFrame : () => {};

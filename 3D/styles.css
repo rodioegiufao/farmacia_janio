@@ -756,6 +756,10 @@ html, body {
     display: none;
 }
 
+#toolbar .tool-button[hidden] {
+    display: none !important;
+}
+
 #toolbar .tool-button {
     /* Ajustado para centralizar ícone e texto */
     display: inline-flex;

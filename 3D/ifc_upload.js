@@ -667,7 +667,7 @@ if (!bridge) {
         });
     }
 
-    const MAX_SHARE_REQUEST_BYTES = 4 * 1024 * 1024;
+    const MAX_SHARE_REQUEST_BYTES = 100 * 1024 * 1024;
 
     function arrayBufferToBase64(arrayBuffer) {
         const bytes = new Uint8Array(arrayBuffer);

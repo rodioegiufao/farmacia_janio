@@ -390,6 +390,7 @@ let currentModels = [];
 let lastMaterialsResults = [];
 let materialsAllResults = [];
 let materialsSearchQuery = "";
+let collisionFeatureAllowed = false;
 let materialsFeatureAllowed = false;
 let activeMaterialFilter = null;
 let webBudgetPanel = null;
@@ -500,7 +501,7 @@ setupAccessGate();
 setupHelpPanel();
 setupTransformPanelControls();
 setupCollisionPanelControls();
-setupMaterialsAccessGate();
+setupRestrictedViewerFeaturesAccessGate();
 setupMaterialsPanelControls();
 setupSearchControls();
 setupDraggablePanels();
@@ -2354,6 +2355,9 @@ function setupCollisionPanelControls() {
     }
 
     const togglePanel = (forceState) => {
+        if (!collisionFeatureAllowed) {
+            return;
+        }
         const shouldOpen = typeof forceState === "boolean" ? forceState : collisionPanel.hidden;
         collisionPanel.hidden = !shouldOpen;
         collisionPanelToggleButton?.classList.toggle("active", shouldOpen);
@@ -2413,10 +2417,27 @@ function setMaterialsFeatureAccess(isAllowed) {
     }
 }
 
-async function setupMaterialsAccessGate() {
+function setCollisionFeatureAccess(isAllowed) {
+    collisionFeatureAllowed = Boolean(isAllowed);
+
+    if (collisionPanelToggleButton) {
+        collisionPanelToggleButton.hidden = !collisionFeatureAllowed;
+        collisionPanelToggleButton.setAttribute("aria-hidden", String(!collisionFeatureAllowed));
+        collisionPanelToggleButton.tabIndex = collisionFeatureAllowed ? 0 : -1;
+    }
+
+    if (!collisionFeatureAllowed) {
+        hideCollisionPanel();
+    }
+}
+
+async function setupRestrictedViewerFeaturesAccessGate() {
+    setCollisionFeatureAccess(false);
     setMaterialsFeatureAccess(false);
     const user = await fetchViewerUser();
-    setMaterialsFeatureAccess(Boolean(user));
+    const isAllowed = Boolean(user);
+    setCollisionFeatureAccess(isAllowed);
+    setMaterialsFeatureAccess(isAllowed);
 }
 function setupMaterialsPanelControls() {
     if (!materialsPanel || !materialsSummary || !materialsResultsList) {
@@ -6240,6 +6261,10 @@ function renderCollisionResults(collisions) {
 }
 
 function findAndRenderCollisions(modelId) {
+    if (!collisionFeatureAllowed) {
+        return;
+    }
+    
     normalizeCollisionRadiusInput();
 
     if (!modelId) {

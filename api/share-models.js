@@ -1,11 +1,29 @@
+const { createClient } = require("@supabase/supabase-js");
+
 const SHARE_TTL_MS = 60 * 60 * 1000;
+const SUPABASE_BUCKET = "ifc-conversions";
+const SHARE_STORAGE_PREFIX = "share-models";
 const STORE = globalThis.__ifcShareStore || new Map();
 globalThis.__ifcShareStore = STORE;
 
-function parseRequestBody(req) {
-    if (!req?.body) {
-        return {};
+let supabaseClient = null;
+
+function getSupabaseClient() {
+    if (supabaseClient) return supabaseClient;
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+        return null;
     }
+
+    supabaseClient = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+    return supabaseClient;
+}
+
+function parseRequestBody(req) {
+    if (!req?.body) return {};
 
     if (typeof req.body === "string") {
         try {
@@ -15,9 +33,7 @@ function parseRequestBody(req) {
         }
     }
 
-    if (typeof req.body === "object") {
-        return req.body;
-    }
+    if (typeof req.body === "object") return req.body;
 
     return {};
 }
@@ -25,18 +41,19 @@ function parseRequestBody(req) {
 function cleanupExpiredShares() {
     const now = Date.now();
     for (const [shareCode, shareData] of STORE.entries()) {
-        const expiresAtMs = Date.parse(shareData?.expiresAt || "");
-        if (!Number.isFinite(expiresAtMs) || expiresAtMs <= now) {
+        if (isExpiredShare(shareData, now)) {
             STORE.delete(shareCode);
         }
     }
 }
 
-function buildShareCode() {
-    if (globalThis.crypto?.randomUUID) {
-        return globalThis.crypto.randomUUID();
-    }
+function isExpiredShare(shareData, now = Date.now()) {
+    const expiresAtMs = Date.parse(shareData?.expiresAt || "");
+    return !Number.isFinite(expiresAtMs) || expiresAtMs <= now;
+}
 
+function buildShareCode() {
+    if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
     return `share-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 }
 
@@ -57,7 +74,74 @@ function resolveRequestOrigin(req) {
     return host ? `${proto}://${host}` : "";
 }
 
-module.exports = function shareModelsHandler(req, res) {
+function buildShareStoragePath(shareCode) {
+    return `${SHARE_STORAGE_PREFIX}/${shareCode}.json`;
+}
+
+async function persistShare(shareCode, shareData) {
+    STORE.set(shareCode, shareData);
+
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
+    const { error } = await supabase.storage
+        .from(SUPABASE_BUCKET)
+        .upload(buildShareStoragePath(shareCode), JSON.stringify(shareData), {
+            contentType: "application/json; charset=utf-8",
+            upsert: true
+        });
+
+    if (error) {
+        STORE.delete(shareCode);
+        throw new Error(`Falha ao salvar compartilhamento no Supabase Storage: ${error.message}`);
+    }
+}
+
+async function removePersistedShare(shareCode) {
+    STORE.delete(shareCode);
+
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
+    const { error } = await supabase.storage.from(SUPABASE_BUCKET).remove([buildShareStoragePath(shareCode)]);
+    if (error) {
+        console.warn("[share-models] Falha ao remover compartilhamento expirado:", error.message);
+    }
+}
+
+async function readPersistedShare(shareCode) {
+    const memoryShare = STORE.get(shareCode);
+    if (memoryShare) return memoryShare;
+
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+
+    const { data, error } = await supabase.storage.from(SUPABASE_BUCKET).download(buildShareStoragePath(shareCode));
+    if (error) {
+        if (error.statusCode !== "404" && error.statusCode !== 404) {
+            console.warn("[share-models] Falha ao ler compartilhamento do Supabase Storage:", error.message);
+        }
+        return null;
+    }
+
+    const shareData = JSON.parse(await data.text());
+    STORE.set(shareCode, shareData);
+    return shareData;
+}
+
+function sanitizeShareCode(rawShareCode) {
+    if (typeof rawShareCode !== "string") return "";
+
+    let shareCode = rawShareCode.trim();
+    if (!shareCode) return "";
+
+    shareCode = shareCode.replace(/^[\["'(]+/, "").replace(/[\]"')]+$/, "");
+    shareCode = shareCode.replace(/[.,;!?]+$/, "");
+
+    return shareCode;
+}
+
+module.exports = async function shareModelsHandler(req, res) {
     cleanupExpiredShares();
 
     if (req.method === "POST") {
@@ -89,11 +173,17 @@ module.exports = function shareModelsHandler(req, res) {
         const shareCode = buildShareCode();
         const expiresAt = new Date(Date.now() + SHARE_TTL_MS).toISOString();
 
-        STORE.set(shareCode, {
-            files: normalizedFiles,
-            createdAt: new Date().toISOString(),
-            expiresAt
-        });
+        try {
+            await persistShare(shareCode, {
+                files: normalizedFiles,
+                createdAt: new Date().toISOString(),
+                expiresAt
+            });
+        } catch (error) {
+            console.error("[share-models]", error);
+            sendJson(res, 500, { error: error.message || "Erro ao salvar compartilhamento." });
+            return;
+        }
 
         sendJson(res, 201, {
             shareCode,
@@ -104,15 +194,30 @@ module.exports = function shareModelsHandler(req, res) {
     }
 
     if (req.method === "GET") {
-        const shareCode = typeof req.query?.share === "string" ? req.query.share : "";
+        const rawShareCode = typeof req.query?.share === "string" ? req.query.share : "";
+        const shareCode = sanitizeShareCode(rawShareCode);
         if (!shareCode) {
             sendJson(res, 400, { error: "Código de compartilhamento não informado." });
             return;
         }
 
-        const shareData = STORE.get(shareCode);
+        let shareData = null;
+        try {
+            shareData = await readPersistedShare(shareCode);
+        } catch (error) {
+            console.error("[share-models]", error);
+            sendJson(res, 500, { error: "Erro ao recuperar compartilhamento." });
+            return;
+        }
+
         if (!shareData) {
             sendJson(res, 404, { error: "Compartilhamento não encontrado." });
+            return;
+        }
+
+        if (isExpiredShare(shareData)) {
+            await removePersistedShare(shareCode);
+            sendJson(res, 404, { error: "Compartilhamento expirado." });
             return;
         }
 

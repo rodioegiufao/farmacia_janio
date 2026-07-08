@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const loginUsuario = document.getElementById('homeLoginUsuario');
         const loginSenha = document.getElementById('homeLoginSenha');
         const protectedLinks = document.querySelectorAll('[data-auth-required="true"]');
+        const ferramentasMenu = document.getElementById('ferramentasMenu');
         let currentUser = null;
 
         if (!loginForm || !window.SiteAuth) return;
@@ -45,6 +46,7 @@ document.addEventListener('DOMContentLoaded', function() {
         function updateAuthUi(user) {
             currentUser = user;
             loginForm.hidden = Boolean(user);
+            if (ferramentasMenu) ferramentasMenu.hidden = !user;
             window.SiteAuth.aplicarUsuarioNoMenu?.(user);
         }
 

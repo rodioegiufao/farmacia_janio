@@ -8098,27 +8098,55 @@ const materialContextMenu = new ContextMenu({
         ]
     ]
 });
+function pickEntityForContextMenu(canvasPos) {
+    const pickOptions = {
+        canvasPos,
+        pickSurface: true
+    };
+    const surfaceHit = viewer.scene.pick(pickOptions);
 
+    if (surfaceHit?.entity?.isObject) {
+        return surfaceHit;
+    }
+
+    return viewer.scene.pick({
+        canvasPos
+    });
+}
 function showEntityContextMenu(pageX, pageY) {
     const canvasElement = viewer.scene.canvas.canvas;
     const canvasRect = canvasElement.getBoundingClientRect();
     const canvasPos = [pageX - canvasRect.left, pageY - canvasRect.top];
-    const hit = viewer.scene.pick({
-        canvasPos,
-        pickSurface: true
-    });
+    const hit = pickEntityForContextMenu(canvasPos);
 
-    if (hit && hit.entity && hit.entity.isObject && Array.isArray(hit.worldPos)) {
+    if (hit?.entity?.isObject) {
         materialContextMenu.context = { viewer, entity: hit.entity, pickResult: hit };
         materialContextMenu.show(pageX, pageY);
+        return true;
     }
+    return false;
 }
 
-// Captura o evento de clique direito no canvas
-viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
-    showEntityContextMenu(event.clientX, event.clientY);
+function handleCanvasContextMenuEvent(event) {
     event.preventDefault();
-});
+    event.stopPropagation();
+    showEntityContextMenu(event.clientX, event.clientY);
+}
+
+// Captura o clique direito no canvas antes do controle de câmera consumir o evento.
+const contextMenuCanvas = viewer.scene.canvas.canvas;
+contextMenuCanvas.addEventListener('contextmenu', handleCanvasContextMenuEvent, true);
+contextMenuCanvas.addEventListener('pointerdown', (event) => {
+    if (event.button === 2) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+}, true);
+contextMenuCanvas.addEventListener('pointerup', (event) => {
+    if (event.button === 2) {
+        handleCanvasContextMenuEvent(event);
+    }
+}, true);
 
 // Suporte a toque: abre o menu ao manter o dedo pressionado sobre o objeto
 (() => {

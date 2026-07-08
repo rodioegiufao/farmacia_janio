@@ -199,6 +199,78 @@ setupEletrodutoAssociationExportShortcut({ viewer, setSearchStatus, requestRende
 // -----------------------------------------------------------------------------
 
 const userAnnotationsController = createUserAnnotationsController({ viewer, requestRenderFrame });
+let annotationClickModeEnabled = false;
+let annotationClickModeButton = null;
+
+function setAnnotationClickMode(enabled) {
+    annotationClickModeEnabled = Boolean(enabled);
+    annotationClickModeButton?.classList.toggle("active", annotationClickModeEnabled);
+    annotationClickModeButton?.setAttribute("aria-pressed", annotationClickModeEnabled ? "true" : "false");
+    viewer.scene.canvas.canvas.classList.toggle("annotation-click-mode", annotationClickModeEnabled);
+
+    if (annotationClickModeEnabled) {
+        angleMeasurementsMouseControl?.deactivate?.();
+        distanceMeasurementsMouseControl?.deactivate?.();
+        document.querySelectorAll('.tool-button').forEach((button) => {
+            if (button !== annotationClickModeButton) {
+                button.classList.remove('active');
+            }
+        });
+    }
+}
+
+function setupAnnotationClickTool() {
+    const toolbar = document.getElementById("toolbar");
+    if (!toolbar || document.getElementById("btnAnnotationClick")) {
+        annotationClickModeButton = document.getElementById("btnAnnotationClick");
+        return;
+    }
+
+    annotationClickModeButton = document.createElement("button");
+    annotationClickModeButton.id = "btnAnnotationClick";
+    annotationClickModeButton.className = "tool-button";
+    annotationClickModeButton.type = "button";
+    annotationClickModeButton.title = "Adicionar anotação clicando no modelo";
+    annotationClickModeButton.setAttribute("aria-pressed", "false");
+    annotationClickModeButton.innerHTML = '<span style="font-size: 1.2em;">📝</span> Anotação';
+    annotationClickModeButton.addEventListener("click", () => {
+        setAnnotationClickMode(!annotationClickModeEnabled);
+    });
+
+    const helpButton = document.getElementById("btnHelp");
+    toolbar.insertBefore(annotationClickModeButton, helpButton || null);
+}
+
+function setupAnnotationClickCreation() {
+    viewer.scene.input.on("mouseclicked", (coords) => {
+        if (!annotationClickModeEnabled) {
+            return;
+        }
+
+        const pickResult = viewer.scene.pick({
+            canvasPos: coords,
+            pickSurface: true
+        });
+
+        if (!pickResult) {
+            window.alert("Clique em uma superfície do modelo para criar a anotação.");
+            return;
+        }
+
+        const text = window.prompt("Digite o texto da anotação:");
+        if (!text || !text.trim()) {
+            return;
+        }
+
+        const record = userAnnotationsController.addAnnotationFromPickResult(pickResult, text);
+        if (record) {
+            setAnnotationClickMode(false);
+        }
+    });
+}
+
+setupAnnotationClickTool();
+setupAnnotationClickCreation();
 
 /**
  * Configura o painel de ajuda e atalhos de teclado.

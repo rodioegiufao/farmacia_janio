@@ -755,7 +755,8 @@ if (!bridge) {
             })
         );
 
-        const payloadBody = JSON.stringify({ files: serializedFiles });
+        const annotations = window.userAnnotationsController?.exportAnnotations?.() || [];
+        const payloadBody = JSON.stringify({ files: serializedFiles, annotations });
         const payloadSize = new TextEncoder().encode(payloadBody).length;
 
         if (payloadSize > MAX_SHARE_REQUEST_BYTES) {
@@ -801,6 +802,7 @@ if (!bridge) {
 
         const payload = await response.json();
         const sharedFiles = Array.isArray(payload?.files) ? payload.files : [];
+        const sharedAnnotations = Array.isArray(payload?.annotations) ? payload.annotations : [];
 
         if (!sharedFiles.length) {
             bridge.setUploadStatus("Esse link não possui modelos anexados.", true);
@@ -824,6 +826,7 @@ if (!bridge) {
         registerShareableFiles(restoredFiles);
         bridge.setUploadStatus(`Carregando ${restoredFiles.length} arquivo(s) compartilhado(s)...`);
         await processSelectedFiles(restoredFiles);
+        window.userAnnotationsController?.importAnnotations?.(sharedAnnotations);
     }
 
     async function tryLoadSharedModelsFromUrl() {

@@ -82,7 +82,10 @@ async function persistShare(shareCode, shareData) {
     STORE.set(shareCode, shareData);
 
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase) {
+        console.warn("[share-models] Supabase não configurado; compartilhamento mantido apenas em memória.");
+        return { persisted: false, warning: "Compartilhamento salvo apenas em memória do servidor." };
+    }
 
     const { error } = await supabase.storage
         .from(SUPABASE_BUCKET)
@@ -92,9 +95,13 @@ async function persistShare(shareCode, shareData) {
         });
 
     if (error) {
-        STORE.delete(shareCode);
-        throw new Error(`Falha ao salvar compartilhamento no Supabase Storage: ${error.message}`);
+        console.warn("[share-models] Falha ao salvar no Supabase Storage; usando fallback em memória:", error.message);
+        return {
+            persisted: false,
+            warning: `Compartilhamento salvo apenas em memória do servidor: ${error.message}`
+        };
     }
+    return { persisted: true };
 }
 
 async function removePersistedShare(shareCode) {
@@ -172,9 +179,11 @@ module.exports = async function shareModelsHandler(req, res) {
 
         const shareCode = buildShareCode();
         const expiresAt = new Date(Date.now() + SHARE_TTL_MS).toISOString();
+        
+        let persistenceResult = { persisted: false };
 
         try {
-            await persistShare(shareCode, {
+            persistenceResult = await persistShare(shareCode, {
                 files: normalizedFiles,
                 createdAt: new Date().toISOString(),
                 expiresAt
@@ -188,7 +197,9 @@ module.exports = async function shareModelsHandler(req, res) {
         sendJson(res, 201, {
             shareCode,
             shareLink: `${resolveRequestOrigin(req)}/3D/ifc_upload?share=${encodeURIComponent(shareCode)}`,
-            expiresAt
+            expiresAt,
+            persisted: Boolean(persistenceResult?.persisted),
+            warning: persistenceResult?.warning || undefined
         });
         return;
     }

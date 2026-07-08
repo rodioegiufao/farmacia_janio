@@ -1888,7 +1888,6 @@ function inicializarPlanner() {
   if (!plannerEls.form) return;
   preencherSelect(plannerEls.statusTarefa, plannerStatusLista);
   preencherSelect(plannerEls.prioridade, plannerPrioridades);
-  preencherSelect(plannerEls.bucket, plannerBuckets);
   preencherSelect(plannerEls.detalheStatus, plannerStatusLista);
   preencherSelect(plannerEls.detalhePrioridade, plannerPrioridades);
   preencherSelect(plannerEls.detalheBucket, plannerBuckets);
@@ -1952,7 +1951,6 @@ function abrirPlannerModal() {
   atualizarProjetosPlanner();
   plannerEls.statusTarefa.value = "Não iniciado";
   plannerEls.prioridade.value = "Média";
-  plannerEls.bucket.value = "Outros";
   plannerEls.modal.hidden = false;
   plannerEls.obra.focus();
 }
@@ -1963,9 +1961,9 @@ function fecharDetalhesPlanner() { plannerEls.detalheModal.hidden = true; planne
 async function salvarChecklistPlanner(event) {
   event.preventDefault();
   const payload = {
-    obra: plannerEls.obra.value.trim(), nomeTarefa: plannerEls.nomeTarefa.value.trim(), projeto: plannerEls.projeto.value,
+    obra: plannerEls.obra.value.trim(), nomeTarefa: "", projeto: plannerEls.projeto.value,
     tipo: plannerEls.tipo.value, status: plannerEls.statusTarefa.value, prioridade: plannerEls.prioridade.value,
-    dataInicio: plannerEls.dataInicio.value, dataConclusao: plannerEls.dataConclusao.value, bucket: plannerEls.bucket.value,
+    dataInicio: plannerEls.dataInicio.value, dataConclusao: plannerEls.dataConclusao.value, bucket: "Outros",
     responsavel: plannerEls.responsavel.value.trim(), anotacoes: plannerEls.anotacoes.value.trim()
   };
   try {

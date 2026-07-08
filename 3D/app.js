@@ -24,7 +24,7 @@ import {
     loadAssociaUnitsFromExcel
 } from "./excel-export.js";
 import { setupEletrodutoAssociationExportShortcut } from "./eletroduto-association-export.js";
-//import { setupAnnotations } from "./annotations.js";
+import { createUserAnnotationsController } from "./annotations.js";
 
 const { jsPDF } = window.jspdf;
 
@@ -198,7 +198,7 @@ setupEletrodutoAssociationExportShortcut({ viewer, setSearchStatus, requestRende
 // 1.1 Anotações fixas
 // -----------------------------------------------------------------------------
 
-//setupAnnotations(viewer, { requestRenderFrame, focusObjectById });
+const userAnnotationsController = createUserAnnotationsController({ viewer, requestRenderFrame });
 
 /**
  * Configura o painel de ajuda e atalhos de teclado.
@@ -7916,6 +7916,16 @@ const materialContextMenu = new ContextMenu({
                 doAction: function (context) {
                     showMaterialProperties(context.entity);
                 }
+            },
+            {
+                title: "Add Anotação",
+                doAction: function (context) {
+                    const text = window.prompt("Digite o texto da anotação:");
+                    if (!text || !text.trim()) {
+                        return;
+                    }
+                    userAnnotationsController.addAnnotation(context.worldPos, text);
+                }
             }
         ],
         [
@@ -8021,7 +8031,15 @@ function showEntityContextMenu(pageX, pageY) {
     const hit = viewer.scene.pick({ canvasPos });
 
     if (hit && hit.entity && hit.entity.isObject) {
-        materialContextMenu.context = { viewer, entity: hit.entity };
+        const entityAABB = viewer.scene.getAABB?.(hit.entity.id);
+        const fallbackWorldPos = Array.isArray(entityAABB) && entityAABB.length >= 6
+            ? [
+                (entityAABB[0] + entityAABB[3]) / 2,
+                (entityAABB[1] + entityAABB[4]) / 2,
+                (entityAABB[2] + entityAABB[5]) / 2
+            ]
+            : null;
+        materialContextMenu.context = { viewer, entity: hit.entity, worldPos: hit.worldPos || fallbackWorldPos };
         materialContextMenu.show(pageX, pageY);
     }
 }

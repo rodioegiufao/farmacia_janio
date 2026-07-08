@@ -1933,10 +1933,11 @@ function atualizarProjetosPlanner() {
 }
 
 function atualizarTiposPlanner() {
-  const projeto = plannerEls.projeto?.value;
+  const deveExibirTiposPadrao = projeto === plannerProjetosDisponiveis[0];
   const tiposModelo = plannerModelos.filter((modelo) => modelo.projeto === projeto).map((modelo) => modelo.tipo).filter(Boolean);
-  const tipos = [...new Set([...plannerTiposDisponiveis, ...tiposModelo])];
+  const tipos = [...new Set([...(deveExibirTiposPadrao ? plannerTiposDisponiveis : []), ...tiposModelo])];
   preencherSelect(plannerEls.tipo, tipos);
+  plannerEls.tipo.disabled = !tipos.length;
 }
 
 function abrirPlannerModal() {

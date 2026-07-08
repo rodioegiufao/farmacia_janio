@@ -269,8 +269,9 @@ function setupAnnotationClickCreation() {
     });
 }
 
-setupAnnotationClickTool();
-setupAnnotationClickCreation();
+// A criação manual fica no menu de contexto do objeto, não na barra superior.
+// setupAnnotationClickTool();
+// setupAnnotationClickCreation();
 
 /**
  * Configura o painel de ajuda e atalhos de teclado.
@@ -7996,7 +7997,7 @@ const materialContextMenu = new ContextMenu({
                     if (!text || !text.trim()) {
                         return;
                     }
-                    userAnnotationsController.addAnnotation(context.worldPos, text);
+                    userAnnotationsController.addAnnotationFromPickResult(context.pickResult, text);
                 }
             }
         ],
@@ -8099,26 +8100,23 @@ const materialContextMenu = new ContextMenu({
 });
 
 function showEntityContextMenu(pageX, pageY) {
-    const canvasPos = [pageX, pageY];
-    const hit = viewer.scene.pick({ canvasPos });
+    const canvasElement = viewer.scene.canvas.canvas;
+    const canvasRect = canvasElement.getBoundingClientRect();
+    const canvasPos = [pageX - canvasRect.left, pageY - canvasRect.top];
+    const hit = viewer.scene.pick({
+        canvasPos,
+        pickSurface: true
+    });
 
-    if (hit && hit.entity && hit.entity.isObject) {
-        const entityAABB = viewer.scene.getAABB?.(hit.entity.id);
-        const fallbackWorldPos = Array.isArray(entityAABB) && entityAABB.length >= 6
-            ? [
-                (entityAABB[0] + entityAABB[3]) / 2,
-                (entityAABB[1] + entityAABB[4]) / 2,
-                (entityAABB[2] + entityAABB[5]) / 2
-            ]
-            : null;
-        materialContextMenu.context = { viewer, entity: hit.entity, worldPos: hit.worldPos || fallbackWorldPos };
+    if (hit && hit.entity && hit.entity.isObject && Array.isArray(hit.worldPos)) {
+        materialContextMenu.context = { viewer, entity: hit.entity, pickResult: hit };
         materialContextMenu.show(pageX, pageY);
     }
 }
 
 // Captura o evento de clique direito no canvas
 viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
-    showEntityContextMenu(event.pageX, event.pageY);
+    showEntityContextMenu(event.clientX, event.clientY);
     event.preventDefault();
 });
 
@@ -8147,7 +8145,7 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
         }
 
         const touch = event.touches[0];
-        touchStartPos = { x: touch.pageX, y: touch.pageY };
+        touchStartPos = { x: touch.clientX, y: touch.clientY };
         menuOpened = false;
 
         touchTimeout = setTimeout(() => {
@@ -8163,8 +8161,8 @@ viewer.scene.canvas.canvas.addEventListener('contextmenu', (event) => {
         }
 
         const touch = event.touches[0];
-        const dx = touch.pageX - touchStartPos.x;
-        const dy = touch.pageY - touchStartPos.y;
+        const dx = touch.clientX - touchStartPos.x;
+        const dy = touch.clientY - touchStartPos.y;
         if (Math.sqrt(dx * dx + dy * dy) > moveThreshold) {
             clearTouch();
         }

@@ -474,6 +474,7 @@ export function createUserAnnotationsController({ viewer, requestRenderFrame } =
     if (!viewer) {
         return {
             addAnnotation() { return null; },
+            addAnnotationFromPickResult() { return null; },
             importAnnotations() {},
             exportAnnotations() { return []; }
         };
@@ -492,8 +493,8 @@ export function createUserAnnotationsController({ viewer, requestRenderFrame } =
     const records = new Map();
     const render = typeof requestRenderFrame === "function" ? requestRenderFrame : () => {};
 
-    function createAnnotationRecord({ id = buildUserAnnotationId(), worldPos, text, title = "Anotação" } = {}) {
-        const normalizedPosition = normalizeAnnotationPosition(worldPos);
+    function createAnnotationRecord({ id = buildUserAnnotationId(), worldPos, pickResult, text, title = "Anotação" } = {}) {
+        const normalizedPosition = normalizeAnnotationPosition(worldPos || pickResult?.worldPos);
         const description = sanitizeAnnotationText(text);
 
         if (!normalizedPosition || !description) {
@@ -505,7 +506,7 @@ export function createUserAnnotationsController({ viewer, requestRenderFrame } =
             safeId = buildUserAnnotationId();
         }
 
-        const annotation = annotationsPlugin.createAnnotation({
+        const annotationConfig = {
             id: safeId,
             worldPos: normalizedPosition,
             occludable: false,
@@ -517,16 +518,28 @@ export function createUserAnnotationsController({ viewer, requestRenderFrame } =
                 description,
                 markerBGColor: USER_ANNOTATION_MARKER_COLOR
             }
-        });
+        };
+
+        if (pickResult) {
+            annotationConfig.pickResult = pickResult;
+            delete annotationConfig.worldPos;
+        }
+
+        const annotation = annotationsPlugin.createAnnotation(annotationConfig);
+        const storedPosition = normalizeAnnotationPosition(annotation?.worldPos) || normalizedPosition;
 
         setupAnnotationLabelToggle(annotation, annotationsPlugin, render);
-        records.set(safeId, { id: safeId, worldPos: normalizedPosition, text: description, title: "Anotação", annotation });
+        records.set(safeId, { id: safeId, worldPos: storedPosition, text: description, title: sanitizeAnnotationText(title) || "Anotação", annotation });
         render();
         return records.get(safeId);
     }
 
     function addAnnotation(worldPos, text) {
         return createAnnotationRecord({ worldPos, text });
+    }
+    
+    function addAnnotationFromPickResult(pickResult, text) {
+        return createAnnotationRecord({ pickResult, text });
     }
 
     function importAnnotations(annotations = []) {
@@ -553,7 +566,7 @@ export function createUserAnnotationsController({ viewer, requestRenderFrame } =
         }));
     }
 
-    const controller = { addAnnotation, importAnnotations, exportAnnotations };
+    const controller = { addAnnotation, addAnnotationFromPickResult, importAnnotations, exportAnnotations };
     window.userAnnotationsController = controller;
     return controller;
 }

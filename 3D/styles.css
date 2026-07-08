@@ -2815,3 +2815,32 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
         flex-wrap: wrap;
     }
 }
+
+.viewer-user-badge {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 250000;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgba(226, 232, 240, 0.22);
+    border-radius: 50%;
+    color: #f8fafc;
+    background: #75838a;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22), inset 0 0 0 3px rgba(15, 23, 42, 0.22);
+    font-family: Arial, sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+body[data-mode="mobile"] .viewer-user-badge {
+    top: 18px;
+    right: 78px;
+}

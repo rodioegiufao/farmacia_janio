@@ -4,6 +4,7 @@ const SHARE_TTL_MS = 60 * 60 * 1000;
 const SUPABASE_BUCKET = "ifc-conversions";
 const SHARE_STORAGE_PREFIX = "share-models";
 const STORE = globalThis.__ifcShareStore || new Map();
+const SHARE_BODY_SIZE_LIMIT = "110mb";
 globalThis.__ifcShareStore = STORE;
 
 let supabaseClient = null;
@@ -148,7 +149,7 @@ function sanitizeShareCode(rawShareCode) {
     return shareCode;
 }
 
-module.exports = async function shareModelsHandler(req, res) {
+async function shareModelsHandler(req, res) {
     cleanupExpiredShares();
 
     if (req.method === "POST") {
@@ -240,4 +241,13 @@ module.exports = async function shareModelsHandler(req, res) {
     }
 
     sendJson(res, 405, { error: "Método não suportado." });
+}
+
+module.exports = shareModelsHandler;
+module.exports.config = {
+    api: {
+        bodyParser: {
+            sizeLimit: SHARE_BODY_SIZE_LIMIT
+        }
+    }
 };

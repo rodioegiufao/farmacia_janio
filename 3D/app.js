@@ -390,6 +390,7 @@ let currentModels = [];
 let lastMaterialsResults = [];
 let materialsAllResults = [];
 let materialsSearchQuery = "";
+let materialsFeatureAllowed = false;
 let activeMaterialFilter = null;
 let webBudgetPanel = null;
 let webBudgetRowsContainer = null;
@@ -499,6 +500,7 @@ setupAccessGate();
 setupHelpPanel();
 setupTransformPanelControls();
 setupCollisionPanelControls();
+setupMaterialsAccessGate();
 setupMaterialsPanelControls();
 setupSearchControls();
 setupDraggablePanels();
@@ -2384,7 +2386,38 @@ function setupCollisionPanelControls() {
 
     updateCollisionDownloadButton();
 }
+async function fetchViewerUser() {
+    try {
+        const response = await fetch("/api/auth", { credentials: "same-origin" });
+        if (!response.ok) {
+            return null;
+        }
+        const data = await response.json().catch(() => ({}));
+        return data.user || null;
+    } catch (_error) {
+        return null;
+    }
+}
 
+function setMaterialsFeatureAccess(isAllowed) {
+    materialsFeatureAllowed = Boolean(isAllowed);
+
+    if (materialsPanelToggleButton) {
+        materialsPanelToggleButton.hidden = !materialsFeatureAllowed;
+        materialsPanelToggleButton.setAttribute("aria-hidden", String(!materialsFeatureAllowed));
+        materialsPanelToggleButton.tabIndex = materialsFeatureAllowed ? 0 : -1;
+    }
+
+    if (!materialsFeatureAllowed) {
+        hidePanelElement(materialsPanel, materialsPanelToggleButton);
+    }
+}
+
+async function setupMaterialsAccessGate() {
+    setMaterialsFeatureAccess(false);
+    const user = await fetchViewerUser();
+    setMaterialsFeatureAccess(Boolean(user));
+}
 function setupMaterialsPanelControls() {
     if (!materialsPanel || !materialsSummary || !materialsResultsList) {
         return;
@@ -2399,10 +2432,14 @@ function setupMaterialsPanelControls() {
         }
     };
 
-    materialsPanelToggleButton?.addEventListener("click", () => togglePanel());
+    materialsPanelToggleButton?.addEventListener("click", () => {
+        if (!materialsFeatureAllowed) return;
+        togglePanel();
+    });
     closeMaterialsPanelButton?.addEventListener("click", () => togglePanel(false));
 
     generateMaterialsButton?.addEventListener("click", () => {
+        if (!materialsFeatureAllowed) return;
         generateAndRenderMaterialsList();
         resetMaterialsIdsPanel();
     });
@@ -2416,6 +2453,7 @@ function setupMaterialsPanelControls() {
         }
     });
     downloadMaterialsExcelButton?.addEventListener("click", () => {
+        if (!materialsFeatureAllowed) return;
         downloadMaterialsAsExcel(lastMaterialsResults, normalizeSearchText);
     });
 
@@ -3822,6 +3860,9 @@ function isolateBudgetComposition({ code = "", description = "" } = {}) {
 }
 
 function openMaterialsPanelAndFilterByBudgetReference({ code = "", description = "" } = {}) {
+    if (!materialsFeatureAllowed) {
+        return [];
+    }
     if (!materialsPanel) {
         return [];
     }
@@ -6293,7 +6334,7 @@ document.addEventListener("keydown", (event) => {
         return;
     }
 
-    if (key === "z" && materialsPanel && !materialsPanel.hidden) {
+    if (key === "z" && materialsFeatureAllowed && materialsPanel && !materialsPanel.hidden) {
         event.preventDefault();
         openWebBudgetPanel();
         return;
@@ -6315,6 +6356,7 @@ document.addEventListener("keydown", (event) => {
     }
 
     if (key === "l") {
+        if (!materialsFeatureAllowed) return;
         if (materialsPanel) {
             materialsPanel.hidden = false;
             materialsPanelToggleButton?.classList.add("active");
@@ -6323,6 +6365,7 @@ document.addEventListener("keydown", (event) => {
         return;
     }
     if (key === "t") {
+        if (!materialsFeatureAllowed) return;
         if (materialsPanel) {
             materialsPanel.hidden = false;
             materialsPanelToggleButton?.classList.add("active");

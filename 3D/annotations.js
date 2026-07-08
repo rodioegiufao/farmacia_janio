@@ -445,3 +445,115 @@ export function createOccupancyLimitAnnotationsController({ viewer, requestRende
         syncAnnotations
     };
 }
+
+const USER_ANNOTATION_PREFIX = "USER-ANNOTATION-";
+const USER_ANNOTATION_MARKER_COLOR = "#7c3aed";
+
+function sanitizeAnnotationText(value) {
+    return String(value || "").trim().slice(0, 500);
+}
+
+function normalizeAnnotationPosition(position) {
+    if (!Array.isArray(position) || position.length < 3) {
+        return null;
+    }
+
+    const normalized = position.slice(0, 3).map((value) => Number(value));
+    return normalized.every(Number.isFinite) ? normalized : null;
+}
+
+function buildUserAnnotationId() {
+    if (globalThis.crypto?.randomUUID) {
+        return `${USER_ANNOTATION_PREFIX}${globalThis.crypto.randomUUID()}`;
+    }
+
+    return `${USER_ANNOTATION_PREFIX}${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+}
+
+export function createUserAnnotationsController({ viewer, requestRenderFrame } = {}) {
+    if (!viewer) {
+        return {
+            addAnnotation() { return null; },
+            importAnnotations() {},
+            exportAnnotations() { return []; }
+        };
+    }
+
+    const annotationsPlugin = new AnnotationsPlugin(viewer, {
+        markerHTML: "<div class='annotation-marker user-annotation-marker' style='background-color: {{markerBGColor}}'>{{glyph}}</div>",
+        labelHTML: "<div class='annotation-label user-annotation-label'><div class='annotation-title'>{{title}}</div><div class='annotation-desc'>{{description}}</div></div>",
+        values: {
+            markerBGColor: USER_ANNOTATION_MARKER_COLOR,
+            glyph: "📝",
+            title: "Anotação",
+            description: "Sem descrição"
+        }
+    });
+    const records = new Map();
+    const render = typeof requestRenderFrame === "function" ? requestRenderFrame : () => {};
+
+    function createAnnotationRecord({ id = buildUserAnnotationId(), worldPos, text, title = "Anotação" } = {}) {
+        const normalizedPosition = normalizeAnnotationPosition(worldPos);
+        const description = sanitizeAnnotationText(text);
+
+        if (!normalizedPosition || !description) {
+            return null;
+        }
+
+        let safeId = String(id || buildUserAnnotationId());
+        if (records.has(safeId)) {
+            safeId = buildUserAnnotationId();
+        }
+
+        const annotation = annotationsPlugin.createAnnotation({
+            id: safeId,
+            worldPos: normalizedPosition,
+            occludable: false,
+            markerShown: true,
+            labelShown: true,
+            values: {
+                glyph: "📝",
+                title: sanitizeAnnotationText(title) || "Anotação",
+                description,
+                markerBGColor: USER_ANNOTATION_MARKER_COLOR
+            }
+        });
+
+        setupAnnotationLabelToggle(annotation, annotationsPlugin, render);
+        records.set(safeId, { id: safeId, worldPos: normalizedPosition, text: description, title: "Anotação", annotation });
+        render();
+        return records.get(safeId);
+    }
+
+    function addAnnotation(worldPos, text) {
+        return createAnnotationRecord({ worldPos, text });
+    }
+
+    function importAnnotations(annotations = []) {
+        if (!Array.isArray(annotations)) {
+            return;
+        }
+
+        annotations.forEach((annotation) => {
+            createAnnotationRecord({
+                id: annotation?.id,
+                worldPos: annotation?.worldPos || annotation?.position,
+                text: annotation?.text || annotation?.description,
+                title: annotation?.title || "Anotação"
+            });
+        });
+    }
+
+    function exportAnnotations() {
+        return Array.from(records.values()).map(({ id, worldPos, text, title }) => ({
+            id,
+            worldPos: [...worldPos],
+            text,
+            title
+        }));
+    }
+
+    const controller = { addAnnotation, importAnnotations, exportAnnotations };
+    window.userAnnotationsController = controller;
+    return controller;
+}

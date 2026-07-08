@@ -155,6 +155,7 @@ async function shareModelsHandler(req, res) {
     if (req.method === "POST") {
         const body = parseRequestBody(req);
         const files = Array.isArray(body?.files) ? body.files : [];
+        const annotations = Array.isArray(body?.annotations) ? body.annotations : [];
 
         if (!files.length) {
             sendJson(res, 400, { error: "Nenhum arquivo recebido para compartilhar." });
@@ -177,6 +178,17 @@ async function shareModelsHandler(req, res) {
             sendJson(res, 400, { error: "Arquivos inválidos para compartilhamento." });
             return;
         }
+        
+        const normalizedAnnotations = annotations
+            .map((annotation) => ({
+                id: typeof annotation?.id === "string" ? annotation.id : "",
+                title: typeof annotation?.title === "string" ? annotation.title.slice(0, 120) : "Anotação",
+                text: typeof annotation?.text === "string" ? annotation.text.slice(0, 500) : "",
+                worldPos: Array.isArray(annotation?.worldPos)
+                    ? annotation.worldPos.slice(0, 3).map((value) => Number(value))
+                    : []
+            }))
+            .filter((annotation) => annotation.text && annotation.worldPos.length === 3 && annotation.worldPos.every(Number.isFinite));
 
         const shareCode = buildShareCode();
         const expiresAt = new Date(Date.now() + SHARE_TTL_MS).toISOString();
@@ -186,6 +198,7 @@ async function shareModelsHandler(req, res) {
         try {
             persistenceResult = await persistShare(shareCode, {
                 files: normalizedFiles,
+                annotations: normalizedAnnotations,
                 createdAt: new Date().toISOString(),
                 expiresAt
             });
@@ -235,6 +248,7 @@ async function shareModelsHandler(req, res) {
 
         sendJson(res, 200, {
             files: shareData.files,
+            annotations: Array.isArray(shareData.annotations) ? shareData.annotations : [],
             expiresAt: shareData.expiresAt
         });
         return;

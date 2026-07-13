@@ -3605,7 +3605,7 @@ const IPER_MODEL_TRANSFORMS = {
     IFC_SPDA: { position: [0.15, 0, -0.2], rotation: [0, 90, 0] },
     IFC_LOG: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
     IFC_TEF: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
-    IFC_ELE: { position: [0.16, 0, -0.19] },
+    IFC_ELE: { position: [-13.93, 0, -0.19] },
     IFC_SAN: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
     IFC_SUB: { position: [2.74, -0.28, 2.65], rotation: [0, 96.1, 0] },
     IFC_INC: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },

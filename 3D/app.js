@@ -122,6 +122,7 @@ const navCubeCanvasElement = document.getElementById("myNavCubeCanvas");
 const viewer = new Viewer({
 
     canvasId: "meuCanvas",
+    preserveDrawingBuffer: true,
     transparent: false,
     saoEnabled: !viewerCompatibility.disableSAO,
     edgesEnabled: !viewerCompatibility.disableEdges,
@@ -315,8 +316,13 @@ function injectMeasurementShortcutHelp() {
     eletrodutoShortcutItem.dataset.measurementHistoryShortcuts = "true";
     eletrodutoShortcutItem.innerHTML = "<kbd>8</kbd> — Exportar relatório de eletrodutos";
 
+    const screenshotShortcutItem = document.createElement("li");
+    screenshotShortcutItem.dataset.measurementHistoryShortcuts = "true";
+    screenshotShortcutItem.innerHTML = "<kbd>9</kbd> — Baixar print da visualização atual";
+
     generalHelpList.appendChild(undoShortcutItem);
     generalHelpList.appendChild(redoShortcutItem);
+    generalHelpList.appendChild(screenshotShortcutItem);
     generalHelpList.appendChild(eletrodutoShortcutItem);
 }
 function setupAccessGate() {
@@ -4639,7 +4645,58 @@ function restoreSceneRenderState(state) {
     applyState(scene.xrayedObjectIds, state.xrayed, scene.setObjectsXRayed?.bind(scene));
     applyState(scene.highlightedObjectIds, state.highlighted, scene.setObjectsHighlighted?.bind(scene));
 }
+function buildScreenshotFilename() {
+    const projectSlug = (activeProjectKey || document.title || "modelo-3d")
+        .toString()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "modelo-3d";
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 
+    return `print-${projectSlug}-${timestamp}.png`;
+}
+
+function downloadCanvasImage(dataUrl, filename) {
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function downloadCurrentViewScreenshot() {
+    const canvas = document.getElementById("meuCanvas");
+
+    if (!canvas || !canvas.width || !canvas.height) {
+        console.warn("Não foi possível gerar o print: canvas 3D indisponível.");
+        return;
+    }
+
+    requestRenderFrame();
+
+    requestAnimationFrame(() => {
+        const filename = buildScreenshotFilename();
+
+        if (typeof canvas.toBlob === "function") {
+            canvas.toBlob((blob) => {
+                if (!blob) {
+                    downloadCanvasImage(canvas.toDataURL("image/png"), filename);
+                    return;
+                }
+
+                const url = URL.createObjectURL(blob);
+                downloadCanvasImage(url, filename);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }, "image/png");
+            return;
+        }
+
+        downloadCanvasImage(canvas.toDataURL("image/png"), filename);
+    });
+}
 /**
  * Snapshot LEVE:
  * - Faz downscale para reduzir pixels
@@ -6486,6 +6543,12 @@ document.addEventListener("keydown", (event) => {
                 webBudgetSummary.textContent = `${formatModelLabel(modelId)} · ${descricao}: isolamento por modelo XKT aplicado.`;
             }
         }
+        return;
+    }
+
+    if (key === "9") {
+        event.preventDefault();
+        downloadCurrentViewScreenshot();
         return;
     }
 

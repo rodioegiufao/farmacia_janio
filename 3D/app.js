@@ -4672,30 +4672,22 @@ function downloadCurrentViewScreenshot() {
 
     if (!canvas || !canvas.width || !canvas.height) {
         console.warn("Não foi possível gerar o print: canvas 3D indisponível.");
-        return;
+        return false;
     }
 
     requestRenderFrame();
 
-    requestAnimationFrame(() => {
-        const filename = buildScreenshotFilename();
-
-        if (typeof canvas.toBlob === "function") {
-            canvas.toBlob((blob) => {
-                if (!blob) {
-                    downloadCanvasImage(canvas.toDataURL("image/png"), filename);
-                    return;
-                }
-
-                const url = URL.createObjectURL(blob);
-                downloadCanvasImage(url, filename);
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-            }, "image/png");
-            return;
-        }
-
-        downloadCanvasImage(canvas.toDataURL("image/png"), filename);
-    });
+    try {
+        // Mantém a geração síncrona no mesmo gesto do teclado. Em alguns
+        // navegadores, downloads iniciados apenas dentro de callbacks assíncronos
+        // (requestAnimationFrame/toBlob) podem ser bloqueados e o atalho 9 parece
+        // não fazer nada.
+        downloadCanvasImage(canvas.toDataURL("image/png"), buildScreenshotFilename());
+        return true;
+    } catch (error) {
+        console.error("Não foi possível gerar o print da visualização atual.", error);
+        return false;
+    }
 }
 /**
  * Snapshot LEVE:
@@ -6470,6 +6462,10 @@ function isEditableKeyboardTarget(target) {
         target?.isContentEditable;
 }
 
+function isScreenshotShortcut(event) {
+    return event.key === "9" || event.code === "Digit9" || event.code === "Numpad9" || event.keyCode === 57 || event.keyCode === 105;
+}
+
 document.addEventListener("keydown", (event) => {
     const key = event.key?.toLowerCase();
     const isTyping = isEditableKeyboardTarget(event.target);
@@ -6546,8 +6542,9 @@ document.addEventListener("keydown", (event) => {
         return;
     }
 
-    if (key === "9") {
+    if (isScreenshotShortcut(event)) {
         event.preventDefault();
+        event.stopPropagation();
         downloadCurrentViewScreenshot();
         return;
     }

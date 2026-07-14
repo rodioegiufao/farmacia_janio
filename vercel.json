@@ -13,6 +13,7 @@
     { "source": "/3D/policlinica", "destination": "/3D/policlinica.html" },
     { "source": "/3D/farmacia", "destination": "/3D/farmacia.html" },
     { "source": "/3D/esc_canaa", "destination": "/3D/esc_canaa.html" },
-    { "source": "/3D/esc_modelo", "destination": "/3D/esc_modelo.html" }
+    { "source": "/3D/esc_modelo", "destination": "/3D/esc_modelo.html" },
+    { "source": "/3D/sesc_centro_ecologico", "destination": "/3D/sesc_centro_ecologico.html" }
   ]
 }

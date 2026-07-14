@@ -3570,6 +3570,10 @@ const SEBRAE_RR_MODELS = [
     { id: "IFC_ALI", src: "/3D/sebrae-rr/modelo-01.xkt" },
 ];
 
+const SESC_CENTRO_ECOLOGICO_MODELS = [
+    { id: "IFC_ARQ_SESC_GERAL", src: "/3D/sesc_centro_ecologico/XKT-ARQ-SESC-GERAL.xkt" },
+];
+
 const ESC_MODELO_MODELS = [
     { id: "IFC_EST_PP", src: "/3D/esc_modelo/modelo-01.xkt" },
     { id: "IFC_ARQ", src: "/3D/esc_modelo/modelo-02.xkt" },
@@ -3680,6 +3684,10 @@ const SEBRAE_RR_MODEL_TRANSFORMS = {
     IFC_ALI: { position: [15, 0, 50] },
 };
 
+const SESC_CENTRO_ECOLOGICO_MODEL_TRANSFORMS = {
+    IFC_ARQ_SESC_GERAL: { position: [250, 0, 100] },
+};
+
 const ESC_MODELO_MODEL_TRANSFORMS = {
     IFC_EST_PP: { position: [45, -2.05, 25], rotation: [0, 0, 0] },
     IFC_ARQ: { position: [354.6, 0, 3187.75], rotation: [0, 0, 0] },
@@ -3735,6 +3743,7 @@ const PROJECT_CONFIGS = {
     farmacia: { models: FARMACIA_MODELS, transforms: FARMACIA_MODEL_TRANSFORMS },
     fecomercio: { models: fecomercio_MODELS, transforms: fecomercio_MODEL_TRANSFORMS },
     esc_canaa: { models: CANAA_MODELS, transforms: CANAA_MODEL_TRANSFORMS },
+    sesc_centro_ecologico: { models: SESC_CENTRO_ECOLOGICO_MODELS, transforms: SESC_CENTRO_ECOLOGICO_MODEL_TRANSFORMS },
     sebrae_rr: { models: SEBRAE_RR_MODELS, transforms: SEBRAE_RR_MODEL_TRANSFORMS },
     esc_modelo: { models: ESC_MODELO_MODELS, transforms: ESC_MODELO_MODEL_TRANSFORMS },
 };
@@ -3775,6 +3784,7 @@ const PROJECT_ROUTES = {
     fecomercio: "/3D/fecomercio",
     esc_canaa: "/3D/esc_canaa",
     sebrae_rr: "/3D/sebrae-rr",
+    sesc_centro_ecologico: "/3D/sesc_centro_ecologico",
     esc_modelo: "/3D/esc_modelo"
 };
 

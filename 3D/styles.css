@@ -2824,11 +2824,109 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
     }
 }
 
-.viewer-user-badge {
+.viewer-user-menu {
     position: fixed;
     top: 16px;
     right: 16px;
     z-index: 250000;
+    font-family: Arial, sans-serif;
+}
+
+body[data-mode="mobile"] .viewer-user-menu {
+    top: 18px;
+    right: 78px;
+}
+
+.viewer-user-menu-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(310px, calc(100vw - 32px));
+    overflow: hidden;
+    border: 1px solid rgba(226, 232, 240, 0.14);
+    border-radius: 18px;
+    color: #ffffff;
+    background: #353535;
+    box-shadow: 0 22px 58px rgba(0, 0, 0, 0.35);
+}
+
+.viewer-user-menu-panel[hidden] {
+    display: none;
+}
+
+.viewer-user-menu-profile {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 22px 18px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.viewer-user-menu-avatar {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: #ffffff;
+    background: #75838a;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.viewer-user-menu-profile strong,
+.viewer-user-menu-profile small {
+    display: block;
+}
+
+.viewer-user-menu-profile strong {
+    line-height: 1.25;
+}
+
+.viewer-user-menu-profile small {
+    margin-top: 2px;
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.viewer-user-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 15px 18px;
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    background: transparent;
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.viewer-user-menu-item:last-child {
+    border-bottom: 0;
+}
+
+.viewer-user-menu-item:hover,
+.viewer-user-menu-item:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
+}
+
+.viewer-user-menu-item span {
+    width: 24px;
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+.viewer-user-badge {
+    position: relative;
+    z-index: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2848,10 +2946,6 @@ body[data-project="ifc_upload"].ifc-upload-active::before {
     pointer-events: none;
 }
 
-body[data-mode="mobile"] .viewer-user-badge {
-    top: 18px;
-    right: 78px;
-}
 .viewer-user-badge {
     border: 1px solid rgba(226, 232, 240, 0.22);
     padding: 0;

@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
             const form = e.target.closest('form');
-            if (form && form.id !== 'contactForm') e.preventDefault();
+            if (form && form.id !== 'contactForm' && form.id !== 'homeLoginForm') e.preventDefault();
         }
     });
 

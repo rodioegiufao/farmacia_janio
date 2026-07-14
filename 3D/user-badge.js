@@ -57,13 +57,30 @@
         const modal = document.getElementById("viewerProfileModal");
         if (modal) modal.hidden = true;
     }
+    
+    function fecharMenuUsuario() {
+        const trigger = document.getElementById("viewerUserMenuTrigger");
+        const panel = document.getElementById("viewerUserMenuPanel");
+        if (!trigger || !panel) return;
+        panel.hidden = true;
+        trigger.setAttribute("aria-expanded", "false");
+    }
 
     function atualizarBolinha(user) {
         usuarioAtual = user || usuarioAtual;
+        const iniciais = obterIniciais(user?.nome);
         const badge = document.querySelector(".viewer-user-badge");
-        if (!badge) return;
-        badge.textContent = obterIniciais(user?.nome);
-        badge.setAttribute("aria-label", `Abrir perfil de ${user?.nome || "usuário"}`);
+        if (badge) {
+            badge.textContent = iniciais;
+            badge.setAttribute("aria-label", `Abrir menu de ${user?.nome || "usuário"}`);
+        }
+        const menuInitials = document.getElementById("viewerUserMenuInitials");
+        if (menuInitials) menuInitials.textContent = iniciais;
+        const menuName = document.getElementById("viewerUserMenuName");
+        if (menuName) menuName.textContent = user?.nome || "";
+        const menuRole = document.getElementById("viewerUserMenuRole");
+        if (menuRole) menuRole.textContent = user?.perfil || "";
+        document.getElementById("viewerAdminLink")?.toggleAttribute("hidden", user?.perfil !== "admin");
     }
 
     async function salvarPerfil(event) {
@@ -149,15 +166,48 @@
         document.getElementById("viewerProfileNome")?.focus();
     }
 
-    function criarBolinhaUsuario(user) {
-        const badge = document.createElement("button");
-        badge.type = "button";
-        badge.className = "viewer-user-badge";
-        badge.setAttribute("aria-label", `Abrir perfil de ${user.nome || "usuário"}`);
-        badge.title = "Abrir perfil";
-        badge.textContent = obterIniciais(user.nome);
-        badge.addEventListener("click", () => abrirPerfil(usuarioAtual || user));
-        return badge;
+    async function sair() {
+        await requestJson(AUTH_URL, { method: "DELETE", credentials: "same-origin" }).catch(() => null);
+        usuarioAtual = null;
+        fecharMenuUsuario();
+        document.getElementById("viewerUserMenu")?.remove();
+        window.location.href = "/";
+    }
+
+    function criarMenuUsuario(user) {
+        const menu = document.createElement("div");
+        menu.className = "viewer-user-menu";
+        menu.id = "viewerUserMenu";
+        menu.innerHTML = `
+            <button type="button" class="viewer-user-badge" id="viewerUserMenuTrigger" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu do usuário" title="Abrir menu do usuário"></button>
+            <div class="viewer-user-menu-panel" id="viewerUserMenuPanel" role="menu" hidden>
+                <div class="viewer-user-menu-profile">
+                    <span class="viewer-user-menu-avatar" id="viewerUserMenuInitials" aria-hidden="true"></span>
+                    <div>
+                        <strong id="viewerUserMenuName"></strong>
+                        <small id="viewerUserMenuRole"></small>
+                    </div>
+                </div>
+                <a href="/admin/" class="viewer-user-menu-item" id="viewerAdminLink" role="menuitem" hidden><span aria-hidden="true">♜</span>Administração</a>
+                <button type="button" class="viewer-user-menu-item" id="viewerProfileButton" role="menuitem"><span aria-hidden="true">✎</span>Perfil</button>
+                <button type="button" class="viewer-user-menu-item" id="viewerLogoutButton" role="menuitem"><span aria-hidden="true">↪</span>Sair</button>
+            </div>`;
+
+        const trigger = menu.querySelector("#viewerUserMenuTrigger");
+        const panel = menu.querySelector("#viewerUserMenuPanel");
+        trigger.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const abrir = panel.hidden;
+            panel.hidden = !abrir;
+            trigger.setAttribute("aria-expanded", String(abrir));
+        });
+        menu.querySelector("#viewerProfileButton")?.addEventListener("click", () => {
+            fecharMenuUsuario();
+            abrirPerfil(usuarioAtual || user);
+        });
+        menu.querySelector("#viewerLogoutButton")?.addEventListener("click", sair);
+        atualizarBolinha(user);
+        return menu;
     }
 
     async function inicializarBolinhaUsuario() {
@@ -165,12 +215,22 @@
         if (!user) return;
         usuarioAtual = user;
 
-        document.querySelector(".viewer-user-badge")?.remove();
-        document.body.appendChild(criarBolinhaUsuario(user));
+        document.getElementById("viewerUserMenu")?.remove();
+        document.body.appendChild(criarMenuUsuario(user));
+        atualizarBolinha(user);
     }
 
+    document.addEventListener("click", (event) => {
+        const menu = document.getElementById("viewerUserMenu");
+        if (!menu || menu.contains(event.target)) return;
+        fecharMenuUsuario();
+    });
+
     document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") fecharPerfil();
+        if (event.key === "Escape") {
+            fecharMenuUsuario();
+            fecharPerfil();
+        }
     });
 
     if (document.readyState === "loading") {

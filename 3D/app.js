@@ -3685,7 +3685,7 @@ const SEBRAE_RR_MODEL_TRANSFORMS = {
 };
 
 const SESC_CENTRO_ECOLOGICO_MODEL_TRANSFORMS = {
-    IFC_ARQ_SESC_GERAL: { position: [250, 0, 100] },
+    IFC_ARQ_SESC_GERAL: { position: [257.26, 0, 33.02], rotation: [0, 16.4, 0]  },
 };
 
 const ESC_MODELO_MODEL_TRANSFORMS = {

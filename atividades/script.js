@@ -18,6 +18,8 @@ const coresPrioridade = {
   P3: "#f56565"
 };
 const projetos = [
+  "Site",
+  "Todos",
   "CFTV",
   "Cabeamento",
   "Telefonia",
@@ -33,6 +35,7 @@ const projetos = [
   "Outros",
 ];
 const etapas = [
+  "Orçamento",
   "QI Builder",
   "AutoCAD",
   "Revit",
@@ -859,19 +862,19 @@ function renderizarTabelaSemanal() {
   }
 
   semanaVisivelIndex = Math.min(Math.max(semanaVisivelIndex, 0), semanas.length - 1);
-  atualizarControlesCarrosselSemanal(semanas.length);
-
   const [semana, atividadesDaSemana] = semanas[semanaVisivelIndex];
+  atualizarControlesCarrosselSemanal(semanas.length, semana);
   tabelaSemanal.innerHTML = criarBlocoSemana(semana, atividadesDaSemana, podeGerenciarAtividadesSemanais);
 }
 
-function atualizarControlesCarrosselSemanal(totalSemanas) {
+function atualizarControlesCarrosselSemanal(totalSemanas, semanaAtual = "") {
   const desabilitar = totalSemanas <= 1;
   if (btnSemanaAnterior) btnSemanaAnterior.disabled = desabilitar;
   if (btnSemanaProxima) btnSemanaProxima.disabled = desabilitar;
   if (indicadorSemanaAtual) {
+    const numeroSemana = extrairNumeroSemana(semanaAtual);
     indicadorSemanaAtual.textContent = totalSemanas
-      ? `Semana ${semanaVisivelIndex + 1} de ${totalSemanas}`
+      ? `${numeroSemana !== null ? `Semana ${numeroSemana}` : "Semana sem número"} (${semanaVisivelIndex + 1} de ${totalSemanas})`
       : "Nenhuma semana para exibir";
   }
 }

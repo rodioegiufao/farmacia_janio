@@ -262,11 +262,11 @@ async function inicializar() {
   });
   Object.values(filtrosSemanais).forEach((filtro) => {
     filtro.addEventListener("input", () => {
-      semanaVisivelIndex = 0;
+      definirSemanaVisivelInicial();
       renderizarTabelaSemanal();
     });
     filtro.addEventListener("change", () => {
-      semanaVisivelIndex = 0;
+      definirSemanaVisivelInicial();
       renderizarTabelaSemanal();
     });
   });
@@ -742,6 +742,7 @@ async function carregarAtividadesSemanais() {
     renderizarTabelaSemanal();
     atividadesSemanais = await fetch(API_SEMANA_URL).then(validarResposta);
     preencherFiltroSemanas();
+    definirSemanaVisivelInicial();
     renderizarDashboardSemanal();
   } catch (erro) {
     alert(`Não foi possível carregar as atividades semanais do Supabase: ${erro.message}`);
@@ -885,6 +886,26 @@ function navegarSemanaPlanejamento(direcao) {
   semanaVisivelIndex = (semanaVisivelIndex + direcao + totalSemanas) % totalSemanas;
   renderizarTabelaSemanal();
 }
+
+function definirSemanaVisivelInicial() {
+  const semanas = ordenarSemanasPlanejamento(Object.entries(agruparAtividadesPorSemana(obterAtividadesSemanaisFiltradas())));
+  const indiceSemanaAtual = obterIndiceSemanaAtual(semanas);
+  semanaVisivelIndex = indiceSemanaAtual >= 0 ? indiceSemanaAtual : 0;
+}
+
+function obterIndiceSemanaAtual(semanas) {
+  const numeroSemanaAtual = obterNumeroSemanaAno(new Date());
+  return semanas.findIndex(([semana]) => extrairNumeroSemana(semana) === numeroSemanaAtual);
+}
+
+function obterNumeroSemanaAno(data) {
+  const dataUtc = new Date(Date.UTC(data.getFullYear(), data.getMonth(), data.getDate()));
+  const diaSemana = dataUtc.getUTCDay() || 7;
+  dataUtc.setUTCDate(dataUtc.getUTCDate() + 4 - diaSemana);
+  const inicioAno = new Date(Date.UTC(dataUtc.getUTCFullYear(), 0, 1));
+  return Math.ceil((((dataUtc - inicioAno) / 86400000) + 1) / 7);
+}
+
 function ordenarSemanasPlanejamento(semanas) {
   return semanas.sort(([semanaA], [semanaB]) => compararSemanasPlanejamento(semanaA, semanaB));
 }

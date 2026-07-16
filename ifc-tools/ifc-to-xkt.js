@@ -2,6 +2,7 @@
   'use strict';
 
   const SUPABASE_BUCKET = 'ifc-conversions';
+  const MAX_IFC_UPLOAD_SIZE_BYTES = 250 * 1024 * 1024;
 
   let supabaseClient = null;
   let supabaseBucket = SUPABASE_BUCKET;
@@ -73,6 +74,11 @@
   function setStatus(message, type = '') {
     statusElement.textContent = message;
     statusElement.className = `status ${type}`.trim();
+  }
+
+  function formatFileSize(bytes) {
+    const mb = Number(bytes || 0) / (1024 * 1024);
+    return `${mb.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} MB`;
   }
 
   function setProgress(value) {
@@ -164,6 +170,9 @@
       if (response.status === 413) {
         throw new Error('O arquivo é grande demais para envio direto à Vercel. Use o fluxo de upload direto para o armazenamento.');
       }
+      if (response.status === 504) {
+        throw new Error('A conversão excedeu o tempo limite do servidor. Tente um IFC menor/otimizado ou aumente o maxDuration/plan da Vercel para conversões longas.');
+      }
       throw new Error(await readErrorMessage(response));
     }
 
@@ -177,6 +186,11 @@
 
     if (!selectedFile.name.toLowerCase().endsWith('.ifc')) {
       setStatus('Selecione apenas arquivos com extensão .ifc.', 'error');
+      return;
+    }
+
+    if (selectedFile.size > MAX_IFC_UPLOAD_SIZE_BYTES) {
+      setStatus(`O arquivo tem ${formatFileSize(selectedFile.size)} e excede o limite de ${formatFileSize(MAX_IFC_UPLOAD_SIZE_BYTES)} para upload.`, 'error');
       return;
     }
 
@@ -207,7 +221,9 @@
       const message = String(error?.message || error || 'Erro desconhecido.');
       const friendlyMessage = message.includes('413')
         ? 'O arquivo é grande demais para envio direto à Vercel. Use o fluxo de upload direto para o armazenamento.'
-        : message;
+        : message.includes('maximum allowed size') || message.includes('file size limit')
+          ? `O upload excedeu o limite do bucket Supabase. O sistema foi configurado para até ${formatFileSize(MAX_IFC_UPLOAD_SIZE_BYTES)}; confirme no painel do Supabase se o bucket ifc-conversions foi atualizado.`
+          : message;
       setStatus(`Erro ao converter: ${friendlyMessage}`, 'error');
     } finally {
       convertButton.disabled = !selectedFile;

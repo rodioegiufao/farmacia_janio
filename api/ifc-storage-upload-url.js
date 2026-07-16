@@ -1,7 +1,7 @@
 const { createClient } = require("@supabase/supabase-js");
 
 const SUPABASE_BUCKET = "ifc-conversions";
-const SUPABASE_BUCKET_FILE_SIZE_LIMIT_BYTES = 50 * 1024 * 1024;
+const SUPABASE_BUCKET_FILE_SIZE_LIMIT_BYTES = 250 * 1024 * 1024;
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -109,10 +109,22 @@ async function createStorageBucket(supabase) {
   }
 }
 
+async function updateBucketFileSizeLimit(supabase) {
+  const { error } = await supabase.storage.updateBucket(SUPABASE_BUCKET, {
+    public: false,
+    fileSizeLimit: SUPABASE_BUCKET_FILE_SIZE_LIMIT_BYTES
+  });
+
+  if (error && !isFileSizeLimitRejectedError(error)) {
+    throw error;
+  }
+}
+
 async function ensureBucketExists(supabase) {
   const { data: bucket, error: getError } = await supabase.storage.getBucket(SUPABASE_BUCKET);
 
   if (bucket) {
+    await updateBucketFileSizeLimit(supabase);
     return;
   }
 

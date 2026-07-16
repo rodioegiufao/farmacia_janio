@@ -10,8 +10,13 @@
 <body>
   <header class="hero">
     <h1>Ferramentas IFC</h1>
-    <p>Transforme rotação e deslocamento de posicionamentos IFC diretamente no navegador.</p>
+    <p>Transforme posicionamentos IFC e converta arquivos IFC em XKT no mesmo lugar.</p>
   </header>
+
+  <nav class="tabs" aria-label="Ferramentas IFC">
+    <button class="tab active" type="button" data-tab-target="transform">Transformar IFC</button>
+    <button class="tab" type="button" data-tab-target="converter">Converter IFC em XKT</button>
+  </nav>
 
   <main>
     <section id="transform" class="panel active">
@@ -76,7 +81,36 @@
         <p id="resultMessage"></p>
       </section>
     </section>
+    <section id="converter" class="panel">
+      <section class="card converter-card" aria-labelledby="converterTitle">
+        <h2 id="converterTitle">Conversor IFC → XKT</h2>
+        <p class="muted">
+          Selecione um arquivo <code>.ifc</code>; a conversão principal será feita no backend com <code>convert2xkt</code>, seguindo o fluxo oficial da xeokit.
+        </p>
+
+        <label id="xktDropzone" class="dropzone" for="ifcFileInput">
+          <strong>Arraste e solte o arquivo IFC aqui</strong>
+          <span>ou clique para selecionar</span>
+          <input id="ifcFileInput" type="file" accept=".ifc">
+        </label>
+
+        <div id="selectedFileName" class="muted file-name">Nenhum arquivo selecionado.</div>
+
+        <div class="progress" aria-hidden="true">
+          <span id="progressFill"></span>
+        </div>
+
+        <div class="actions">
+          <button id="convertButton" type="button" disabled>Converter para XKT</button>
+          <a class="button secondary" href="/3D/ifc_upload">Voltar para projetos 3D</a>
+        </div>
+
+        <div id="status" class="status" aria-live="polite"></div>
+      </section>
+    </section>
   </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/ifc-tools/script.js"></script>
+  <script src="/ifc-tools/ifc-to-xkt.js"></script>
 </body>
 </html>

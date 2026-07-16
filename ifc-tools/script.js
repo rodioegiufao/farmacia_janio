@@ -294,6 +294,19 @@
   if (typeof module !== 'undefined') module.exports = root.IfcTransformer;
 
   if (typeof document !== 'undefined') {
+    function activateTab(targetId, updateHash = true) {
+      const targetTab = document.querySelector(`[data-tab-target="${targetId}"]`);
+      const targetPanel = document.getElementById(targetId);
+      if (!targetTab || !targetPanel) return;
+      document.querySelectorAll('[data-tab-target]').forEach(item => item.classList.toggle('active', item === targetTab));
+      document.querySelectorAll('.panel').forEach(panel => panel.classList.toggle('active', panel === targetPanel));
+      if (updateHash) history.replaceState(null, '', `#${targetId}`);
+    }
+
+    document.querySelectorAll('[data-tab-target]').forEach(tab => {
+      tab.addEventListener('click', () => activateTab(tab.dataset.tabTarget));
+    });
+    if (location.hash === '#converter') activateTab('converter', false);
     let state = { downloadUrl: null };
     const $ = id => document.getElementById(id);
     function revokeDownload() {

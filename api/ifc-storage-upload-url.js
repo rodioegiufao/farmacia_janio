@@ -1,6 +1,7 @@
 const { createClient } = require("@supabase/supabase-js");
 
 const SUPABASE_BUCKET = "ifc-conversions";
+const SUPABASE_BUCKET_FILE_SIZE_LIMIT_BYTES = 50 * 1024 * 1024;
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -73,6 +74,41 @@ function readJsonBody(req) {
   });
 }
 
+function isBucketNotFoundError(error) {
+  return /not found|does not exist|bucket not found/i.test(error?.message || "");
+}
+
+function isBucketAlreadyExistsError(error) {
+  return /already exists/i.test(error?.message || "");
+}
+
+function isFileSizeLimitRejectedError(error) {
+  return /object exceeded the maximum allowed size|file size limit|exceeded.*maximum/i.test(error?.message || "");
+}
+
+async function createStorageBucket(supabase) {
+  const { error } = await supabase.storage.createBucket(SUPABASE_BUCKET, {
+    public: false,
+    fileSizeLimit: SUPABASE_BUCKET_FILE_SIZE_LIMIT_BYTES
+  });
+
+  if (!error || isBucketAlreadyExistsError(error)) {
+    return;
+  }
+
+  if (!isFileSizeLimitRejectedError(error)) {
+    throw error;
+  }
+
+  const { error: fallbackError } = await supabase.storage.createBucket(SUPABASE_BUCKET, {
+    public: false
+  });
+
+  if (fallbackError && !isBucketAlreadyExistsError(fallbackError)) {
+    throw fallbackError;
+  }
+}
+
 async function ensureBucketExists(supabase) {
   const { data: bucket, error: getError } = await supabase.storage.getBucket(SUPABASE_BUCKET);
 
@@ -80,17 +116,14 @@ async function ensureBucketExists(supabase) {
     return;
   }
 
-  if (getError && !/not found|does not exist|bucket not found/i.test(getError.message || "")) {
+  if (getError && !isBucketNotFoundError(getError)) {
     throw new Error(`Não foi possível verificar o bucket ${SUPABASE_BUCKET}: ${getError.message}`);
   }
 
-  const { error: createError } = await supabase.storage.createBucket(SUPABASE_BUCKET, {
-    public: false,
-    fileSizeLimit: "250MB"
-  });
-
-  if (createError && !/already exists/i.test(createError.message || "")) {
-    throw new Error(`Não foi possível criar o bucket ${SUPABASE_BUCKET}: ${createError.message}`);
+  try {
+    await createStorageBucket(supabase);
+  } catch (error) {
+    throw new Error(`Não foi possível criar o bucket ${SUPABASE_BUCKET}: ${error.message}`);
   }
 }
 

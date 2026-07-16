@@ -106,41 +106,48 @@
       .replace(/^_+|_+$/g, '');
   }
 
-  function gerarStoragePath(fileName) {
-    const safeName = sanitizeStorageFileName(fileName);
+  async function prepararUrlAssinadaUpload(fileName) {
+    const response = await fetch('/api/ifc-storage-upload-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileName })
+    });
 
-    if (!safeName.toLowerCase().endsWith('.ifc')) {
-      throw new Error('Envie um arquivo com extensão .ifc.');
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response));
     }
 
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const id = crypto.randomUUID().replace(/-/g, '');
+    const uploadConfig = await response.json();
 
-    return `uploads/${today}/${id}_${safeName}`;
+    if (!uploadConfig?.ok || !uploadConfig.path || !uploadConfig.token) {
+      throw new Error(uploadConfig?.error || 'A API não retornou uma URL assinada de upload válida.');
+    }
+
+    supabaseBucket = uploadConfig.bucket || supabaseBucket;
+    return uploadConfig;
   }
 
   async function uploadIfcToSupabaseStorage(file) {
     const client = await carregarSupabaseConfig();
 
     setProgress(15);
-    setStatus('Enviando IFC diretamente para o Supabase Storage...', '');
+    setStatus('Preparando URL assinada e enviando IFC para o Supabase Storage...', '');
 
-    const storagePath = gerarStoragePath(file.name);
+    const uploadConfig = await prepararUrlAssinadaUpload(sanitizeStorageFileName(file.name));
 
     const { data, error } = await client.storage
       .from(supabaseBucket)
-      .upload(storagePath, file, {
-        contentType: file.type || 'application/octet-stream',
-        upsert: true
+      .uploadToSignedUrl(uploadConfig.path, uploadConfig.token, file, {
+        contentType: file.type || 'application/octet-stream'
       });
 
     if (error) {
       throw new Error(
-        `Falha no upload para o Supabase Storage. Verifique se o bucket ${supabaseBucket} existe e se há política de INSERT para uploads/%. Detalhes: ${error.message}`
+        `Falha no upload para o Supabase Storage via URL assinada. Detalhes: ${error.message}`
       );
     }
 
-    return data.path || storagePath;
+    return data.path || uploadConfig.path;
   }
 
   async function convertUploadedIfc(storagePath, originalName) {

@@ -1,0 +1,4 @@
+const fs=require('fs'); const path=require('path'); const t=require('./script.js');
+const count=t.runTests(); console.log(`Testes internos aprovados: ${count}`);
+const src=path.join(__dirname,'..','IFC-SDAI-IPER.ifc');
+if(fs.existsSync(src)){const text=fs.readFileSync(src,'utf8'); const out=t.transform(text,{angle:90,rotationMode:'relative',x:0,y:0,z:0,unit:'m',translationMode:'relative',rotatePosition:false,pivot:t.analyze(text).position}).text; const dest=path.join(__dirname,'IFC-SDAI-IPER_ROT90_GERADO.ifc'); fs.writeFileSync(dest,out); console.log(`Arquivo de referência processado: ${dest}`)} else {console.warn('Aviso: IFC-SDAI-IPER.ifc não encontrado; teste 10 de arquivo real foi ignorado.');}

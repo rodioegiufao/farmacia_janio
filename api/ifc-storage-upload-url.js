@@ -3,6 +3,41 @@ const { createClient } = require("@supabase/supabase-js");
 const SUPABASE_BUCKET = "ifc-conversions";
 const SUPABASE_BUCKET_FILE_SIZE_LIMIT_BYTES = 250 * 1024 * 1024;
 
+function formatBytes(bytes) {
+  const mb = Number(bytes || 0) / (1024 * 1024);
+  return `${mb.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`;
+}
+
+function getBucketFileSizeLimitBytes(bucket) {
+  const rawLimit = bucket?.file_size_limit ?? bucket?.fileSizeLimit ?? bucket?.file_size_limit_bytes;
+  if (rawLimit === null || rawLimit === undefined || rawLimit === "") {
+    return null;
+  }
+
+  const numericLimit = Number(rawLimit);
+  return Number.isFinite(numericLimit) ? numericLimit : null;
+}
+
+function assertRequestedFileFitsLimit(fileSize) {
+  const numericSize = Number(fileSize || 0);
+  if (Number.isFinite(numericSize) && numericSize > SUPABASE_BUCKET_FILE_SIZE_LIMIT_BYTES) {
+    throw new Error(
+      `O arquivo tem ${formatBytes(numericSize)} e excede o limite configurado de ${formatBytes(SUPABASE_BUCKET_FILE_SIZE_LIMIT_BYTES)}.`
+    );
+  }
+}
+
+function assertBucketAcceptsConfiguredLimit(bucket) {
+  const currentLimit = getBucketFileSizeLimitBytes(bucket);
+  if (currentLimit !== null && currentLimit < SUPABASE_BUCKET_FILE_SIZE_LIMIT_BYTES) {
+    throw new Error(
+      `O bucket ${SUPABASE_BUCKET} ainda está limitado a ${formatBytes(currentLimit)} no Supabase Storage. ` +
+        `Atualize o limite do bucket para pelo menos ${formatBytes(SUPABASE_BUCKET_FILE_SIZE_LIMIT_BYTES)} no painel do Supabase e tente novamente.`
+    );
+  }
+}
+
+
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -82,10 +117,6 @@ function isBucketAlreadyExistsError(error) {
   return /already exists/i.test(error?.message || "");
 }
 
-function isFileSizeLimitRejectedError(error) {
-  return /object exceeded the maximum allowed size|file size limit|exceeded.*maximum/i.test(error?.message || "");
-}
-
 async function createStorageBucket(supabase) {
   const { error } = await supabase.storage.createBucket(SUPABASE_BUCKET, {
     public: false,
@@ -96,17 +127,7 @@ async function createStorageBucket(supabase) {
     return;
   }
 
-  if (!isFileSizeLimitRejectedError(error)) {
-    throw error;
-  }
-
-  const { error: fallbackError } = await supabase.storage.createBucket(SUPABASE_BUCKET, {
-    public: false
-  });
-
-  if (fallbackError && !isBucketAlreadyExistsError(fallbackError)) {
-    throw fallbackError;
-  }
+  throw error;
 }
 
 async function updateBucketFileSizeLimit(supabase) {
@@ -115,9 +136,17 @@ async function updateBucketFileSizeLimit(supabase) {
     fileSizeLimit: SUPABASE_BUCKET_FILE_SIZE_LIMIT_BYTES
   });
 
-  if (error && !isFileSizeLimitRejectedError(error)) {
-    throw error;
+  if (error) {
+    throw new Error(
+      `Não foi possível atualizar o limite do bucket ${SUPABASE_BUCKET} para ${formatBytes(SUPABASE_BUCKET_FILE_SIZE_LIMIT_BYTES)}: ${error.message}`
+    );
   }
+
+  const { data: updatedBucket, error: getUpdatedError } = await supabase.storage.getBucket(SUPABASE_BUCKET);
+  if (getUpdatedError) {
+    throw new Error(`Não foi possível confirmar o limite do bucket ${SUPABASE_BUCKET}: ${getUpdatedError.message}`);
+  }
+  assertBucketAcceptsConfiguredLimit(updatedBucket);
 }
 
 async function ensureBucketExists(supabase) {
@@ -134,6 +163,11 @@ async function ensureBucketExists(supabase) {
 
   try {
     await createStorageBucket(supabase);
+    const { data: createdBucket, error: getCreatedError } = await supabase.storage.getBucket(SUPABASE_BUCKET);
+    if (getCreatedError) {
+      throw new Error(`Bucket criado, mas não foi possível confirmar o limite: ${getCreatedError.message}`);
+    }
+    assertBucketAcceptsConfiguredLimit(createdBucket);
   } catch (error) {
     throw new Error(`Não foi possível criar o bucket ${SUPABASE_BUCKET}: ${error.message}`);
   }
@@ -148,6 +182,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const body = await readJsonBody(req);
+    assertRequestedFileFitsLimit(body.fileSize);
     const path = createUploadPath(body.fileName);
     const supabase = getSupabaseClient();
 

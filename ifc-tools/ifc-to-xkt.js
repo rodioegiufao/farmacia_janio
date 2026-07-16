@@ -112,11 +112,11 @@
       .replace(/^_+|_+$/g, '');
   }
 
-  async function prepararUrlAssinadaUpload(fileName) {
+  async function prepararUrlAssinadaUpload(file) {
     const response = await fetch('/api/ifc-storage-upload-url', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileName })
+      body: JSON.stringify({ fileName: sanitizeStorageFileName(file.name), fileSize: file.size })
     });
 
     if (!response.ok) {
@@ -139,7 +139,7 @@
     setProgress(15);
     setStatus('Preparando URL assinada e enviando IFC para o Supabase Storage...', '');
 
-    const uploadConfig = await prepararUrlAssinadaUpload(sanitizeStorageFileName(file.name));
+    const uploadConfig = await prepararUrlAssinadaUpload(file);
 
     const { data, error } = await client.storage
       .from(supabaseBucket)
@@ -222,7 +222,7 @@
       const friendlyMessage = message.includes('413')
         ? 'O arquivo é grande demais para envio direto à Vercel. Use o fluxo de upload direto para o armazenamento.'
         : message.includes('maximum allowed size') || message.includes('file size limit')
-          ? `O upload excedeu o limite do bucket Supabase. O sistema foi configurado para até ${formatFileSize(MAX_IFC_UPLOAD_SIZE_BYTES)}; confirme no painel do Supabase se o bucket ifc-conversions foi atualizado.`
+          ? `O Supabase Storage recusou o upload por limite do bucket. O arquivo tem ${formatFileSize(selectedFile.size)} e o sistema permite até ${formatFileSize(MAX_IFC_UPLOAD_SIZE_BYTES)}; confirme no painel do Supabase se o bucket ifc-conversions está com limite igual ou superior a esse valor.`
           : message;
       setStatus(`Erro ao converter: ${friendlyMessage}`, 'error');
     } finally {

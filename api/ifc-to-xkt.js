@@ -23,6 +23,13 @@ function baseNameWithoutIfc(fileName) {
   return safeBaseName(fileName).replace(/\.ifc$/i, "") || "modelo";
 }
 
+function ensureLowercaseIfcExtension(fileName) {
+  const safeName = safeBaseName(fileName);
+  return safeName.toLowerCase().endsWith(".ifc")
+    ? `${baseNameWithoutIfc(safeName)}.ifc`
+    : safeName;
+}
+
 function getUploadedFile(files) {
   const candidate = files?.file || files?.ifc || files?.upload || Object.values(files || {})[0];
   return Array.isArray(candidate) ? candidate[0] : candidate;
@@ -298,7 +305,7 @@ async function handleJsonStorageConversion(req, res, tempPaths) {
   const ifcBuffer = Buffer.from(await data.arrayBuffer());
   const uniquePrefix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const outputName = `${baseNameWithoutIfc(originalName)}.xkt`;
-  const inputIfcPath = path.join(os.tmpdir(), `${uniquePrefix}-${originalName}`);
+  const inputIfcPath = path.join(os.tmpdir(), `${uniquePrefix}-${ensureLowercaseIfcExtension(originalName)}`);
   const outputXktPath = path.join(os.tmpdir(), `${uniquePrefix}-${outputName}`);
   tempPaths.push(inputIfcPath, outputXktPath);
 
@@ -366,8 +373,9 @@ async function handleMultipartConversion(req, res, tempPaths) {
   }
 
   const uniquePrefix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const inputIfcPath = path.join(os.tmpdir(), `${uniquePrefix}-${originalName}`);
-  const outputXktPath = path.join(os.tmpdir(), `${uniquePrefix}-${originalName.replace(/\.ifc$/i, ".xkt")}`);
+  const normalizedInputName = ensureLowercaseIfcExtension(originalName);
+  const inputIfcPath = path.join(os.tmpdir(), `${uniquePrefix}-${normalizedInputName}`);
+  const outputXktPath = path.join(os.tmpdir(), `${uniquePrefix}-${baseNameWithoutIfc(originalName)}.xkt`);
   tempPaths.push(inputIfcPath, outputXktPath);
 
   await fs.promises.rename(uploadedPath, inputIfcPath);

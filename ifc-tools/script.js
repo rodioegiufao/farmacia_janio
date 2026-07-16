@@ -90,16 +90,27 @@
       re.lastIndex = i - bounds.dataStart;
     }
     if (!entities.size) throw Error('Nenhuma entidade STEP encontrada na seção DATA.');
-    return { text, entities, order, maxId: Math.max(...order), bounds };
+    let maxId = 0;
+    for (const id of order) if (id > maxId) maxId = id;
+    return { text, entities, order, maxId, bounds };
   }
 
-  function refsOfArgs(argsText) { return [...argsText.matchAll(/#(\d+)/g)].map(x => Number(x[1])); }
+  function forEachRef(argsText, callback) {
+    const re = /#(\d+)/g;
+    let match;
+    while ((match = re.exec(argsText))) callback(Number(match[1]));
+  }
+  function refsOfArgs(argsText) {
+    const refs = [];
+    forEachRef(argsText, ref => refs.push(ref));
+    return refs;
+  }
   function getIncomingReferences(model, entityId) {
     const incoming = [];
     for (const e of model.entities.values()) {
-      for (const ref of refsOfArgs(e.body)) {
+      forEachRef(e.body, ref => {
         if (ref === entityId) incoming.push(e);
-      }
+      });
     }
     return incoming;
   }
@@ -239,7 +250,7 @@
       seen.add(id);
     }
     for (const e of model.entities.values()) {
-      for (const r of refsOfArgs(e.body)) if (!model.entities.has(r)) throw Error(`IFC final inválido: referência #${r} não resolvida.`);
+      forEachRef(e.body, r => { if (!model.entities.has(r)) throw Error(`IFC final inválido: referência #${r} não resolvida.`); });
     }
     return true;
   }
@@ -271,6 +282,10 @@
     const combo = transform(sample, { angle: 90, rotationMode: 'relative', x: 1, y: 0, z: 0, unit: 'm', translationMode: 'relative', rotatePosition: false, pivot: [0, 0, 0] });
     ok('rotação + deslocamento', vecNear(analyze(combo.text).position, [100, 0, 0]) && vecNear(analyze(combo.text).refDirection, [0, 1, 0]));
     ok('integridade STEP', validateFinal(combo.text));
+    const many = ['ISO-10303-21;', 'HEADER;', "FILE_SCHEMA(('IFC2X3'));", 'ENDSEC;', 'DATA;'];
+    for (let i = 1; i <= 150000; i++) many.push(`#${i}=IFCPERSON($);`);
+    many.push('#150001=IFCCARTESIANPOINT((0.,0.,0.));', '#150002=IFCDIRECTION((0.,0.,1.));', '#150003=IFCDIRECTION((1.,0.,0.));', '#150004=IFCAXIS2PLACEMENT3D(#150001,#150002,#150003);', '#150005=IFCLOCALPLACEMENT($,#150004);', "#150006=IFCSITE('g',$,$,$,$,#150005,$,$,$,$,$,$,$,$);", 'ENDSEC;', 'END-ISO-10303-21;');
+    ok('parse robusto para muitos IDs sem espalhar pilha', parseStep(many.join('\n')).maxId === 150006);
     ok('nenhum iframe recursivo no HTML', typeof document === 'undefined' || !document.querySelector('iframe[src="ifc_to_xkt.html"]'));
     return pass;
   }

@@ -88,15 +88,35 @@ function sync(s) {
   els.category.value = s.category;
   els.workView.value = s.workView;
   els.activeToolLabel.value =
-    ({ select: "Selecionar", profile: "Perfil livre", line: "Linha", rectangle: "Retângulo", circle: "Círculo", polygon: "Polígono", arc3: "Arco por três pontos" }[s.creationSession?.drawingTool || s.activeTool] || s.activeTool);
+    {
+      select: "Selecionar",
+      profile: "Perfil livre",
+      line: "Linha",
+      rectangle: "Retângulo",
+      circle: "Círculo",
+      polygon: "Polígono",
+      arc3: "Arco por três pontos",
+    }[s.creationSession?.drawingTool || s.activeTool] || s.activeTool;
   els.snapStep.value = s.settings.snapStep;
   els.majorGrid.value = s.settings.majorGrid;
   els.showGrid.checked = s.settings.showGrid;
   els.snapEnabled.checked = s.settings.snapEnabled;
   $("#toolProfile")?.classList.toggle("active", s.activeTool === "profile");
   $("#toolSelect")?.classList.toggle("active", s.activeTool === "select");
-  ["Line", "Rectangle", "Circle", "Polygon"].forEach((n) => $("#tool" + n)?.classList.toggle("active", s.activeTool === n.toLowerCase()));
-  document.querySelectorAll("[data-draw-tool]").forEach((b) => b.classList.toggle("active", s.creationSession?.drawingTool === b.dataset.drawTool));
+  ["Line", "Rectangle", "Circle", "Polygon"].forEach((n) =>
+    $("#tool" + n)?.classList.toggle(
+      "active",
+      s.activeTool === n.toLowerCase(),
+    ),
+  );
+  document
+    .querySelectorAll("[data-draw-tool]")
+    .forEach((b) =>
+      b.classList.toggle(
+        "active",
+        s.creationSession?.drawingTool === b.dataset.drawTool,
+      ),
+    );
   $("#orthoToggle")?.classList.toggle("active", s.settings.ortho);
   els.treeProjectName.textContent = s.name;
   els.treeCategory.textContent = s.category;
@@ -105,7 +125,9 @@ function sync(s) {
   els.profileTree.innerHTML = "";
   s.profiles.forEach((p) => els.profileTree.append(itemButton(p)));
   els.extrusionTree.innerHTML = "";
-  (s.forms || s.extrusions).forEach((e) => els.extrusionTree.append(itemButton(e)));
+  (s.forms || s.extrusions).forEach((e) =>
+    els.extrusionTree.append(itemButton(e)),
+  );
   els.typeTree.innerHTML = "";
   s.types.forEach((t) => {
     const li = document.createElement("li"),
@@ -126,17 +148,29 @@ function sync(s) {
   $(".canvas-area").classList.toggle("split", s.view === "split");
   $("#snapStatus").textContent =
     `Snap: ${s.settings.snapEnabled ? "ligado" : "desligado"}`;
-  $("#toolStatus").textContent =
-    `Ferramenta: ${els.activeToolLabel.value}`;
+  $("#toolStatus").textContent = `Ferramenta: ${els.activeToolLabel.value}`;
   const activeCreation = !!s.creationSession?.active;
   $("#createRibbon")?.classList.toggle("hidden", activeCreation);
   $("#creationRibbon")?.classList.toggle("hidden", !activeCreation);
   $("#optionsBar")?.classList.toggle("hidden", !activeCreation);
   $("#workViewRibbon") && ($("#workViewRibbon").value = s.workView);
   if (activeCreation) {
-    const names = { extrusion: "extrusão", blend: "mesclar", revolve: "revolver", sweep: "varredura", sweptBlend: "mesclar com varredura" };
-    const steps = { profile: "desenhe o perfil", startProfile: "Etapa 1 de 2: desenhe o perfil inicial", endProfile: "Etapa 2 de 2: desenhe o perfil final", path: "desenhe o caminho", axis: "desenhe o eixo de revolução" };
-    $("#creationTitle").textContent = `Modificar | Criar ${names[s.creationSession.formType]}${s.creationSession.operation === "void" ? " vazia" : ""} — ${steps[s.creationSession.step] || "desenhe"}`;
+    const names = {
+      extrusion: "extrusão",
+      blend: "mesclar",
+      revolve: "revolver",
+      sweep: "varredura",
+      sweptBlend: "mesclar com varredura",
+    };
+    const steps = {
+      profile: "desenhe o perfil",
+      startProfile: "Etapa 1 de 2: desenhe o perfil inicial",
+      endProfile: "Etapa 2 de 2: desenhe o perfil final",
+      path: "desenhe o caminho",
+      axis: "desenhe o eixo de revolução",
+    };
+    $("#creationTitle").textContent =
+      `Modificar | Criar ${names[s.creationSession.formType]}${s.creationSession.operation === "void" ? " vazia" : ""} — ${steps[s.creationSession.step] || "desenhe"}`;
   }
 }
 function renderParams(s) {
@@ -145,16 +179,14 @@ function renderParams(s) {
     const row = document.createElement("div");
     row.className = "param-row";
     row.innerHTML = `<input value="${p.name}" data-k="name"><input type="number" value="${p.value}" data-k="value"><span>mm</span>`;
-    row
-      .querySelectorAll("input")
-      .forEach(
-        (i) =>
-          (i.onchange = () =>
-            store.updateParameter(p.id, {
-              [i.dataset.k]:
-                i.dataset.k === "value" ? Number(i.value) : i.value.trim(),
-            })),
-      );
+    row.querySelectorAll("input").forEach(
+      (i) =>
+        (i.onchange = () =>
+          store.updateParameter(p.id, {
+            [i.dataset.k]:
+              i.dataset.k === "value" ? Number(i.value) : i.value.trim(),
+          })),
+    );
     els.parameterList.append(row);
   });
 }
@@ -167,8 +199,14 @@ function renderSelected(s) {
     return;
   }
   const item = p || e;
-  const isRevolve = e && (e.kind === "revolve" || e.kind === "voidRevolve" || String(e.kind).includes("Revolve"));
-  const revolveControls = isRevolve ? `<label>Ângulo inicial (graus)<input id="selStartAngle" type="number" value="${e.startAngle ?? 0}"></label><label>Ângulo final (graus)<input id="selEndAngle" type="number" value="${e.endAngle ?? 360}"></label><label>Segmentos da revolução<input id="selSegments" type="number" min="8" max="128" value="${e.segments ?? 48}"></label><p class="muted">Eixo: ${e.pathId ? "linha desenhada na etapa do eixo" : "eixo vertical padrão"}.</p>` : "";
+  const isRevolve =
+    e &&
+    (e.kind === "revolve" ||
+      e.kind === "voidRevolve" ||
+      String(e.kind).includes("Revolve"));
+  const revolveControls = isRevolve
+    ? `<label>Ângulo inicial (graus)<input id="selStartAngle" type="number" value="${e.startAngle ?? 0}"></label><label>Ângulo final (graus)<input id="selEndAngle" type="number" value="${e.endAngle ?? 360}"></label><label>Segmentos da revolução<input id="selSegments" type="number" min="8" max="128" value="${e.segments ?? 48}"></label><p class="muted">Eixo: ${e.pathId ? "linha desenhada na etapa do eixo" : "eixo vertical padrão"}.</p>`
+    : "";
   els.selectedPanel.innerHTML = `<h2>Selecionado</h2><label>Nome<input id="selName" value="${item.name}"></label><label class="check"><input id="selVisible" type="checkbox" ${item.visible !== false ? "checked" : ""}> Visível</label>${e ? `<p>Tipo: ${e.kind || "extrusion"} (${e.operation || "solid"})</p><label>Profundidade/distância<input id="selDepth" value="${e.depth || e.distance || "Profundidade"}"></label><label>Deslocamento (mm)<input id="selOffset" type="number" value="${e.offset || 0}"></label>${revolveControls}` : `<p>${p.points.length} vértices na vista ${p.view}.</p>`}`;
   $("#selName").onchange = (ev) =>
     store.updateElement(item.id, { name: ev.target.value.trim() || item.name });
@@ -185,7 +223,9 @@ function renderSelected(s) {
       $("#selEndAngle").onchange = (ev) =>
         store.updateElement(e.id, { endAngle: Number(ev.target.value) || 360 });
       $("#selSegments").onchange = (ev) =>
-        store.updateElement(e.id, { segments: Math.max(8, Number(ev.target.value) || 48) });
+        store.updateElement(e.id, {
+          segments: Math.max(8, Number(ev.target.value) || 48),
+        });
     }
   }
 }
@@ -201,14 +241,27 @@ const plan2d = new Plan2D($("#planCanvas"), store, {
 });
 new Scene3D($("#threeCanvas"), store);
 store.subscribe(sync);
-if ($("#toolProfile")) $("#toolProfile").onclick = () => store.set({ activeTool: "profile", editMode: "profile" });
-if ($("#toolSelect")) $("#toolSelect").onclick = () => store.set({ activeTool: "select", editMode: null });
-if ($("#toolLine")) $("#toolLine").onclick = () => store.set({ activeTool: "line", editMode: "path" });
-if ($("#toolRectangle")) $("#toolRectangle").onclick = () => store.set({ activeTool: "rectangle", editMode: "profile" });
-if ($("#toolCircle")) $("#toolCircle").onclick = () => store.set({ activeTool: "circle", editMode: "profile" });
-if ($("#toolPolygon")) $("#toolPolygon").onclick = () => store.set({ activeTool: "polygon", editMode: "profile" });
-if ($("#orthoToggle")) $("#orthoToggle").onclick = () =>
-  store.updateSettings({ ortho: !store.state.settings.ortho });
+if ($("#toolProfile"))
+  $("#toolProfile").onclick = () =>
+    store.set({ activeTool: "profile", editMode: "profile" });
+if ($("#toolSelect"))
+  $("#toolSelect").onclick = () =>
+    store.set({ activeTool: "select", editMode: null });
+if ($("#toolLine"))
+  $("#toolLine").onclick = () =>
+    store.set({ activeTool: "line", editMode: "path" });
+if ($("#toolRectangle"))
+  $("#toolRectangle").onclick = () =>
+    store.set({ activeTool: "rectangle", editMode: "profile" });
+if ($("#toolCircle"))
+  $("#toolCircle").onclick = () =>
+    store.set({ activeTool: "circle", editMode: "profile" });
+if ($("#toolPolygon"))
+  $("#toolPolygon").onclick = () =>
+    store.set({ activeTool: "polygon", editMode: "profile" });
+if ($("#orthoToggle"))
+  $("#orthoToggle").onclick = () =>
+    store.updateSettings({ ortho: !store.state.settings.ortho });
 document
   .querySelectorAll("[data-view]")
   .forEach((b) => (b.onclick = () => store.set({ view: b.dataset.view })));
@@ -268,7 +321,10 @@ $("#newProject").onclick = () => {
     );
   }
 };
-const deleteAction = () => store.deleteSelected() ? toast("Elemento excluído.") : toast("Nada selecionado.", "error");
+const deleteAction = () =>
+  store.deleteSelected()
+    ? toast("Elemento excluído.")
+    : toast("Nada selecionado.", "error");
 if ($("#deleteSelected")) $("#deleteSelected").onclick = deleteAction;
 $("#deleteSelectedSide").onclick = deleteAction;
 $("#undo").onclick = () => store.undo();
@@ -295,7 +351,11 @@ $("#importJson").onchange = async (e) => {
 };
 window.addEventListener("keydown", (e) => {
   const edit = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
-  if (!store.state.creationSession?.active && !edit && (e.key === "Delete" || e.key === "Backspace"))
+  if (
+    !store.state.creationSession?.active &&
+    !edit &&
+    (e.key === "Delete" || e.key === "Backspace")
+  )
     store.deleteSelected();
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") store.undo();
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") store.redo();
@@ -318,15 +378,36 @@ try {
 } catch {
   toast("Não foi possível restaurar a família salva.", "error");
 }
-document.querySelectorAll("[data-create-form]").forEach((b) => (b.onclick = () => { store.beginCreationSession({ formType: b.dataset.createForm, operation: b.dataset.operation }); toast(`${b.textContent.trim()}: desenhe as etapas na vista 2D.`); }));
-document.querySelectorAll("[data-draw-tool]").forEach((b) => (b.onclick = () => store.setCreationDrawingTool(b.dataset.drawTool)));
+document.querySelectorAll("[data-create-form]").forEach(
+  (b) =>
+    (b.onclick = () => {
+      store.beginCreationSession({
+        formType: b.dataset.createForm,
+        operation: b.dataset.operation,
+      });
+      toast(`${b.textContent.trim()}: desenhe as etapas na vista 2D.`);
+    }),
+);
+document
+  .querySelectorAll("[data-draw-tool]")
+  .forEach(
+    (b) => (b.onclick = () => store.setCreationDrawingTool(b.dataset.drawTool)),
+  );
 $("#finishEdit").onclick = () => plan2d.finish();
-$("#cancelEdit").onclick = () => { plan2d.cancel(); toast("Criação cancelada."); };
+$("#cancelEdit").onclick = () => {
+  plan2d.cancel();
+  toast("Criação cancelada.");
+};
 $("#workViewRibbon").onchange = (e) => store.set({ workView: e.target.value });
-$("#orthoOption").onchange = (e) => store.updateSettings({ ortho: e.target.checked });
-$("#setPlane").onclick = () => toast("Plano de trabalho definido pela vista selecionada.");
-$("#showPlane").onclick = () => store.updateSettings({ showGrid: !store.state.settings.showGrid });
+$("#orthoOption").onchange = (e) =>
+  store.updateSettings({ ortho: e.target.checked });
+$("#setPlane").onclick = () =>
+  toast("Plano de trabalho definido pela vista selecionada.");
+$("#showPlane").onclick = () =>
+  store.updateSettings({ showGrid: !store.state.settings.showGrid });
 $("#howToDraw").onclick = () => $("#drawHelp").classList.remove("hidden");
 $("#closeHelp").onclick = () => $("#drawHelp").classList.add("hidden");
-$("#revolveHelp").onclick = () => $("#revolveHelpModal").classList.remove("hidden");
-$("#closeRevolveHelp").onclick = () => $("#revolveHelpModal").classList.add("hidden");
+$("#revolveHelp").onclick = () =>
+  $("#revolveHelpModal").classList.remove("hidden");
+$("#closeRevolveHelp").onclick = () =>
+  $("#revolveHelpModal").classList.add("hidden");

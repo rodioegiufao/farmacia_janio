@@ -19,28 +19,138 @@
     <div class="app-shell">
       <header class="topbar">
         <div class="quickbar">
-          <div class="brand"><strong>EngRodrigo Family Studio</strong><span>Editor de famílias BIM paramétricas</span></div>
+          <div class="brand">
+            <strong>EngRodrigo Family Studio</strong
+            ><span>Editor de famílias BIM paramétricas</span>
+          </div>
           <nav class="actions compact">
-            <button id="newProject">Nova família</button><button id="saveProject">Salvar</button>
-            <label class="button file">Importar JSON<input id="importJson" type="file" accept="application/json,.json" /></label>
-            <button id="exportJson">Exportar JSON</button><button id="exportIfc2x3">Exportar IFC2x3</button><button id="exportIfc4">Exportar IFC4</button>
-            <button id="undo">↶ Desfazer</button><button id="redo">↷ Refazer</button>
+            <button id="newProject">Nova família</button
+            ><button id="saveProject">Salvar</button>
+            <label class="button file"
+              >Importar JSON<input
+                id="importJson"
+                type="file"
+                accept="application/json,.json"
+            /></label>
+            <button id="exportJson">Exportar JSON</button
+            ><button id="exportIfc2x3">Exportar IFC2x3</button
+            ><button id="exportIfc4">Exportar IFC4</button>
+            <button id="undo">↶ Desfazer</button
+            ><button id="redo">↷ Refazer</button>
           </nav>
-          <nav class="view-tabs"><button data-view="plan">Vista 2D</button><button data-view="three">Vista 3D</button><button data-view="split" class="active">Dividida</button></nav>
+          <nav class="view-tabs">
+            <button data-view="plan">Vista 2D</button
+            ><button data-view="three">Vista 3D</button
+            ><button data-view="split" class="active">Dividida</button>
+          </nav>
         </div>
         <div class="ribbon" id="createRibbon">
           <div class="ribbon-tab">Criar</div>
-          <section><h3>Formas sólidas</h3><div><button class="tool solid" data-create-form="extrusion" data-operation="solid">▰ Extrusão</button><button class="tool solid" data-create-form="blend" data-operation="solid">▱ Mesclar</button><button class="tool solid" data-create-form="revolve" data-operation="solid">◔ Revolver</button><button class="tool solid" data-create-form="sweep" data-operation="solid">⌁ Varredura</button><button class="tool solid" data-create-form="sweptBlend" data-operation="solid">⟿ Mesclar com varredura</button></div></section>
-          <section class="dropdown"><h3>Formas de vazio</h3><button class="tool void dropdown-toggle">◆ Formas de vazio ▾</button><div class="dropdown-menu"><button data-create-form="extrusion" data-operation="void">Extrusão vazia</button><button data-create-form="blend" data-operation="void">Mescla vazia</button><button data-create-form="revolve" data-operation="void">Revolução vazia</button><button data-create-form="sweep" data-operation="void">Varredura vazia</button><button data-create-form="sweptBlend" data-operation="void">Mescla com varredura vazia</button></div></section>
-          <section><h3>Ajuda</h3><div><button id="howToDraw">Como desenhar</button><button id="revolveHelp">Ajuda: Revolver</button></div></section>
+          <section>
+            <h3>Formas sólidas</h3>
+            <div>
+              <button
+                class="tool solid"
+                data-create-form="extrusion"
+                data-operation="solid"
+              >
+                ▰ Extrusão</button
+              ><button
+                class="tool solid"
+                data-create-form="blend"
+                data-operation="solid"
+              >
+                ▱ Mesclar</button
+              ><button
+                class="tool solid"
+                data-create-form="revolve"
+                data-operation="solid"
+              >
+                ◔ Revolver</button
+              ><button
+                class="tool solid"
+                data-create-form="sweep"
+                data-operation="solid"
+              >
+                ⌁ Varredura</button
+              ><button
+                class="tool solid"
+                data-create-form="sweptBlend"
+                data-operation="solid"
+              >
+                ⟿ Mesclar com varredura
+              </button>
+            </div>
+          </section>
+          <section class="dropdown">
+            <h3>Formas de vazio</h3>
+            <button class="tool void dropdown-toggle">
+              ◆ Formas de vazio ▾
+            </button>
+            <div class="dropdown-menu">
+              <button data-create-form="extrusion" data-operation="void">
+                Extrusão vazia</button
+              ><button data-create-form="blend" data-operation="void">
+                Mescla vazia</button
+              ><button data-create-form="revolve" data-operation="void">
+                Revolução vazia</button
+              ><button data-create-form="sweep" data-operation="void">
+                Varredura vazia</button
+              ><button data-create-form="sweptBlend" data-operation="void">
+                Mescla com varredura vazia
+              </button>
+            </div>
+          </section>
+          <section>
+            <h3>Ajuda</h3>
+            <div>
+              <button id="howToDraw">Como desenhar</button
+              ><button id="revolveHelp">Ajuda: Revolver</button>
+            </div>
+          </section>
         </div>
         <div class="ribbon contextual hidden" id="creationRibbon">
-          <div class="context-title" id="creationTitle">Modificar | Criar extrusão</div>
-          <section><h3>Modo</h3><div><button class="finish" id="finishEdit">✓ Finalizar</button><button class="cancel" id="cancelEdit">✕ Cancelar</button></div></section>
-          <section><h3>Desenhar</h3><div><button class="tool" data-draw-tool="line">Linha</button><button class="tool" data-draw-tool="rectangle">Retângulo</button><button class="tool" data-draw-tool="circle">Círculo</button><button class="tool" data-draw-tool="polygon">Polígono</button><button class="tool" data-draw-tool="arc3">Arco por três pontos</button></div></section>
-          <section><h3>Plano de trabalho</h3><div><button id="setPlane">Definir plano</button><button id="showPlane">Exibir plano</button><select id="workViewRibbon"></select></div></section>
+          <div class="context-title" id="creationTitle">
+            Modificar | Criar extrusão
+          </div>
+          <section>
+            <h3>Modo</h3>
+            <div>
+              <button class="finish" id="finishEdit">✓ Finalizar</button
+              ><button class="cancel" id="cancelEdit">✕ Cancelar</button>
+            </div>
+          </section>
+          <section>
+            <h3>Desenhar</h3>
+            <div>
+              <button class="tool" data-draw-tool="line">Linha</button
+              ><button class="tool" data-draw-tool="rectangle">Retângulo</button
+              ><button class="tool" data-draw-tool="circle">Círculo</button
+              ><button class="tool" data-draw-tool="polygon">Polígono</button
+              ><button class="tool" data-draw-tool="arc3">
+                Arco por três pontos
+              </button>
+            </div>
+          </section>
+          <section>
+            <h3>Plano de trabalho</h3>
+            <div>
+              <button id="setPlane">Definir plano</button
+              ><button id="showPlane">Exibir plano</button
+              ><select id="workViewRibbon"></select>
+            </div>
+          </section>
         </div>
-        <div class="optionsbar hidden" id="optionsBar">Linear | <label><input id="chainToggle" type="checkbox" checked /> Cadeia</label> | Deslocamento: <input id="offsetOption" type="number" value="0" /> mm | Raio: <input id="radiusOption" type="number" value="100" /> mm | Lados: <input id="polygonSides" type="number" min="3" value="6" /> | <label><input id="orthoOption" type="checkbox" /> Orto</label></div>
+        <div class="optionsbar hidden" id="optionsBar">
+          Linear |
+          <label
+            ><input id="chainToggle" type="checkbox" checked /> Cadeia</label
+          >
+          | Deslocamento: <input id="offsetOption" type="number" value="0" /> mm
+          | Raio: <input id="radiusOption" type="number" value="100" /> mm |
+          Lados: <input id="polygonSides" type="number" min="3" value="6" /> |
+          <label><input id="orthoOption" type="checkbox" /> Orto</label>
+        </div>
       </header>
       <main class="workspace">
         <aside class="panel left">
@@ -54,7 +164,8 @@
               >Ferramenta ativa<input id="activeToolLabel" readonly
             /></label>
             <div class="tools">
-              <button id="toolProfile">Perfil livre</button><button id="extrudeSelected">Criar extrusão</button>
+              <button id="toolProfile">Perfil livre</button
+              ><button id="extrudeSelected">Criar extrusão</button>
             </div>
             <label
               >Profundidade da nova extrusão (mm ou parâmetro)<input
@@ -94,16 +205,7 @@
             <p class="muted">Nada selecionado.</p>
           </section>
         </aside>
-        <section class="canvas-area split">
-          <div id="planView" class="view">
-            <canvas id="planCanvas"></canvas>
-          </div>
-          <div id="threeView" class="view">
-            <canvas id="threeCanvas"></canvas>
-          </div>
-          <div id="toast"></div><div id="drawHelp" class="modal hidden"><div class="modal-card"><button id="closeHelp" class="modal-close">×</button><h2>Como desenhar</h2><div class="demo-grid"><span class="demo-cursor"></span><svg viewBox="0 0 240 140"><polyline points="45,95 105,45 180,92 45,95" /></svg></div><ol><li>Escolha a forma e uma ferramenta de desenho.</li><li>Clique nos pontos do perfil em magenta.</li><li>Feche o contorno e clique em Finalizar.</li></ol></div></div><div id="revolveHelpModal" class="modal hidden"><div class="modal-card help-card"><button id="closeRevolveHelp" class="modal-close">×</button><h2>Revolver como no Revit</h2><p>Use esta forma para girar um perfil 2D ao redor de um eixo e criar geometrias cilíndricas, torneadas ou de revolução.</p><ol><li>Clique em <strong>Revolver</strong> ou <strong>Revolução vazia</strong>.</li><li>Desenhe um <strong>perfil fechado</strong> na vista 2D e clique em <strong>Finalizar</strong>.</li><li>Desenhe a <strong>linha do eixo de revolução</strong>, equivalente ao eixo do Revit, e finalize novamente.</li><li>Selecione a forma criada para ajustar ângulo inicial, ângulo final e quantidade de segmentos.</li></ol><p class="muted">Referência: fluxo da Autodesk para criar uma revolução no Revit LT: definir o contorno 2D, definir o eixo, concluir e depois modificar a forma.</p><a href="https://help.autodesk.com/view/RVTLT/2027/PTB/?guid=GUID-791BBD4C-ABFA-40D7-9B4F-8C39F50164CE" target="_blank" rel="noopener">Abrir ajuda oficial da Autodesk</a></div></div
-        </section>
-        <aside class="panel right">
+        <aside class="panel right navigator-panel">
           <button class="collapse" data-target="right">☰</button>
           <h2>Navegador</h2>
           <ul class="tree">
@@ -127,6 +229,71 @@
             </li>
           </ul>
         </aside>
+        <section class="canvas-area split">
+          <div id="planView" class="view">
+            <canvas id="planCanvas"></canvas>
+          </div>
+          <div id="threeView" class="view">
+            <canvas id="threeCanvas"></canvas>
+          </div>
+          <div id="toast"></div>
+          <div id="drawHelp" class="modal hidden">
+            <div class="modal-card">
+              <button id="closeHelp" class="modal-close">×</button>
+              <h2>Como desenhar</h2>
+              <div class="demo-grid">
+                <span class="demo-cursor"></span
+                ><svg viewBox="0 0 240 140">
+                  <polyline points="45,95 105,45 180,92 45,95" />
+                </svg>
+              </div>
+              <ol>
+                <li>Escolha a forma e uma ferramenta de desenho.</li>
+                <li>Clique nos pontos do perfil em magenta.</li>
+                <li>Feche o contorno e clique em Finalizar.</li>
+              </ol>
+            </div>
+          </div>
+          <div id="revolveHelpModal" class="modal hidden">
+            <div class="modal-card help-card">
+              <button id="closeRevolveHelp" class="modal-close">×</button>
+              <h2>Revolver como no Revit</h2>
+              <p>
+                Use esta forma para girar um perfil 2D ao redor de um eixo e
+                criar geometrias cilíndricas, torneadas ou de revolução.
+              </p>
+              <ol>
+                <li>
+                  Clique em <strong>Revolver</strong> ou
+                  <strong>Revolução vazia</strong>.
+                </li>
+                <li>
+                  Desenhe um <strong>perfil fechado</strong> na vista 2D e
+                  clique em <strong>Finalizar</strong>.
+                </li>
+                <li>
+                  Desenhe a <strong>linha do eixo de revolução</strong>,
+                  equivalente ao eixo do Revit, e finalize novamente.
+                </li>
+                <li>
+                  Selecione a forma criada para ajustar ângulo inicial, ângulo
+                  final e quantidade de segmentos.
+                </li>
+              </ol>
+              <p class="muted">
+                Referência: fluxo da Autodesk para criar uma revolução no Revit
+                LT: definir o contorno 2D, definir o eixo, concluir e depois
+                modificar a forma.
+              </p>
+              <a
+                href="https://help.autodesk.com/view/RVTLT/2027/PTB/?guid=GUID-791BBD4C-ABFA-40D7-9B4F-8C39F50164CE"
+                target="_blank"
+                rel="noopener"
+                >Abrir ajuda oficial da Autodesk</a
+              >
+            </div>
+          </div>
+        </section>
       </main>
       <footer class="statusbar">
         <span id="coordX">X: 0 mm</span><span id="coordY">Y: 0 mm</span

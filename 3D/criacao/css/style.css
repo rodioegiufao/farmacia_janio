@@ -80,7 +80,7 @@ button.active,
 }
 .workspace {
   display: grid;
-  grid-template-columns: 280px 260px 1fr;
+  grid-template-columns: 280px 1fr 260px;
   min-height: 0;
 }
 .panel {
@@ -89,11 +89,18 @@ button.active,
   padding: 10px;
   overflow: auto;
 }
+.left {
+  grid-column: 1;
+}
 .right {
-  border-right: 1px solid var(--line);
+  border-right: 0;
+  border-left: 1px solid var(--line);
 }
 .navigator-panel {
-  order: 0;
+  grid-column: 3;
+}
+.canvas-area {
+  grid-column: 2;
 }
 .panel h2 {
   font-size: 14px;
@@ -196,6 +203,11 @@ button.active,
 @media (max-width: 850px) {
   .workspace {
     grid-template-columns: 1fr;
+  }
+  .left,
+  .navigator-panel,
+  .canvas-area {
+    grid-column: 1;
   }
   .panel {
     position: absolute;

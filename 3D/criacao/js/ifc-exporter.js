@@ -1,4 +1,5 @@
 import { evalValue, parameterMap, pointTo3D } from "./state.js";
+import { buildGeometry, isSolidKind } from "./geometry-engine.js";
 
 const IFC_SCHEMA = {
   IFC2X3: "IFC2X3",
@@ -6,7 +7,7 @@ const IFC_SCHEMA = {
 };
 const IFC_GUID_ALPHABET =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$";
-export const IFC_EXPORTER_VERSION = "family-ifc4-storey-fix-2026-07-17-02";
+export const IFC_EXPORTER_VERSION = "family-ifc-revolve-brep-2026-07-17-01";
 const APP_NAME = "EngRodrigo Family Studio";
 
 const IFC_CATEGORY_TYPES = {
@@ -336,7 +337,66 @@ function addExtrusion(writer, state, extrusion, profile, params, context, ownerH
   const productShape = writer.add("IFCPRODUCTDEFINITIONSHAPE", ["$", "$", writer.refs([representation])]);
   return createElement(writer, state, extrusion, localPlacement, productShape, ownerHistory);
 }
+function triangulateGeometry(geometry) {
+  const position = geometry?.attributes?.position;
+  if (!position || position.count < 3) return [];
+  const index = geometry.index?.array;
+  const triangles = [];
+  const readPoint = (vertexIndex) => ({
+    x: position.getX(vertexIndex) * 1000,
+    y: position.getY(vertexIndex) * 1000,
+    z: position.getZ(vertexIndex) * 1000,
+  });
+  const pushTriangle = (a, b, c) => {
+    const points = [readPoint(a), readPoint(b), readPoint(c)];
+    const area = Math.hypot(
+      (points[1].y - points[0].y) * (points[2].z - points[0].z) - (points[1].z - points[0].z) * (points[2].y - points[0].y),
+      (points[1].z - points[0].z) * (points[2].x - points[0].x) - (points[1].x - points[0].x) * (points[2].z - points[0].z),
+      (points[1].x - points[0].x) * (points[2].y - points[0].y) - (points[1].y - points[0].y) * (points[2].x - points[0].x),
+    ) / 2;
+    if (area > 1e-6) triangles.push(points);
+  };
+  if (index) {
+    for (let i = 0; i + 2 < index.length; i += 3) pushTriangle(index[i], index[i + 1], index[i + 2]);
+  } else {
+    for (let i = 0; i + 2 < position.count; i += 3) pushTriangle(i, i + 1, i + 2);
+  }
+  return triangles;
+}
 
+function addFacetedBrep(writer, triangles) {
+  const faces = triangles.map((triangle) => {
+    const pointIds = triangle.map((point) =>
+      writer.add("IFCCARTESIANPOINT", [`(${num(point.x)},${num(point.y)},${num(point.z)})`]),
+    );
+    const loop = writer.add("IFCPOLYLOOP", [writer.refs(pointIds)]);
+    const bound = writer.add("IFCFACEOUTERBOUND", [writer.ref(loop), ".T."]);
+    return writer.add("IFCFACE", [`(${writer.ref(bound)})`]);
+  });
+  const shell = writer.add("IFCCLOSEDSHELL", [writer.refs(faces)]);
+  return writer.add("IFCFACETEDBREP", [writer.ref(shell)]);
+}
+
+function addMeshForm(writer, state, form, context, ownerHistory) {
+  const geometry = buildGeometry(state, form);
+  const triangles = triangulateGeometry(geometry);
+  geometry?.dispose?.();
+  if (!triangles.length) return null;
+  const axisPoint = writer.add("IFCCARTESIANPOINT", ["(0.,0.,0.)"]);
+  const axisZ = writer.add("IFCDIRECTION", ["(0.,0.,1.)"]);
+  const axisX = writer.add("IFCDIRECTION", ["(1.,0.,0.)"]);
+  const placement3d = writer.add("IFCAXIS2PLACEMENT3D", [writer.ref(axisPoint), writer.ref(axisZ), writer.ref(axisX)]);
+  const localPlacement = writer.add("IFCLOCALPLACEMENT", [writer.ref(context.storeyPlacement), writer.ref(placement3d)]);
+  const brep = addFacetedBrep(writer, triangles);
+  const representation = writer.add("IFCSHAPEREPRESENTATION", [
+    writer.ref(context.context),
+    "'Body'",
+    "'Brep'",
+    writer.refs([brep]),
+  ]);
+  const productShape = writer.add("IFCPRODUCTDEFINITIONSHAPE", ["$", "$", writer.refs([representation])]);
+  return createElement(writer, state, form, localPlacement, productShape, ownerHistory);
+}
 function createModel(writer, state) {
   const ownerHistory = createOwnerHistory(writer);
   const context = writer.schema === IFC_SCHEMA.IFC4
@@ -344,10 +404,18 @@ function createModel(writer, state) {
     : createIfc2x3SpatialStructure(writer, state.name, ownerHistory);
   const params = parameterMap(state);
   const elementIds = [];
-  for (const extrusion of (state.forms?.length ? state.forms : state.extrusions).filter((item) => item.visible !== false && (item.operation || "solid") === "solid" && ["extrusion", undefined].includes(item.kind))) {
-    const profile = state.profiles.find((item) => item.id === extrusion.profileId && item.visible !== false);
+  const forms = (state.forms?.length ? state.forms : state.extrusions).filter(
+    (item) => item.visible !== false && (item.operation || "solid") === "solid" && (item.kind === undefined || isSolidKind(item.kind)),
+  );
+  for (const form of forms) {
+    const profile = state.profiles.find((item) => item.id === form.profileId && item.visible !== false);
     if (!profile || profile.points.length < 3) continue;
-    elementIds.push(addExtrusion(writer, state, extrusion, profile, params, context, ownerHistory));
+    if (["extrusion", undefined].includes(form.kind)) {
+      elementIds.push(addExtrusion(writer, state, form, profile, params, context, ownerHistory));
+      continue;
+    }
+    const elementId = addMeshForm(writer, state, form, context, ownerHistory);
+    if (elementId) elementIds.push(elementId);
   }
   if (!elementIds.length) {
     throw new Error("Crie ao menos uma forma sólida exportável antes de exportar IFC.");

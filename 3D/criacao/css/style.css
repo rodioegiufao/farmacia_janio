@@ -515,3 +515,98 @@ select {
   color: var(--sel);
   font-weight: 700;
 }
+.view-cube {
+  --cube-size: 78px;
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  width: var(--cube-size);
+  height: var(--cube-size);
+  transform: translateX(-50%);
+  z-index: 6;
+  perspective: 520px;
+  user-select: none;
+  pointer-events: none;
+}
+.view-cube__stage {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.16s ease-out;
+}
+.view-cube__face {
+  position: absolute;
+  left: 9px;
+  top: 9px;
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #7da9bd;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #ffffffee, #cfe9f3ee);
+  color: #123047;
+  box-shadow: inset 0 0 0 1px #ffffffaa, 0 6px 12px #12304726;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.view-cube__face:hover {
+  background: linear-gradient(145deg, #fff9d9, #82d1ef);
+  border-color: var(--accent);
+}
+.view-cube__face--front { transform: translateZ(30px); }
+.view-cube__face--back { transform: rotateY(180deg) translateZ(30px); }
+.view-cube__face--right { transform: rotateY(90deg) translateZ(30px); }
+.view-cube__face--left { transform: rotateY(-90deg) translateZ(30px); }
+.view-cube__face--top { transform: rotateX(90deg) translateZ(30px); }
+.view-cube__face--bottom { transform: rotateX(-90deg) translateZ(30px); }
+.view-cube__axis {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+}
+.view-cube__axis--x {
+  left: calc(50% + 42px);
+  top: 50%;
+  width: 42px;
+  height: 3px;
+  background: #f36b2d;
+}
+.view-cube__axis--y {
+  left: 50%;
+  bottom: calc(50% + 42px);
+  width: 3px;
+  height: 42px;
+  background: #88cf24;
+}
+.view-cube__axis--z {
+  right: calc(50% + 32px);
+  top: calc(50% + 32px);
+  width: 36px;
+  height: 3px;
+  transform: rotate(135deg);
+  background: #1c9df2;
+}
+@media (max-width: 850px) {
+  .view-cube {
+    --cube-size: 64px;
+    bottom: 12px;
+  }
+  .view-cube__face {
+    left: 7px;
+    top: 7px;
+    width: 50px;
+    height: 50px;
+    font-size: 9px;
+  }
+  .view-cube__face--front { transform: translateZ(25px); }
+  .view-cube__face--back { transform: rotateY(180deg) translateZ(25px); }
+  .view-cube__face--right { transform: rotateY(90deg) translateZ(25px); }
+  .view-cube__face--left { transform: rotateY(-90deg) translateZ(25px); }
+  .view-cube__face--top { transform: rotateX(90deg) translateZ(25px); }
+  .view-cube__face--bottom { transform: rotateX(-90deg) translateZ(25px); }
+}

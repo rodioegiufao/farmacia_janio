@@ -13,7 +13,9 @@ export class Scene3D {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.target.set(0.25, 0.25, 0);
     this.meshes = new Map();
+    this.viewCubeStage = null;
     this.init();
+    this.initViewCube();
     new ResizeObserver(() => this.resize()).observe(canvas);
     store.subscribe((s) => {
       this.s = s;
@@ -29,6 +31,55 @@ export class Scene3D {
     this.scene.add(d);
     this.scene.add(new THREE.GridHelper(2, 20, 0x8aa0a0, 0xd2dddd));
     this.scene.add(new THREE.AxesHelper(0.5));
+  }
+  initViewCube() {
+    const host = document.getElementById("viewCube");
+    if (!host) return;
+    host.innerHTML = `
+      <div class="view-cube__axis view-cube__axis--x"></div>
+      <div class="view-cube__axis view-cube__axis--y"></div>
+      <div class="view-cube__axis view-cube__axis--z"></div>
+      <div class="view-cube__stage">
+        <button class="view-cube__face view-cube__face--front" data-cube-view="front" type="button">Frente</button>
+        <button class="view-cube__face view-cube__face--back" data-cube-view="back" type="button">Atrás</button>
+        <button class="view-cube__face view-cube__face--right" data-cube-view="right" type="button">Direita</button>
+        <button class="view-cube__face view-cube__face--left" data-cube-view="left" type="button">Esquerda</button>
+        <button class="view-cube__face view-cube__face--top" data-cube-view="top" type="button">Topo</button>
+        <button class="view-cube__face view-cube__face--bottom" data-cube-view="bottom" type="button">Base</button>
+      </div>`;
+    this.viewCubeStage = host.querySelector(".view-cube__stage");
+    host.addEventListener("pointerdown", (event) => event.stopPropagation());
+    host.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-cube-view]");
+      if (!button) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.setCubeView(button.dataset.cubeView);
+    });
+  }
+  setCubeView(view) {
+    const target = this.controls.target.clone();
+    const distance = Math.max(this.camera.position.distanceTo(target), 1.2);
+    const directions = {
+      front: new THREE.Vector3(0, -1, 0.42),
+      back: new THREE.Vector3(0, 1, 0.42),
+      right: new THREE.Vector3(1, 0, 0.42),
+      left: new THREE.Vector3(-1, 0, 0.42),
+      top: new THREE.Vector3(0, 0, 1),
+      bottom: new THREE.Vector3(0, 0, -1)
+    };
+    const direction = (directions[view] || directions.front).normalize();
+    this.camera.position.copy(target).add(direction.multiplyScalar(distance));
+    this.camera.up.set(0, 0, view === "bottom" ? -1 : 1);
+    if (view === "front" || view === "back" || view === "left" || view === "right") {
+      this.camera.up.set(0, 0, 1);
+    }
+    this.controls.update();
+  }
+  updateViewCube() {
+    if (!this.viewCubeStage) return;
+    const euler = new THREE.Euler().setFromQuaternion(this.camera.quaternion, "YXZ");
+    this.viewCubeStage.style.transform = `rotateX(${-THREE.MathUtils.radToDeg(euler.x)}deg) rotateY(${-THREE.MathUtils.radToDeg(euler.y)}deg) rotateZ(${THREE.MathUtils.radToDeg(euler.z)}deg)`;
   }
   resize() {
     const r = this.canvas.getBoundingClientRect();
@@ -67,6 +118,7 @@ export class Scene3D {
   animate() {
     requestAnimationFrame(() => this.animate());
     this.controls.update();
+    this.updateViewCube();
     this.renderer.render(this.scene, this.camera);
   }
 }

@@ -28,12 +28,19 @@
           </nav>
           <nav class="view-tabs"><button data-view="plan">Vista 2D</button><button data-view="three">Vista 3D</button><button data-view="split" class="active">Dividida</button></nav>
         </div>
-        <div class="ribbon">
-          <section><h3>Formas sólidas</h3><div><button class="tool solid" data-form="extrusion">▰ Extrusão</button><button class="tool solid" data-form="blend">▱ Mesclar</button><button class="tool solid" data-form="revolve">◔ Revolver</button><button class="tool solid" data-form="sweep">⌁ Varredura</button><button class="tool solid" data-form="sweptBlend">⟿ Mesclar com varredura</button></div></section>
-          <section><h3>Formas vazias</h3><div><button class="tool void" data-form="voidExtrusion">▰ Extrusão vazia</button><button class="tool void" data-form="voidBlend">▱ Mescla vazia</button><button class="tool void" data-form="voidRevolve">◔ Revolução vazia</button><button class="tool void" data-form="voidSweep">⌁ Varredura vazia</button><button class="tool void" data-form="voidSweptBlend">⟿ Mescla com varredura vazia</button></div></section>
-          <section><h3>Desenho</h3><div><button class="tool" id="toolLine">Linha</button><button class="tool" id="toolRectangle">Retângulo</button><button class="tool" id="toolCircle">Círculo</button><button class="tool" id="toolPolygon">Polígono</button><button class="tool" id="toolSelect">Selecionar</button><button class="tool" id="orthoToggle">Orto</button></div></section>
-          <section id="contextRibbon"><h3>Contextual</h3><div><button class="finish" id="finishEdit">Finalizar</button><button class="cancel" id="cancelEdit">Cancelar</button><button class="tool" id="editProfile">Editar perfil</button><button class="tool" id="editPath">Editar caminho</button><button class="tool" id="editAxis">Editar eixo</button></div></section>
+        <div class="ribbon" id="createRibbon">
+          <div class="ribbon-tab">Criar</div>
+          <section><h3>Formas sólidas</h3><div><button class="tool solid" data-create-form="extrusion" data-operation="solid">▰ Extrusão</button><button class="tool solid" data-create-form="blend" data-operation="solid">▱ Mesclar</button><button class="tool solid" data-create-form="revolve" data-operation="solid">◔ Revolver</button><button class="tool solid" data-create-form="sweep" data-operation="solid">⌁ Varredura</button><button class="tool solid" data-create-form="sweptBlend" data-operation="solid">⟿ Mesclar com varredura</button></div></section>
+          <section class="dropdown"><h3>Formas de vazio</h3><button class="tool void dropdown-toggle">◆ Formas de vazio ▾</button><div class="dropdown-menu"><button data-create-form="extrusion" data-operation="void">Extrusão vazia</button><button data-create-form="blend" data-operation="void">Mescla vazia</button><button data-create-form="revolve" data-operation="void">Revolução vazia</button><button data-create-form="sweep" data-operation="void">Varredura vazia</button><button data-create-form="sweptBlend" data-operation="void">Mescla com varredura vazia</button></div></section>
+          <section><h3>Ajuda</h3><div><button id="howToDraw">Como desenhar</button></div></section>
         </div>
+        <div class="ribbon contextual hidden" id="creationRibbon">
+          <div class="context-title" id="creationTitle">Modificar | Criar extrusão</div>
+          <section><h3>Modo</h3><div><button class="finish" id="finishEdit">✓ Finalizar</button><button class="cancel" id="cancelEdit">✕ Cancelar</button></div></section>
+          <section><h3>Desenhar</h3><div><button class="tool" data-draw-tool="line">Linha</button><button class="tool" data-draw-tool="rectangle">Retângulo</button><button class="tool" data-draw-tool="circle">Círculo</button><button class="tool" data-draw-tool="polygon">Polígono</button><button class="tool" data-draw-tool="arc3">Arco por três pontos</button></div></section>
+          <section><h3>Plano de trabalho</h3><div><button id="setPlane">Definir plano</button><button id="showPlane">Exibir plano</button><select id="workViewRibbon"></select></div></section>
+        </div>
+        <div class="optionsbar hidden" id="optionsBar">Linear | <label><input id="chainToggle" type="checkbox" checked /> Cadeia</label> | Deslocamento: <input id="offsetOption" type="number" value="0" /> mm | Raio: <input id="radiusOption" type="number" value="100" /> mm | Lados: <input id="polygonSides" type="number" min="3" value="6" /> | <label><input id="orthoOption" type="checkbox" /> Orto</label></div>
       </header>
       <main class="workspace">
         <aside class="panel left">
@@ -94,7 +101,7 @@
           <div id="threeView" class="view">
             <canvas id="threeCanvas"></canvas>
           </div>
-          <div id="toast"></div>
+          <div id="toast"></div><div id="drawHelp" class="modal hidden"><div class="modal-card"><button id="closeHelp" class="modal-close">×</button><h2>Como desenhar</h2><div class="demo-grid"><span class="demo-cursor"></span><svg viewBox="0 0 240 140"><polyline points="45,95 105,45 180,92 45,95" /></svg></div><ol><li>Escolha a forma e uma ferramenta de desenho.</li><li>Clique nos pontos do perfil em magenta.</li><li>Feche o contorno e clique em Finalizar.</li></ol></div></div>
         </section>
         <aside class="panel right">
           <button class="collapse" data-target="right">☰</button>

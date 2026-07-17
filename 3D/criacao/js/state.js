@@ -34,6 +34,18 @@ export function createInitialState() {
     updatedAt: now(),
     activeTool: "select",
     editMode: null,
+    creationSession: {
+      active: false,
+      formType: null,
+      operation: null,
+      step: null,
+      stepIndex: 0,
+      drawingTool: null,
+      temporaryPoints: [],
+      profileIds: [],
+      pathId: null,
+      axisId: null,
+    },
     view: "split",
     workView: "front",
     selectedElementId: null,
@@ -169,7 +181,7 @@ export class Store {
     return item;
   }
   addForm(kind, options = {}) {
-    const solid = !String(kind).startsWith("void");
+    const solid = options.operation ? options.operation === "solid" : !String(kind).startsWith("void");
     const profile = this.state.profiles.find((p) => p.id === (options.profileId || this.state.selectedElementId)) || this.state.profiles[0];
     if (!profile) return null;
     this.pushHistory();
@@ -203,6 +215,84 @@ export class Store {
     this.state.extrusions.push(item);
     this.state.forms.push({ ...item, kind: "extrusion", operation: "solid" });
     this.state.selectedElementId = item.id;
+    this.emit();
+  }
+  beginCreationSession({ formType, operation = "solid" }) {
+    this.pushHistory();
+    this.state.creationSession = {
+      active: true, formType, operation, step: this.firstCreationStep(formType), stepIndex: 0,
+      drawingTool: "line", temporaryPoints: [], profileIds: [], pathId: null, axisId: null,
+    };
+    this.state.activeTool = "line";
+    this.state.editMode = "creation";
+    this.state.view = "plan";
+    this.emit();
+  }
+  firstCreationStep(formType) {
+    return ({ extrusion: "profile", blend: "startProfile", revolve: "profile", sweep: "profile", sweptBlend: "startProfile" })[formType] || "profile";
+  }
+  creationSteps(formType) {
+    return ({ extrusion: ["profile"], blend: ["startProfile", "endProfile"], revolve: ["profile", "axis"], sweep: ["profile", "path"], sweptBlend: ["startProfile", "endProfile", "path"] })[formType] || ["profile"];
+  }
+  setCreationDrawingTool(tool) {
+    this.state.creationSession = { ...this.state.creationSession, drawingTool: tool, temporaryPoints: [] };
+    this.state.activeTool = tool;
+    this.emit();
+  }
+  setTemporaryPoints(points) {
+    if (!this.state.creationSession?.active) return;
+    this.state.creationSession.temporaryPoints = points.map((p) => ({ ...p }));
+    this.emit();
+  }
+  advanceCreationStep(payload = {}) {
+    const cs = this.state.creationSession;
+    if (!cs?.active) return false;
+    const patch = { ...cs, temporaryPoints: [] };
+    if (payload.profileId) patch.profileIds = [...patch.profileIds, payload.profileId];
+    if (payload.pathId) patch.pathId = payload.pathId;
+    if (payload.axisId) patch.axisId = payload.axisId;
+    const steps = this.creationSteps(cs.formType);
+    const next = (patch.stepIndex || 0) + 1;
+    if (next < steps.length) {
+      patch.stepIndex = next; patch.step = steps[next]; patch.drawingTool = steps[next] === "path" || steps[next] === "axis" ? "line" : "line";
+      this.state.creationSession = patch; this.state.activeTool = patch.drawingTool; this.emit(); return false;
+    }
+    this.finishCreationSession(patch);
+    return true;
+  }
+  finishCreationSession(session = this.state.creationSession) {
+    const cs = session;
+    if (!cs?.active) return null;
+    const voidPrefix = cs.operation === "void" ? "void" : "";
+    const cap = cs.formType[0].toUpperCase() + cs.formType.slice(1);
+    const kind = cs.operation === "void" ? `${voidPrefix}${cap}` : cs.formType;
+    if (cs.operation === "void" && cs.formType === "extrusion" && !this.voidIntersectsSolid(cs.profileIds[0])) {
+      this.state.creationSession = createInitialState().creationSession;
+      this.state.editMode = null; this.state.activeTool = "select";
+      this.emit();
+      throw new Error("A forma vazia não intersecta nenhuma forma sólida.");
+    }
+    const form = this.addForm(kind, { operation: cs.operation, profileId: cs.profileIds[0], endProfileId: cs.profileIds[1] || cs.profileIds[0], pathId: cs.pathId, depth: "Profundidade" });
+    this.state.creationSession = createInitialState().creationSession;
+    this.state.editMode = null; this.state.activeTool = "select";
+    this.emit();
+    return form;
+  }
+  voidIntersectsSolid(profileId) {
+    const voidProfile = this.state.profiles.find((p) => p.id === profileId);
+    if (!voidProfile) return false;
+    const a = profileBounds(voidProfile.points);
+    return (this.state.forms || []).some((form) => {
+      if (form.operation === "void" || form.visible === false) return false;
+      const p = this.state.profiles.find((x) => x.id === form.profileId);
+      if (!p) return false;
+      const b = profileBounds(p.points);
+      return a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY;
+    });
+  }
+  cancelCreationSession() {
+    this.state.creationSession = createInitialState().creationSession;
+    this.state.editMode = null; this.state.activeTool = "select";
     this.emit();
   }
   updateElement(id, patch) {
@@ -315,6 +405,9 @@ export function validateFamily(data) {
       : base.parameters,
     types: Array.isArray(data.types) ? data.types : base.types,
     profiles: Array.isArray(data.profiles) ? data.profiles : [],
+    paths: Array.isArray(data.paths) ? data.paths : [],
+    forms: Array.isArray(data.forms) ? data.forms : [],
     extrusions: Array.isArray(data.extrusions) ? data.extrusions : [],
+    creationSession: base.creationSession,
   };
 }

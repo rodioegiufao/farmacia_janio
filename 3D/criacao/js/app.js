@@ -414,14 +414,29 @@ try {
 } catch {
   toast("Não foi possível restaurar a família salva.", "error");
 }
+const formOperation = $("#formOperation");
+const syncFormOperationStyle = () => {
+  const operation = formOperation?.value || "solid";
+  document.querySelectorAll("[data-create-form]").forEach((b) => {
+    b.dataset.operation = operation;
+    b.classList.toggle("solid", operation === "solid");
+    b.classList.toggle("void", operation === "void");
+  });
+};
+formOperation?.addEventListener("change", syncFormOperationStyle);
+syncFormOperationStyle();
 document.querySelectorAll("[data-create-form]").forEach(
   (b) =>
     (b.onclick = () => {
+      const operation = formOperation?.value || b.dataset.operation || "solid";
       store.beginCreationSession({
         formType: b.dataset.createForm,
-        operation: b.dataset.operation,
+        operation,
       });
-      toast(`${b.textContent.trim()}: desenhe as etapas na vista 2D ou 3D.`);
+      const operationLabel = operation === "void" ? "vazia" : "sólida";
+      toast(
+        `${b.textContent.trim()} ${operationLabel}: desenhe as etapas na vista 2D ou 3D.`,
+      );
     }),
 );
 document

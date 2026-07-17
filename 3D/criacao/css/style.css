@@ -309,6 +309,28 @@ select {
   color: #42545b;
   font-weight: 700;
 }
+.section-heading {
+  display: flex !important;
+  gap: 10px;
+  align-items: end;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.section-heading h3 {
+  margin-bottom: 0;
+}
+.operation-choice {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #42545b;
+}
+.operation-choice select {
+  padding: 5px 8px;
+  font-size: 12px;
+}
 .ribbon section div {
   display: flex;
   gap: 6px;

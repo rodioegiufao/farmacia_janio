@@ -1,6 +1,23 @@
 import { MM_TO_SCENE } from "./state.js";
 import { buildGeometry, isVoidKind } from "./geometry-engine.js";
 
+const DRAW_TOOL_MODES = {
+  "polygon-inscribed": "polygon",
+  "polygon-circumscribed": "polygon",
+  "start-end-radius-arc": "arc3",
+  "center-end-arc": "arc3",
+  "tangent-end-arc": "arc3",
+  "fillet-arc": "arc3",
+  spline: "line",
+  ellipse: "circle",
+  "partial-ellipse": "arc3",
+  "pick-lines": "line",
+  "pick-walls": "line",
+  "point-element": "line",
+  "pick-supports": "line",
+};
+const drawingMode = (tool) => DRAW_TOOL_MODES[tool] || tool;
+
 const projectionPoint = (view, x, y, z) => {
   if (view === "top") return { x, y: z };
   if (view === "right") return { x: z, y };
@@ -37,7 +54,7 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
   resize() { const r = this.c.getBoundingClientRect(), d = devicePixelRatio || 1; this.c.width = r.width * d; this.c.height = r.height * d; this.ctx.setTransform(d, 0, 0, d, 0, 0); if (!this.off.x) this.off = { x: r.width / 2, y: r.height / 2 }; this.draw(); }
   screen(p) { return { x: p.x * this.scale + this.off.x, y: this.off.y - p.y * this.scale }; }
   world(e) { const r = this.c.getBoundingClientRect(); return { x: (e.clientX - r.left - this.off.x) / this.scale, y: (this.off.y - (e.clientY - r.top)) / this.scale }; }
-  activeTool() { return this.s.creationSession?.active ? this.s.creationSession.drawingTool : this.s.activeTool; }
+  activeTool() { return drawingMode(this.s.creationSession?.active ? this.s.creationSession.drawingTool : this.s.activeTool); }
   snap(p, shift = false) {
     let q = { ...p }, kind = "livre";
     if (this.s.settings.snapEnabled) {

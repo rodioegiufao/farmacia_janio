@@ -11,6 +11,30 @@ import { IFC_EXPORTER_VERSION, exportFamilyToIfc } from "./ifc-exporter.js";
 console.info(`IFC exporter loaded: ${IFC_EXPORTER_VERSION}`);
 const $ = (selector) => document.querySelector(selector);
 const store = new Store();
+
+const DRAW_TOOL_LABELS = {
+  select: "Selecionar",
+  profile: "Perfil livre",
+  line: "Linha",
+  rectangle: "Retângulo",
+  "polygon-inscribed": "Polígono inscrito",
+  "polygon-circumscribed": "Polígono circunscrito",
+  polygon: "Polígono",
+  circle: "Círculo",
+  "start-end-radius-arc": "Raio inicial-final arco",
+  "center-end-arc": "Arco do centro para a extremidade",
+  "tangent-end-arc": "Arco final tangente",
+  "fillet-arc": "Arco em concordância",
+  arc3: "Arco por três pontos",
+  spline: "Spline",
+  ellipse: "Elipse",
+  "partial-ellipse": "Elipse parcial",
+  "pick-lines": "Selecionar linhas",
+  "pick-walls": "Selecionar paredes",
+  "point-element": "Elemento de ponto",
+  "pick-supports": "Selecionar suportes",
+};
+
 const els = [
   "projectName",
   "category",
@@ -264,15 +288,7 @@ function sync(s) {
   els.category.value = s.category;
   els.workView.value = s.workView;
   els.activeToolLabel.value =
-    {
-      select: "Selecionar",
-      profile: "Perfil livre",
-      line: "Linha",
-      rectangle: "Retângulo",
-      circle: "Círculo",
-      polygon: "Polígono",
-      arc3: "Arco por três pontos",
-    }[s.creationSession?.drawingTool || s.activeTool] || s.activeTool;
+    DRAW_TOOL_LABELS[s.creationSession?.drawingTool || s.activeTool] || s.activeTool;
   els.snapStep.value = s.settings.snapStep;
   els.majorGrid.value = s.settings.majorGrid;
   els.showGrid.checked = s.settings.showGrid;

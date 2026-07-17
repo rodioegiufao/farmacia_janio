@@ -3,6 +3,23 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { buildGeometry, isVoidKind } from "./geometry-engine.js";
 import { MM_TO_SCENE } from "./state.js";
 
+const DRAW_TOOL_MODES = {
+  "polygon-inscribed": "polygon",
+  "polygon-circumscribed": "polygon",
+  "start-end-radius-arc": "arc3",
+  "center-end-arc": "arc3",
+  "tangent-end-arc": "arc3",
+  "fillet-arc": "arc3",
+  spline: "line",
+  ellipse: "circle",
+  "partial-ellipse": "arc3",
+  "pick-lines": "line",
+  "pick-walls": "line",
+  "point-element": "line",
+  "pick-supports": "line",
+};
+
+const drawingMode = (tool) => DRAW_TOOL_MODES[tool] || tool;
 const pointToScene = (p, view = "front") => {
   const x = p.x * MM_TO_SCENE, y = p.y * MM_TO_SCENE, z = 0;
   if (view === "top") return new THREE.Vector3(x, 0, p.y * MM_TO_SCENE);
@@ -113,7 +130,7 @@ export class Scene3D {
     mesh.rotation.set(0, 0, 0);
     mesh.position.set(0, 0, 0);
   }
-  activeTool() { return this.s?.creationSession?.active ? this.s.creationSession.drawingTool : this.s?.activeTool; }
+  activeTool() { return drawingMode(this.s?.creationSession?.active ? this.s.creationSession.drawingTool : this.s?.activeTool); }
   plane() {
     if (this.s?.workView === "top") return new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     if (this.s?.workView === "right") return new THREE.Plane(new THREE.Vector3(1, 0, 0), 0);

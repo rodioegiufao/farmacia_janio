@@ -29,11 +29,13 @@ export class Scene3D {
     this.pointer = new THREE.Vector2();
     this.draftLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff00cc }));
     this.viewCubeStage = null;
+    this.moveDrag = null;
     this.init();
     this.initViewCube();
     new ResizeObserver(() => this.resize()).observe(canvas);
     canvas.addEventListener("pointerdown", (e) => this.down(e));
     canvas.addEventListener("pointermove", (e) => this.move(e));
+    canvas.addEventListener("pointerup", () => { this.moveDrag = null; this.controls.enabled = true; });
     canvas.addEventListener("contextmenu", (e) => { if (this.s?.creationSession?.active) { e.preventDefault(); this.finish(); } });
     store.subscribe((s) => {
       this.s = s;
@@ -123,10 +125,18 @@ export class Scene3D {
     if (this.s?.workView === "right") return { x: v.z * mm, y: v.y * mm };
     return { x: v.x * mm, y: v.y * mm };
   }
-  worldPoint(event) {
+  deltaForWorkView(delta) {
+    if (this.s?.workView === "top") return { x: delta.x, y: 0, z: delta.y };
+    if (this.s?.workView === "right") return { x: 0, y: delta.y, z: delta.x };
+    return { x: delta.x, y: delta.y, z: 0 };
+  }
+  setPointer(event) {
     const r = this.canvas.getBoundingClientRect();
     this.pointer.set(((event.clientX - r.left) / r.width) * 2 - 1, -((event.clientY - r.top) / r.height) * 2 + 1);
     this.raycaster.setFromCamera(this.pointer, this.camera);
+  }
+  worldPoint(event) {
+    this.setPointer(event);
     const hit = new THREE.Vector3();
     return this.raycaster.ray.intersectPlane(this.plane(), hit) ? this.snap(this.toProfilePoint(hit), event.shiftKey).point : null;
   }
@@ -143,7 +153,24 @@ export class Scene3D {
     return { point: q };
   }
   down(e) {
-    if (!this.s?.creationSession?.active || this.s.view === "plan") return;
+    if (this.s?.view === "plan") return;
+    if (!this.s?.creationSession?.active && this.activeTool() === "select") {
+      this.setPointer(e);
+      const hits = this.raycaster.intersectObjects([...this.meshes.values()], false);
+      const hit = hits.find((h) => h.object.userData?.id);
+      this.store.select(hit?.object.userData?.id || null);
+      if (hit) {
+        const point = this.worldPoint(e);
+        if (point) {
+          this.store.pushHistory();
+          this.moveDrag = { id: hit.object.userData.id, last: point };
+          this.controls.enabled = false;
+          this.canvas.setPointerCapture?.(e.pointerId);
+        }
+      }
+      return;
+    }
+    if (!this.s?.creationSession?.active) return;
     e.preventDefault(); e.stopPropagation();
     const point = this.worldPoint(e), tool = this.activeTool();
     if (!point) return;
@@ -155,7 +182,18 @@ export class Scene3D {
     this.syncDraft();
   }
   move(e) {
-    if (!this.s?.creationSession?.active || this.s.view === "plan") return;
+    if (this.s?.view === "plan") return;
+    if (this.moveDrag) {
+      const point = this.worldPoint(e);
+      if (!point) return;
+      const delta = { x: point.x - this.moveDrag.last.x, y: point.y - this.moveDrag.last.y };
+      if (Math.hypot(delta.x, delta.y) > 0) {
+        this.store.moveElement(this.moveDrag.id, this.deltaForWorkView(delta), { history: false });
+        this.moveDrag.last = point;
+      }
+      return;
+    }
+    if (!this.s?.creationSession?.active) return;
     const point = this.worldPoint(e);
     if (!point) return;
     this.preview = point;
@@ -201,6 +239,7 @@ export class Scene3D {
         m = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ roughness: 0.72, metalness: 0.02, side: THREE.DoubleSide, transparent: isVoid, opacity: isVoid ? 0.28 : 1 }));
         this.scene.add(m); this.meshes.set(form.id, m);
       }
+      m.userData.id = form.id;
       m.geometry.dispose(); m.geometry = geom;
       m.material.transparent = isVoid; m.material.opacity = isVoid ? 0.28 : 1; m.material.wireframe = isVoid;
       m.material.color.set(form.id === this.s.selectedElementId ? (isVoid ? 0xff7a2b : 0x54a7e8) : form.material?.color || (isVoid ? 0xf36b2d : 0x4aa3df));

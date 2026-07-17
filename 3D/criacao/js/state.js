@@ -336,6 +336,45 @@ export class Store {
       );
     this.emit();
   }
+   moveElement(id, delta, { history = true } = {}) {
+    if (!id || (!delta?.x && !delta?.y && !delta?.z)) return false;
+    if (history) this.pushHistory();
+    const movePoints = (points = []) =>
+      points.map((p) => ({
+        ...p,
+        x: (Number(p.x) || 0) + (Number(delta.x) || 0),
+        y: (Number(p.y) || 0) + (Number(delta.y) || 0),
+        z: p.z == null ? p.z : (Number(p.z) || 0) + (Number(delta.z) || 0),
+      }));
+    let changed = false;
+    this.state.profiles = this.state.profiles.map((p) => {
+      if (p.id !== id) return p;
+      changed = true;
+      return { ...p, points: movePoints(p.points) };
+    });
+    this.state.paths = (this.state.paths || []).map((p) => {
+      if (p.id !== id) return p;
+      changed = true;
+      return { ...p, points: movePoints(p.points) };
+    });
+    const moveForm = (form) => {
+      if (form.id !== id) return form;
+      changed = true;
+      const current = form.position || { x: 0, y: 0, z: 0 };
+      return {
+        ...form,
+        position: {
+          x: (Number(current.x) || 0) + (Number(delta.x) || 0),
+          y: (Number(current.y) || 0) + (Number(delta.y) || 0),
+          z: (Number(current.z) || 0) + (Number(delta.z) || 0),
+        },
+      };
+    };
+    this.state.forms = (this.state.forms || []).map(moveForm);
+    this.state.extrusions = (this.state.extrusions || []).map(moveForm);
+    if (changed) this.emit();
+    return changed;
+  }
   select(id) {
     this.state.selectedElementId = id;
     this.emit();

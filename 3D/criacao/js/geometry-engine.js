@@ -61,11 +61,32 @@ function blend(profileA, profileB, form, params) {
   const dist = Math.max(evalValue(form.distance ?? form.depth ?? "Profundidade", params), 1) * MM_TO_SCENE;
   return loftSections([a, b], [0, dist]);
 }
-function revolve(profile, form) {
-  const pts = normalizedLoop(profile.points).map((p) => new THREE.Vector2(Math.max(Math.abs(p.x), 1) * MM_TO_SCENE, p.y * MM_TO_SCENE));
+function axisPointsFromPath(path) {
+  const points = pathPoints(path);
+  return points.length >= 2 ? [points[0], points[points.length - 1]] : [{ x: 0, y: 0, z: 0 }, { x: 0, y: 1000, z: 0 }];
+}
+function revolve(profile, form, path) {
+  const [a, b] = axisPointsFromPath(path);
+  const axis = new THREE.Vector2(b.x - a.x, b.y - a.y);
+  if (axis.lengthSq() < EPS) axis.set(0, 1);
+  axis.normalize();
+  const normal = new THREE.Vector2(-axis.y, axis.x);
+  const origin = new THREE.Vector2(a.x, a.y);
+  const lathePoints = normalizedLoop(profile.points)
+    .map((point) => {
+      const relative = new THREE.Vector2(point.x, point.y).sub(origin);
+      const radius = Math.abs(relative.dot(normal));
+      const height = relative.dot(axis);
+      return new THREE.Vector2(Math.max(radius, 1) * MM_TO_SCENE, height * MM_TO_SCENE);
+    })
+    .filter((point, index, points) => index === 0 || point.distanceTo(points[index - 1]) > EPS);
   const start = THREE.MathUtils.degToRad(Number(form.startAngle ?? 0));
   const end = THREE.MathUtils.degToRad(Number(form.endAngle ?? 360));
-  return new THREE.LatheGeometry(pts, Number(form.segments) || 48, start, end - start);
+  const geometry = new THREE.LatheGeometry(lathePoints, Number(form.segments) || 48, start, end - start);
+  const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(axis.x, axis.y, 0).normalize());
+  geometry.applyQuaternion(quaternion);
+  geometry.translate(a.x * MM_TO_SCENE, a.y * MM_TO_SCENE, 0);
+  return geometry;
 }
 function pathPoints(path) { return (path?.points?.length ? path.points : [{x:0,y:0,z:0},{x:0,y:0,z:800}]).map((p) => ({ x:p.x??0, y:p.y??0, z:p.z??0 })); }
 function sweep(profile, path) { return sweepBetween(profile.points, profile.points, pathPoints(path)); }
@@ -90,7 +111,7 @@ export function buildGeometry(state, form) {
   const path = state.paths?.find((p) => p.id === form.pathId);
   if (!p1) return null;
   if (form.kind.includes("Blend") || form.kind === "blend" || form.kind === "voidBlend") return blend(p1, p2, form, params);
-  if (form.kind.includes("Revolve") || form.kind === "revolve" || form.kind === "voidRevolve") return revolve(p1, form);
+  if (form.kind.includes("Revolve") || form.kind === "revolve" || form.kind === "voidRevolve") return revolve(p1, form, path);
   if (form.kind.includes("SweptBlend") || form.kind === "sweptBlend" || form.kind === "voidSweptBlend") return sweptBlend(p1, p2, path);
   if (form.kind.includes("Sweep") || form.kind === "sweep" || form.kind === "voidSweep") return sweep(p1, path);
   const holes = collectVoidCutters(state, form).map((f) => profiles.find((p) => p.id === f.profileId)?.points).filter(Boolean);

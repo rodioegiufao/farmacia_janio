@@ -167,7 +167,9 @@ function renderSelected(s) {
     return;
   }
   const item = p || e;
-  els.selectedPanel.innerHTML = `<h2>Selecionado</h2><label>Nome<input id="selName" value="${item.name}"></label><label class="check"><input id="selVisible" type="checkbox" ${item.visible !== false ? "checked" : ""}> Visível</label>${e ? `<p>Tipo: ${e.kind || "extrusion"} (${e.operation || "solid"})</p><label>Profundidade/distância<input id="selDepth" value="${e.depth || e.distance || "Profundidade"}"></label><label>Deslocamento (mm)<input id="selOffset" type="number" value="${e.offset || 0}"></label>` : `<p>${p.points.length} vértices na vista ${p.view}.</p>`}`;
+  const isRevolve = e && (e.kind === "revolve" || e.kind === "voidRevolve" || String(e.kind).includes("Revolve"));
+  const revolveControls = isRevolve ? `<label>Ângulo inicial (graus)<input id="selStartAngle" type="number" value="${e.startAngle ?? 0}"></label><label>Ângulo final (graus)<input id="selEndAngle" type="number" value="${e.endAngle ?? 360}"></label><label>Segmentos da revolução<input id="selSegments" type="number" min="8" max="128" value="${e.segments ?? 48}"></label><p class="muted">Eixo: ${e.pathId ? "linha desenhada na etapa do eixo" : "eixo vertical padrão"}.</p>` : "";
+  els.selectedPanel.innerHTML = `<h2>Selecionado</h2><label>Nome<input id="selName" value="${item.name}"></label><label class="check"><input id="selVisible" type="checkbox" ${item.visible !== false ? "checked" : ""}> Visível</label>${e ? `<p>Tipo: ${e.kind || "extrusion"} (${e.operation || "solid"})</p><label>Profundidade/distância<input id="selDepth" value="${e.depth || e.distance || "Profundidade"}"></label><label>Deslocamento (mm)<input id="selOffset" type="number" value="${e.offset || 0}"></label>${revolveControls}` : `<p>${p.points.length} vértices na vista ${p.view}.</p>`}`;
   $("#selName").onchange = (ev) =>
     store.updateElement(item.id, { name: ev.target.value.trim() || item.name });
   $("#selVisible").onchange = (ev) =>
@@ -177,6 +179,14 @@ function renderSelected(s) {
       store.updateElement(e.id, { depth: ev.target.value.trim() || 0 });
     $("#selOffset").onchange = (ev) =>
       store.updateElement(e.id, { offset: Number(ev.target.value) || 0 });
+    if (isRevolve) {
+      $("#selStartAngle").onchange = (ev) =>
+        store.updateElement(e.id, { startAngle: Number(ev.target.value) || 0 });
+      $("#selEndAngle").onchange = (ev) =>
+        store.updateElement(e.id, { endAngle: Number(ev.target.value) || 360 });
+      $("#selSegments").onchange = (ev) =>
+        store.updateElement(e.id, { segments: Math.max(8, Number(ev.target.value) || 48) });
+    }
   }
 }
 const plan2d = new Plan2D($("#planCanvas"), store, {
@@ -318,3 +328,5 @@ $("#setPlane").onclick = () => toast("Plano de trabalho definido pela vista sele
 $("#showPlane").onclick = () => store.updateSettings({ showGrid: !store.state.settings.showGrid });
 $("#howToDraw").onclick = () => $("#drawHelp").classList.remove("hidden");
 $("#closeHelp").onclick = () => $("#drawHelp").classList.add("hidden");
+$("#revolveHelp").onclick = () => $("#revolveHelpModal").classList.remove("hidden");
+$("#closeRevolveHelp").onclick = () => $("#revolveHelpModal").classList.add("hidden");

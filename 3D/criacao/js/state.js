@@ -272,7 +272,7 @@ export class Store {
       this.emit();
       throw new Error("A forma vazia não intersecta nenhuma forma sólida.");
     }
-    const form = this.addForm(kind, { operation: cs.operation, profileId: cs.profileIds[0], endProfileId: cs.profileIds[1] || cs.profileIds[0], pathId: cs.pathId, depth: "Profundidade" });
+    const form = this.addForm(kind, { operation: cs.operation, profileId: cs.profileIds[0], endProfileId: cs.profileIds[1] || cs.profileIds[0], pathId: cs.pathId || cs.axisId, axisId: cs.axisId, depth: "Profundidade" });
     this.state.creationSession = createInitialState().creationSession;
     this.state.editMode = null; this.state.activeTool = "select";
     this.emit();

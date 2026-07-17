@@ -64,10 +64,9 @@ export class Plan2D {
     const geom = buildGeometry(this.s, form);
     const pos = geom?.attributes?.position;
     if (!pos) return [];
-    const offset = (Number(form.offset) || 0) * MM_TO_SCENE;
     const index = geom.index?.array;
     const edgeKeys = new Set(), segments = [];
-    const read = (i) => projectionPoint(this.s.workView, pos.getX(i) / MM_TO_SCENE, pos.getY(i) / MM_TO_SCENE, (pos.getZ(i) + offset) / MM_TO_SCENE);
+    const read = (i) => projectionPoint(this.s.workView, pos.getX(i) / MM_TO_SCENE, pos.getY(i) / MM_TO_SCENE, pos.getZ(i) / MM_TO_SCENE);
     const add = (a, b) => {
       const key = a < b ? `${a}:${b}` : `${b}:${a}`;
       if (edgeKeys.has(key)) return;

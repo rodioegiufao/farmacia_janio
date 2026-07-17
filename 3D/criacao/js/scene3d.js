@@ -88,10 +88,9 @@ export class Scene3D {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(r.width, r.height, false);
   }
-  orient(mesh, form) {
-    const offset = (Number(form.offset) || 0) * 0.001;
+  orient(mesh) {
     mesh.rotation.set(0, 0, 0);
-    mesh.position.set(0, 0, offset);
+    mesh.position.set(0, 0, 0);
   }
   sync() {
     const visibleForms = (this.s.forms || this.s.extrusions || []).filter((e) => e.visible !== false);

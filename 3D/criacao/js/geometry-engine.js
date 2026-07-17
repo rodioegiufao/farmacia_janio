@@ -8,7 +8,6 @@ export const VOID_KINDS = ["voidExtrusion", "voidBlend", "voidRevolve", "voidSwe
 export const isVoidKind = (kind) => VOID_KINDS.includes(kind);
 export const isSolidKind = (kind) => SOLID_KINDS.includes(kind);
 const v2 = (p) => new THREE.Vector2(p.x * MM_TO_SCENE, p.y * MM_TO_SCENE);
-const v3 = (p) => new THREE.Vector3(p.x * MM_TO_SCENE, p.y * MM_TO_SCENE, p.z * MM_TO_SCENE);
 
 export function signedArea(points) {
   return points.reduce((sum, p, i) => {
@@ -88,7 +87,32 @@ function revolve(profile, form, path) {
   geometry.translate(a.x * MM_TO_SCENE, a.y * MM_TO_SCENE, 0);
   return geometry;
 }
-function pathPoints(path) { return (path?.points?.length ? path.points : [{x:0,y:0,z:0},{x:0,y:0,z:800}]).map((p) => ({ x:p.x??0, y:p.y??0, z:p.z??0 })); }
+function transformGeometryToWorkView(geometry, viewId = "front", offset = 0) {
+  geometry.translate(0, 0, (Number(offset) || 0) * MM_TO_SCENE);
+  const matrix = new THREE.Matrix4();
+  if (viewId === "top") {
+    matrix.set(
+      1, 0, 0, 0,
+      0, 0, 1, 0,
+      0, 1, 0, 0,
+      0, 0, 0, 1,
+    );
+    geometry.applyMatrix4(matrix);
+  } else if (viewId === "right") {
+    matrix.set(
+      0, 0, 1, 0,
+      0, 1, 0, 0,
+      1, 0, 0, 0,
+      0, 0, 0, 1,
+    );
+    geometry.applyMatrix4(matrix);
+  }
+  geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  return geometry;
+}
+function pathPoints(path) { return (path?.points?.length ? path.points : [{x:0,y:0,z:0},{x:0,y:800,z:0}]).map((p) => ({ x:p.x??0, y:p.y??0, z:p.z??0 })); }
 function sweep(profile, path) { return sweepBetween(profile.points, profile.points, pathPoints(path)); }
 function sweptBlend(profileA, profileB, path) { return sweepBetween(profileA.points, profileB.points, pathPoints(path)); }
 function sweepBetween(pointsA, pointsB, path) {
@@ -110,10 +134,14 @@ export function buildGeometry(state, form) {
   const p2 = profiles.find((p) => p.id === form.endProfileId) || p1;
   const path = state.paths?.find((p) => p.id === form.pathId);
   if (!p1) return null;
-  if (form.kind.includes("Blend") || form.kind === "blend" || form.kind === "voidBlend") return blend(p1, p2, form, params);
-  if (form.kind.includes("Revolve") || form.kind === "revolve" || form.kind === "voidRevolve") return revolve(p1, form, path);
-  if (form.kind.includes("SweptBlend") || form.kind === "sweptBlend" || form.kind === "voidSweptBlend") return sweptBlend(p1, p2, path);
-  if (form.kind.includes("Sweep") || form.kind === "sweep" || form.kind === "voidSweep") return sweep(p1, path);
-  const holes = collectVoidCutters(state, form).map((f) => profiles.find((p) => p.id === f.profileId)?.points).filter(Boolean);
-  return extrusion(p1, form, params, isVoidKind(form.kind) ? [] : holes);
+  let geometry;
+  if (form.kind.includes("Blend") || form.kind === "blend" || form.kind === "voidBlend") geometry = blend(p1, p2, form, params);
+  else if (form.kind.includes("Revolve") || form.kind === "revolve" || form.kind === "voidRevolve") geometry = revolve(p1, form, path);
+  else if (form.kind.includes("SweptBlend") || form.kind === "sweptBlend" || form.kind === "voidSweptBlend") geometry = sweptBlend(p1, p2, path);
+  else if (form.kind.includes("Sweep") || form.kind === "sweep" || form.kind === "voidSweep") geometry = sweep(p1, path);
+  else {
+    const holes = collectVoidCutters(state, form).map((f) => profiles.find((p) => p.id === f.profileId)?.points).filter(Boolean);
+    geometry = extrusion(p1, form, params, isVoidKind(form.kind) ? [] : holes);
+  }
+  return transformGeometryToWorkView(geometry, p1.view, form.offset);
 }

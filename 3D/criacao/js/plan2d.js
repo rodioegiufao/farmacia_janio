@@ -8,7 +8,7 @@ const projectionPoint = (view, x, y, z) => {
 };
 export class Plan2D {
   constructor(canvas, store, { onStatus, onError }) {
-    Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, onError, scale: 0.7, off: { x: 0, y: 0 }, points: [], preview: null, drag: null, editVertexDrag: null, moveDrag: null });
+Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, onError, scale: 0.7, off: { x: 0, y: 0 }, points: [], preview: null, primitiveStart: 0, lastTool: null, drag: null, editVertexDrag: null, moveDrag: null });
     new ResizeObserver(() => this.resize()).observe(canvas);
     canvas.addEventListener("wheel", (e) => this.wheel(e), { passive: false });
     canvas.addEventListener("pointerdown", (e) => this.down(e));
@@ -18,7 +18,14 @@ export class Plan2D {
     window.addEventListener("keydown", (e) => { if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return; if (e.key === "Escape") this.cancel(); if (e.key === "Enter") this.finish(); });
     store.subscribe((s) => {
       const previousEditId = this.s?.editingProfileId;
+      const previousTool = this.lastTool;
       this.s = s;
+      const currentTool = this.activeTool();
+      if (previousTool && currentTool !== previousTool) {
+        this.primitiveStart = this.points.length;
+        this.preview = null;
+      }
+      this.lastTool = currentTool;
       if (s.editMode === "profileEdit" && s.editingProfileId && s.editingProfileId !== previousEditId) {
         const profile = s.profiles.find((p) => p.id === s.editingProfileId);
         this.points = profile ? profile.points.map((pt) => ({ ...pt })) : [];
@@ -61,8 +68,18 @@ export class Plan2D {
     }
     if (this.points.length > 2 && Math.hypot(point.x - this.points[0].x, point.y - this.points[0].y) < 15) return this.finish();
     this.points.push(point); this.preview = null;
-    if (["rectangle", "circle", "polygon"].includes(tool) && this.points.length === 2) this.finish();
-    if (tool === "arc3" && this.points.length === 3) this.finish();
+    const primitiveCount = this.points.length - this.primitiveStart;
+    const canKeepComposing = this.s.creationSession?.active || this.s.editMode === "profileEdit";
+    if (["rectangle", "circle", "polygon"].includes(tool) && primitiveCount === 2) {
+      if (canKeepComposing) this.commitPrimitive();
+      else this.finish();
+      return;
+    }
+    if (tool === "arc3" && primitiveCount === 3) {
+      if (canKeepComposing) this.commitPrimitive();
+      else this.finish();
+      return;
+    }
     if (this.s.creationSession?.active) this.store.setTemporaryPoints(this.currentDraft());
     this.draw();
   }
@@ -72,7 +89,20 @@ export class Plan2D {
     if (this.s.workView === "right") return { x: 0, y: delta.y, z: delta.x };
     return { x: delta.x, y: delta.y, z: 0 };
   }
-  currentDraft() { const pts = [...this.points]; if (this.preview) pts.push(this.preview); return this.makePrimitive(pts) || pts; }
+  currentDraft() { const pts = [...this.points]; if (this.preview) pts.push(this.preview); return this.composePrimitive(pts); }
+  composePrimitive(pts) {
+    const start = Math.min(this.primitiveStart || 0, pts.length);
+    const head = pts.slice(0, start), tail = pts.slice(start);
+    const primitive = this.makePrimitive(tail);
+    return primitive ? head.concat(primitive) : pts;
+  }
+  commitPrimitive() {
+    this.points = this.currentDraft().map((p) => ({ ...p }));
+    this.preview = null;
+    this.primitiveStart = this.points.length;
+    if (this.s.creationSession?.active) this.store.setTemporaryPoints(this.points);
+    this.draw();
+  }
   makePrimitive(pts) {
     const tool = this.activeTool(); if (pts.length < 2) return null; const a = pts[0], b = pts[1];
     if (tool === "rectangle") return [{ x:a.x,y:a.y },{ x:b.x,y:a.y },{ x:b.x,y:b.y },{ x:a.x,y:b.y }];
@@ -83,8 +113,8 @@ export class Plan2D {
   arcPoints(a,b,c){ const d=2*(a.x*(b.y-c.y)+b.x*(c.y-a.y)+c.x*(a.y-b.y)); if(Math.abs(d)<1e-6) return [a,b,c]; const ux=((a.x*a.x+a.y*a.y)*(b.y-c.y)+(b.x*b.x+b.y*b.y)*(c.y-a.y)+(c.x*c.x+c.y*c.y)*(a.y-b.y))/d, uy=((a.x*a.x+a.y*a.y)*(c.x-b.x)+(b.x*b.x+b.y*b.y)*(a.x-c.x)+(c.x*c.x+c.y*c.y)*(b.x-a.x))/d; const aa=Math.atan2(a.y-uy,a.x-ux), cc=Math.atan2(c.y-uy,c.x-ux), bb=Math.atan2(b.y-uy,b.x-ux); let end=cc; const between=(x,s,e)=>s<e?x>s&&x<e:x>s||x<e; if(!between(bb,aa,end)) end += end<aa ? Math.PI*2 : -Math.PI*2; return Array.from({length:24},(_,i)=>{const t=i/23, ang=aa+(end-aa)*t, r=Math.hypot(a.x-ux,a.y-uy); return {x:ux+Math.cos(ang)*r,y:uy+Math.sin(ang)*r};}); }
   validate(points, closed) { if (points.length < (closed ? 3 : 2)) throw new Error(closed ? "Crie ao menos três pontos." : "Crie ao menos dois pontos."); for (let i=1;i<points.length;i++) if (Math.hypot(points[i].x-points[i-1].x, points[i].y-points[i-1].y) < 1e-6) throw new Error("Remova pontos consecutivos duplicados."); if (closed) for (let i=0;i<points.length;i++) for (let j=i+1;j<points.length;j++) { if (Math.abs(i-j)<2 || (i===0 && j===points.length-1)) continue; if (this.intersects(points[i], points[(i+1)%points.length], points[j], points[(j+1)%points.length])) throw new Error("Perfil com auto-interseção."); } }
   intersects(a,b,c,d){ const ccw=(p,q,r)=>(r.y-p.y)*(q.x-p.x)>(q.y-p.y)*(r.x-p.x); return ccw(a,c,d)!==ccw(b,c,d)&&ccw(a,b,c)!==ccw(a,b,d); }
-  finish() { try { const cs = this.s.creationSession, step = cs?.step; const tool = this.activeTool(); let pts = this.makePrimitive(this.points) || [...this.points]; const closed = !cs || !["path","axis"].includes(step); this.validate(pts, closed); if (this.s.editMode === "profileEdit") { this.store.finishProfileEdit(pts); this.points=[]; this.preview=null; this.draw(); return; } if (cs?.active) { const color = cs.operation === "void" ? "#f36b2d" : "#ff00cc"; if (step === "path" || step === "axis") { const path=this.store.addPath(pts.map((p)=>({...p,z:0})),{name: step === "axis" ? "Eixo de revolução" : "Caminho"}); this.store.advanceCreationStep(step === "axis" ? {axisId:path.id,pathId:path.id}:{pathId:path.id}); } else { this.store.addProfile(pts,{name:"Perfil de criação",material:{color}}); try { this.store.advanceCreationStep({profileId:this.store.state.selectedElementId}); } catch (err) { this.onError(err.message); } } } else if (tool === "line") this.store.addPath(pts.map((p)=>({...p,z:0}))); else this.store.addProfile(pts); this.points=[]; this.preview=null; this.draw(); } catch (err) { this.onError(err.message); } }
-  cancel() { this.points = []; this.preview = null; this.editVertexDrag = null; if (this.s?.editMode === "profileEdit") this.store.cancelProfileEdit(); if (this.s?.creationSession?.active) this.store.cancelCreationSession(); this.draw(); }
+  finish() { try { const cs = this.s.creationSession, step = cs?.step; const tool = this.activeTool(); let pts = this.composePrimitive(this.points); const closed = !cs || !["path","axis"].includes(step); this.validate(pts, closed); if (this.s.editMode === "profileEdit") { this.store.finishProfileEdit(pts); this.points=[]; this.preview=null; this.primitiveStart=0; this.draw(); return; } if (cs?.active) { const color = cs.operation === "void" ? "#f36b2d" : "#ff00cc"; if (step === "path" || step === "axis") { const path=this.store.addPath(pts.map((p)=>({...p,z:0})),{name: step === "axis" ? "Eixo de revolução" : "Caminho"}); this.store.advanceCreationStep(step === "axis" ? {axisId:path.id,pathId:path.id}:{pathId:path.id}); } else { this.store.addProfile(pts,{name:"Perfil de criação",material:{color}}); try { this.store.advanceCreationStep({profileId:this.store.state.selectedElementId}); } catch (err) { this.onError(err.message); } } } else if (tool === "line") this.store.addPath(pts.map((p)=>({...p,z:0}))); else this.store.addProfile(pts); this.points=[]; this.preview=null; this.primitiveStart=0; this.draw(); } catch (err) { this.onError(err.message); } }
+  cancel() { this.points = []; this.preview = null; this.primitiveStart = 0; this.editVertexDrag = null; if (this.s?.editMode === "profileEdit") this.store.cancelProfileEdit(); if (this.s?.creationSession?.active) this.store.cancelCreationSession(); this.draw(); }
   pointSegmentDistance(p, a, b) { const vx=b.x-a.x, vy=b.y-a.y, len=vx*vx+vy*vy || 1; const t=Math.max(0,Math.min(1,((p.x-a.x)*vx+(p.y-a.y)*vy)/len)); return Math.hypot(p.x-(a.x+vx*t), p.y-(a.y+vy*t)); }
   pick(p) {
     let best=null, bd=1e9;

@@ -6,6 +6,7 @@ const IFC_SCHEMA = {
 };
 const IFC_GUID_ALPHABET =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$";
+export const IFC_EXPORTER_VERSION = "family-ifc-fix-2026-07-17-01";
 const APP_NAME = "EngRodrigo Family Studio";
 
 const IFC_CATEGORY_TYPES = {
@@ -166,6 +167,20 @@ function createBaseGeometry(writer) {
   return { unitAssignment, placement3d, worldPlacement, context };
 }
 
+function createLocalPlacement(writer, relativeTo = "$", coordinates = [0, 0, 0]) {
+  const point = writer.add("IFCCARTESIANPOINT", [
+    `(${coordinates.map((value) => num(value)).join(",")})`,
+  ]);
+  const axisZ = writer.add("IFCDIRECTION", ["(0.,0.,1.)"]);
+  const axisX = writer.add("IFCDIRECTION", ["(1.,0.,0.)"]);
+  const placement3d = writer.add("IFCAXIS2PLACEMENT3D", [
+    writer.ref(point),
+    writer.ref(axisZ),
+    writer.ref(axisX),
+  ]);
+  return writer.add("IFCLOCALPLACEMENT", [relativeTo, writer.ref(placement3d)]);
+}
+
 function createIfc4SpatialStructure(writer, projectName, ownerHistory) {
   const base = createBaseGeometry(writer);
   const project = writer.add("IFCPROJECT", [
@@ -175,9 +190,10 @@ function createIfc4SpatialStructure(writer, projectName, ownerHistory) {
     `(${writer.ref(base.context)})`,
     writer.ref(base.unitAssignment),
   ]);
+  const sitePlacement = createLocalPlacement(writer);
   const site = writer.add("IFCSITE", [
     ...writer.rootArgs(ownerHistory, "Terreno"),
-    writer.ref(base.worldPlacement),
+    writer.ref(sitePlacement),
     "$",
     "$",
     ".ELEMENT.",
@@ -187,9 +203,10 @@ function createIfc4SpatialStructure(writer, projectName, ownerHistory) {
     "$",
     "$",
   ]);
+  const buildingPlacement = createLocalPlacement(writer, writer.ref(sitePlacement));
   const building = writer.add("IFCBUILDING", [
     ...writer.rootArgs(ownerHistory, "Edificação"),
-    writer.ref(base.worldPlacement),
+    writer.ref(buildingPlacement),
     "$",
     "$",
     ".ELEMENT.",
@@ -197,9 +214,10 @@ function createIfc4SpatialStructure(writer, projectName, ownerHistory) {
     "$",
     "$",
   ]);
+  const storeyPlacement = createLocalPlacement(writer, writer.ref(buildingPlacement));
   const storey = writer.add("IFCBUILDINGSTOREY", [
     ...writer.rootArgs(ownerHistory, "Nível 0"),
-    writer.ref(base.worldPlacement),
+    writer.ref(storeyPlacement),
     "$",
     "'Nível 0'",
     "$",
@@ -207,7 +225,7 @@ function createIfc4SpatialStructure(writer, projectName, ownerHistory) {
     "0.",
   ]);
   addAggregates(writer, ownerHistory, project, site, building, storey);
-  return { ...base, project, storey };
+  return { ...base, project, site, sitePlacement, building, buildingPlacement, storey, storeyPlacement };
 }
 
 function createIfc2x3SpatialStructure(writer, projectName, ownerHistory) {
@@ -218,9 +236,10 @@ function createIfc2x3SpatialStructure(writer, projectName, ownerHistory) {
     `(${writer.ref(base.context)})`,
     writer.ref(base.unitAssignment),
   ]);
+  const sitePlacement = createLocalPlacement(writer);
   const site = writer.add("IFCSITE", [
     ...writer.rootArgs(ownerHistory, "Terreno"),
-    writer.ref(base.worldPlacement),
+    writer.ref(sitePlacement),
     "$",
     "$",
     ".ELEMENT.",
@@ -230,31 +249,29 @@ function createIfc2x3SpatialStructure(writer, projectName, ownerHistory) {
     "$",
     "$",
   ]);
+
+  const buildingPlacement = createLocalPlacement(writer, writer.ref(sitePlacement));
   const building = writer.add("IFCBUILDING", [
     ...writer.rootArgs(ownerHistory, "Edificação"),
-    writer.ref(base.worldPlacement),
+    writer.ref(buildingPlacement),
     "$",
     "$",
     ".ELEMENT.",
     "$",
-    writer.ref(site),
-    `(${writer.ref(building)})`,
-  ]);
-  writer.add("IFCRELAGGREGATES", [
-    `'${guid()}'`,
     "$",
     "$",
   ]);
+  const storeyPlacement = createLocalPlacement(writer, writer.ref(buildingPlacement));
   const storey = writer.add("IFCBUILDINGSTOREY", [
     ...writer.rootArgs(ownerHistory, "Nível 0"),
-    writer.ref(base.worldPlacement),
+    writer.ref(storeyPlacement),
     "$",
     "$",
     ".ELEMENT.",
     "0.",
   ]);
   addAggregates(writer, ownerHistory, project, site, building, storey);
-  return { ...base, project, storey };
+  return { ...base, project, site, sitePlacement, building, buildingPlacement, storey, storeyPlacement };
 }
 
 function addAggregates(writer, ownerHistory, project, site, building, storey) {
@@ -297,7 +314,7 @@ function addExtrusion(writer, state, extrusion, profile, params, context, ownerH
   const axisZ = writer.add("IFCDIRECTION", ["(0.,0.,1.)"]);
   const axisX = writer.add("IFCDIRECTION", ["(1.,0.,0.)"]);
   const placement3d = writer.add("IFCAXIS2PLACEMENT3D", [writer.ref(elementOrigin), writer.ref(axisZ), writer.ref(axisX)]);
-  const localPlacement = writer.add("IFCLOCALPLACEMENT", [writer.ref(context.worldPlacement), writer.ref(placement3d)]);
+  const localPlacement = writer.add("IFCLOCALPLACEMENT", [writer.ref(context.storeyPlacement), writer.ref(placement3d)]);
   const pointIds = profile.points.map((point) =>
     writer.add("IFCCARTESIANPOINT", [`(${num(point.x)},${num(point.y)})`]),
   );
@@ -352,7 +369,7 @@ export function exportFamilyToIfc(state, schema = IFC_SCHEMA.IFC4) {
   return [
     "ISO-10303-21;",
     "HEADER;",
-    "FILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');",
+    `FILE_DESCRIPTION(('ViewDefinition [CoordinationView]','ExporterVersion ${IFC_EXPORTER_VERSION}'),'2;1');`,
     `FILE_NAME('${sanitize(state.name)}.ifc','${new Date().toISOString()}',('EngRodrigo'),('EngRodrigo'),'${APP_NAME}','${APP_NAME}','');`,
     `FILE_SCHEMA(('${schema}'));`,
     "ENDSEC;",

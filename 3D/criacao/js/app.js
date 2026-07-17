@@ -7,7 +7,8 @@ import {
 } from "./state.js";
 import { Plan2D } from "./plan2d.js";
 import { Scene3D } from "./scene3d.js";
-import { exportFamilyToIfc } from "./ifc-exporter.js";
+import { IFC_EXPORTER_VERSION, exportFamilyToIfc } from "./ifc-exporter.js";
+console.info(`IFC exporter loaded: ${IFC_EXPORTER_VERSION}`);
 const $ = (selector) => document.querySelector(selector);
 const store = new Store();
 const els = [

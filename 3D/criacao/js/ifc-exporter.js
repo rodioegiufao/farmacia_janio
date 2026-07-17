@@ -1,4 +1,85 @@
-import{wallLength}from'./state.js';
-const esc=s=>String(s).replace(/'/g,"''");const gid=()=>crypto.randomUUID().replace(/-/g,'').slice(0,22);const num=n=>Number(n).toFixed(6).replace(/0+$/,'').replace(/\.$/,'')||'0';
-export function buildIfc(project){if(!project.walls.length)throw new Error('Projeto vazio ao exportar IFC.');let id=1,rows=[];const add=v=>{rows.push(`#${id}=${v};`);return id++};const owner=add('IFCPERSONANDORGANIZATION($,$,$)');const app=add("IFCAPPLICATION($,'1.0','EngRodrigo BIM','ERBIM')");const oh=add(`IFCOWNERHISTORY(#${owner},#${app},$,.ADDED.,$,$,$,${Math.floor(Date.now()/1000)})`);const unit=add('IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.)');const units=add(`IFCUNITASSIGNMENT((#${unit}))`);const ctx=add("IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.E-05,#8,$)");add('IFCAXIS2PLACEMENT3D(#9,$,$)');add('IFCCARTESIANPOINT((0.,0.,0.))');const projectId=add(`IFCPROJECT('${gid()}',#${oh},'${esc(project.name)}',$,$,$,$,(#${ctx}),#${units})`);const site=add(`IFCSITE('${gid()}',#${oh},'Terreno',$,$,#8,$,$,.ELEMENT.,$,$,$,$,$)`);const building=add(`IFCBUILDING('${gid()}',#${oh},'Edificação',$,$,#8,$,$,.ELEMENT.,$,$,$)`);const storey=add(`IFCBUILDINGSTOREY('${gid()}',#${oh},'Pavimento térreo',$,$,#8,$,$,.ELEMENT.,0.)`);add(`IFCRELAGGREGATES('${gid()}',#${oh},'Projeto',$,#${projectId},(#${site}))`);add(`IFCRELAGGREGATES('${gid()}',#${oh},'Terreno',$,#${site},(#${building}))`);add(`IFCRELAGGREGATES('${gid()}',#${oh},'Edificação',$,#${building},(#${storey}))`);const wallIds=[];for(const w of project.walls){const len=wallLength(w),ang=Math.atan2(w.end.y-w.start.y,w.end.x-w.start.x);const p=add(`IFCCARTESIANPOINT((${num(w.start.x)},${num(w.start.y)},${num(w.baseElevation)}))`);const dir=add(`IFCDIRECTION((${num(Math.cos(ang))},${num(Math.sin(ang))},0.))`);const up=add('IFCDIRECTION((0.,0.,1.))');const place3=add(`IFCAXIS2PLACEMENT3D(#${p},#${up},#${dir})`);const loc=add(`IFCLOCALPLACEMENT(#8,#${place3})`);const prof=add(`IFCRECTANGLEPROFILEDEF(.AREA.,'${esc(w.name)}',#8,${num(len)},${num(w.thickness)})`);const solid=add(`IFCEXTRUDEDAREASOLID(#${prof},#8,#${up},${num(w.height)})`);const rep=add(`IFCSHAPEREPRESENTATION(#${ctx},'Body','SweptSolid',(#${solid}))`);const shape=add(`IFCPRODUCTDEFINITIONSHAPE($,$,(#${rep}))`);const wall=add(`IFCWALLSTANDARDCASE('${gid()}',#${oh},'${esc(w.name)}',$,$,#${loc},#${shape},$)`);wallIds.push(`#${wall}`)}add(`IFCRELCONTAINEDINSPATIALSTRUCTURE('${gid()}',#${oh},'Paredes no térreo',$,(${wallIds.join(',')}),#${storey})`);return`ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');\nFILE_NAME('${esc(project.name)}.ifc','${new Date().toISOString()}',('EngRodrigo BIM'),('EngRodrigo'), 'EngRodrigo BIM','EngRodrigo BIM','');\nFILE_SCHEMA(('IFC4'));\nENDSEC;\nDATA;\n${rows.join('\n')}\nENDSEC;\nEND-ISO-10303-21;\n`}
-export function ifcFileName(name){return`${String(name||'projeto').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}_${new Date().toISOString().slice(0,10)}.ifc`}
+import { wallLength } from "./state.js";
+const esc = (s) => String(s).replace(/'/g, "''");
+const gid = () => crypto.randomUUID().replace(/-/g, "").slice(0, 22);
+const num = (n) =>
+  Number(n).toFixed(6).replace(/0+$/, "").replace(/\.$/, "") || "0";
+export function buildIfc(project) {
+  if (!project.walls.length) throw new Error("Projeto vazio ao exportar IFC.");
+  let id = 1,
+    rows = [];
+  const add = (v) => {
+    rows.push(`#${id}=${v};`);
+    return id++;
+  };
+  const owner = add("IFCPERSONANDORGANIZATION($,$,$)");
+  const app = add("IFCAPPLICATION($,'1.0','EngRodrigo BIM','ERBIM')");
+  const oh = add(
+    `IFCOWNERHISTORY(#${owner},#${app},$,.ADDED.,$,$,$,${Math.floor(Date.now() / 1000)})`,
+  );
+  const unit = add("IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.)");
+  const units = add(`IFCUNITASSIGNMENT((#${unit}))`);
+  const ctx = add("IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.E-05,#8,$)");
+  add("IFCAXIS2PLACEMENT3D(#9,$,$)");
+  add("IFCCARTESIANPOINT((0.,0.,0.))");
+  const projectId = add(
+    `IFCPROJECT('${gid()}',#${oh},'${esc(project.name)}',$,$,$,$,(#${ctx}),#${units})`,
+  );
+  const site = add(
+    `IFCSITE('${gid()}',#${oh},'Terreno',$,$,#8,$,$,.ELEMENT.,$,$,$,$,$)`,
+  );
+  const building = add(
+    `IFCBUILDING('${gid()}',#${oh},'Edificação',$,$,#8,$,$,.ELEMENT.,$,$,$)`,
+  );
+  const storey = add(
+    `IFCBUILDINGSTOREY('${gid()}',#${oh},'Pavimento térreo',$,$,#8,$,$,.ELEMENT.,0.)`,
+  );
+  add(
+    `IFCRELAGGREGATES('${gid()}',#${oh},'Projeto',$,#${projectId},(#${site}))`,
+  );
+  add(
+    `IFCRELAGGREGATES('${gid()}',#${oh},'Terreno',$,#${site},(#${building}))`,
+  );
+  add(
+    `IFCRELAGGREGATES('${gid()}',#${oh},'Edificação',$,#${building},(#${storey}))`,
+  );
+  const wallIds = [];
+  for (const w of project.walls) {
+    const len = wallLength(w),
+      ang = Math.atan2(w.end.y - w.start.y, w.end.x - w.start.x);
+    const p = add(
+      `IFCCARTESIANPOINT((${num(w.start.x)},${num(w.start.y)},${num(w.baseElevation)}))`,
+    );
+    const dir = add(
+      `IFCDIRECTION((${num(Math.cos(ang))},${num(Math.sin(ang))},0.))`,
+    );
+    const up = add("IFCDIRECTION((0.,0.,1.))");
+    const place3 = add(`IFCAXIS2PLACEMENT3D(#${p},#${up},#${dir})`);
+    const loc = add(`IFCLOCALPLACEMENT(#8,#${place3})`);
+    const prof = add(
+      `IFCRECTANGLEPROFILEDEF(.AREA.,'${esc(w.name)}',#8,${num(len)},${num(w.thickness)})`,
+    );
+    const solid = add(
+      `IFCEXTRUDEDAREASOLID(#${prof},#8,#${up},${num(w.height)})`,
+    );
+    const rep = add(
+      `IFCSHAPEREPRESENTATION(#${ctx},'Body','SweptSolid',(#${solid}))`,
+    );
+    const shape = add(`IFCPRODUCTDEFINITIONSHAPE($,$,(#${rep}))`);
+    const wall = add(
+      `IFCWALLSTANDARDCASE('${gid()}',#${oh},'${esc(w.name)}',$,$,#${loc},#${shape},$)`,
+    );
+    wallIds.push(`#${wall}`);
+  }
+  add(
+    `IFCRELCONTAINEDINSPATIALSTRUCTURE('${gid()}',#${oh},'Paredes no térreo',$,(${wallIds.join(",")}),#${storey})`,
+  );
+  return `ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');\nFILE_NAME('${esc(project.name)}.ifc','${new Date().toISOString()}',('EngRodrigo BIM'),('EngRodrigo'), 'EngRodrigo BIM','EngRodrigo BIM','');\nFILE_SCHEMA(('IFC4'));\nENDSEC;\nDATA;\n${rows.join("\n")}\nENDSEC;\nEND-ISO-10303-21;\n`;
+}
+export function ifcFileName(name) {
+  return `${String(name || "projeto")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")}_${new Date().toISOString().slice(0, 10)}.ifc`;
+}

@@ -239,7 +239,7 @@ const plan2d = new Plan2D($("#planCanvas"), store, {
   },
   onError: (m) => toast(m, "error"),
 });
-new Scene3D($("#threeCanvas"), store);
+const scene3d = new Scene3D($("#threeCanvas"), store, { onError: (m) => toast(m, "error") });
 store.subscribe(sync);
 if ($("#toolProfile"))
   $("#toolProfile").onclick = () =>
@@ -289,7 +289,7 @@ els.snapEnabled.onchange = (e) =>
   store.updateSettings({ snapEnabled: e.target.checked });
 $("#extrudeSelected").onclick = () => {
   store.beginCreationSession({ formType: "extrusion", operation: "solid" });
-  toast("Criar extrusão: desenhe um perfil fechado na vista 2D.");
+  toast("Criar extrusão: desenhe um perfil fechado na vista 2D ou 3D.");
 };
 $("#addParam").onclick = () => {
   const name = $("#newParamName").value.trim();
@@ -385,7 +385,7 @@ document.querySelectorAll("[data-create-form]").forEach(
         formType: b.dataset.createForm,
         operation: b.dataset.operation,
       });
-      toast(`${b.textContent.trim()}: desenhe as etapas na vista 2D.`);
+      toast(`${b.textContent.trim()}: desenhe as etapas na vista 2D ou 3D.`);
     }),
 );
 document
@@ -393,9 +393,10 @@ document
   .forEach(
     (b) => (b.onclick = () => store.setCreationDrawingTool(b.dataset.drawTool)),
   );
-$("#finishEdit").onclick = () => plan2d.finish();
+$("#finishEdit").onclick = () => (scene3d.hasDraft() ? scene3d.finish() : plan2d.finish());
 $("#cancelEdit").onclick = () => {
   plan2d.cancel();
+  scene3d.cancel();
   toast("Criação cancelada.");
 };
 $("#workViewRibbon").onchange = (e) => store.set({ workView: e.target.value });

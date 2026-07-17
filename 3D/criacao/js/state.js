@@ -225,7 +225,6 @@ export class Store {
     };
     this.state.activeTool = "line";
     this.state.editMode = "creation";
-    this.state.view = "plan";
     this.emit();
   }
   firstCreationStep(formType) {

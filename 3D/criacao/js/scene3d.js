@@ -1,10 +1,20 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { buildGeometry, isVoidKind } from "./geometry-engine.js";
+import { MM_TO_SCENE } from "./state.js";
+
+const pointToScene = (p, view = "front") => {
+  const x = p.x * MM_TO_SCENE, y = p.y * MM_TO_SCENE, z = 0;
+  if (view === "top") return new THREE.Vector3(x, 0, p.y * MM_TO_SCENE);
+  if (view === "right") return new THREE.Vector3(0, y, p.x * MM_TO_SCENE);
+  return new THREE.Vector3(x, y, z);
+};
+
 export class Scene3D {
-  constructor(canvas, store) {
+  constructor(canvas, store, { onError } = {}) {
     this.canvas = canvas;
     this.store = store;
+    this.onError = onError || (() => {});
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xf4f8f8);
     this.camera = new THREE.PerspectiveCamera(55, 1, 0.01, 1000);
@@ -13,10 +23,18 @@ export class Scene3D {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.target.set(0.25, 0.25, 0);
     this.meshes = new Map();
+    this.points = [];
+    this.preview = null;
+    this.raycaster = new THREE.Raycaster();
+    this.pointer = new THREE.Vector2();
+    this.draftLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff00cc }));
     this.viewCubeStage = null;
     this.init();
     this.initViewCube();
     new ResizeObserver(() => this.resize()).observe(canvas);
+    canvas.addEventListener("pointerdown", (e) => this.down(e));
+    canvas.addEventListener("pointermove", (e) => this.move(e));
+    canvas.addEventListener("contextmenu", (e) => { if (this.s?.creationSession?.active) { e.preventDefault(); this.finish(); } });
     store.subscribe((s) => {
       this.s = s;
       this.sync();
@@ -31,6 +49,7 @@ export class Scene3D {
     this.scene.add(d);
     this.scene.add(new THREE.GridHelper(2, 20, 0x8aa0a0, 0xd2dddd));
     this.scene.add(new THREE.AxesHelper(0.5));
+    this.scene.add(this.draftLine);
   }
   initViewCube() {
     const host = document.getElementById("viewCube");
@@ -91,6 +110,81 @@ export class Scene3D {
   orient(mesh) {
     mesh.rotation.set(0, 0, 0);
     mesh.position.set(0, 0, 0);
+  }
+  activeTool() { return this.s?.creationSession?.active ? this.s.creationSession.drawingTool : this.s?.activeTool; }
+  plane() {
+    if (this.s?.workView === "top") return new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    if (this.s?.workView === "right") return new THREE.Plane(new THREE.Vector3(1, 0, 0), 0);
+    return new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+  }
+  toProfilePoint(v) {
+    const mm = 1 / MM_TO_SCENE;
+    if (this.s?.workView === "top") return { x: v.x * mm, y: v.z * mm };
+    if (this.s?.workView === "right") return { x: v.z * mm, y: v.y * mm };
+    return { x: v.x * mm, y: v.y * mm };
+  }
+  worldPoint(event) {
+    const r = this.canvas.getBoundingClientRect();
+    this.pointer.set(((event.clientX - r.left) / r.width) * 2 - 1, -((event.clientY - r.top) / r.height) * 2 + 1);
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const hit = new THREE.Vector3();
+    return this.raycaster.ray.intersectPlane(this.plane(), hit) ? this.snap(this.toProfilePoint(hit), event.shiftKey).point : null;
+  }
+  snap(p, shift = false) {
+    let q = { ...p };
+    if (this.s.settings.snapEnabled) {
+      const st = this.s.settings.snapStep;
+      q = { x: Math.round(p.x / st) * st, y: Math.round(p.y / st) * st };
+      for (const prof of this.s.profiles) for (const pt of prof.points) if (Math.hypot(pt.x - p.x, pt.y - p.y) < 18) q = { ...pt };
+      this.points.forEach((pt) => { if (Math.hypot(pt.x - p.x, pt.y - p.y) < 18) q = { ...pt }; });
+    }
+    const last = this.points.at(-1);
+    if ((this.s.settings.ortho || shift) && last) Math.abs(q.x - last.x) > Math.abs(q.y - last.y) ? (q.y = last.y) : (q.x = last.x);
+    return { point: q };
+  }
+  down(e) {
+    if (!this.s?.creationSession?.active || this.s.view === "plan") return;
+    e.preventDefault(); e.stopPropagation();
+    const point = this.worldPoint(e), tool = this.activeTool();
+    if (!point) return;
+    if (this.points.length > 2 && Math.hypot(point.x - this.points[0].x, point.y - this.points[0].y) < 15) return this.finish();
+    this.points.push(point); this.preview = null;
+    if (["rectangle", "circle", "polygon"].includes(tool) && this.points.length === 2) this.finish();
+    if (tool === "arc3" && this.points.length === 3) this.finish();
+    this.store.setTemporaryPoints(this.currentDraft());
+    this.syncDraft();
+  }
+  move(e) {
+    if (!this.s?.creationSession?.active || this.s.view === "plan") return;
+    const point = this.worldPoint(e);
+    if (!point) return;
+    this.preview = point;
+    this.store.setTemporaryPoints(this.currentDraft());
+    this.syncDraft();
+  }
+  hasDraft() { return this.points.length > 0 || !!this.preview; }
+  currentDraft() { const pts = [...this.points]; if (this.preview) pts.push(this.preview); return this.makePrimitive(pts) || pts; }
+  makePrimitive(pts) {
+    const tool = this.activeTool(); if (pts.length < 2) return null; const a = pts[0], b = pts[1];
+    if (tool === "rectangle") return [{ x:a.x,y:a.y },{ x:b.x,y:a.y },{ x:b.x,y:b.y },{ x:a.x,y:b.y }];
+    if (tool === "circle" || tool === "polygon") { const n = tool === "circle" ? 48 : Number(document.querySelector("#polygonSides")?.value) || 6, r = Math.hypot(b.x-a.x,b.y-a.y); return Array.from({ length: Math.max(3,n) }, (_, i) => ({ x: a.x + Math.cos(i/n*Math.PI*2)*r, y: a.y + Math.sin(i/n*Math.PI*2)*r })); }
+    return null;
+  }
+  validate(points, closed) { if (points.length < (closed ? 3 : 2)) throw new Error(closed ? "Crie ao menos três pontos." : "Crie ao menos dois pontos."); }
+  finish() { try { const cs = this.s.creationSession, step = cs?.step; if (!cs?.active) return; let pts = this.makePrimitive(this.points) || [...this.points]; const closed = !["path","axis"].includes(step); this.validate(pts, closed); if (step === "path" || step === "axis") { const path=this.store.addPath(pts.map((p)=>({...p,z:0})),{name: step === "axis" ? "Eixo de revolução" : "Caminho"}); this.store.advanceCreationStep(step === "axis" ? {axisId:path.id,pathId:path.id}:{pathId:path.id}); } else { const color = cs.operation === "void" ? "#f36b2d" : "#ff00cc"; this.store.addProfile(pts,{name:"Perfil de criação",material:{color}}); this.store.advanceCreationStep({profileId:this.store.state.selectedElementId}); } this.points=[]; this.preview=null; this.syncDraft(); } catch (err) { this.onError(err.message); } }
+  cancel() { this.points = []; this.preview = null; this.syncDraft(); }
+  syncDraft() {
+    const pts = this.currentDraft().map((p) => pointToScene(p, this.s?.workView));
+    if (pts.length && this.s?.creationSession?.active) {
+      const closed = !["path", "axis"].includes(this.s.creationSession.step) && pts.length > 2;
+      const linePts = closed ? [...pts, pts[0]] : pts;
+      this.draftLine.geometry.dispose();
+      this.draftLine.geometry = new THREE.BufferGeometry().setFromPoints(linePts);
+      this.draftLine.material.color.set(this.s.creationSession.operation === "void" ? 0xf36b2d : 0xff00cc);
+      this.draftLine.visible = true;
+    } else {
+      this.draftLine.visible = false;
+    }
   }
   sync() {
     const visibleForms = (this.s.forms || this.s.extrusions || []).filter((e) => e.visible !== false);

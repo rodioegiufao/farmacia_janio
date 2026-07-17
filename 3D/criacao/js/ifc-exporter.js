@@ -6,7 +6,7 @@ const IFC_SCHEMA = {
 };
 const IFC_GUID_ALPHABET =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$";
-export const IFC_EXPORTER_VERSION = "family-ifc-fix-2026-07-17-01";
+export const IFC_EXPORTER_VERSION = "family-ifc4-storey-fix-2026-07-17-02";
 const APP_NAME = "EngRodrigo Family Studio";
 
 const IFC_CATEGORY_TYPES = {
@@ -220,7 +220,6 @@ function createIfc4SpatialStructure(writer, projectName, ownerHistory) {
     writer.ref(storeyPlacement),
     "$",
     "'Nível 0'",
-    "$",
     ".ELEMENT.",
     "0.",
   ]);

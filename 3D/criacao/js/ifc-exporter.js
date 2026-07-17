@@ -7,7 +7,7 @@ const IFC_SCHEMA = {
 };
 const IFC_GUID_ALPHABET =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$";
-export const IFC_EXPORTER_VERSION = "family-ifc-revolve-brep-2026-07-17-01";
+export const IFC_EXPORTER_VERSION = "family-ifc-aci-colors-2026-07-17-01";
 const APP_NAME = "EngRodrigo Family Studio";
 
 const IFC_CATEGORY_TYPES = {
@@ -298,6 +298,21 @@ function createElement(writer, state, extrusion, localPlacement, productShape, o
   return writer.add(info.type, baseArgs);
 }
 
+function hexToRgb01(hex) {
+  const value = String(hex || "#4aa3df").trim();
+  const match = /^#?([0-9a-f]{6})$/i.exec(value);
+  const normalized = match ? match[1] : "4aa3df";
+  return [0, 2, 4].map((i) => parseInt(normalized.slice(i, i + 2), 16) / 255);
+}
+function addSurfaceColorStyle(writer, itemId, form) {
+  const [r, g, b] = hexToRgb01(form.material?.color);
+  const color = writer.add("IFCCOLOURRGB", ["$", num(r), num(g), num(b)]);
+  const rendering = writer.add("IFCSURFACESTYLERENDERING", [writer.ref(color), "0.", "$", "$", "$", "$", "$", "$", ".NOTDEFINED."]);
+  const surfaceStyle = writer.add("IFCSURFACESTYLE", [optStr(`${form.name || "Forma"} ACI`), ".BOTH.", `(${writer.ref(rendering)})`]);
+  const presentationStyle = writer.add("IFCPRESENTATIONSTYLEASSIGNMENT", [`(${writer.ref(surfaceStyle)})`]);
+  writer.add("IFCSTYLEDITEM", [writer.ref(itemId), `(${writer.ref(presentationStyle)})`, "$"]);
+}
+
 function addExtrusion(writer, state, extrusion, profile, params, context, ownerHistory) {
   const depth = Math.max(evalValue(extrusion.depth, params), 0.001);
   const offset = Number(extrusion.offset) || 0;
@@ -328,6 +343,7 @@ function addExtrusion(writer, state, extrusion, profile, params, context, ownerH
   const solidPlacement = writer.add("IFCAXIS2PLACEMENT3D", [writer.ref(elementOrigin), writer.ref(axisZ), writer.ref(axisX)]);
   const direction = writer.add("IFCDIRECTION", ["(0.,0.,1.)"]);
   const solid = writer.add("IFCEXTRUDEDAREASOLID", [writer.ref(profileDef), writer.ref(solidPlacement), writer.ref(direction), num(depth)]);
+  addSurfaceColorStyle(writer, solid, extrusion);
   const representation = writer.add("IFCSHAPEREPRESENTATION", [
     writer.ref(context.context),
     "'Body'",
@@ -388,6 +404,7 @@ function addMeshForm(writer, state, form, context, ownerHistory) {
   const placement3d = writer.add("IFCAXIS2PLACEMENT3D", [writer.ref(axisPoint), writer.ref(axisZ), writer.ref(axisX)]);
   const localPlacement = writer.add("IFCLOCALPLACEMENT", [writer.ref(context.storeyPlacement), writer.ref(placement3d)]);
   const brep = addFacetedBrep(writer, triangles);
+  addSurfaceColorStyle(writer, brep, form);
   const representation = writer.add("IFCSHAPEREPRESENTATION", [
     writer.ref(context.context),
     "'Body'",

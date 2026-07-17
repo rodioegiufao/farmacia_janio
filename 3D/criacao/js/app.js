@@ -71,6 +71,47 @@ function opt(select, items, valueKey = "id", labelKey = "name") {
     select.append(o);
   });
 }
+const ACI_BASE_COLORS = [
+  { name: "vermelho", hex: "#ff0000" },
+  { name: "amarelo", hex: "#ffff00" },
+  { name: "verde", hex: "#00ff00" },
+  { name: "ciano", hex: "#00ffff" },
+  { name: "azul", hex: "#0000ff" },
+  { name: "magenta", hex: "#ff00ff" },
+  { name: "branco", hex: "#ffffff" },
+  { name: "cinza", hex: "#808080" },
+  { name: "cinza escuro", hex: "#404040" },
+  { name: "preto", hex: "#000000" },
+];
+const ACI_HUES = Array.from({ length: 24 }, (_, i) => i * 15);
+const ACI_TONES = [
+  { s: 1, l: 0.18 },
+  { s: 1, l: 0.28 },
+  { s: 1, l: 0.38 },
+  { s: 1, l: 0.50 },
+  { s: 1, l: 0.62 },
+  { s: 0.58, l: 0.74 },
+  { s: 0.48, l: 0.62 },
+  { s: 0.40, l: 0.50 },
+  { s: 0.34, l: 0.38 },
+  { s: 0.30, l: 0.26 },
+];
+function hslToHex(h, s, l) {
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color).toString(16).padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+function colorName(hex) {
+  const base = ACI_BASE_COLORS.find((color) => color.hex.toLowerCase() === hex.toLowerCase());
+  return base?.name || hex.toUpperCase();
+}
+function isSolidForm(item) {
+  return store.state.forms.some((form) => form.id === item.id && (form.operation || "solid") === "solid");
+}
 opt(els.category, CATEGORIES, "x", "x");
 opt(els.workView, VIEWS);
 opt($("#workViewRibbon"), VIEWS);
@@ -104,7 +145,15 @@ function showElementMenu(x, y, item) {
     if (!store.beginProfileEdit(item.id)) return toast("Selecione um perfil para editar.", "error");
     toast("Perfil em edição: ajuste os vértices na vista 2D e clique em Concluir.");
   };
-  menu.append(edit);
+  const color = document.createElement("button");
+  color.type = "button";
+  color.textContent = "Adicionar cor ACI";
+  color.disabled = !isSolidForm(item);
+  color.onclick = () => {
+    menu.remove();
+    showAciColorDialog(item);
+  };
+  menu.append(edit, color);
   document.body.append(menu);
   const close = (ev) => {
     if (!menu.contains(ev.target)) {
@@ -113,6 +162,62 @@ function showElementMenu(x, y, item) {
     }
   };
   setTimeout(() => document.addEventListener("pointerdown", close), 0);
+}
+function showAciColorDialog(item) {
+  document.querySelector(".aci-color-dialog")?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "aci-color-dialog";
+  const current = item.material?.color || "#ffffff";
+  let selected = current;
+  overlay.innerHTML = `
+    <div class="aci-window" role="dialog" aria-modal="true" aria-label="Selecionar cor ACI">
+      <div class="aci-title"><span>Selecionar cor</span><button type="button" class="aci-close" aria-label="Fechar">×</button></div>
+      <div class="aci-tabs"><button class="active" type="button">Cor indexada</button><button type="button">True Color</button><button type="button">Livros de cores</button></div>
+      <div class="aci-content">
+        <div class="aci-label">Índice de cores do AutoCAD (ACI):</div>
+        <div class="aci-grid"></div>
+        <div class="aci-base-row"></div>
+        <div class="aci-footer"><label>Cor:<input class="aci-name" readonly></label><button class="aci-ok" type="button">OK</button><button class="aci-cancel" type="button">Cancelar</button></div>
+      </div>
+    </div>`;
+  const grid = overlay.querySelector(".aci-grid");
+  const baseRow = overlay.querySelector(".aci-base-row");
+  const input = overlay.querySelector(".aci-name");
+  const setSelected = (hex) => {
+    selected = hex;
+    input.value = colorName(hex);
+    overlay.querySelectorAll(".aci-swatch").forEach((swatch) => swatch.classList.toggle("selected", swatch.dataset.hex === hex));
+  };
+  ACI_TONES.forEach((tone) => ACI_HUES.forEach((hue) => {
+    const hex = hslToHex(hue, tone.s, tone.l);
+    const swatch = document.createElement("button");
+    swatch.type = "button";
+    swatch.className = "aci-swatch";
+    swatch.dataset.hex = hex;
+    swatch.style.background = hex;
+    swatch.onclick = () => setSelected(hex);
+    grid.append(swatch);
+  }));
+  ACI_BASE_COLORS.forEach(({ hex, name }) => {
+    const swatch = document.createElement("button");
+    swatch.type = "button";
+    swatch.className = "aci-swatch aci-base";
+    swatch.title = name;
+    swatch.dataset.hex = hex;
+    swatch.style.background = hex;
+    swatch.onclick = () => setSelected(hex);
+    baseRow.append(swatch);
+  });
+  overlay.querySelector(".aci-close").onclick = () => overlay.remove();
+  overlay.querySelector(".aci-cancel").onclick = () => overlay.remove();
+  overlay.querySelector(".aci-ok").onclick = () => {
+    store.updateElement(item.id, { material: { ...(item.material || {}), color: selected } });
+    overlay.remove();
+    toast(`Cor ${colorName(selected)} aplicada à forma e será exportada no IFC.`);
+  };
+  overlay.addEventListener("pointerdown", (ev) => { if (ev.target === overlay) overlay.remove(); });
+  document.body.append(overlay);
+  setSelected(current);
 }
 function sync(s) {
   els.projectName.value = s.name;

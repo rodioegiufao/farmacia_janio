@@ -72,17 +72,18 @@ function opt(select, items, valueKey = "id", labelKey = "name") {
   });
 }
 const ACI_BASE_COLORS = [
-  { name: "vermelho", hex: "#ff0000" },
-  { name: "amarelo", hex: "#ffff00" },
-  { name: "verde", hex: "#00ff00" },
-  { name: "ciano", hex: "#00ffff" },
-  { name: "azul", hex: "#0000ff" },
-  { name: "magenta", hex: "#ff00ff" },
-  { name: "branco", hex: "#ffffff" },
-  { name: "cinza", hex: "#808080" },
-  { name: "cinza escuro", hex: "#404040" },
-  { name: "preto", hex: "#000000" },
+  { index: 1, hex: "#ff0000" },
+  { index: 2, hex: "#ffff00" },
+  { index: 3, hex: "#00ff00" },
+  { index: 4, hex: "#00ffff" },
+  { index: 5, hex: "#0000ff" },
+  { index: 6, hex: "#ff00ff" },
+  { index: 7, hex: "#ffffff" },
+  { index: 8, hex: "#808080" },
+  { index: 9, hex: "#c0c0c0" },
+  { index: 255, hex: "#000000" },
 ];
+const ACI_TONE_OFFSETS = [0, 2, 4, 6, 8, 1, 3, 5, 7, 9];
 const ACI_HUES = Array.from({ length: 24 }, (_, i) => i * 15);
 const ACI_TONES = [
   { s: 1, l: 0.18 },
@@ -106,8 +107,18 @@ function hslToHex(h, s, l) {
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 function colorName(hex) {
-  const base = ACI_BASE_COLORS.find((color) => color.hex.toLowerCase() === hex.toLowerCase());
-  return base?.name || hex.toUpperCase();
+  const normalized = hex.toLowerCase();
+  const base = ACI_BASE_COLORS.find((color) => color.hex.toLowerCase() === normalized);
+  if (base) return String(base.index);
+  const palette = buildAciPalette();
+  const match = palette.find((color) => color.hex.toLowerCase() === normalized);
+  return match ? String(match.index) : hex.toUpperCase();
+}
+function buildAciPalette() {
+  return ACI_TONES.flatMap((tone, toneIndex) => ACI_HUES.map((hue, hueIndex) => ({
+    index: (hueIndex + 1) * 10 + ACI_TONE_OFFSETS[toneIndex],
+    hex: hslToHex(hue, tone.s, tone.l),
+  })));
 }
 function isSolidForm(item) {
   return store.state.forms.some((form) => form.id === item.id && (form.operation || "solid") === "solid");
@@ -183,26 +194,28 @@ function showAciColorDialog(item) {
   const grid = overlay.querySelector(".aci-grid");
   const baseRow = overlay.querySelector(".aci-base-row");
   const input = overlay.querySelector(".aci-name");
+  const windowEl = overlay.querySelector(".aci-window");
+  const titleBar = overlay.querySelector(".aci-title");
   const setSelected = (hex) => {
     selected = hex;
     input.value = colorName(hex);
     overlay.querySelectorAll(".aci-swatch").forEach((swatch) => swatch.classList.toggle("selected", swatch.dataset.hex === hex));
   };
-  ACI_TONES.forEach((tone) => ACI_HUES.forEach((hue) => {
-    const hex = hslToHex(hue, tone.s, tone.l);
+  buildAciPalette().forEach(({ index, hex }) => {
     const swatch = document.createElement("button");
     swatch.type = "button";
     swatch.className = "aci-swatch";
     swatch.dataset.hex = hex;
+    swatch.title = String(index);
     swatch.style.background = hex;
     swatch.onclick = () => setSelected(hex);
     grid.append(swatch);
-  }));
-  ACI_BASE_COLORS.forEach(({ hex, name }) => {
+  });
+  ACI_BASE_COLORS.forEach(({ index, hex }) => {
     const swatch = document.createElement("button");
     swatch.type = "button";
     swatch.className = "aci-swatch aci-base";
-    swatch.title = name;
+    swatch.title = String(index);
     swatch.dataset.hex = hex;
     swatch.style.background = hex;
     swatch.onclick = () => setSelected(hex);
@@ -210,6 +223,33 @@ function showAciColorDialog(item) {
   });
   overlay.querySelector(".aci-close").onclick = () => overlay.remove();
   overlay.querySelector(".aci-cancel").onclick = () => overlay.remove();
+  titleBar.addEventListener("pointerdown", (ev) => {
+    if (ev.target.closest("button")) return;
+    ev.preventDefault();
+    const rect = windowEl.getBoundingClientRect();
+    const startX = ev.clientX;
+    const startY = ev.clientY;
+    const startLeft = rect.left;
+    const startTop = rect.top;
+    overlay.classList.add("dragging");
+    windowEl.setPointerCapture(ev.pointerId);
+    const move = (moveEv) => {
+      const nextLeft = Math.min(Math.max(0, startLeft + moveEv.clientX - startX), window.innerWidth - rect.width);
+      const nextTop = Math.min(Math.max(0, startTop + moveEv.clientY - startY), window.innerHeight - rect.height);
+      windowEl.style.left = `${nextLeft}px`;
+      windowEl.style.top = `${nextTop}px`;
+      windowEl.style.transform = "none";
+    };
+    const stop = () => {
+      overlay.classList.remove("dragging");
+      windowEl.removeEventListener("pointermove", move);
+      windowEl.removeEventListener("pointerup", stop);
+      windowEl.removeEventListener("pointercancel", stop);
+    };
+    windowEl.addEventListener("pointermove", move);
+    windowEl.addEventListener("pointerup", stop);
+    windowEl.addEventListener("pointercancel", stop);
+  });
   overlay.querySelector(".aci-ok").onclick = () => {
     store.updateElement(item.id, { material: { ...(item.material || {}), color: selected } });
     overlay.remove();

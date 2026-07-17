@@ -34,6 +34,7 @@ export function createInitialState() {
     updatedAt: now(),
     activeTool: "select",
     editMode: null,
+    editingProfileId: null,
     creationSession: {
       active: false,
       formType: null,
@@ -233,6 +234,39 @@ export class Store {
   creationSteps(formType) {
     return ({ extrusion: ["profile"], blend: ["startProfile", "endProfile"], revolve: ["profile", "axis"], sweep: ["profile", "path"], sweptBlend: ["startProfile", "endProfile", "path"] })[formType] || ["profile"];
   }
+  beginProfileEdit(profileId) {
+    const profile = this.state.profiles.find((p) => p.id === profileId);
+    if (!profile) return false;
+    this.state.selectedElementId = profileId;
+    this.state.workView = profile.view || this.state.workView;
+    this.state.creationSession = createInitialState().creationSession;
+    this.state.activeTool = "line";
+    this.state.editMode = "profileEdit";
+    this.state.editingProfileId = profileId;
+    this.emit();
+    return true;
+  }
+  finishProfileEdit(points) {
+    const id = this.state.editingProfileId;
+    if (!id) return false;
+    this.pushHistory();
+    this.state.profiles = this.state.profiles.map((p) =>
+      p.id === id ? { ...p, points: points.map((pt) => ({ ...pt })) } : p,
+    );
+    this.state.editMode = null;
+    this.state.editingProfileId = null;
+    this.state.activeTool = "select";
+    this.state.selectedElementId = id;
+    this.emit();
+    return true;
+  }
+  cancelProfileEdit() {
+    if (this.state.editMode !== "profileEdit") return;
+    this.state.editMode = null;
+    this.state.editingProfileId = null;
+    this.state.activeTool = "select";
+    this.emit();
+  }
   setCreationDrawingTool(tool) {
     this.state.creationSession = { ...this.state.creationSession, drawingTool: tool, temporaryPoints: [] };
     this.state.activeTool = tool;
@@ -267,13 +301,13 @@ export class Store {
     const kind = cs.operation === "void" ? `${voidPrefix}${cap}` : cs.formType;
     if (cs.operation === "void" && cs.formType === "extrusion" && !this.voidIntersectsSolid(cs.profileIds[0])) {
       this.state.creationSession = createInitialState().creationSession;
-      this.state.editMode = null; this.state.activeTool = "select";
+      this.state.editMode = null; this.state.editingProfileId = null; this.state.activeTool = "select";
       this.emit();
       throw new Error("A forma vazia não intersecta nenhuma forma sólida.");
     }
     const form = this.addForm(kind, { operation: cs.operation, profileId: cs.profileIds[0], endProfileId: cs.profileIds[1] || cs.profileIds[0], pathId: cs.pathId || cs.axisId, axisId: cs.axisId, depth: "Profundidade" });
     this.state.creationSession = createInitialState().creationSession;
-    this.state.editMode = null; this.state.activeTool = "select";
+    this.state.editMode = null; this.state.editingProfileId = null; this.state.activeTool = "select";
     this.emit();
     return form;
   }
@@ -291,7 +325,7 @@ export class Store {
   }
   cancelCreationSession() {
     this.state.creationSession = createInitialState().creationSession;
-    this.state.editMode = null; this.state.activeTool = "select";
+    this.state.editMode = null; this.state.editingProfileId = null; this.state.activeTool = "select";
     this.emit();
   }
   updateElement(id, patch) {
@@ -408,5 +442,7 @@ export function validateFamily(data) {
     forms: Array.isArray(data.forms) ? data.forms : [],
     extrusions: Array.isArray(data.extrusions) ? data.extrusions : [],
     creationSession: base.creationSession,
+    editMode: null,
+    editingProfileId: null,
   };
 }

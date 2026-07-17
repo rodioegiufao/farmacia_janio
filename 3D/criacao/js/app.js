@@ -80,8 +80,39 @@ function itemButton(item) {
   b.textContent = `${item.visible === false ? "○" : "●"} ${item.name}`;
   b.className = item.id === store.state.selectedElementId ? "selected" : "";
   b.onclick = () => store.select(item.id);
+   b.oncontextmenu = (ev) => {
+    ev.preventDefault();
+    store.select(item.id);
+    showElementMenu(ev.clientX, ev.clientY, item);
+  };
   li.append(b);
   return li;
+}
+function showElementMenu(x, y, item) {
+  document.querySelector(".element-context-menu")?.remove();
+  const menu = document.createElement("div");
+  menu.className = "element-context-menu";
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  const edit = document.createElement("button");
+  edit.type = "button";
+  edit.textContent = "Editar perfil";
+  const isProfile = store.state.profiles.some((p) => p.id === item.id);
+  edit.disabled = !isProfile;
+  edit.onclick = () => {
+    menu.remove();
+    if (!store.beginProfileEdit(item.id)) return toast("Selecione um perfil para editar.", "error");
+    toast("Perfil em edição: ajuste os vértices na vista 2D e clique em Concluir.");
+  };
+  menu.append(edit);
+  document.body.append(menu);
+  const close = (ev) => {
+    if (!menu.contains(ev.target)) {
+      menu.remove();
+      document.removeEventListener("pointerdown", close);
+    }
+  };
+  setTimeout(() => document.addEventListener("pointerdown", close), 0);
 }
 function sync(s) {
   els.projectName.value = s.name;
@@ -150,11 +181,16 @@ function sync(s) {
     `Snap: ${s.settings.snapEnabled ? "ligado" : "desligado"}`;
   $("#toolStatus").textContent = `Ferramenta: ${els.activeToolLabel.value}`;
   const activeCreation = !!s.creationSession?.active;
-  $("#createRibbon")?.classList.toggle("hidden", activeCreation);
-  $("#creationRibbon")?.classList.toggle("hidden", !activeCreation);
-  $("#optionsBar")?.classList.toggle("hidden", !activeCreation);
+  const activeProfileEdit = s.editMode === "profileEdit";
+  const activeModify = activeCreation || activeProfileEdit;
+  $("#createRibbon")?.classList.toggle("hidden", activeModify);
+  $("#creationRibbon")?.classList.toggle("hidden", !activeModify);
+  $("#optionsBar")?.classList.toggle("hidden", !activeModify);
   $("#workViewRibbon") && ($("#workViewRibbon").value = s.workView);
-  if (activeCreation) {
+  if (activeProfileEdit) {
+    const profile = s.profiles.find((p) => p.id === s.editingProfileId);
+    $("#creationTitle").textContent = `Modificar | Editar perfil — ${profile?.name || "perfil selecionado"}`;
+  } else if (activeCreation) {
     const names = {
       extrusion: "extrusão",
       blend: "mesclar",

@@ -1,3 +1,11 @@
+import { MM_TO_SCENE } from "./state.js";
+import { buildGeometry, isVoidKind } from "./geometry-engine.js";
+
+const projectionPoint = (view, x, y, z) => {
+  if (view === "top") return { x, y: z };
+  if (view === "right") return { x: z, y };
+  return { x, y };
+};
 export class Plan2D {
   constructor(canvas, store, { onStatus, onError }) {
     Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, onError, scale: 0.7, off: { x: 0, y: 0 }, points: [], preview: null, drag: null });
@@ -52,5 +60,31 @@ export class Plan2D {
   cancel() { this.points = []; this.preview = null; if (this.s?.creationSession?.active) this.store.cancelCreationSession(); this.draw(); }
   pick(p) { let best=null, bd=1e9; for (const prof of this.s.profiles) for (const pt of prof.points) { const d=Math.hypot(pt.x-p.x,pt.y-p.y); if(d<bd){bd=d; best=prof;} } this.store.select(bd < 25 ? best.id : null); }
   drawPoly(points, close, color, selected = false, stroke = null) { const ctx=this.ctx; if(!points.length) return; ctx.beginPath(); points.map((p)=>this.screen(p)).forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); if(close) ctx.closePath(); ctx.fillStyle=color; ctx.strokeStyle=stroke || (selected ? "#0a5fb4" : "#2d4b55"); ctx.lineWidth=selected?3:2; if(close) ctx.fill(); ctx.stroke(); }
-  draw() { if(!this.s) return; const r=this.c.getBoundingClientRect(), ctx=this.ctx; ctx.clearRect(0,0,r.width,r.height); if(this.s.settings.showGrid){ const minor=this.s.settings.snapStep*this.scale, major=this.s.settings.majorGrid*this.scale; ctx.lineWidth=1; for(const [st,col] of [[minor,"#edf2f2"],[major,"#cad8d8"]]){ ctx.strokeStyle=col; for(let x=this.off.x%st;x<r.width;x+=st){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,r.height);ctx.stroke();} for(let y=this.off.y%st;y<r.height;y+=st){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(r.width,y);ctx.stroke();}} } const o=this.screen({x:0,y:0}); ctx.strokeStyle="#b55"; ctx.beginPath(); ctx.moveTo(o.x-10,o.y);ctx.lineTo(o.x+10,o.y);ctx.moveTo(o.x,o.y-10);ctx.lineTo(o.x,o.y+10);ctx.stroke(); (this.s.paths||[]).filter((p)=>p.visible!==false).forEach((path)=>this.drawPoly(path.points,false,path.id===this.s.selectedElementId?"#f6a13a88":"#f6a13a55",path.id===this.s.selectedElementId)); this.s.profiles.filter((p)=>p.visible!==false&&p.view===this.s.workView).forEach((p)=>this.drawPoly(p.points,true,p.id===this.s.selectedElementId?"#76b7f055":"#8dd6c455",p.id===this.s.selectedElementId)); const draft=this.currentDraft(); this.drawPoly(draft,false,"#ff00cc22",true,this.s.creationSession?.operation==="void"?"#f36b2d":"#ff00cc"); if(this.preview){ const sp=this.screen(this.preview); ctx.fillStyle="#ff00cc"; ctx.beginPath(); ctx.arc(sp.x,sp.y,4,0,Math.PI*2); ctx.fill(); } }
+  projectedSegments(form) {
+    const geom = buildGeometry(this.s, form);
+    const pos = geom?.attributes?.position;
+    if (!pos) return [];
+    const offset = (Number(form.offset) || 0) * MM_TO_SCENE;
+    const index = geom.index?.array;
+    const edgeKeys = new Set(), segments = [];
+    const read = (i) => projectionPoint(this.s.workView, pos.getX(i) / MM_TO_SCENE, pos.getY(i) / MM_TO_SCENE, (pos.getZ(i) + offset) / MM_TO_SCENE);
+    const add = (a, b) => {
+      const key = a < b ? `${a}:${b}` : `${b}:${a}`;
+      if (edgeKeys.has(key)) return;
+      edgeKeys.add(key);
+      const p = read(a), q = read(b);
+      if (Math.hypot(p.x - q.x, p.y - q.y) > 0.01) segments.push([p, q]);
+    };
+    if (index) for (let i = 0; i < index.length; i += 3) { add(index[i], index[i + 1]); add(index[i + 1], index[i + 2]); add(index[i + 2], index[i]); }
+    else for (let i = 0; i < pos.count; i += 3) { add(i, i + 1); add(i + 1, i + 2); add(i + 2, i); }
+    geom.dispose();
+    return segments;
+  }
+  drawProjection(form) {
+    const ctx = this.ctx, isVoid = isVoidKind(form.kind), selected = form.id === this.s.selectedElementId;
+    ctx.save(); ctx.strokeStyle = selected ? (isVoid ? "#d95b18" : "#0a5fb4") : (isVoid ? "#f36b2d99" : "#225b7a66"); ctx.lineWidth = selected ? 2.5 : 1.4; ctx.setLineDash(isVoid ? [7, 5] : []);
+    this.projectedSegments(form).forEach(([a,b]) => { const p=this.screen(a), q=this.screen(b); ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke(); });
+    ctx.restore();
+  }
+  draw() { if(!this.s) return; const r=this.c.getBoundingClientRect(), ctx=this.ctx; ctx.clearRect(0,0,r.width,r.height); if(this.s.settings.showGrid){ const minor=this.s.settings.snapStep*this.scale, major=this.s.settings.majorGrid*this.scale; ctx.lineWidth=1; for(const [st,col] of [[minor,"#edf2f2"],[major,"#cad8d8"]]){ ctx.strokeStyle=col; for(let x=this.off.x%st;x<r.width;x+=st){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,r.height);ctx.stroke();} for(let y=this.off.y%st;y<r.height;y+=st){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(r.width,y);ctx.stroke();}} } const o=this.screen({x:0,y:0}); ctx.strokeStyle="#b55"; ctx.beginPath(); ctx.moveTo(o.x-10,o.y);ctx.lineTo(o.x+10,o.y);ctx.moveTo(o.x,o.y-10);ctx.lineTo(o.x,o.y+10);ctx.stroke(); (this.s.forms||this.s.extrusions||[]).filter((f)=>f.visible!==false).forEach((f)=>this.drawProjection(f)); (this.s.paths||[]).filter((p)=>p.visible!==false).forEach((path)=>this.drawPoly(path.points,false,path.id===this.s.selectedElementId?"#f6a13a88":"#f6a13a55",path.id===this.s.selectedElementId)); this.s.profiles.filter((p)=>p.visible!==false&&p.view===this.s.workView).forEach((p)=>this.drawPoly(p.points,true,p.id===this.s.selectedElementId?"#76b7f055":"#8dd6c455",p.id===this.s.selectedElementId)); const draft=this.currentDraft(); this.drawPoly(draft,false,"#ff00cc22",true,this.s.creationSession?.operation==="void"?"#f36b2d":"#ff00cc"); if(this.preview){ const sp=this.screen(this.preview); ctx.fillStyle="#ff00cc"; ctx.beginPath(); ctx.arc(sp.x,sp.y,4,0,Math.PI*2); ctx.fill(); } }
 }

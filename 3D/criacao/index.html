@@ -1,1 +1,144 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EngRodrigo Family Studio</title><link rel="stylesheet" href="/3D/criacao/css/style.css"><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}</script></head><body><div class="app-shell"><header class="topbar"><div class="brand"><strong>EngRodrigo Family Studio</strong><span>Editor de famílias BIM paramétricas</span></div><nav class="actions"><button id="newProject">Nova família</button><button id="saveProject">Salvar</button><button id="exportJson">Exportar JSON</button><button id="exportIfc2x3">Exportar IFC2x3</button><button id="exportIfc4">Exportar IFC4</button><label class="button file">Importar JSON<input id="importJson" type="file" accept="application/json,.json"></label><button id="undo">↶ Desfazer</button><button id="redo">↷ Refazer</button><button id="deleteSelected">Excluir</button></nav><nav class="view-tabs"><button data-view="plan">Vista 2D</button><button data-view="three">3D</button><button data-view="split" class="active">Dividida</button></nav></header><main class="workspace"><aside class="panel left"><button class="collapse" data-target="left">☰</button><section><h2>Família</h2><label>Nome<input id="projectName" type="text"></label><label>Categoria<select id="category"></select></label><label>Vista de trabalho<select id="workView"></select></label><label>Ferramenta ativa<input id="activeToolLabel" readonly></label><div class="tools"><button id="toolSelect">Selecionar</button><button id="toolProfile" class="active">Perfil fechado</button><button id="extrudeSelected">Criar extrusão</button><button id="orthoToggle">Orto</button></div><label>Profundidade da nova extrusão (mm ou parâmetro)<input id="defaultDepth" value="Profundidade"></label><label>Passo do snap (mm)<input id="snapStep" type="number" min="1" step="1"></label><label>Grade principal (mm)<input id="majorGrid" type="number" min="10" step="10"></label><label class="check"><input id="showGrid" type="checkbox"> Mostrar grade</label><label class="check"><input id="snapEnabled" type="checkbox"> Ativar snap</label><button id="deleteSelectedSide">Excluir selecionado</button></section><section><h2>Parâmetros</h2><div id="parameterList"></div><div class="inline"><input id="newParamName" placeholder="Nome"><input id="newParamValue" type="number" placeholder="mm"><button id="addParam">+</button></div></section><section id="selectedPanel"><h2>Selecionado</h2><p class="muted">Nada selecionado.</p></section></aside><section class="canvas-area split"><div id="planView" class="view"><canvas id="planCanvas"></canvas></div><div id="threeView" class="view"><canvas id="threeCanvas"></canvas></div><div id="toast"></div></section><aside class="panel right"><button class="collapse" data-target="right">☰</button><h2>Navegador</h2><ul class="tree"><li>▾ <span id="treeProjectName">Família</span><ul><li>Categoria: <span id="treeCategory"></span></li><li>▾ Tipos <button id="addType">+</button><ul id="typeTree"></ul></li><li>▾ Perfis <span id="profileCount">0</span><ul id="profileTree"></ul></li><li>▾ Extrusões <span id="extrusionCount">0</span><ul id="extrusionTree"></ul></li></ul></li></ul></aside></main><footer class="statusbar"><span id="coordX">X: 0 mm</span><span id="coordY">Y: 0 mm</span><span id="tempLength">Segmento: —</span><span id="snapStatus">Snap: ligado</span><span>Unidade: mm</span><span id="toolStatus">Ferramenta: Perfil</span></footer></div><script type="module" src="/3D/criacao/js/app.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>EngRodrigo Family Studio</title>
+    <link rel="icon" href="/images/favicon.ico" sizes="any" />
+    <link rel="stylesheet" href="/3D/criacao/css/style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <strong>EngRodrigo Family Studio</strong
+          ><span>Editor de famílias BIM paramétricas</span>
+        </div>
+        <nav class="actions">
+          <button id="newProject">Nova família</button
+          ><button id="saveProject">Salvar</button
+          ><button id="exportJson">Exportar JSON</button
+          ><button id="exportIfc2x3">Exportar IFC2x3</button
+          ><button id="exportIfc4">Exportar IFC4</button
+          ><label class="button file"
+            >Importar JSON<input
+              id="importJson"
+              type="file"
+              accept="application/json,.json" /></label
+          ><button id="undo">↶ Desfazer</button
+          ><button id="redo">↷ Refazer</button
+          ><button id="deleteSelected">Excluir</button>
+        </nav>
+        <nav class="view-tabs">
+          <button data-view="plan">Vista 2D</button
+          ><button data-view="three">3D</button
+          ><button data-view="split" class="active">Dividida</button>
+        </nav>
+      </header>
+      <main class="workspace">
+        <aside class="panel left">
+          <button class="collapse" data-target="left">☰</button>
+          <section>
+            <h2>Família</h2>
+            <label>Nome<input id="projectName" type="text" /></label
+            ><label>Categoria<select id="category"></select></label
+            ><label>Vista de trabalho<select id="workView"></select></label
+            ><label
+              >Ferramenta ativa<input id="activeToolLabel" readonly
+            /></label>
+            <div class="tools">
+              <button id="toolSelect">Selecionar</button
+              ><button id="toolProfile" class="active">Perfil fechado</button
+              ><button id="extrudeSelected">Criar extrusão</button
+              ><button id="orthoToggle">Orto</button>
+            </div>
+            <label
+              >Profundidade da nova extrusão (mm ou parâmetro)<input
+                id="defaultDepth"
+                value="Profundidade" /></label
+            ><label
+              >Passo do snap (mm)<input
+                id="snapStep"
+                type="number"
+                min="1"
+                step="1" /></label
+            ><label
+              >Grade principal (mm)<input
+                id="majorGrid"
+                type="number"
+                min="10"
+                step="10" /></label
+            ><label class="check"
+              ><input id="showGrid" type="checkbox" /> Mostrar grade</label
+            ><label class="check"
+              ><input id="snapEnabled" type="checkbox" /> Ativar snap</label
+            ><button id="deleteSelectedSide">Excluir selecionado</button>
+          </section>
+          <section>
+            <h2>Parâmetros</h2>
+            <div id="parameterList"></div>
+            <div class="inline">
+              <input id="newParamName" placeholder="Nome" /><input
+                id="newParamValue"
+                type="number"
+                placeholder="mm"
+              /><button id="addParam">+</button>
+            </div>
+          </section>
+          <section id="selectedPanel">
+            <h2>Selecionado</h2>
+            <p class="muted">Nada selecionado.</p>
+          </section>
+        </aside>
+        <section class="canvas-area split">
+          <div id="planView" class="view">
+            <canvas id="planCanvas"></canvas>
+          </div>
+          <div id="threeView" class="view">
+            <canvas id="threeCanvas"></canvas>
+          </div>
+          <div id="toast"></div>
+        </section>
+        <aside class="panel right">
+          <button class="collapse" data-target="right">☰</button>
+          <h2>Navegador</h2>
+          <ul class="tree">
+            <li>
+              ▾ <span id="treeProjectName">Família</span>
+              <ul>
+                <li>Categoria: <span id="treeCategory"></span></li>
+                <li>
+                  ▾ Tipos <button id="addType">+</button>
+                  <ul id="typeTree"></ul>
+                </li>
+                <li>
+                  ▾ Perfis <span id="profileCount">0</span>
+                  <ul id="profileTree"></ul>
+                </li>
+                <li>
+                  ▾ Extrusões <span id="extrusionCount">0</span>
+                  <ul id="extrusionTree"></ul>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </aside>
+      </main>
+      <footer class="statusbar">
+        <span id="coordX">X: 0 mm</span><span id="coordY">Y: 0 mm</span
+        ><span id="tempLength">Segmento: —</span
+        ><span id="snapStatus">Snap: ligado</span><span>Unidade: mm</span
+        ><span id="toolStatus">Ferramenta: Perfil</span>
+      </footer>
+    </div>
+    <script type="module" src="/3D/criacao/js/app.js"></script>
+  </body>
+</html>

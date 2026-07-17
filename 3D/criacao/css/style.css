@@ -225,8 +225,29 @@ button.active,
     font-size: 11px;
   }
 }
-select { border: 1px solid var(--line); border-radius: 5px; padding: 7px; background: #fff; }
-.inline { display: grid; grid-template-columns: 1fr 80px auto; gap: 6px; align-items: center; }
-.param-row { display: grid; grid-template-columns: 1fr 88px 28px; gap: 6px; align-items: center; margin: 6px 0; }
-.param-row span { font-size: 12px; color: #667; }
-.tree > li { line-height: 1.7; }
+select {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 7px;
+  background: #fff;
+}
+.inline {
+  display: grid;
+  grid-template-columns: 1fr 80px auto;
+  gap: 6px;
+  align-items: center;
+}
+.param-row {
+  display: grid;
+  grid-template-columns: 1fr 88px 28px;
+  gap: 6px;
+  align-items: center;
+  margin: 6px 0;
+}
+.param-row span {
+  font-size: 12px;
+  color: #667;
+}
+.tree > li {
+  line-height: 1.7;
+}

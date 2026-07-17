@@ -80,7 +80,8 @@ button.active,
 }
 .workspace {
   display: grid;
-  grid-template-columns: 280px 1fr 260px;
+  grid-template-columns: 280px minmax(0, 1fr) 260px;
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
 }
 .panel {
@@ -91,6 +92,7 @@ button.active,
 }
 .left {
   grid-column: 1;
+  grid-row: 1;
 }
 .right {
   border-right: 0;
@@ -98,9 +100,11 @@ button.active,
 }
 .navigator-panel {
   grid-column: 3;
+  grid-row: 1;
 }
 .canvas-area {
   grid-column: 2;
+  grid-row: 1;
 }
 .panel h2 {
   font-size: 14px;

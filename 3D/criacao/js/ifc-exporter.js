@@ -344,13 +344,13 @@ function createModel(writer, state) {
     : createIfc2x3SpatialStructure(writer, state.name, ownerHistory);
   const params = parameterMap(state);
   const elementIds = [];
-  for (const extrusion of state.extrusions.filter((item) => item.visible !== false)) {
+  for (const extrusion of (state.forms?.length ? state.forms : state.extrusions).filter((item) => item.visible !== false && (item.operation || "solid") === "solid" && ["extrusion", undefined].includes(item.kind))) {
     const profile = state.profiles.find((item) => item.id === extrusion.profileId && item.visible !== false);
     if (!profile || profile.points.length < 3) continue;
     elementIds.push(addExtrusion(writer, state, extrusion, profile, params, context, ownerHistory));
   }
   if (!elementIds.length) {
-    throw new Error("Crie ao menos uma extrusão visível antes de exportar IFC.");
+    throw new Error("Crie ao menos uma forma sólida exportável antes de exportar IFC.");
   }
   writer.add("IFCRELCONTAINEDINSPATIALSTRUCTURE", [
     ...writer.rootArgs(ownerHistory, "Contenção espacial", "$", "$"),

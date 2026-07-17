@@ -94,6 +94,7 @@ export class Plan2D {
     }
     const { point } = this.snap(this.world(e), e.shiftKey);
     if (this.s.activeTool === "select") return this.pick(point);
+    if (["rectangle", "circle", "polygon"].includes(this.s.activeTool)) return this.primitive(point);
     if (
       this.points.length > 2 &&
       Math.hypot(point.x - this.points[0].x, point.y - this.points[0].y) < 15
@@ -122,18 +123,30 @@ export class Plan2D {
     this.draw();
   }
   finish() {
-    if (this.points.length < 3) {
-      if (this.points.length)
-        this.onError("Crie ao menos três pontos para fechar um perfil.");
+    if (this.s.activeTool === "line") {
+      if (this.points.length < 2) return this.onError("Crie ao menos dois pontos para um caminho.");
+    } else if (this.points.length < 3) {
+      if (this.points.length) this.onError("Crie ao menos três pontos para fechar um perfil.");
       return;
     }
-    this.store.addProfile([...this.points]);
+    if (this.s.activeTool === "line") this.store.addPath(this.points.map((p) => ({ ...p, z: 0 })));
+    else this.store.addProfile([...this.points]);
     this.cancel();
   }
   cancel() {
     this.points = [];
     this.preview = null;
     this.draw();
+  }
+  primitive(center) {
+    const size = 200;
+    if (this.s.activeTool === "rectangle") {
+      this.store.addProfile([{x:center.x-size/2,y:center.y-size/2},{x:center.x+size/2,y:center.y-size/2},{x:center.x+size/2,y:center.y+size/2},{x:center.x-size/2,y:center.y+size/2}], { name: `Retângulo ${this.s.profiles.length + 1}` });
+    } else {
+      const n = this.s.activeTool === "circle" ? 32 : 6;
+      const pts = Array.from({length:n}, (_, i) => ({ x: center.x + Math.cos((i/n)*Math.PI*2)*size/2, y: center.y + Math.sin((i/n)*Math.PI*2)*size/2 }));
+      this.store.addProfile(pts, { name: `${this.s.activeTool === "circle" ? "Círculo" : "Polígono"} ${this.s.profiles.length + 1}` });
+    }
   }
   pick(p) {
     let best = null,
@@ -198,6 +211,7 @@ export class Plan2D {
     ctx.moveTo(o.x, o.y - 10);
     ctx.lineTo(o.x, o.y + 10);
     ctx.stroke();
+    (this.s.paths || []).filter((p) => p.visible !== false).forEach((path) => this.drawPoly(path.points, false, path.id === this.s.selectedElementId ? "#f6a13a88" : "#f6a13a55", path.id === this.s.selectedElementId));
     this.s.profiles
       .filter((p) => p.visible !== false && p.view === this.s.workView)
       .forEach((p) =>

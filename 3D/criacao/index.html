@@ -18,30 +18,22 @@
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <div class="brand">
-          <strong>EngRodrigo Family Studio</strong
-          ><span>Editor de famílias BIM paramétricas</span>
+        <div class="quickbar">
+          <div class="brand"><strong>EngRodrigo Family Studio</strong><span>Editor de famílias BIM paramétricas</span></div>
+          <nav class="actions compact">
+            <button id="newProject">Nova família</button><button id="saveProject">Salvar</button>
+            <label class="button file">Importar JSON<input id="importJson" type="file" accept="application/json,.json" /></label>
+            <button id="exportJson">Exportar JSON</button><button id="exportIfc2x3">Exportar IFC2x3</button><button id="exportIfc4">Exportar IFC4</button>
+            <button id="undo">↶ Desfazer</button><button id="redo">↷ Refazer</button>
+          </nav>
+          <nav class="view-tabs"><button data-view="plan">Vista 2D</button><button data-view="three">Vista 3D</button><button data-view="split" class="active">Dividida</button></nav>
         </div>
-        <nav class="actions">
-          <button id="newProject">Nova família</button
-          ><button id="saveProject">Salvar</button
-          ><button id="exportJson">Exportar JSON</button
-          ><button id="exportIfc2x3">Exportar IFC2x3</button
-          ><button id="exportIfc4">Exportar IFC4</button
-          ><label class="button file"
-            >Importar JSON<input
-              id="importJson"
-              type="file"
-              accept="application/json,.json" /></label
-          ><button id="undo">↶ Desfazer</button
-          ><button id="redo">↷ Refazer</button
-          ><button id="deleteSelected">Excluir</button>
-        </nav>
-        <nav class="view-tabs">
-          <button data-view="plan">Vista 2D</button
-          ><button data-view="three">3D</button
-          ><button data-view="split" class="active">Dividida</button>
-        </nav>
+        <div class="ribbon">
+          <section><h3>Formas sólidas</h3><div><button class="tool solid" data-form="extrusion">▰ Extrusão</button><button class="tool solid" data-form="blend">▱ Mesclar</button><button class="tool solid" data-form="revolve">◔ Revolver</button><button class="tool solid" data-form="sweep">⌁ Varredura</button><button class="tool solid" data-form="sweptBlend">⟿ Mesclar com varredura</button></div></section>
+          <section><h3>Formas vazias</h3><div><button class="tool void" data-form="voidExtrusion">▰ Extrusão vazia</button><button class="tool void" data-form="voidBlend">▱ Mescla vazia</button><button class="tool void" data-form="voidRevolve">◔ Revolução vazia</button><button class="tool void" data-form="voidSweep">⌁ Varredura vazia</button><button class="tool void" data-form="voidSweptBlend">⟿ Mescla com varredura vazia</button></div></section>
+          <section><h3>Desenho</h3><div><button class="tool" id="toolLine">Linha</button><button class="tool" id="toolRectangle">Retângulo</button><button class="tool" id="toolCircle">Círculo</button><button class="tool" id="toolPolygon">Polígono</button><button class="tool" id="toolSelect">Selecionar</button><button class="tool" id="orthoToggle">Orto</button></div></section>
+          <section id="contextRibbon"><h3>Contextual</h3><div><button class="finish" id="finishEdit">Finalizar</button><button class="cancel" id="cancelEdit">Cancelar</button><button class="tool" id="editProfile">Editar perfil</button><button class="tool" id="editPath">Editar caminho</button><button class="tool" id="editAxis">Editar eixo</button></div></section>
+        </div>
       </header>
       <main class="workspace">
         <aside class="panel left">
@@ -55,10 +47,7 @@
               >Ferramenta ativa<input id="activeToolLabel" readonly
             /></label>
             <div class="tools">
-              <button id="toolSelect">Selecionar</button
-              ><button id="toolProfile" class="active">Perfil fechado</button
-              ><button id="extrudeSelected">Criar extrusão</button
-              ><button id="orthoToggle">Orto</button>
+              <button id="toolProfile">Perfil livre</button><button id="extrudeSelected">Criar extrusão</button>
             </div>
             <label
               >Profundidade da nova extrusão (mm ou parâmetro)<input
@@ -124,7 +113,7 @@
                   <ul id="profileTree"></ul>
                 </li>
                 <li>
-                  ▾ Extrusões <span id="extrusionCount">0</span>
+                  ▾ Formas <span id="extrusionCount">0</span>
                   <ul id="extrusionTree"></ul>
                 </li>
               </ul>

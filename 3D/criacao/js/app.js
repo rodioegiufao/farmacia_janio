@@ -87,22 +87,23 @@ function sync(s) {
   els.category.value = s.category;
   els.workView.value = s.workView;
   els.activeToolLabel.value =
-    s.activeTool === "profile" ? "Perfil fechado" : "Selecionar";
+    ({ select: "Selecionar", profile: "Perfil livre", line: "Linha", rectangle: "Retângulo", circle: "Círculo", polygon: "Polígono" }[s.activeTool] || s.activeTool);
   els.snapStep.value = s.settings.snapStep;
   els.majorGrid.value = s.settings.majorGrid;
   els.showGrid.checked = s.settings.showGrid;
   els.snapEnabled.checked = s.settings.snapEnabled;
-  $("#toolProfile").classList.toggle("active", s.activeTool === "profile");
-  $("#toolSelect").classList.toggle("active", s.activeTool === "select");
+  $("#toolProfile")?.classList.toggle("active", s.activeTool === "profile");
+  $("#toolSelect")?.classList.toggle("active", s.activeTool === "select");
+  ["Line", "Rectangle", "Circle", "Polygon"].forEach((n) => $("#tool" + n)?.classList.toggle("active", s.activeTool === n.toLowerCase()));
   $("#orthoToggle").classList.toggle("active", s.settings.ortho);
   els.treeProjectName.textContent = s.name;
   els.treeCategory.textContent = s.category;
   els.profileCount.textContent = s.profiles.length;
-  els.extrusionCount.textContent = s.extrusions.length;
+  els.extrusionCount.textContent = (s.forms || s.extrusions).length;
   els.profileTree.innerHTML = "";
   s.profiles.forEach((p) => els.profileTree.append(itemButton(p)));
   els.extrusionTree.innerHTML = "";
-  s.extrusions.forEach((e) => els.extrusionTree.append(itemButton(e)));
+  (s.forms || s.extrusions).forEach((e) => els.extrusionTree.append(itemButton(e)));
   els.typeTree.innerHTML = "";
   s.types.forEach((t) => {
     const li = document.createElement("li"),
@@ -124,7 +125,8 @@ function sync(s) {
   $("#snapStatus").textContent =
     `Snap: ${s.settings.snapEnabled ? "ligado" : "desligado"}`;
   $("#toolStatus").textContent =
-    `Ferramenta: ${s.activeTool === "profile" ? "Perfil" : "Selecionar"}`;
+    `Ferramenta: ${els.activeToolLabel.value}`;
+  $("#contextRibbon")?.classList.toggle("is-idle", !s.editMode);
 }
 function renderParams(s) {
   els.parameterList.innerHTML = "";
@@ -147,14 +149,14 @@ function renderParams(s) {
 }
 function renderSelected(s) {
   const p = s.profiles.find((x) => x.id === s.selectedElementId),
-    e = s.extrusions.find((x) => x.id === s.selectedElementId);
+    e = (s.forms || s.extrusions).find((x) => x.id === s.selectedElementId);
   if (!p && !e) {
     els.selectedPanel.innerHTML =
       '<h2>Selecionado</h2><p class="muted">Nada selecionado.</p>';
     return;
   }
   const item = p || e;
-  els.selectedPanel.innerHTML = `<h2>Selecionado</h2><label>Nome<input id="selName" value="${item.name}"></label><label class="check"><input id="selVisible" type="checkbox" ${item.visible !== false ? "checked" : ""}> Visível</label>${e ? `<label>Profundidade (mm ou parâmetro)<input id="selDepth" value="${e.depth}"></label><label>Deslocamento (mm)<input id="selOffset" type="number" value="${e.offset || 0}"></label>` : `<p>${p.points.length} vértices na vista ${p.view}.</p>`}`;
+  els.selectedPanel.innerHTML = `<h2>Selecionado</h2><label>Nome<input id="selName" value="${item.name}"></label><label class="check"><input id="selVisible" type="checkbox" ${item.visible !== false ? "checked" : ""}> Visível</label>${e ? `<p>Tipo: ${e.kind || "extrusion"} (${e.operation || "solid"})</p><label>Profundidade/distância<input id="selDepth" value="${e.depth || e.distance || "Profundidade"}"></label><label>Deslocamento (mm)<input id="selOffset" type="number" value="${e.offset || 0}"></label>` : `<p>${p.points.length} vértices na vista ${p.view}.</p>`}`;
   $("#selName").onchange = (ev) =>
     store.updateElement(item.id, { name: ev.target.value.trim() || item.name });
   $("#selVisible").onchange = (ev) =>
@@ -166,7 +168,7 @@ function renderSelected(s) {
       store.updateElement(e.id, { offset: Number(ev.target.value) || 0 });
   }
 }
-new Plan2D($("#planCanvas"), store, {
+const plan2d = new Plan2D($("#planCanvas"), store, {
   onStatus: (p, len, kind) => {
     $("#coordX").textContent = `X: ${p.x.toFixed(0)} mm`;
     $("#coordY").textContent = `Y: ${p.y.toFixed(0)} mm`;
@@ -178,8 +180,12 @@ new Plan2D($("#planCanvas"), store, {
 });
 new Scene3D($("#threeCanvas"), store);
 store.subscribe(sync);
-$("#toolProfile").onclick = () => store.set({ activeTool: "profile" });
-$("#toolSelect").onclick = () => store.set({ activeTool: "select" });
+$("#toolProfile").onclick = () => store.set({ activeTool: "profile", editMode: "profile" });
+$("#toolSelect").onclick = () => store.set({ activeTool: "select", editMode: null });
+$("#toolLine").onclick = () => store.set({ activeTool: "line", editMode: "path" });
+$("#toolRectangle").onclick = () => store.set({ activeTool: "rectangle", editMode: "profile" });
+$("#toolCircle").onclick = () => store.set({ activeTool: "circle", editMode: "profile" });
+$("#toolPolygon").onclick = () => store.set({ activeTool: "polygon", editMode: "profile" });
 $("#orthoToggle").onclick = () =>
   store.updateSettings({ ortho: !store.state.settings.ortho });
 document
@@ -211,7 +217,7 @@ $("#extrudeSelected").onclick = () => {
   const id = store.state.selectedElementId;
   if (!store.state.profiles.some((p) => p.id === id))
     return toast("Selecione um perfil para extrudar.", "error");
-  store.addExtrusion(id, els.defaultDepth.value || "Profundidade");
+  store.addForm("extrusion", { profileId: id, depth: els.defaultDepth.value || "Profundidade" });
   toast("Extrusão criada.");
 };
 $("#addParam").onclick = () => {
@@ -236,16 +242,17 @@ $("#newProject").onclick = () => {
           format: "engrodrigo-family-json",
           profiles: [],
           extrusions: [],
+          forms: [],
+          paths: [],
           name: "Nova família paramétrica",
         },
       }),
     );
   }
 };
-$("#deleteSelected").onclick = $("#deleteSelectedSide").onclick = () =>
-  store.deleteSelected()
-    ? toast("Elemento excluído.")
-    : toast("Nada selecionado.", "error");
+const deleteAction = () => store.deleteSelected() ? toast("Elemento excluído.") : toast("Nada selecionado.", "error");
+if ($("#deleteSelected")) $("#deleteSelected").onclick = deleteAction;
+$("#deleteSelectedSide").onclick = deleteAction;
 $("#undo").onclick = () => store.undo();
 $("#redo").onclick = () => store.redo();
 $("#exportJson").onclick = () =>
@@ -293,3 +300,9 @@ try {
 } catch {
   toast("Não foi possível restaurar a família salva.", "error");
 }
+document.querySelectorAll("[data-form]").forEach((b) => (b.onclick = () => { if (!store.addForm(b.dataset.form, { depth: els.defaultDepth.value || "Profundidade" })) return toast("Crie ou selecione um perfil antes de usar a forma.", "error"); toast(`${b.textContent.trim()} criada.`); }));
+$("#finishEdit").onclick = () => { plan2d.finish(); store.set({ editMode: null }); toast("Edição finalizada."); };
+$("#cancelEdit").onclick = () => { plan2d.cancel(); store.set({ editMode: null, activeTool: "select" }); toast("Edição cancelada."); };
+$("#editProfile").onclick = () => store.set({ activeTool: "profile", editMode: "profile" });
+$("#editPath").onclick = () => store.set({ activeTool: "line", editMode: "path" });
+$("#editAxis").onclick = () => toast("Eixo de revolução padrão: Y global. Ajuste ângulos no painel selecionado.");

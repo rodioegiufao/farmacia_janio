@@ -26,13 +26,14 @@ export function uuid(prefix = "id") {
 export function createInitialState() {
   return {
     format: "engrodrigo-family-json",
-    formatVersion: 1,
+    formatVersion: 2,
     appName: "EngRodrigo Family Studio",
     name: "Nova família paramétrica",
     category: "Mobiliário",
     createdAt: now(),
     updatedAt: now(),
-    activeTool: "profile",
+    activeTool: "select",
+    editMode: null,
     view: "split",
     workView: "front",
     selectedElementId: null,
@@ -76,6 +77,8 @@ export function createInitialState() {
       },
     ],
     profiles: [],
+    paths: [],
+    forms: [],
     extrusions: [],
     history: { undo: [], redo: [] },
   };
@@ -142,7 +145,7 @@ export class Store {
   updateSettings(p) {
     this.set({ settings: { ...this.state.settings, ...p } });
   }
-  addProfile(points) {
+  addProfile(points, patch = {}) {
     this.pushHistory();
     const item = {
       id: uuid("profile"),
@@ -151,10 +154,38 @@ export class Store {
       points,
       visible: true,
       material: { color: "#8dd6c4" },
+      ...patch,
     };
     this.state.profiles.push(item);
     this.state.selectedElementId = item.id;
     this.emit();
+  }
+  addPath(points, patch = {}) {
+    this.pushHistory();
+    const item = { id: uuid("path"), name: `Caminho ${this.state.paths.length + 1}`, points, visible: true, ...patch };
+    this.state.paths.push(item);
+    this.state.selectedElementId = item.id;
+    this.emit();
+    return item;
+  }
+  addForm(kind, options = {}) {
+    const solid = !String(kind).startsWith("void");
+    const profile = this.state.profiles.find((p) => p.id === (options.profileId || this.state.selectedElementId)) || this.state.profiles[0];
+    if (!profile) return null;
+    this.pushHistory();
+    const item = {
+      id: uuid("form"), name: `${solid ? "Forma" : "Vazio"} ${this.state.forms.length + 1}`,
+      kind, operation: solid ? "solid" : "void", profileId: profile.id,
+      endProfileId: options.endProfileId || profile.id, pathId: options.pathId || this.state.paths?.[0]?.id || null,
+      depth: options.depth ?? "Profundidade", offset: options.offset ?? 0, distance: options.distance ?? "Profundidade",
+      startAngle: options.startAngle ?? 0, endAngle: options.endAngle ?? 360, segments: options.segments ?? 48,
+      visible: true, material: { color: solid ? "#4aa3df" : "#f36b2d" },
+    };
+    this.state.forms.push(item);
+    this.state.extrusions = this.state.forms.filter((f) => f.kind === "extrusion");
+    this.state.selectedElementId = item.id;
+    this.emit();
+    return item;
   }
   addExtrusion(profileId, depth = "Profundidade", offset = 0) {
     const profile = this.state.profiles.find((p) => p.id === profileId);
@@ -170,12 +201,13 @@ export class Store {
       material: { color: "#4aa3df" },
     };
     this.state.extrusions.push(item);
+    this.state.forms.push({ ...item, kind: "extrusion", operation: "solid" });
     this.state.selectedElementId = item.id;
     this.emit();
   }
   updateElement(id, patch) {
     this.pushHistory();
-    for (const key of ["profiles", "extrusions"])
+    for (const key of ["profiles", "paths", "forms", "extrusions"])
       this.state[key] = this.state[key].map((e) =>
         e.id === id ? { ...e, ...patch } : e,
       );
@@ -190,6 +222,8 @@ export class Store {
     if (!id) return false;
     this.pushHistory();
     this.state.profiles = this.state.profiles.filter((p) => p.id !== id);
+    this.state.paths = (this.state.paths || []).filter((p) => p.id !== id);
+    this.state.forms = (this.state.forms || []).filter((e) => e.id !== id && e.profileId !== id && e.endProfileId !== id && e.pathId !== id);
     this.state.extrusions = this.state.extrusions.filter(
       (e) => e.id !== id && e.profileId !== id,
     );

@@ -206,7 +206,7 @@ export function buildIfc(project) {
       `IFCEXTRUDEDAREASOLID(#${profile},#${solidAxis},#${globalZ},${stepReal(height)})`,
     );
     const rep = add(
-      `IFCSHAPEREPRESENTATION(#${ctx},'Body','SweptSolid',(#${solid}))`,
+      `IFCSHAPEREPRESENTATION(#${bodyContext},'Body','SweptSolid',(#${solid}))`,
     );
     const shape = add(`IFCPRODUCTDEFINITIONSHAPE($,$,(#${rep}))`);
     const wall = add(

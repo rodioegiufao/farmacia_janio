@@ -143,7 +143,7 @@ export function buildGeometry(state, form) {
     const holes = collectVoidCutters(state, form).map((f) => profiles.find((p) => p.id === f.profileId)?.points).filter(Boolean);
     geometry = extrusion(p1, form, params, isVoidKind(form.kind) ? [] : holes);
   }
-  geometry = transformGeometryToWorkView(geometry, p1.view, form.offset);
+  geometry = transformGeometryToWorkView(geometry, form.workPlane || p1.view, form.offset);
   const position = form.position || {};
   geometry.translate(
     (Number(position.x) || 0) * MM_TO_SCENE,

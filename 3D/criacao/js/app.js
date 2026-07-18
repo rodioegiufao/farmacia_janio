@@ -406,7 +406,7 @@ function renderSelected(s) {
     e = (s.forms || s.extrusions).find((x) => x.id === s.selectedElementId);
   if (!p && !e) {
     els.selectedPanel.innerHTML =
-      '<h2>Selecionado</h2><p class="muted">Nada selecionado.</p>';
+      '<p class="muted">Selecione uma forma para editar suas propriedades.</p>'
     return;
   }
   const item = p || e;
@@ -418,16 +418,49 @@ function renderSelected(s) {
   const revolveControls = isRevolve
     ? `<label>Ângulo inicial (graus)<input id="selStartAngle" type="number" value="${e.startAngle ?? 0}"></label><label>Ângulo final (graus)<input id="selEndAngle" type="number" value="${e.endAngle ?? 360}"></label><label>Segmentos da revolução<input id="selSegments" type="number" min="8" max="128" value="${e.segments ?? 48}"></label><p class="muted">Eixo: ${e.pathId ? "linha desenhada na etapa do eixo" : "eixo vertical padrão"}.</p>`
     : "";
-  els.selectedPanel.innerHTML = `<h2>Selecionado</h2><label>Nome<input id="selName" value="${item.name}"></label><label class="check"><input id="selVisible" type="checkbox" ${item.visible !== false ? "checked" : ""}> Visível</label>${e ? `<p>Tipo: ${e.kind || "extrusion"} (${e.operation || "solid"})</p><label>Profundidade/distância<input id="selDepth" value="${e.depth || e.distance || "Profundidade"}"></label><label>Deslocamento (mm)<input id="selOffset" type="number" value="${e.offset || 0}"></label>${revolveControls}` : `<p>${p.points.length} vértices na vista ${p.view}.</p>`}`;
+  const isExtrusion = e && ["extrusion", "voidExtrusion", undefined].includes(e.kind);
+  const start = Number(e?.offset) || 0;
+  const depth = e?.depth ?? e?.distance ?? "Profundidade";
+  const numericDepth = Number(depth);
+  const end = Number.isFinite(numericDepth) ? start + numericDepth : depth;
+  const planeOptions = VIEWS.map(
+    (view) => `<option value="${view.id}" ${(e?.workPlane || p?.view) === view.id ? "selected" : ""}>${view.name} (${view.plane})</option>`,
+  ).join("");
+  const identity = `<div class="property-group"><h3>Dados de identidade</h3><label class="property-row"><span>Nome</span><input id="selName" value="${item.name}"></label></div>`;
+  const graphics = `<div class="property-group"><h3>Gráficos</h3><label class="property-row check"><span>Visível</span><input id="selVisible" type="checkbox" ${item.visible !== false ? "checked" : ""}></label></div>`;
+  const extrusionProperties = `<div class="property-kind">Extrusão ${e.operation === "void" ? "vazia" : "sólida"}</div><div class="property-group"><h3>Restrições</h3><label class="property-row"><span>Final da extrusão</span><input id="selExtrusionEnd" value="${end}"></label><label class="property-row"><span>Início da extrusão</span><input id="selExtrusionStart" type="number" value="${start}"></label><label class="property-row"><span>Plano de trabalho</span><select id="selWorkPlane">${planeOptions}</select></label></div>`;
+  const genericFormProperties = `<div class="property-kind">${e.kind || "Forma"} (${e.operation || "solid"})</div><div class="property-group"><h3>Restrições</h3><label class="property-row"><span>Profundidade/distância</span><input id="selDepth" value="${depth}"></label><label class="property-row"><span>Deslocamento (mm)</span><input id="selOffset" type="number" value="${start}"></label></div>${revolveControls}`;
+  const profileProperties = `<div class="property-kind">Perfil com ${p.points.length} vértices — ${p.view}</div>`;
+  els.selectedPanel.innerHTML = `${e ? (isExtrusion ? extrusionProperties : genericFormProperties) : profileProperties}${graphics}${identity}`
   $("#selName").onchange = (ev) =>
     store.updateElement(item.id, { name: ev.target.value.trim() || item.name });
   $("#selVisible").onchange = (ev) =>
     store.updateElement(item.id, { visible: ev.target.checked });
   if (e) {
-    $("#selDepth").onchange = (ev) =>
-      store.updateElement(e.id, { depth: ev.target.value.trim() || 0 });
-    $("#selOffset").onchange = (ev) =>
-      store.updateElement(e.id, { offset: Number(ev.target.value) || 0 });
+    if (isExtrusion) {
+      $("#selExtrusionStart").onchange = (ev) => {
+        const nextStart = Number(ev.target.value) || 0;
+        const currentEnd = Number($("#selExtrusionEnd").value);
+        store.updateElement(e.id, {
+          offset: nextStart,
+          ...(Number.isFinite(currentEnd) ? { depth: Math.max(currentEnd - nextStart, 1) } : {}),
+        });
+      };
+      $("#selExtrusionEnd").onchange = (ev) => {
+        const value = ev.target.value.trim();
+        const numericEnd = Number(value);
+        store.updateElement(e.id, {
+          depth: Number.isFinite(numericEnd) ? Math.max(numericEnd - (Number(e.offset) || 0), 1) : value || "Profundidade",
+        });
+      };
+      $("#selWorkPlane").onchange = (ev) =>
+        store.updateElement(e.id, { workPlane: ev.target.value });
+    } else {
+      $("#selDepth").onchange = (ev) =>
+        store.updateElement(e.id, { depth: ev.target.value.trim() || 0 });
+      $("#selOffset").onchange = (ev) =>
+        store.updateElement(e.id, { offset: Number(ev.target.value) || 0 });
+    }
     if (isRevolve) {
       $("#selStartAngle").onchange = (ev) =>
         store.updateElement(e.id, { startAngle: Number(ev.target.value) || 0 });

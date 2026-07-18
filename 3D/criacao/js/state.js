@@ -191,6 +191,7 @@ export class Store {
       kind, operation: solid ? "solid" : "void", profileId: profile.id,
       endProfileId: options.endProfileId || profile.id, pathId: options.pathId || this.state.paths?.[0]?.id || null,
       depth: options.depth ?? "Profundidade", offset: options.offset ?? 0, distance: options.distance ?? "Profundidade",
+      workPlane: options.workPlane || profile.view || this.state.workView,
       startAngle: options.startAngle ?? 0, endAngle: options.endAngle ?? 360, segments: options.segments ?? 48,
       visible: true, material: { color: solid ? "#4aa3df" : "#f36b2d" },
     };
@@ -210,6 +211,7 @@ export class Store {
       profileId,
       depth,
       offset,
+      workPlane: profile.view || this.state.workView,
       visible: true,
       material: { color: "#4aa3df" },
     };

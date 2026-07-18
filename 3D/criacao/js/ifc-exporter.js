@@ -316,7 +316,7 @@ function addSurfaceColorStyle(writer, itemId, form) {
 function addExtrusion(writer, state, extrusion, profile, params, context, ownerHistory) {
   const depth = Math.max(evalValue(extrusion.depth, params), 0.001);
   const offset = Number(extrusion.offset) || 0;
-  const points3d = profile.points.map((point) => pointTo3D(point, profile.view, offset));
+  const points3d = profile.points.map((point) => pointTo3D(point, extrusion.workPlane || profile.view, offset));
   const min = points3d.reduce(
     (acc, point) => ({
       x: Math.min(acc.x, point.x),

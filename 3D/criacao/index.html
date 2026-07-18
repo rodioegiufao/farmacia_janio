@@ -121,21 +121,6 @@
               <button id="deleteSelectedSide">Excluir selecionado</button>
             </div>
           </section>
-          <section class="parameters-section">
-            <h2>Parâmetros</h2>
-            <div id="parameterList"></div>
-            <div class="inline">
-              <input id="newParamName" placeholder="Nome" /><input
-                id="newParamValue"
-                type="number"
-                placeholder="mm"
-              /><button id="addParam">+</button>
-            </div>
-          </section>
-          <section id="selectedPanel" class="selected-section">
-            <h2>Selecionado</h2>
-            <p class="muted">Nada selecionado.</p>
-          </section>
         </div>
         <div class="ribbon contextual hidden" id="creationRibbon">
           <div class="context-title" id="creationTitle">
@@ -206,6 +191,25 @@
         </div>
       </header>
       <main class="workspace">
+        <aside class="panel properties-panel">
+          <button class="collapse" data-target="left">☰</button>
+          <h2 class="panel-title">Propriedades</h2>
+          <section id="selectedPanel" class="selected-section">
+            <p class="muted">Selecione uma forma para editar suas propriedades.</p>
+          </section>
+          <details class="family-properties">
+            <summary>Parâmetros da família</summary>
+            <div id="parameterList"></div>
+            <div class="inline parameter-add">
+              <input id="newParamName" aria-label="Nome do parâmetro" placeholder="Nome" /><input
+                id="newParamValue"
+                aria-label="Valor do parâmetro"
+                type="number"
+                placeholder="mm"
+              /><button id="addParam" aria-label="Adicionar parâmetro">+</button>
+            </div>
+          </details>
+        </aside>
         <aside class="panel right navigator-panel">
           <button class="collapse" data-target="right">☰</button>
           <h2>Navegador</h2>

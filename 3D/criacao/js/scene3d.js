@@ -47,6 +47,7 @@ export class Scene3D {
     this.draftLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff00cc }));
     this.viewCubeStage = null;
     this.moveDrag = null;
+    this.typedDistance = "";
     this.init();
     this.initViewCube();
     new ResizeObserver(() => this.resize()).observe(canvas);
@@ -54,6 +55,7 @@ export class Scene3D {
     canvas.addEventListener("pointermove", (e) => this.move(e));
     canvas.addEventListener("pointerup", () => { this.moveDrag = null; this.controls.enabled = true; });
     canvas.addEventListener("contextmenu", (e) => { if (this.s?.creationSession?.active) { e.preventDefault(); this.finish(); } });
+    window.addEventListener("keydown", (e) => this.key(e));
     store.subscribe((s) => {
       this.s = s;
       this.sync();
@@ -169,6 +171,43 @@ export class Scene3D {
     if ((this.s.settings.ortho || shift) && last) Math.abs(q.x - last.x) > Math.abs(q.y - last.y) ? (q.y = last.y) : (q.x = last.x);
     return { point: q };
   }
+  key(e) {
+    if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || this.s?.view === "plan") return;
+    const isNumberKey = /^\d$/.test(e.key) || [",", ".", "Backspace"].includes(e.key);
+    if (this.s?.creationSession?.active && this.points.length && isNumberKey) {
+      e.preventDefault();
+      if (e.key === "Backspace") this.typedDistance = this.typedDistance.slice(0, -1);
+      else if ((e.key === "." || e.key === ",") && !/[.,]/.test(this.typedDistance)) this.typedDistance += ".";
+      else if (/^\d$/.test(e.key)) this.typedDistance += e.key;
+      this.applyTypedDistance();
+      return;
+    }
+    if (this.s?.creationSession?.active && e.key === "Enter" && this.typedDistance && this.preview) {
+      e.preventDefault();
+      this.commitPreviewPoint();
+    }
+  }
+  applyTypedDistance() {
+    const distance = Number(this.typedDistance.replace(",", "."));
+    const last = this.points.at(-1);
+    if (!last || !Number.isFinite(distance)) return;
+    const target = this.preview || { x: last.x + 1, y: last.y };
+    const vx = target.x - last.x, vy = target.y - last.y;
+    const len = Math.hypot(vx, vy) || 1;
+    this.preview = { x: last.x + (vx / len) * distance, y: last.y + (vy / len) * distance };
+    this.store.setTemporaryPoints(this.currentDraft());
+    this.syncDraft();
+  }
+  commitPreviewPoint() {
+    this.points.push({ ...this.preview });
+    this.preview = null;
+    this.typedDistance = "";
+    const tool = this.activeTool();
+    if (["rectangle", "circle", "polygon"].includes(tool) && this.points.length === 2) this.finish();
+    if (tool === "arc3" && this.points.length === 3) this.finish();
+    this.store.setTemporaryPoints(this.currentDraft());
+    this.syncDraft();
+  }
   down(e) {
     if (this.s?.view === "plan") return;
     if (!this.s?.creationSession?.active && this.activeTool() === "select") {
@@ -192,7 +231,7 @@ export class Scene3D {
     const point = this.worldPoint(e), tool = this.activeTool();
     if (!point) return;
     if (this.points.length > 2 && Math.hypot(point.x - this.points[0].x, point.y - this.points[0].y) < 15) return this.finish();
-    this.points.push(point); this.preview = null;
+    this.points.push(point); this.preview = null; this.typedDistance = "";
     if (["rectangle", "circle", "polygon"].includes(tool) && this.points.length === 2) this.finish();
     if (tool === "arc3" && this.points.length === 3) this.finish();
     this.store.setTemporaryPoints(this.currentDraft());
@@ -226,8 +265,8 @@ export class Scene3D {
     return null;
   }
   validate(points, closed) { if (points.length < (closed ? 3 : 2)) throw new Error(closed ? "Crie ao menos três pontos." : "Crie ao menos dois pontos."); }
-  finish() { try { const cs = this.s.creationSession, step = cs?.step; if (!cs?.active) return; let pts = this.makePrimitive(this.points) || [...this.points]; const closed = !["path","axis"].includes(step); this.validate(pts, closed); if (step === "path" || step === "axis") { const path=this.store.addPath(pts.map((p)=>({...p,z:0})),{name: step === "axis" ? "Eixo de revolução" : "Caminho"}); this.store.advanceCreationStep(step === "axis" ? {axisId:path.id,pathId:path.id}:{pathId:path.id}); } else { const color = cs.operation === "void" ? "#f36b2d" : "#ff00cc"; this.store.addProfile(pts,{name:"Perfil de criação",material:{color}}); this.store.advanceCreationStep({profileId:this.store.state.selectedElementId}); } this.points=[]; this.preview=null; this.syncDraft(); } catch (err) { this.onError(err.message); } }
-  cancel() { this.points = []; this.preview = null; this.syncDraft(); }
+  finish() { try { const cs = this.s.creationSession, step = cs?.step; if (!cs?.active) return; let pts = this.makePrimitive(this.points) || [...this.points]; const closed = !["path","axis"].includes(step); this.validate(pts, closed); if (step === "path" || step === "axis") { const path=this.store.addPath(pts.map((p)=>({...p,z:0})),{name: step === "axis" ? "Eixo de revolução" : "Caminho"}); this.store.advanceCreationStep(step === "axis" ? {axisId:path.id,pathId:path.id}:{pathId:path.id}); } else { const color = cs.operation === "void" ? "#f36b2d" : "#ff00cc"; this.store.addProfile(pts,{name:"Perfil de criação",material:{color}}); this.store.advanceCreationStep({profileId:this.store.state.selectedElementId}); } this.points=[]; this.preview=null; this.typedDistance=""; this.syncDraft(); } catch (err) { this.onError(err.message); } }
+  cancel() { this.points = []; this.preview = null; this.typedDistance = ""; this.syncDraft(); }
   syncDraft() {
     const pts = this.currentDraft().map((p) => pointToScene(p, this.s?.workView));
     if (pts.length && this.s?.creationSession?.active) {

@@ -419,6 +419,7 @@ function renderSelected(s) {
     </div>
     <p class="muted">Selecione uma forma para editar suas propriedades.</p>`;
     $("#initialWorkPlane").onchange = (event) =>
+      store.set({ workView: event.target.value });
     return;
   }
   const item = p || e;

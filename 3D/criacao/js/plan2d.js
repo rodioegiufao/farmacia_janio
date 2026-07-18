@@ -83,8 +83,7 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     }
     if (e.key === "Escape" && this.s?.creationSession?.active) {
       e.preventDefault();
-      this.cancelCurrentPrimitive();
-      this.store.setCreationDrawingTool("line");
+      this.completeCurrentContour();
       return;
     }
     if (e.key === "Escape" && this.isDrawing() && (this.points.length || this.preview)) {
@@ -211,6 +210,30 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     this.primitiveStart = 0;
     if (this.s.creationSession?.active) this.store.setTemporaryPoints([]);
     this.draw();
+  }
+  completeCurrentContour() {
+    // Escape concludes only the segments that were actually clicked; the
+    // pointer preview must not become an extra edge in the saved contour.
+    const primitive = this.composePrimitive(this.points).map((p) => ({ ...p }));
+    if (primitive.length < 3) {
+      this.cancelCurrentPrimitive();
+      return;
+    }
+    try {
+      this.validate(primitive, true);
+      this.completedLoops.push(primitive);
+      this.points = [];
+      this.preview = null;
+      this.primitiveStart = 0;
+      this.awaitingLineEndpoint = false;
+      this.typedDistance = "";
+      this.editVertexDrag = null;
+      this.store.setTemporaryPoints([]);
+      this.onStatus(primitive.at(-1), 0, "contorno concluído — desenhe outro ou finalize");
+      this.draw();
+    } catch (err) {
+      this.onError(err.message);
+    }
   }
   cancelCurrentPrimitive() {
     const start = Math.min(this.primitiveStart || 0, this.points.length);

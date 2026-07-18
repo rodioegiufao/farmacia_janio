@@ -11,6 +11,7 @@ import { IFC_EXPORTER_VERSION, exportFamilyToIfc } from "./ifc-exporter.js";
 console.info(`IFC exporter loaded: ${IFC_EXPORTER_VERSION}`);
 const $ = (selector) => document.querySelector(selector);
 const store = new Store();
+let activeRibbonTab = "create";
 
 const DRAW_TOOL_LABELS = {
   select: "Selecionar",
@@ -344,7 +345,20 @@ function sync(s) {
   const activeCreation = !!s.creationSession?.active;
   const activeProfileEdit = s.editMode === "profileEdit";
   const activeModify = activeCreation || activeProfileEdit;
-  $("#createRibbon")?.classList.toggle("hidden", activeModify);
+  document
+    .querySelectorAll("[data-ribbon-tab]")
+    .forEach((b) => {
+      b.classList.toggle("active", b.dataset.ribbonTab === activeRibbonTab);
+      b.classList.toggle("hidden", activeModify);
+    });
+  document
+    .querySelectorAll("[data-ribbon-panel]")
+    .forEach((panel) =>
+      panel.classList.toggle(
+        "hidden",
+        activeModify || panel.dataset.ribbonPanel !== activeRibbonTab,
+      ),
+    );
   $("#creationRibbon")?.classList.toggle("hidden", !activeModify);
   $("#optionsBar")?.classList.toggle("hidden", !activeModify);
   $("#workViewRibbon") && ($("#workViewRibbon").value = s.workView);
@@ -438,6 +452,13 @@ const plan2d = new Plan2D($("#planCanvas"), store, {
 });
 const scene3d = new Scene3D($("#threeCanvas"), store, { onError: (m) => toast(m, "error") });
 store.subscribe(sync);
+document.querySelectorAll("[data-ribbon-tab]").forEach(
+  (b) =>
+    (b.onclick = () => {
+      activeRibbonTab = b.dataset.ribbonTab || "create";
+      sync(store.state);
+    }),
+);
 if ($("#toolProfile"))
   $("#toolProfile").onclick = () =>
     store.set({ activeTool: "profile", editMode: "profile" });

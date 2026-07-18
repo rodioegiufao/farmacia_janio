@@ -44,8 +44,11 @@
             ><button data-view="split" class="active">Dividida</button>
           </nav>
         </div>
-        <div class="ribbon" id="createRibbon">
-          <div class="ribbon-tab">Criar</div>
+        <div class="ribbon-tabs" aria-label="Ferramentas principais">
+          <button class="ribbon-tab active" type="button" data-ribbon-tab="create">Criar</button>
+          <button class="ribbon-tab" type="button" data-ribbon-tab="family">Família</button>
+        </div>
+        <div class="ribbon" id="createRibbon" data-ribbon-panel="create">
           <section class="forms-section">
             <div class="section-heading">
               <h3>Formas</h3>
@@ -80,6 +83,58 @@
               <button id="howToDraw">Como desenhar</button
               ><button id="revolveHelp">Ajuda: Revolver</button>
             </div>
+          </section>
+        </div>
+        <div class="ribbon family-ribbon hidden" id="familyRibbon" data-ribbon-panel="family">
+          <section class="family-section">
+            <h2>Família</h2>
+            <div class="family-grid">
+              <label>Nome<input id="projectName" type="text" /></label
+              ><label>Categoria<select id="category"></select></label
+              ><label>Vista de trabalho<select id="workView"></select></label
+              ><label
+                >Ferramenta ativa<input id="activeToolLabel" readonly
+              /></label>
+              <label
+                >Profundidade da nova extrusão (mm ou parâmetro)<input
+                  id="defaultDepth"
+                  value="Profundidade" /></label
+              ><label
+                >Passo do snap (mm)<input
+                  id="snapStep"
+                  type="number"
+                  min="1"
+                  step="1" /></label
+              ><label
+                >Grade principal (mm)<input
+                  id="majorGrid"
+                  type="number"
+                  min="10"
+                  step="10" /></label>
+              <div class="family-checks">
+                <label class="check"
+                  ><input id="showGrid" type="checkbox" /> Mostrar grade</label
+                ><label class="check"
+                  ><input id="snapEnabled" type="checkbox" /> Ativar snap</label
+                >
+              </div>
+              <button id="deleteSelectedSide">Excluir selecionado</button>
+            </div>
+          </section>
+          <section class="parameters-section">
+            <h2>Parâmetros</h2>
+            <div id="parameterList"></div>
+            <div class="inline">
+              <input id="newParamName" placeholder="Nome" /><input
+                id="newParamValue"
+                type="number"
+                placeholder="mm"
+              /><button id="addParam">+</button>
+            </div>
+          </section>
+          <section id="selectedPanel" class="selected-section">
+            <h2>Selecionado</h2>
+            <p class="muted">Nada selecionado.</p>
           </section>
         </div>
         <div class="ribbon contextual hidden" id="creationRibbon">
@@ -151,58 +206,6 @@
         </div>
       </header>
       <main class="workspace">
-        <aside class="panel left">
-          <button class="collapse" data-target="left">☰</button>
-          <section>
-            <h2>Família</h2>
-            <label>Nome<input id="projectName" type="text" /></label
-            ><label>Categoria<select id="category"></select></label
-            ><label>Vista de trabalho<select id="workView"></select></label
-            ><label
-              >Ferramenta ativa<input id="activeToolLabel" readonly
-            /></label>
-            <div class="tools">
-              <button id="toolProfile">Perfil livre</button
-              ><button id="extrudeSelected">Criar extrusão</button>
-            </div>
-            <label
-              >Profundidade da nova extrusão (mm ou parâmetro)<input
-                id="defaultDepth"
-                value="Profundidade" /></label
-            ><label
-              >Passo do snap (mm)<input
-                id="snapStep"
-                type="number"
-                min="1"
-                step="1" /></label
-            ><label
-              >Grade principal (mm)<input
-                id="majorGrid"
-                type="number"
-                min="10"
-                step="10" /></label
-            ><label class="check"
-              ><input id="showGrid" type="checkbox" /> Mostrar grade</label
-            ><label class="check"
-              ><input id="snapEnabled" type="checkbox" /> Ativar snap</label
-            ><button id="deleteSelectedSide">Excluir selecionado</button>
-          </section>
-          <section>
-            <h2>Parâmetros</h2>
-            <div id="parameterList"></div>
-            <div class="inline">
-              <input id="newParamName" placeholder="Nome" /><input
-                id="newParamValue"
-                type="number"
-                placeholder="mm"
-              /><button id="addParam">+</button>
-            </div>
-          </section>
-          <section id="selectedPanel">
-            <h2>Selecionado</h2>
-            <p class="muted">Nada selecionado.</p>
-          </section>
-        </aside>
         <aside class="panel right navigator-panel">
           <button class="collapse" data-target="right">☰</button>
           <h2>Navegador</h2>

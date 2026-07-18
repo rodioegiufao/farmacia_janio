@@ -335,11 +335,14 @@ function addExtrusion(writer, state, extrusion, profile, params, context, ownerH
   );
   if (pointIds[0] !== pointIds.at(-1)) pointIds.push(pointIds[0]);
   const polyline = writer.add("IFCPOLYLINE", [writer.refs(pointIds)]);
-  const profileDef = writer.add("IFCARBITRARYCLOSEDPROFILEDEF", [
-    ".AREA.",
-    optStr(profile.name),
-    writer.ref(polyline),
-  ]);
+  const innerCurves = (profile.holes || []).map((loop) => {
+    const ids = loop.map((point) => writer.add("IFCCARTESIANPOINT", [`(${num(point.x)},${num(point.y)})`]));
+    ids.push(ids[0]);
+    return writer.add("IFCPOLYLINE", [writer.refs(ids)]);
+  });
+  const profileDef = innerCurves.length
+    ? writer.add("IFCARBITRARYPROFILEDEFWITHVOIDS", [".AREA.", optStr(profile.name), writer.ref(polyline), writer.refs(innerCurves)])
+    : writer.add("IFCARBITRARYCLOSEDPROFILEDEF", [".AREA.", optStr(profile.name), writer.ref(polyline)]);
   const solidPlacement = writer.add("IFCAXIS2PLACEMENT3D", [writer.ref(elementOrigin), writer.ref(axisZ), writer.ref(axisX)]);
   const direction = writer.add("IFCDIRECTION", ["(0.,0.,1.)"]);
   const solid = writer.add("IFCEXTRUDEDAREASOLID", [writer.ref(profileDef), writer.ref(solidPlacement), writer.ref(direction), num(depth)]);

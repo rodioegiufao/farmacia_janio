@@ -248,12 +248,12 @@ export class Store {
     this.emit();
     return true;
   }
-  finishProfileEdit(points) {
+  finishProfileEdit(points, holes = []) {
     const id = this.state.editingProfileId;
     if (!id) return false;
     this.pushHistory();
     this.state.profiles = this.state.profiles.map((p) =>
-      p.id === id ? { ...p, points: points.map((pt) => ({ ...pt })) } : p,
+      p.id === id ? { ...p, points: points.map((pt) => ({ ...pt })), holes: holes.map((loop) => loop.map((pt) => ({ ...pt }))) } : p,
     );
     this.state.editMode = null;
     this.state.editingProfileId = null;

@@ -51,7 +51,7 @@ function shapeFromLoop(points, holes = []) {
 }
 function extrusion(profile, form, params, holes = []) {
   const depth = Math.max(evalValue(form.depth ?? form.end ?? "Profundidade", params), 1) * MM_TO_SCENE;
-  return new THREE.ExtrudeGeometry(shapeFromLoop(profile.points, holes), { depth, bevelEnabled: false });
+  return new THREE.ExtrudeGeometry(shapeFromLoop(profile.points, [...(profile.holes || []), ...holes]), { depth, bevelEnabled: false });
 }
 function blend(profileA, profileB, form, params) {
   const n = Math.max(profileA.points.length, profileB.points.length, 12);

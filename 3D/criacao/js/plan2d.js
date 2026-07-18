@@ -11,7 +11,7 @@ const DRAW_TOOL_MODES = {
   spline: "line",
   ellipse: "circle",
   "partial-ellipse": "arc3",
-  "pick-lines": "line",
+  "pick-lines": "select-segment",
   "pick-walls": "line",
   "point-element": "line",
   "pick-supports": "line",
@@ -25,7 +25,7 @@ const projectionPoint = (view, x, y, z) => {
 };
 export class Plan2D {
   constructor(canvas, store, { onStatus, onError }) {
-Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, onError, scale: 0.7, off: { x: 0, y: 0 }, points: [], completedLoops: [], preview: null, primitiveStart: 0, awaitingLineEndpoint: false, lastTool: null, drag: null, editVertexDrag: null, moveDrag: null, typedDistance: "" });
+Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, onError, scale: 0.7, off: { x: 0, y: 0 }, points: [], completedLoops: [], preview: null, primitiveStart: 0, awaitingLineEndpoint: false, selectedSegment: null, lastTool: null, drag: null, editVertexDrag: null, moveDrag: null, typedDistance: "" });
     new ResizeObserver(() => this.resize()).observe(canvas);
     canvas.addEventListener("wheel", (e) => this.wheel(e), { passive: false });
     canvas.addEventListener("pointerdown", (e) => this.down(e));
@@ -42,6 +42,7 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
         this.primitiveStart = this.points.length;
         this.preview = null;
         this.awaitingLineEndpoint = false;
+        this.selectedSegment = null;
       }
       this.lastTool = currentTool;
       if (s.editMode === "profileEdit" && s.editingProfileId && s.editingProfileId !== previousEditId) {
@@ -72,6 +73,11 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
   isDrawing() { return this.s?.creationSession?.active || this.s?.editMode === "profileEdit" || ["line", "rectangle", "circle", "polygon", "arc3"].includes(this.activeTool()); }
   key(e) {
     if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || this.s?.view === "three") return;
+    if ((e.key === "Delete" || e.key === "Backspace") && this.selectedSegment) {
+      e.preventDefault();
+      this.deleteSelectedSegment();
+      return;
+    }
     const isNumberKey = /^\d$/.test(e.key) || [",", ".", "Backspace"].includes(e.key);
     if (this.points.length && this.isDrawing() && isNumberKey) {
       e.preventDefault();
@@ -127,6 +133,10 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
   down(e) {
     if (e.button === 1 || e.altKey) { this.drag = { x: e.clientX, y: e.clientY, off: { ...this.off } }; return; }
     const rawPoint = this.world(e), tool = this.activeTool();
+    if (tool === "select-segment") {
+      this.selectSegmentAt(rawPoint);
+      return;
+    }
     if (tool === "line" && this.awaitingLineEndpoint) {
       const endpoint = this.lineEndpointAt(rawPoint);
       if (!endpoint) {
@@ -134,7 +144,7 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
         return;
       }
       if (endpoint === "start") this.points.reverse();
-      this.primitiveStart = 0;
+      this.primitiveStart = this.points.length;
       this.awaitingLineEndpoint = false;
       this.preview = null;
       this.typedDistance = "";
@@ -192,6 +202,49 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     const end = this.points.at(-1);
     return Math.hypot(point.x - end.x, point.y - end.y) <= tolerance ? "end" : null;
   }
+  selectSegmentAt(point) {
+    let best = null;
+    const inspect = (loop, loopIndex) => {
+      if (loop.length < 2) return;
+      for (let i = 0; i < loop.length; i++) {
+        const distance = this.pointSegmentDistance(point, loop[i], loop[(i + 1) % loop.length]);
+        if (!best || distance < best.distance) best = { loopIndex, segmentIndex: i, distance };
+      }
+    };
+    this.completedLoops.forEach(inspect);
+    if (this.points.length > 1) inspect(this.points, -1);
+    this.selectedSegment = best?.distance <= 14 / this.scale ? best : null;
+    this.preview = null;
+    this.onStatus(point, 0, this.selectedSegment ? "linha selecionada — pressione Delete ou use Excluir linha" : "nenhuma linha selecionada");
+    this.draw();
+  }
+  deleteSelectedSegment() {
+    const selected = this.selectedSegment;
+    if (!selected) {
+      this.onError("Selecione primeiro a linha que deseja apagar.");
+      return false;
+    }
+    const loop = selected.loopIndex < 0 ? this.points : this.completedLoops[selected.loopIndex];
+    if (!loop || loop.length < 3) {
+      this.onError("O contorno precisa manter ao menos dois segmentos.");
+      return false;
+    }
+    // Rotate the former closed loop so that the removed edge becomes the gap
+    // between the last and first point. Either point can then start the repair.
+    const start = (selected.segmentIndex + 1) % loop.length;
+    this.points = Array.from({ length: loop.length }, (_, offset) => ({ ...loop[(start + offset) % loop.length] }));
+    if (selected.loopIndex >= 0) this.completedLoops.splice(selected.loopIndex, 1);
+    this.store.setCreationDrawingTool("line");
+    this.selectedSegment = null;
+    this.preview = null;
+    this.primitiveStart = this.points.length;
+    this.awaitingLineEndpoint = true;
+    this.typedDistance = "";
+    if (this.s?.creationSession?.active) this.store.setTemporaryPoints(this.points);
+    this.onStatus(this.points[0], 0, "linha apagada — clique em qualquer ponta para desenhar a substituta");
+    this.draw();
+    return true;
+  }
   deltaForWorkView(delta) {
     if (this.s.workView === "top") return { x: delta.x, y: 0, z: delta.y };
     if (this.s.workView === "right") return { x: 0, y: delta.y, z: delta.x };
@@ -237,7 +290,7 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
   intersects(a,b,c,d){ const ccw=(p,q,r)=>(r.y-p.y)*(q.x-p.x)>(q.y-p.y)*(r.x-p.x); return ccw(a,c,d)!==ccw(b,c,d)&&ccw(a,b,c)!==ccw(a,b,d); }
   finish() { try { const cs = this.s.creationSession, step = cs?.step; const tool = this.activeTool(); let pts = this.composePrimitive(this.points); const closed = !cs || !["path","axis"].includes(step); const loops = closed ? [...this.completedLoops, ...(pts.length ? [pts] : [])] : []; if (closed) { if (!loops.length) throw new Error("Crie ao menos três pontos."); loops.forEach((loop) => this.validate(loop, true)); loops.sort((a, b) => Math.abs(this.loopArea(b)) - Math.abs(this.loopArea(a))); pts = loops[0]; } else this.validate(pts, false); const holes = closed ? loops.slice(1) : []; if (this.s.editMode === "profileEdit") { this.store.finishProfileEdit(pts, holes); this.resetDraft(); this.draw(); return; } if (cs?.active) { const color = cs.operation === "void" ? "#f36b2d" : "#ff00cc"; if (step === "path" || step === "axis") { const path=this.store.addPath(pts.map((p)=>({...p,z:0})),{name: step === "axis" ? "Eixo de revolução" : "Caminho"}); this.store.advanceCreationStep(step === "axis" ? {axisId:path.id,pathId:path.id}:{pathId:path.id}); } else { this.store.addProfile(pts,{holes,name:"Perfil de criação",material:{color}}); try { this.store.advanceCreationStep({profileId:this.store.state.selectedElementId}); } catch (err) { this.onError(err.message); } } } else if (tool === "line") this.store.addPath(pts.map((p)=>({...p,z:0}))); else this.store.addProfile(pts,{holes}); this.resetDraft(); this.draw(); } catch (err) { this.onError(err.message); } }
   loopArea(points) { return points.reduce((sum, p, i) => { const q = points[(i + 1) % points.length]; return sum + p.x * q.y - q.x * p.y; }, 0) / 2; }
-  resetDraft() { this.points=[]; this.completedLoops=[]; this.preview=null; this.primitiveStart=0; this.awaitingLineEndpoint=false; this.typedDistance=""; }
+  resetDraft() { this.points=[]; this.completedLoops=[]; this.preview=null; this.primitiveStart=0; this.awaitingLineEndpoint=false; this.selectedSegment=null; this.typedDistance=""; }
   cancel() { this.resetDraft(); this.editVertexDrag = null; if (this.s?.editMode === "profileEdit") this.store.cancelProfileEdit(); if (this.s?.creationSession?.active) this.store.cancelCreationSession(); this.draw(); }
   pointSegmentDistance(p, a, b) { const vx=b.x-a.x, vy=b.y-a.y, len=vx*vx+vy*vy || 1; const t=Math.max(0,Math.min(1,((p.x-a.x)*vx+(p.y-a.y)*vy)/len)); return Math.hypot(p.x-(a.x+vx*t), p.y-(a.y+vy*t)); }
   pick(p) {
@@ -274,5 +327,21 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     this.projectedSegments(form).forEach(([a,b]) => { const p=this.screen(a), q=this.screen(b); ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke(); });
     ctx.restore();
   }
-  draw() { if(!this.s) return; const r=this.c.getBoundingClientRect(), ctx=this.ctx; ctx.clearRect(0,0,r.width,r.height); if(this.s.settings.showGrid){ const minor=this.s.settings.snapStep*this.scale, major=this.s.settings.majorGrid*this.scale; ctx.lineWidth=1; for(const [st,col] of [[minor,"#edf2f2"],[major,"#cad8d8"]]){ ctx.strokeStyle=col; for(let x=this.off.x%st;x<r.width;x+=st){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,r.height);ctx.stroke();} for(let y=this.off.y%st;y<r.height;y+=st){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(r.width,y);ctx.stroke();}} } const o=this.screen({x:0,y:0}); ctx.strokeStyle="#b55"; ctx.beginPath(); ctx.moveTo(o.x-10,o.y);ctx.lineTo(o.x+10,o.y);ctx.moveTo(o.x,o.y-10);ctx.lineTo(o.x,o.y+10);ctx.stroke(); (this.s.forms||this.s.extrusions||[]).filter((f)=>f.visible!==false).forEach((f)=>this.drawProjection(f)); (this.s.paths||[]).filter((p)=>p.visible!==false).forEach((path)=>this.drawPoly(path.points,false,path.id===this.s.selectedElementId?"#f6a13a88":"#f6a13a55",path.id===this.s.selectedElementId)); this.s.profiles.filter((p)=>p.visible!==false&&p.view===this.s.workView).forEach((p)=>{ this.drawPoly(p.points,true,p.id===this.s.selectedElementId?"#76b7f055":"#8dd6c455",p.id===this.s.selectedElementId); (p.holes||[]).forEach((loop)=>this.drawPoly(loop,true,"#fff",p.id===this.s.selectedElementId)); }); this.completedLoops.forEach((loop)=>this.drawPoly(loop,true,"#ff00cc11",true,this.s.creationSession?.operation==="void"?"#f36b2d":"#ff00cc")); const draft=this.currentDraft(); this.drawPoly(draft,false,"#ff00cc22",true,this.s.creationSession?.operation==="void"?"#f36b2d":"#ff00cc"); if(this.preview){ const sp=this.screen(this.preview); ctx.fillStyle="#ff00cc"; ctx.beginPath(); ctx.arc(sp.x,sp.y,4,0,Math.PI*2); ctx.fill(); } }
+  drawSelectedSegment() {
+    if (!this.selectedSegment) return;
+    const { loopIndex, segmentIndex } = this.selectedSegment;
+    const loop = loopIndex < 0 ? this.points : this.completedLoops[loopIndex];
+    if (!loop?.length) return;
+    const a = this.screen(loop[segmentIndex]);
+    const b = this.screen(loop[(segmentIndex + 1) % loop.length]);
+    this.ctx.save();
+    this.ctx.strokeStyle = "#e53935";
+    this.ctx.lineWidth = 5;
+    this.ctx.beginPath();
+    this.ctx.moveTo(a.x, a.y);
+    this.ctx.lineTo(b.x, b.y);
+    this.ctx.stroke();
+    this.ctx.restore();
+  }
+  draw() { if(!this.s) return; const r=this.c.getBoundingClientRect(), ctx=this.ctx; ctx.clearRect(0,0,r.width,r.height); if(this.s.settings.showGrid){ const minor=this.s.settings.snapStep*this.scale, major=this.s.settings.majorGrid*this.scale; ctx.lineWidth=1; for(const [st,col] of [[minor,"#edf2f2"],[major,"#cad8d8"]]){ ctx.strokeStyle=col; for(let x=this.off.x%st;x<r.width;x+=st){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,r.height);ctx.stroke();} for(let y=this.off.y%st;y<r.height;y+=st){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(r.width,y);ctx.stroke();}} } const o=this.screen({x:0,y:0}); ctx.strokeStyle="#b55"; ctx.beginPath(); ctx.moveTo(o.x-10,o.y);ctx.lineTo(o.x+10,o.y);ctx.moveTo(o.x,o.y-10);ctx.lineTo(o.x,o.y+10);ctx.stroke(); (this.s.forms||this.s.extrusions||[]).filter((f)=>f.visible!==false).forEach((f)=>this.drawProjection(f)); (this.s.paths||[]).filter((p)=>p.visible!==false).forEach((path)=>this.drawPoly(path.points,false,path.id===this.s.selectedElementId?"#f6a13a88":"#f6a13a55",path.id===this.s.selectedElementId)); this.s.profiles.filter((p)=>p.visible!==false&&p.view===this.s.workView).forEach((p)=>{ this.drawPoly(p.points,true,p.id===this.s.selectedElementId?"#76b7f055":"#8dd6c455",p.id===this.s.selectedElementId); (p.holes||[]).forEach((loop)=>this.drawPoly(loop,true,"#fff",p.id===this.s.selectedElementId)); }); this.completedLoops.forEach((loop)=>this.drawPoly(loop,true,"#ff00cc11",true,this.s.creationSession?.operation==="void"?"#f36b2d":"#ff00cc")); const draft=this.currentDraft(); this.drawPoly(draft,false,"#ff00cc22",true,this.s.creationSession?.operation==="void"?"#f36b2d":"#ff00cc"); if(this.preview){ const sp=this.screen(this.preview); ctx.fillStyle="#ff00cc"; ctx.beginPath(); ctx.arc(sp.x,sp.y,4,0,Math.PI*2); ctx.fill(); } this.drawSelectedSegment(); }
 }

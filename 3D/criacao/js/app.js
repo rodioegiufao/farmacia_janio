@@ -686,6 +686,7 @@ document
     (b) => (b.onclick = () => store.setCreationDrawingTool(b.dataset.drawTool)),
   );
 $("#finishEdit").onclick = () => (scene3d.hasDraft() ? scene3d.finish() : plan2d.finish());
+$("#deleteProfileLine").onclick = () => plan2d.deleteSelectedSegment();
 $("#cancelEdit").onclick = () => {
   plan2d.cancel();
   scene3d.cancel();

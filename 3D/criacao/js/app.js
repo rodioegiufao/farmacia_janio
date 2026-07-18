@@ -428,9 +428,18 @@ function renderSelected(s) {
   ).join("");
   const identity = `<div class="property-group"><h3>Dados de identidade</h3><label class="property-row"><span>Nome</span><input id="selName" value="${item.name}"></label></div>`;
   const graphics = `<div class="property-group"><h3>Gráficos</h3><label class="property-row check"><span>Visível</span><input id="selVisible" type="checkbox" ${item.visible !== false ? "checked" : ""}></label></div>`;
-  const extrusionProperties = `<div class="property-kind">Extrusão ${e.operation === "void" ? "vazia" : "sólida"}</div><div class="property-group"><h3>Restrições</h3><label class="property-row"><span>Final da extrusão</span><input id="selExtrusionEnd" value="${end}"></label><label class="property-row"><span>Início da extrusão</span><input id="selExtrusionStart" type="number" value="${start}"></label><label class="property-row"><span>Plano de trabalho</span><select id="selWorkPlane">${planeOptions}</select></label></div>`;
-  const genericFormProperties = `<div class="property-kind">${e.kind || "Forma"} (${e.operation || "solid"})</div><div class="property-group"><h3>Restrições</h3><label class="property-row"><span>Profundidade/distância</span><input id="selDepth" value="${depth}"></label><label class="property-row"><span>Deslocamento (mm)</span><input id="selOffset" type="number" value="${start}"></label></div>${revolveControls}`;
-  const profileProperties = `<div class="property-kind">Perfil com ${p.points.length} vértices — ${p.view}</div>`;
+  // A profile is selected briefly while a creation session turns it into a
+  // form. Build only the property markup for the selected element so that
+  // this intermediate render cannot dereference a missing form (or profile).
+  const extrusionProperties = e
+    ? `<div class="property-kind">Extrusão ${e.operation === "void" ? "vazia" : "sólida"}</div><div class="property-group"><h3>Restrições</h3><label class="property-row"><span>Final da extrusão</span><input id="selExtrusionEnd" value="${end}"></label><label class="property-row"><span>Início da extrusão</span><input id="selExtrusionStart" type="number" value="${start}"></label><label class="property-row"><span>Plano de trabalho</span><select id="selWorkPlane">${planeOptions}</select></label></div>`
+    : "";
+  const genericFormProperties = e
+    ? `<div class="property-kind">${e.kind || "Forma"} (${e.operation || "solid"})</div><div class="property-group"><h3>Restrições</h3><label class="property-row"><span>Profundidade/distância</span><input id="selDepth" value="${depth}"></label><label class="property-row"><span>Deslocamento (mm)</span><input id="selOffset" type="number" value="${start}"></label></div>${revolveControls}`
+    : "";
+  const profileProperties = p
+    ? `<div class="property-kind">Perfil com ${p.points.length} vértices — ${p.view}</div>`
+    : "";
   els.selectedPanel.innerHTML = `${e ? (isExtrusion ? extrusionProperties : genericFormProperties) : profileProperties}${graphics}${identity}`
   $("#selName").onchange = (ev) =>
     store.updateElement(item.id, { name: ev.target.value.trim() || item.name });
@@ -545,7 +554,7 @@ if ($("#extrudeSelected"))
     store.beginCreationSession({ formType: "extrusion", operation: "solid" });
     toast("Criar extrusão: desenhe um perfil fechado na vista 2D ou 3D.");
   };
-  
+
 $("#addParam").onclick = () => {
   const name = $("#newParamName").value.trim();
   if (!name) return toast("Informe o nome do parâmetro.", "error");

@@ -184,8 +184,11 @@ export class Scene3D {
     }
     if (this.s?.creationSession?.active && e.key === "Escape") {
       e.preventDefault();
-      this.cancelCurrentPrimitive();
-      this.store.setCreationDrawingTool("line");
+      this.preview = null;
+      this.typedDistance = "";
+      this.store.setTemporaryPoints(this.currentDraft());
+      this.syncDraft();
+      this.store.setCreationDrawingTool("pick-lines");
       return;
     }
     if (this.s?.creationSession?.active && e.key === "Enter" && this.typedDistance && this.preview) {
@@ -233,6 +236,7 @@ export class Scene3D {
       return;
     }
     if (!this.s?.creationSession?.active) return;
+    if (this.activeTool() === "select-segment") return;
     e.preventDefault(); e.stopPropagation();
     const point = this.worldPoint(e), tool = this.activeTool();
     if (!point) return;

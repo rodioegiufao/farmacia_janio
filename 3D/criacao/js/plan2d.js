@@ -89,10 +89,7 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     }
     if (e.key === "Escape" && this.s?.creationSession?.active) {
       e.preventDefault();
-      // Escape cancels only the drawing operation in progress. It must not
-      // turn an unfinished sequence of lines into a closed contour.
-      this.cancelCurrentPrimitive();
-      this.store.setCreationDrawingTool("line");
+      this.activateSegmentSelection();
       return;
     }
     if (e.key === "Escape" && this.isDrawing() && (this.points.length || this.preview)) {
@@ -134,6 +131,14 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     if (e.button === 1 || e.altKey) { this.drag = { x: e.clientX, y: e.clientY, off: { ...this.off } }; return; }
     const rawPoint = this.world(e), tool = this.activeTool();
     if (tool === "select-segment") {
+      this.selectSegmentAt(rawPoint);
+      return;
+    }
+    // A click on the body of an existing line ends line drawing and selects
+    // that segment. Endpoints are ignored so the user can still close or
+    // continue a contour normally.
+    if (tool === "line" && this.segmentAt(rawPoint, { ignoreEndpoints: true })) {
+      this.activateSegmentSelection();
       this.selectSegmentAt(rawPoint);
       return;
     }
@@ -203,19 +208,38 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     return Math.hypot(point.x - end.x, point.y - end.y) <= tolerance ? "end" : null;
   }
   selectSegmentAt(point) {
+    this.selectedSegment = this.segmentAt(point);
+    this.preview = null;
+    this.onStatus(point, 0, this.selectedSegment ? "linha selecionada — pressione Delete ou use Excluir linha" : "nenhuma linha selecionada");
+    this.draw();
+  }
+  segmentAt(point, { ignoreEndpoints = false } = {}) {
     let best = null;
-    const inspect = (loop, loopIndex) => {
+    const inspect = (loop, loopIndex, closed) => {
       if (loop.length < 2) return;
-      for (let i = 0; i < loop.length; i++) {
-        const distance = this.pointSegmentDistance(point, loop[i], loop[(i + 1) % loop.length]);
+      const segmentCount = closed ? loop.length : loop.length - 1;
+      for (let i = 0; i < segmentCount; i++) {
+        const a = loop[i], b = loop[(i + 1) % loop.length];
+        if (ignoreEndpoints) {
+          const endpointTolerance = 15 / this.scale;
+          if (Math.hypot(point.x - a.x, point.y - a.y) <= endpointTolerance || Math.hypot(point.x - b.x, point.y - b.y) <= endpointTolerance) continue;
+        }
+        const distance = this.pointSegmentDistance(point, a, b);
         if (!best || distance < best.distance) best = { loopIndex, segmentIndex: i, distance };
       }
     };
-    this.completedLoops.forEach(inspect);
-    if (this.points.length > 1) inspect(this.points, -1);
-    this.selectedSegment = best?.distance <= 14 / this.scale ? best : null;
+    this.completedLoops.forEach((loop, index) => inspect(loop, index, true));
+    inspect(this.points, -1, false);
+    return best?.distance <= 14 / this.scale ? best : null;
+  }
+  activateSegmentSelection() {
     this.preview = null;
-    this.onStatus(point, 0, this.selectedSegment ? "linha selecionada — pressione Delete ou use Excluir linha" : "nenhuma linha selecionada");
+    this.typedDistance = "";
+    this.awaitingLineEndpoint = false;
+    this.primitiveStart = this.points.length;
+    this.store.setCreationDrawingTool("pick-lines");
+    if (this.s?.creationSession?.active) this.store.setTemporaryPoints(this.currentDraft());
+    this.onStatus(this.points.at(-1) || { x: 0, y: 0 }, 0, "desenho desativado — selecione a linha desejada");
     this.draw();
   }
   deleteSelectedSegment() {

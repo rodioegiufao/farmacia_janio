@@ -81,9 +81,16 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
       this.applyTypedDistance();
       return;
     }
+    if (e.key === "Escape" && this.s?.creationSession?.active) {
+      e.preventDefault();
+      this.cancelCurrentPrimitive();
+      this.store.setCreationDrawingTool("line");
+      return;
+    }
     if (e.key === "Escape" && this.isDrawing() && (this.points.length || this.preview)) {
       e.preventDefault();
       this.cancelCurrentPrimitive();
+      return;
     }
     if (e.key === "Enter" && this.typedDistance && this.preview) {
       e.preventDefault();
@@ -207,13 +214,9 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
   }
   cancelCurrentPrimitive() {
     const start = Math.min(this.primitiveStart || 0, this.points.length);
-    if (this.activeTool() === "line" && this.points.length - start > 1) {
-      // Keep the chain, but require an explicit choice of the end to continue from.
-      this.awaitingLineEndpoint = true;
-    } else {
-      this.points = this.points.slice(0, start);
-      this.awaitingLineEndpoint = false;
-    }
+    this.points = this.points.slice(0, start);
+    this.primitiveStart = this.points.length;
+    this.awaitingLineEndpoint = false;
     this.preview = null;
     this.typedDistance = "";
     this.editVertexDrag = null;

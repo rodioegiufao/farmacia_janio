@@ -68,7 +68,7 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
   wheel(e) { e.preventDefault(); const b = this.world(e); this.scale = Math.min(3, Math.max(0.15, this.scale * (e.deltaY < 0 ? 1.1 : 0.9))); const a = this.world(e); this.off.x += (a.x - b.x) * this.scale; this.off.y -= (a.y - b.y) * this.scale; this.draw(); }
   isDrawing() { return this.s?.creationSession?.active || this.s?.editMode === "profileEdit" || ["line", "rectangle", "circle", "polygon", "arc3"].includes(this.activeTool()); }
   key(e) {
-    if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+    if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || this.s?.view === "three") return;
     const isNumberKey = /^\d$/.test(e.key) || [",", ".", "Backspace"].includes(e.key);
     if (this.points.length && this.isDrawing() && isNumberKey) {
       e.preventDefault();
@@ -78,7 +78,10 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
       this.applyTypedDistance();
       return;
     }
-    if (e.key === "Escape") this.cancel();
+    if (e.key === "Escape" && this.isDrawing() && (this.points.length || this.preview)) {
+      e.preventDefault();
+      this.cancelCurrentPrimitive();
+    }
     if (e.key === "Enter") {
       e.preventDefault();
       if (this.typedDistance && this.preview) this.commitPreviewPoint();
@@ -162,6 +165,20 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     this.preview = null;
     this.primitiveStart = this.points.length;
     if (this.s.creationSession?.active) this.store.setTemporaryPoints(this.points);
+    this.draw();
+  }
+  cancelCurrentPrimitive() {
+    const start = Math.min(this.primitiveStart || 0, this.points.length);
+    if (this.activeTool() === "line" && this.points.length - start > 1) {
+      // Keep segments already placed, but make the next tool start a new primitive.
+      this.primitiveStart = this.points.length;
+    } else {
+      this.points = this.points.slice(0, start);
+    }
+    this.preview = null;
+    this.typedDistance = "";
+    this.editVertexDrag = null;
+    if (this.s?.creationSession?.active) this.store.setTemporaryPoints(this.currentDraft());
     this.draw();
   }
   makePrimitive(pts) {

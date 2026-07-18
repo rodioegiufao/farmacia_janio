@@ -182,6 +182,11 @@ export class Scene3D {
       this.applyTypedDistance();
       return;
     }
+    if (this.s?.creationSession?.active && e.key === "Escape" && this.hasDraft()) {
+      e.preventDefault();
+      this.cancelCurrentPrimitive();
+      return;
+    }
     if (this.s?.creationSession?.active && e.key === "Enter" && this.typedDistance && this.preview) {
       e.preventDefault();
       this.commitPreviewPoint();
@@ -267,6 +272,13 @@ export class Scene3D {
   validate(points, closed) { if (points.length < (closed ? 3 : 2)) throw new Error(closed ? "Crie ao menos três pontos." : "Crie ao menos dois pontos."); }
   finish() { try { const cs = this.s.creationSession, step = cs?.step; if (!cs?.active) return; let pts = this.makePrimitive(this.points) || [...this.points]; const closed = !["path","axis"].includes(step); this.validate(pts, closed); if (step === "path" || step === "axis") { const path=this.store.addPath(pts.map((p)=>({...p,z:0})),{name: step === "axis" ? "Eixo de revolução" : "Caminho"}); this.store.advanceCreationStep(step === "axis" ? {axisId:path.id,pathId:path.id}:{pathId:path.id}); } else { const color = cs.operation === "void" ? "#f36b2d" : "#ff00cc"; this.store.addProfile(pts,{name:"Perfil de criação",material:{color}}); this.store.advanceCreationStep({profileId:this.store.state.selectedElementId}); } this.points=[]; this.preview=null; this.typedDistance=""; this.syncDraft(); } catch (err) { this.onError(err.message); } }
   cancel() { this.points = []; this.preview = null; this.typedDistance = ""; this.syncDraft(); }
+  cancelCurrentPrimitive() {
+    this.points = [];
+    this.preview = null;
+    this.typedDistance = "";
+    this.store.setTemporaryPoints([]);
+    this.syncDraft();
+  }
   syncDraft() {
     const pts = this.currentDraft().map((p) => pointToScene(p, this.s?.workView));
     if (pts.length && this.s?.creationSession?.active) {

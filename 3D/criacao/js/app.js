@@ -405,8 +405,20 @@ function renderSelected(s) {
   const p = s.profiles.find((x) => x.id === s.selectedElementId),
     e = (s.forms || s.extrusions).find((x) => x.id === s.selectedElementId);
   if (!p && !e) {
-    els.selectedPanel.innerHTML =
-      '<p class="muted">Selecione uma forma para editar suas propriedades.</p>'
+    const workPlaneOptions = VIEWS.map(
+      (view) =>
+        `<option value="${view.id}" ${s.workView === view.id ? "selected" : ""}>${view.name} (${view.plane})</option>`,
+    ).join("");
+    els.selectedPanel.innerHTML = `<div class="property-group">
+      <h3>Plano de trabalho</h3>
+      <label class="property-row">
+        <span>Plano atual</span>
+        <select id="initialWorkPlane" aria-label="Plano de trabalho atual">${workPlaneOptions}</select>
+      </label>
+      <p class="muted">Escolha o plano em que deseja desenhar. Ele pode ser alterado a qualquer momento.</p>
+    </div>
+    <p class="muted">Selecione uma forma para editar suas propriedades.</p>`;
+    $("#initialWorkPlane").onchange = (event) =>
     return;
   }
   const item = p || e;

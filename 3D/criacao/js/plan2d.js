@@ -196,10 +196,13 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     return primitive ? head.concat(primitive) : pts;
   }
   commitPrimitive() {
-    this.points = this.currentDraft().map((p) => ({ ...p }));
+    const primitive = this.currentDraft().map((p) => ({ ...p }));
+    this.validate(primitive, true);
+    this.completedLoops.push(primitive);
+    this.points = [];
     this.preview = null;
-    this.primitiveStart = this.points.length;
-    if (this.s.creationSession?.active) this.store.setTemporaryPoints(this.points);
+    this.primitiveStart = 0;
+    if (this.s.creationSession?.active) this.store.setTemporaryPoints([]);
     this.draw();
   }
   cancelCurrentPrimitive() {

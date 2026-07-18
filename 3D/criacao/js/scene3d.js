@@ -182,9 +182,10 @@ export class Scene3D {
       this.applyTypedDistance();
       return;
     }
-    if (this.s?.creationSession?.active && e.key === "Escape" && this.hasDraft()) {
+    if (this.s?.creationSession?.active && e.key === "Escape") {
       e.preventDefault();
       this.cancelCurrentPrimitive();
+      this.store.setCreationDrawingTool("line");
       return;
     }
     if (this.s?.creationSession?.active && e.key === "Enter" && this.typedDistance && this.preview) {

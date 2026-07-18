@@ -538,10 +538,14 @@ els.showGrid.onchange = (e) =>
   store.updateSettings({ showGrid: e.target.checked });
 els.snapEnabled.onchange = (e) =>
   store.updateSettings({ snapEnabled: e.target.checked });
-$("#extrudeSelected").onclick = () => {
-  store.beginCreationSession({ formType: "extrusion", operation: "solid" });
-  toast("Criar extrusão: desenhe um perfil fechado na vista 2D ou 3D.");
-};
+// Keep supporting the legacy shortcut when it is present without preventing the
+// rest of the editor from initializing on layouts that only use the ribbon.
+if ($("#extrudeSelected"))
+  $("#extrudeSelected").onclick = () => {
+    store.beginCreationSession({ formType: "extrusion", operation: "solid" });
+    toast("Criar extrusão: desenhe um perfil fechado na vista 2D ou 3D.");
+  };
+  
 $("#addParam").onclick = () => {
   const name = $("#newParamName").value.trim();
   if (!name) return toast("Informe o nome do parâmetro.", "error");

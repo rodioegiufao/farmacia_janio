@@ -99,6 +99,28 @@
 
       <div id="usuariosLista" class="users-list users-list-admin"></div>
     </section>
+    <div id="passwordModal" class="profile-modal" hidden>
+      <div class="profile-modal-card" role="dialog" aria-modal="true" aria-labelledby="passwordModalTitle">
+        <button type="button" class="profile-modal-close" id="passwordModalClose" aria-label="Fechar alteração de senha">×</button>
+        <h2 id="passwordModalTitle">Alterar senha</h2>
+        <p class="profile-modal-help">Defina uma nova senha para <strong id="passwordUserName"></strong>.</p>
+        <form id="passwordForm" class="profile-form">
+          <input type="hidden" id="passwordUserId" />
+          <label>
+            Nova senha
+            <input type="password" id="passwordNew" autocomplete="new-password" minlength="6" required />
+          </label>
+          <label>
+            Confirmar nova senha
+            <input type="password" id="passwordConfirm" autocomplete="new-password" minlength="6" required />
+          </label>
+          <div class="profile-modal-actions">
+            <button type="button" id="passwordCancel">Cancelar</button>
+            <button type="submit">Salvar nova senha</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <section class="panel" id="accessDeniedPanel" hidden>
       <div class="panel-header">

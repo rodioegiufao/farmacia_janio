@@ -15,6 +15,8 @@ const usuarioIniciaisMenu = document.getElementById("usuarioIniciaisMenu");
 const usuarioLogado = document.getElementById("usuarioLogado");
 const usuarioPerfil = document.getElementById("usuarioPerfil");
 const adminLink = document.getElementById("adminLink");
+const passwordModal = document.getElementById("passwordModal");
+const passwordForm = document.getElementById("passwordForm");
 
 inicializarAdmin();
 
@@ -23,6 +25,11 @@ async function inicializarAdmin() {
   btnLogout.addEventListener("click", sair);
   btnPerfil?.addEventListener("click", abrirPerfil);
   userMenuTrigger.addEventListener("click", alternarMenuUsuario);
+  usuariosLista.addEventListener("click", tratarAcaoUsuario);
+  passwordForm.addEventListener("submit", salvarNovaSenha);
+  document.getElementById("passwordModalClose").addEventListener("click", fecharModalSenha);
+  document.getElementById("passwordCancel").addEventListener("click", fecharModalSenha);
+  passwordModal.addEventListener("click", (event) => { if (event.target === passwordModal) fecharModalSenha(); });
   document.addEventListener("click", fecharMenuUsuarioAoClicarFora);
   document.addEventListener("keydown", fecharMenuUsuarioComTeclado);
   initThemeSelector();
@@ -93,6 +100,7 @@ function fecharMenuUsuarioComTeclado(event) {
   if (event.key === "Escape") {
     fecharMenuUsuario();
     fecharModalPerfil();
+    fecharModalSenha();
   }
 }
 
@@ -227,13 +235,58 @@ async function carregarUsuarios() {
         <span>Usuário: ${escapeHtml(user.usuario)}</span>
         <span>Perfil: ${escapeHtml(user.perfil)}</span>
         <span>Status: ${user.ativo ? "Ativo" : "Inativo"}</span>
+        <button type="button" class="user-password-button" data-user-id="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.nome)}">
+          <i class="fa-solid fa-key" aria-hidden="true"></i>
+          Alterar senha
+        </button>
       </article>
     `).join("");
   } catch (erro) {
     usuariosLista.innerHTML = `<p class="help-text">${escapeHtml(erro.message)}</p>`;
   }
 }
+function tratarAcaoUsuario(event) {
+  const button = event.target.closest(".user-password-button");
+  if (!button) return;
 
+  passwordForm.reset();
+  document.getElementById("passwordUserId").value = button.dataset.userId;
+  document.getElementById("passwordUserName").textContent = button.dataset.userName;
+  passwordModal.hidden = false;
+  document.getElementById("passwordNew").focus();
+}
+
+function fecharModalSenha() {
+  passwordModal.hidden = true;
+  passwordForm.reset();
+}
+
+async function salvarNovaSenha(event) {
+  event.preventDefault();
+  const senha = document.getElementById("passwordNew").value;
+  const confirmacao = document.getElementById("passwordConfirm").value;
+
+  if (senha !== confirmacao) {
+    alert("As senhas informadas não coincidem.");
+    return;
+  }
+
+  try {
+    const data = await fetch(USUARIOS_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: document.getElementById("passwordUserId").value,
+        senha
+      })
+    }).then(validarResposta);
+
+    fecharModalSenha();
+    alert(`Senha de ${data.nome} alterada com sucesso.`);
+  } catch (erro) {
+    alert(`Não foi possível alterar a senha: ${erro.message}`);
+  }
+}
 async function sair() {
   await fetch(AUTH_URL, { method: "DELETE" }).catch(() => null);
   window.location.href = "/atividades/";

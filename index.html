@@ -25,7 +25,12 @@
                 <div class="home-auth" id="homeAuth">
                     <form class="home-login-form" id="homeLoginForm" hidden>
                         <input type="text" id="homeLoginUsuario" placeholder="Usuário" autocomplete="username" required>
-                        <input type="password" id="homeLoginSenha" placeholder="Senha" autocomplete="current-password" required>
+                        <span class="home-password-field">
+                            <input type="password" id="homeLoginSenha" placeholder="Senha" autocomplete="current-password" required>
+                            <button type="button" class="home-password-toggle" id="homePasswordToggle" aria-label="Mostrar senha" aria-pressed="false">
+                                <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                            </button>
+                        </span>
                         <button type="submit">Entrar</button>
                     </form>
                     <div class="user-menu" id="userMenu" hidden>

@@ -29,11 +29,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const loginForm = document.getElementById('homeLoginForm');
         const loginUsuario = document.getElementById('homeLoginUsuario');
         const loginSenha = document.getElementById('homeLoginSenha');
+        const passwordToggle = document.getElementById('homePasswordToggle');
         const protectedLinks = document.querySelectorAll('[data-auth-required="true"]');
         const ferramentasMenu = document.getElementById('ferramentasMenu');
         let currentUser = null;
 
         if (!loginForm || !window.SiteAuth) return;
+        
+        passwordToggle?.addEventListener('click', () => {
+            const mostrarSenha = loginSenha.type === 'password';
+            loginSenha.type = mostrarSenha ? 'text' : 'password';
+            passwordToggle.setAttribute('aria-label', mostrarSenha ? 'Ocultar senha' : 'Mostrar senha');
+            passwordToggle.setAttribute('aria-pressed', String(mostrarSenha));
+            passwordToggle.querySelector('i')?.classList.toggle('fa-eye', !mostrarSenha);
+            passwordToggle.querySelector('i')?.classList.toggle('fa-eye-slash', mostrarSenha);
+        });
 
         function redirectAfterLogin() {
             const params = new URLSearchParams(window.location.search);

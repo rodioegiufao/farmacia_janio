@@ -326,6 +326,22 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 .user-card strong { color: var(--text-lighter); }
 
 .user-card span { font-size: 0.9rem; opacity: 0.9; }
+.user-password-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  color: var(--text-lighter);
+  background: var(--primary-light);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.user-password-button:hover { filter: brightness(1.12); }
 .dashboard-panel { overflow: hidden; }
 .dashboard-filters {
   display: grid;

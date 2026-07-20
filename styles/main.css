@@ -1032,7 +1032,40 @@ body {
     padding: 0.45rem 0.75rem;
     outline: none;
 }
+.home-password-field {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
 
+.home-password-field input {
+    padding-right: 2.25rem;
+}
+
+.home-login-form .home-password-toggle {
+    position: absolute;
+    right: 0.35rem;
+    display: inline-grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    place-items: center;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--foreground);
+    font-size: 0.85rem;
+}
+
+.home-login-form .home-password-toggle:hover,
+.home-login-form .home-password-toggle:focus-visible {
+    background: rgba(255, 255, 255, 0.16);
+    transform: none;
+}
+
+.home-login-form .home-password-toggle:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
 .home-login-form input::placeholder {
     color: rgba(255, 255, 255, 0.72);
 }

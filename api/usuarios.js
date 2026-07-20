@@ -63,6 +63,41 @@ module.exports = async function usuariosHandler(req, res) {
       return;
     }
 
+    if (req.method === "PUT") {
+      const currentUser = await requireUser(req);
+      if (currentUser.perfil !== "admin") {
+        sendJson(res, 403, { error: "Apenas administradores podem alterar senhas de usuários." });
+        return;
+      }
+
+      const body = parseRequestBody(req);
+      const id = String(body.id || "").trim();
+      const senha = String(body.senha || "");
+
+      if (!id || senha.length < 6) {
+        sendJson(res, 400, { error: "Selecione um usuário e informe uma senha com pelo menos 6 caracteres." });
+        return;
+      }
+
+      const data = await supabaseRequest(
+        USERS_TABLE,
+        `?id=eq.${encodeURIComponent(id)}&select=id,nome,usuario,perfil,ativo`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ senha_hash: hashPassword(senha) })
+        }
+      );
+      const updatedUser = Array.isArray(data) ? data[0] : null;
+
+      if (!updatedUser) {
+        sendJson(res, 404, { error: "Usuário não encontrado." });
+        return;
+      }
+
+      sendJson(res, 200, sanitizeUser(updatedUser));
+      return;
+    }
+
     sendJson(res, 405, { error: "Método não suportado." });
   } catch (error) {
     console.error("Erro na API de usuários:", error);

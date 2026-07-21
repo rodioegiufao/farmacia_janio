@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador de Memorial Descritivo Elétrico</title>
+    <title>Gerador de Memoriais Elétricos</title>
     <link rel="icon" href="/images/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
     <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
@@ -21,7 +21,7 @@
 <body>
     <div id="theme-selector" class="theme-selector">
         <div class="theme-selector-content">
-            <div class="theme-logo">Gerador de Memorial Descritivo Elétrico</div>
+            <div class="theme-logo">Gerador de Memoriais Elétricos</div>
             <div class="theme-controls">
                 <div class="user-menu" id="userMenu" hidden>
                     <button type="button" class="user-menu-trigger" id="userMenuTrigger" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu do usuário">
@@ -65,8 +65,8 @@
             <div class="logo">
                 <i class="fas fa-file-word"></i>
                 <div>
-                    <h1>Gerador de Memorial Descritivo Elétrico</h1>
-                    <p class="subtitle">Preencha os dados e gere o template MEM-DESCRITIVO-ELÉTRICO em Word ou PDF</p>
+                    <h1>Gerador de Memoriais Elétricos</h1>
+                    <p class="subtitle">Gere separadamente os memoriais descritivo e de cálculo em Word ou PDF</p>
                 </div>
             </div>
         </header>
@@ -77,6 +77,7 @@
                     <h3><i class="fas fa-file-word"></i> Documento Word</h3>
                     <ul id="template-list">
                         <li><i class="fas fa-check-circle"></i> MEM-DESCRITIVO-ELÉTRICO (.docx)</li>
+                        <li><i class="fas fa-check-circle"></i> MEM-CÁLCULO-ELÉTRICO (.docx)</li>
                     </ul>
                 </div>
 
@@ -94,8 +95,10 @@
                 </div>
 
                 <div class="sidebar-section">
-                    <h3><i class="fas fa-download"></i> Template</h3>
-                    <p>Template utilizado: <code>/Memorial/templates/MEM-DESCRITIVO-ELÉTRICO.docx</code></p>
+                    <h3><i class="fas fa-download"></i> Templates</h3>
+                    <p>Templates utilizados:</p>
+                    <p><code>/Memorial/templates/MEM-DESCRITIVO-ELÉTRICO.docx</code></p>
+                    <p><code>/Memorial/templates/MEM-CALCULO-ELETRICO.docx</code></p>
                     <div class="template-status" id="template-status">
                         <p><i class="fas fa-sync fa-spin"></i> Verificando template...</p>
                     </div>
@@ -282,19 +285,9 @@
                             </button>
                         </div>
                         <div id="qibuilder-status" class="qibuilder-status" role="status" aria-live="polite">
-                            Nenhum HTML carregado. O memorial descritivo será gerado normalmente.
+                            Nenhum HTML carregado. O memorial descritivo pode ser gerado sem essa importação.
                         </div>
                         <div id="qibuilder-sections" class="qibuilder-sections hidden"></div>
-                        <div class="qibuilder-options">
-                            <label class="option-item">
-                                <input type="checkbox" id="incluir_relatorio_detalhado">
-                                <span>Incluir relatório detalhado de circuitos</span>
-                            </label>
-                            <label class="option-item">
-                                <input type="checkbox" id="somente_memorial_descritivo">
-                                <span>Gerar somente memorial descritivo</span>
-                            </label>
-                        </div>
                     </section>
                     <section class="form-section">
                         <h2><i class="fas fa-exclamation-triangle"></i> Circuito de Emergência</h2>
@@ -325,6 +318,12 @@
                                     <i class="fas fa-file-alt"></i> MEM-DESCRITIVO-ELÉTRICO
                                 </label>
                             </div>
+                            <div class="option-item">
+                                <input type="checkbox" id="gerar_memorial_calculo">
+                                <label for="gerar_memorial_calculo">
+                                    <i class="fas fa-calculator"></i> MEM-CÁLCULO-ELÉTRICO
+                                </label>
+                            </div>
                         </div>
                     </section>
 
@@ -343,12 +342,12 @@
 
                 <div id="results-section" class="hidden">
                     <section class="results-section">
-                        <h2><i class="fas fa-download"></i> Memorial Gerado</h2>
+                        <h2><i class="fas fa-download"></i> Documentos Gerados</h2>
                         <div class="success-message" id="success-message">
                             <i class="fas fa-check-circle"></i>
                             <div>
                                 <p><strong>Sucesso!</strong> Documento gerado com opções em Word e PDF.</p>
-                                <p class="success-detail">Baixe em Word para edição ou em PDF para compartilhamento.</p>
+                                <p><strong>Sucesso!</strong> Documento(s) gerado(s) com opções em Word e PDF.</p>
                             </div>
                         </div>
 
@@ -356,7 +355,7 @@
 
                         <div class="download-options">
                             <h3><i class="fas fa-file-archive"></i> Download</h3>
-                            <p>Baixe o memorial gerado em Word, PDF ou copie o resumo dos dados utilizados.</p>
+                            <p>Baixe os documentos gerados em Word, PDF ou copie o resumo dos dados utilizados.</p>
                             <button id="download-all-btn" class="btn-download-all">
                                 <i class="fas fa-file-archive"></i> Baixar ZIP Word
                             </button>
@@ -380,7 +379,7 @@
         </div>
 
         <footer class="footer">
-            <p><i class="fas fa-copyright"></i> Sistema de Geração de Memorial Descritivo Elétrico</p>
+            <p><i class="fas fa-copyright"></i> Sistema de Geração de Memoriais Elétricos</p>
             <p class="footer-info">Documento gerado com formatação completa do Microsoft Word</p>
         </footer>
     </div>

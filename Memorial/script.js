@@ -1,5 +1,7 @@
-const TEMPLATE_URL = '/Memorial/templates/MEM-DESCRITIVO-ELÉTRICO.docx';
-const TEMPLATE_NAME = 'MEM-DESCRITIVO-ELÉTRICO';
+const TEMPLATE_DESCRITIVO_URL = '/Memorial/templates/MEM-DESCRITIVO-ELÉTRICO.docx';
+const TEMPLATE_CALCULO_URL = '/Memorial/templates/MEM-CALCULO-ELETRICO.docx';
+const TEMPLATE_DESCRITIVO_NAME = 'MEM-DESCRITIVO-ELÉTRICO';
+const TEMPLATE_CALCULO_NAME = 'MEM-CALCULO-ELÉTRICO';
 const MEMORIAL_DATABASE_URL = '/Memorial/base_de_dados_memorial.xlsx';
 const TOMADAS_PLACEHOLDER = '__MEMORIAL_TOMADAS_SELECIONADAS__';
 const ELETROCALHAS_PLACEHOLDER = '__MEMORIAL_ELETROCALHAS_SELECIONADAS__';
@@ -56,13 +58,16 @@ async function checkTemplate() {
     const statusElement = document.getElementById('template-status');
 
     try {
-        const response = await fetch(TEMPLATE_URL, { method: 'HEAD' });
+        const respostas = await Promise.all([
+            fetch(TEMPLATE_DESCRITIVO_URL, { method: 'HEAD' }),
+            fetch(TEMPLATE_CALCULO_URL, { method: 'HEAD' })
+        ]);
 
-        if (response.ok) {
+        if (respostas.every((response) => response.ok)) {
             statusElement.innerHTML = `
                 <p><i class="fas fa-check-circle" style="color: #27ae60;"></i>
-                Template encontrado!</p>
-                <small>Pronto para gerar o memorial em Word ou PDF</small>
+                Templates encontrados!</p>
+                <small>Memoriais descritivo e de cálculo prontos para geração</small>
             `;
         } else {
             statusElement.innerHTML = `
@@ -459,24 +464,38 @@ function setupEventListeners() {
 }
 
 async function processarFormulario() {
-    if (!validarFormulario()) return;
-
-    if (!document.getElementById('gerar_memorial_eletrico').checked) {
-        alert('Selecione o memorial descritivo elétrico para gerar.');
+    const gerarDescritivo = document.getElementById('gerar_memorial_eletrico')?.checked;
+    const gerarCalculo = document.getElementById('gerar_memorial_calculo')?.checked;
+    if (!gerarDescritivo && !gerarCalculo) {
+        alert('Selecione pelo menos um documento para gerar.');
         return;
     }
+
+    if (gerarCalculo && !memorialCalculoImportado) {
+        alert('Para gerar o memorial de cálculo, importe o HTML do QiBuilder.');
+        return;
+    }
+
+    if (!validarFormulario()) return;
 
     showLoading(true);
 
     try {
-        atualizarEtapaProcessamento('preparando o Word');
+        documentosGerados = [];
         const dados = coletarDadosFormulario();
-        await gerarDocumentoWord(dados);
-        atualizarEtapaProcessamento('finalizando documento');
+        if (gerarDescritivo) {
+            atualizarEtapaProcessamento('Preparando o template descritivo');
+            await gerarMemorialDescritivo(dados);
+        }
+        if (gerarCalculo) {
+            atualizarEtapaProcessamento('Preparando o template Word');
+            await gerarMemorialCalculo(dados, memorialCalculoImportado);
+        }
+        atualizarEtapaProcessamento('Finalizando documento');
         exibirResultados();
     } catch (error) {
         console.error('Erro ao processar memorial:', error);
-        alert('Erro ao gerar o memorial. Verifique o console para detalhes.');
+        alert(error.message || 'Erro ao gerar o memorial. Verifique o console para detalhes.');
     } finally {
         showLoading(false);
     }
@@ -617,12 +636,10 @@ function obterTensoesLinhaPorTensaoSecundaria(tensaoSecundaria) {
     return tensoesPorTipo[tensaoSecundaria] || { LLLA: '', LLLB: '' };
 }
 
-async function gerarDocumentoWord(dados) {
-    documentosGerados = [];
-
-    const response = await fetch(TEMPLATE_URL);
+async function gerarMemorialDescritivo(dados) {
+    const response = await fetch(TEMPLATE_DESCRITIVO_URL);
     if (!response.ok) {
-        throw new Error(`Template não encontrado: ${TEMPLATE_URL}`);
+        throw new Error(`Template não encontrado: ${TEMPLATE_DESCRITIVO_URL}`);
     }
 
     const arrayBuffer = await response.arrayBuffer();
@@ -631,10 +648,25 @@ async function gerarDocumentoWord(dados) {
 
     documentosGerados.push({
         nome: 'Memorial Descritivo Elétrico',
-        nomeArquivo: `${TEMPLATE_NAME} - ${nomeProjeto}.docx`,
-        nomeArquivoPdf: `${TEMPLATE_NAME} - ${nomeProjeto}.pdf`,
+        nomeArquivo: `${TEMPLATE_DESCRITIVO_NAME} - ${nomeProjeto}.docx`,
+        nomeArquivoPdf: `${TEMPLATE_DESCRITIVO_NAME} - ${nomeProjeto}.pdf`,
         conteudo: docxContent,
         tipo: 'memorial_descritivo_eletrico'
+    });
+}
+
+async function gerarMemorialCalculo(dados, modeloQiBuilder) {
+    const response = await fetch(TEMPLATE_CALCULO_URL);
+    if (!response.ok) throw new Error(`Template de cálculo não encontrado: ${TEMPLATE_CALCULO_URL}`);
+    const arrayBuffer = await response.arrayBuffer();
+    const conteudo = await DocxMemorialCalculo.processarTemplateCalculo(arrayBuffer, dados, modeloQiBuilder);
+    const nomeProjeto = (dados.HHHH || 'memorial_calculo_eletrico').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    documentosGerados.push({
+        nome: 'Memorial de Cálculo Elétrico',
+        nomeArquivo: `${TEMPLATE_CALCULO_NAME} - ${nomeProjeto}.docx`,
+        nomeArquivoPdf: `${TEMPLATE_CALCULO_NAME} - ${nomeProjeto}.pdf`,
+        conteudo,
+        tipo: 'memorial_calculo_eletrico'
     });
 }
 
@@ -676,12 +708,6 @@ async function processarTemplateWord(arrayBuffer, dados) {
             missingImageMessage: 'Imagem não encontrada na coluna C da planilha.',
             defaultAltText: 'Imagem de iluminação'
         });
-
-        if (memorialCalculoImportado && !document.getElementById('somente_memorial_descritivo')?.checked) {
-            DocxMemorialCalculo.inserirNoDocumento(renderedZip, memorialCalculoImportado, {
-                detalhado: document.getElementById('incluir_relatorio_detalhado')?.checked
-            });
-        }
 
         return renderedZip.generate({
             type: 'arraybuffer',
@@ -1006,12 +1032,12 @@ function baixarTodosDocumentos() {
             const a = document.createElement('a');
             a.href = url;
             const nomeProjeto = (dadosProcessados.HHHH || 'memorial_descritivo_eletrico').replace(/[^a-z0-9]/gi, '_');
-            a.download = `Memorial_Descritivo_Eletrico_${nomeProjeto}.zip`;
+            a.download = `Memoriais_Eletricos_${nomeProjeto}.zip`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(url), 100);
-            showDownloadFeedback('memorial descritivo elétrico');
+            showDownloadFeedback('memoriais elétricos');
         })
         .catch(function(error) {
             console.error('Erro ao criar ZIP:', error);
@@ -1110,13 +1136,19 @@ function exibirResumoQiBuilder(modelo) {
     const status = document.getElementById('qibuilder-status');
     const container = document.getElementById('qibuilder-sections');
     if (status) {
-        status.textContent = `Arquivo lido com ${modelo.secoes.length} seções (${modelo.arquivo.codificacao}).`;
+        status.textContent = `Arquivo lido com sucesso (${modelo.arquivo.codificacao}).`;
         status.classList.add('is-success');
         status.classList.remove('is-error');
     }
     if (!container) return;
-    const validas = modelo.secoes.filter((secao) => !['ignorar', 'outras'].includes(secao.tipo));
-    container.innerHTML = validas.map((secao) => `<span class="qibuilder-section-tag">${escapeHtml(secao.titulo)} · ${secao.tabelas.length} tabela(s)</span>`).join('')
+    const resumo = [
+        ['Pavimentos', Math.max(0, (modelo.pavimentos?.linhas?.length || 1) - 1)],
+        ['Pontos de força', modelo.pontosForca.length],
+        ['Pontos de luz', modelo.pontosLuz.length],
+        ['Quadros de carga', modelo.quadrosCarga.length],
+        ['Quadros dimensionados', modelo.relatorioQuadros.length]
+    ];
+    container.innerHTML = resumo.map(([titulo, total]) => `<span class="qibuilder-section-tag">${escapeHtml(titulo)}: ${total}</span>`).join('')
         + modelo.avisos.map((aviso) => `<p class="qibuilder-warning"><i class="fas fa-triangle-exclamation"></i> ${escapeHtml(aviso)}</p>`).join('');
     container.classList.remove('hidden');
 }
@@ -1130,7 +1162,7 @@ function limparMemorialCalculoImportado() {
     document.getElementById('qibuilder-sections')?.classList.add('hidden');
     const status = document.getElementById('qibuilder-status');
     if (status) {
-        status.textContent = 'Nenhum HTML carregado. O memorial descritivo será gerado normalmente.';
+        status.textContent = 'Nenhum HTML carregado. O memorial descritivo pode ser gerado sem essa importação.';
         status.classList.remove('is-error', 'is-success');
     }
 }

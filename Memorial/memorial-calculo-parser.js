@@ -1,216 +1,274 @@
 (function (global) {
     'use strict';
 
-    const TITULOS_IGNORADOS = ['legenda de simbolos', 'lista de materiais'];
-    const CAMPOS = [
-        ['pavimentos', ['pavimento', 'estrutura']],
-        ['alimentacao', ['alimentacao eletrica', 'alimentacao']],
-        ['fatoresDemanda', ['fator de demanda', 'fatores de demanda', 'demanda']],
-        ['quadrosProtecao', ['quadro de distribuicao', 'disjuntor', 'protecao']],
-        ['quedaTensao', ['queda de tensao']],
-        ['temperatura', ['temperatura ambiente', 'temperatura']],
-        ['pontosEletricos', ['pontos eletricos', 'pontos de utilizacao', 'pontos']],
-        ['quadrosCarga', ['tabela de carga', 'quadro de carga', 'composicao de carga']],
-        ['condutores', ['condutor', 'secao dos cabos']],
-        ['memorialCalculo', ['memorial de calculo']],
-        ['relatorioDimensionamento', ['relatorio de dimensionamento', 'dimensionamento']]
-    ];
-
-    function normalizarTitulo(valor) {
-        return String(valor || '')
-            .replace(/\u00a0/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .toLocaleLowerCase('pt-BR')
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '');
+    function normalizarTexto(valor) {
+        return String(valor || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim()
+            .toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     }
 
-    function textoLimpo(elemento) {
-        return String(elemento?.textContent || '').replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, ' ').trim();
+    function textoOriginal(elemento) {
+        return String(elemento?.textContent || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
     }
 
-    function celulaParaModelo(cell) {
-        return {
-            texto: textoLimpo(cell),
-            colspan: Math.max(1, Number.parseInt(cell.getAttribute('colspan') || '1', 10) || 1),
-            rowspan: Math.max(1, Number.parseInt(cell.getAttribute('rowspan') || '1', 10) || 1),
-            cabecalho: cell.tagName.toLowerCase() === 'th'
-        };
+    function obterElementosDaSecao(tituloElemento) {
+        const elementos = [];
+        let atual = tituloElemento?.nextElementSibling;
+        while (atual) {
+            if (atual.tagName === 'P' && atual.classList.contains('subTitle')) break;
+            elementos.push(atual);
+            atual = atual.nextElementSibling;
+        }
+        return elementos;
     }
 
-    function tabelaParaModelo(table) {
-        const linhas = Array.from(table.rows || []).map((row) => ({
-            celulas: Array.from(row.cells || []).map(celulaParaModelo)
-        })).filter((row) => row.celulas.some((cell) => cell.texto));
-        if (!linhas.length) return null;
-        const primeiraTemTh = Array.from(table.rows?.[0]?.cells || []).some((cell) => cell.tagName.toLowerCase() === 'th');
-        linhas[0].celulas.forEach((cell) => { cell.cabecalho = primeiraTemTh || cell.cabecalho; });
-        return { linhas, titulo: table.getAttribute('summary') || '', colunas: calcularColunas(linhas) };
+    function tabelaParaModelo(tabela) {
+        const linhas = Array.from(tabela?.rows || []).map((linha, indice) => ({
+            celulas: Array.from(linha.cells || []).map((celula) => ({
+                texto: textoOriginal(celula),
+                colspan: Math.max(1, parseInt(celula.getAttribute('colspan') || '1', 10) || 1),
+                rowspan: Math.max(1, parseInt(celula.getAttribute('rowspan') || '1', 10) || 1),
+                cabecalho: indice === 0 || celula.tagName === 'TH' || Boolean(celula.querySelector('b, strong'))
+            }))
+        })).filter((linha) => linha.celulas.some((celula) => celula.texto));
+        return linhas.length ? {
+            linhas,
+            quantidadeColunas: linhas.reduce((maior, linha) => Math.max(maior,
+                linha.celulas.reduce((total, celula) => total + celula.colspan, 0)), 0)
+        } : null;
     }
 
-    function calcularColunas(linhas) {
-        return linhas.reduce((max, row) => Math.max(max, row.celulas.reduce((sum, cell) => sum + cell.colspan, 0)), 0);
+    function localizarTitulo(documento, titulo) {
+        const esperado = normalizarTexto(titulo);
+        return Array.from(documento.querySelectorAll('p.subTitle')).find((item) => normalizarTexto(item.textContent) === esperado);
     }
 
-    function extrairBloco(titulo, nodes) {
-        const paragrafos = [];
+    function tabelasNosElementos(elementos) {
         const tabelas = [];
-        nodes.forEach((node) => {
-            if (node.nodeType !== 1) return;
-            if (node.matches?.('script, style, link, iframe, object, embed, form, input, button, noscript')) return;
-            if (node.matches?.('table')) {
-                const tabela = tabelaParaModelo(node);
-                if (tabela) tabelas.push(tabela);
-                return;
-            }
-            node.querySelectorAll?.('table').forEach((table) => {
-                const tabela = tabelaParaModelo(table);
-                if (tabela) tabelas.push(tabela);
-            });
-            const clone = node.cloneNode(true);
-            clone.querySelectorAll?.('table, script, style, link, iframe, object, embed').forEach((item) => item.remove());
-            const texto = textoLimpo(clone);
-            if (texto) paragrafos.push(texto);
+        elementos.forEach((elemento) => {
+            if (elemento.matches?.('table')) tabelas.push(elemento);
+            elemento.querySelectorAll?.('table').forEach((tabela) => tabelas.push(tabela));
         });
-        return { titulo, paragrafos: [...new Set(paragrafos)], tabelas };
+        return tabelas;
     }
 
-    function classificar(titulo) {
-        const normalizado = normalizarTitulo(titulo);
-        if (TITULOS_IGNORADOS.some((item) => normalizado.includes(item))) return 'ignorar';
-        for (const [campo, aliases] of CAMPOS) {
-            if (aliases.some((alias) => normalizado.includes(alias))) return campo;
+    function primeiraTabelaDaSecao(documento, titulo) {
+        const elemento = localizarTitulo(documento, titulo);
+        return { elemento, tabela: elemento ? tabelasNosElementos(obterElementosDaSecao(elemento))[0] : null };
+    }
+
+    function elementosEntreMarcadores(elementos, inicio, fim) {
+        const saida = [];
+        let coletando = false;
+        let encontrou = false;
+        for (const elemento of elementos) {
+            const texto = normalizarTexto(elemento.textContent);
+            if (!coletando && elemento.matches?.('p') && texto === inicio) {
+                coletando = true;
+                encontrou = true;
+                continue;
+            }
+            if (coletando && fim && elemento.matches?.('p') && texto === fim) break;
+            if (coletando) saida.push(elemento);
         }
-        return 'outras';
+        return { elementos: saida, encontrou };
     }
 
-    function modeloVazio(arquivo) {
+    function tabelaChaveValorParaPonto(tabela) {
+        const valores = {};
+        Array.from(tabela.rows || []).forEach((linha) => {
+            const celulas = Array.from(linha.cells || []);
+            if (celulas.length >= 2) valores[normalizarTexto(celulas[0].textContent)] = textoOriginal(celulas[1]);
+        });
+        const valor = (...aliases) => {
+            const chave = Object.keys(valores).find((item) => aliases.some((alias) => item.includes(alias)));
+            return chave ? valores[chave] : '';
+        };
+        const ponto = {
+            peca: valor('peca'), potenciaUnitaria: valor('potencia unitaria'),
+            numeroPontos: valor('numero de pontos'), potenciaTotal: valor('potencia total'),
+            fatorPotencia: valor('fator de potencia')
+        };
+        return Object.values(ponto).some(Boolean) ? ponto : null;
+    }
+
+    function extrairPontos(documento, avisos) {
+        const titulo = localizarTitulo(documento, 'Composição e tabelas de cargas');
+        if (!titulo) {
+            avisos.push('Seção não localizada: Composição e tabelas de cargas.');
+            return { pontosForca: [], pontosLuz: [] };
+        }
+        const elementos = obterElementosDaSecao(titulo);
+        const forca = elementosEntreMarcadores(elementos, 'pontos de forca', 'pontos de luz');
+        const luz = elementosEntreMarcadores(elementos, 'pontos de luz');
+        const converter = (grupo) => tabelasNosElementos(grupo.elementos).map(tabelaChaveValorParaPonto).filter(Boolean);
+        const pontosForca = converter(forca);
+        const pontosLuz = converter(luz);
+        if (!forca.encontrou) avisos.push('Marcador “Pontos de força” não localizado.');
+        else if (!pontosForca.length) avisos.push('O marcador “Pontos de força” não possui tabelas válidas.');
+        if (!luz.encontrou) avisos.push('Marcador “Pontos de luz” não localizado.');
+        else if (!pontosLuz.length) avisos.push('O marcador “Pontos de luz” não possui tabelas válidas.');
+        return { pontosForca, pontosLuz };
+    }
+
+    function extrairDimensionamento(documento, avisos) {
+        const titulo = localizarTitulo(documento, 'Quadros de distribuição e disjuntores');
+        if (!titulo) {
+            avisos.push('Seção não localizada: Quadros de distribuição e disjuntores.');
+            return null;
+        }
+        const elementos = obterElementosDaSecao(titulo);
+        const marcador = elementos.findIndex((item) => item.matches?.('p') && normalizarTexto(item.textContent).includes('dimensionamento dos quadros de distribuicao'));
+        if (marcador < 0) {
+            avisos.push('Marcador de dimensionamento dos quadros não localizado.');
+            return null;
+        }
+        const tabela = tabelasNosElementos(elementos.slice(marcador + 1)).find((item) => {
+            const cabecalho = normalizarTexto(Array.from(item.rows?.[0]?.cells || []).map(textoOriginal).join(' '));
+            return cabecalho.includes('quadro') && cabecalho.includes('protecao');
+        });
+        if (!tabela) avisos.push('Tabela de dimensionamento com cabeçalho Quadro/Proteção não localizada.');
+        return tabelaParaModelo(tabela);
+    }
+
+    function extrairQuadrosCarga(documento, avisos) {
+        const titulo = localizarTitulo(documento, 'Memorial de cálculo');
+        if (!titulo) {
+            avisos.push('Seção não localizada: Memorial de cálculo.');
+            return [];
+        }
+        const elementos = obterElementosDaSecao(titulo);
+        const quadros = [];
+        elementos.forEach((elemento, indice) => {
+            if (!elemento.matches?.('p') || !normalizarTexto(elemento.textContent).startsWith('quadro de cargas:')) return;
+            const tabela = tabelasNosElementos(elementos.slice(indice + 1))[0];
+            if (tabela) quadros.push({ titulo: textoOriginal(elemento), tabela: tabelaParaModelo(tabela) });
+            else avisos.push(`Tabela não localizada para ${textoOriginal(elemento)}.`);
+        });
+        if (!quadros.length) avisos.push('Nenhum quadro de carga foi localizado.');
+        return quadros;
+    }
+
+    function valorApos(texto, expressao) {
+        return texto.match(expressao)?.[1]?.trim() || '';
+    }
+
+    function extrairDadosRelatorio(titulo, tabelas) {
+        const celulas = tabelas.flatMap((tabela) => tabela.linhas.flatMap((linha) => linha.celulas.map((celula) => celula.texto)));
+        const texto = celulas.join(' | ');
+        const n = normalizarTexto(texto);
+        const acharOriginal = (termo) => celulas.find((celula) => normalizarTexto(celula).includes(termo)) || '';
+        const potencia = acharOriginal('potencia instalada');
+        const totais = potencia.match(/[-+]?\d[\d.,]*/g) || [];
+        const corrente = acharOriginal('projeto (ip)');
+        const corrigida = acharOriginal('corrigida (id)');
+        const condutores = acharOriginal('capacidade de conducao (fase)') || acharOriginal('fase');
+        const protecao = acharOriginal('corrente de atuacao');
+        const queda = acharOriginal('dv% parcial') || acharOriginal('queda de tensao');
+        const verificacao = acharOriginal('ip < in < iz');
+        const nomeDescricao = textoOriginal({ textContent: titulo }).replace(/^Dimensionamento\s+/i, '');
+        const [nomeQuadro, ...descricao] = nomeDescricao.split(/\s+-\s+/);
         return {
-            arquivo,
-            pavimentos: [], alimentacao: { paragrafos: [], tabelas: [] }, fatoresDemanda: [],
-            quadrosProtecao: [], quedaTensao: { paragrafos: [], tabelas: [] },
-            temperatura: { paragrafos: [], tabelas: [] }, pontosEletricos: [],
-            condutores: { paragrafos: [], tabelas: [] }, quadrosCarga: [], memorialCalculo: [],
-            relatorioDimensionamento: { quadros: [], circuitos: [], secoes: [] },
-            secoes: [], avisos: []
+            titulo: textoOriginal({ textContent: titulo }), nomeQuadro, descricao: descricao.join(' - '),
+            quadroOrigem: valorApos(acharOriginal('quadro '), /Quadro\s+(.+)/i),
+            alimentacao: valorApos(acharOriginal('alimentacao'), /Alimenta[cç][aã]o\s*:?\s*(.+)/i),
+            tensao: valorApos(acharOriginal('tensao f-f'), /Tens[aã]o\s+F-F\s*:?\s*(.+)/i),
+            fatorPotencia: valorApos(acharOriginal('fp'), /\bFP\s*:?\s*([\d.,]+)/i),
+            fca: valorApos(acharOriginal('fca'), /\bFCA[^\d]*([\d.,]+)/i), fct: valorApos(acharOriginal('fct'), /\bFCT[^\d]*([\d.,]+)/i),
+            potenciaInstaladaTotal: totais.at(-2) || '', potenciaDemandadaTotal: totais.at(-1) || '',
+            correnteProjeto: valorApos(corrente, /Projeto\s*\(Ip\)\s*:?\s*([\d.,]+)/i),
+            correnteCorrigida: valorApos(corrigida, /Corrigida\s*\(Id\)\s*:?\s*([\d.,]+)/i),
+            metodoInstalacao: valorApos(acharOriginal('metodo de instalacao'), /M[eé]todo de instala[cç][aã]o\s*:?\s*([^|\n]+)/i),
+            secaoDimensionada: valorApos(acharOriginal('secao:'), /Se[cç][aã]o\s*:?\s*([\d.,]+\s*mm²)/i),
+            condutoresFase: valorApos(condutores, /Fase\s*:?\s*([\d.,]+\s*mm²)/i),
+            condutorNeutro: valorApos(condutores, /Neutro\s*:?\s*([^\n|]+)/i), condutorTerra: valorApos(condutores, /Terra\s*:?\s*([^\n|]+)/i),
+            capacidadeConducao: valorApos(condutores, /Capacidade de condu[cç][aã]o(?:\s*\(Fase\))?\s*:?\s*([\d.,]+\s*A)/i),
+            protecao: protecao.replace(/Corrente de atua[cç][aã]o[\s\S]*/i, '').trim(),
+            correnteProtecao: valorApos(protecao, /Corrente de atua[cç][aã]o\s*:?\s*([\d.,]+\s*A)/i),
+            capacidadeInterrupcao: valorApos(protecao, /-\s*([\d.,]+\s*kA)/i), curva: valorApos(protecao, /-\s*([A-Z])\s*$/i),
+            quedaTensaoParcial: valorApos(queda, /dV% parcial[^\d]*([\d.,]+)/i),
+            quedaTensaoTotal: valorApos(queda, /dV% total[^\d]*([\d.,]+)/i),
+            curtoCircuito: valorApos(acharOriginal('corrente de curto-circuito'), /curto-circuito[^\d]*([\d.,]+\s*(?:kA)?)/i),
+            verificacaoProtecao: verificacao,
+            _textoNormalizado: n
         };
     }
 
-    function adicionarAoModelo(modelo, tipo, bloco) {
-        modelo.secoes.push({ tipo, ...bloco });
-        if (tipo === 'ignorar' || tipo === 'outras') return;
-        if (['alimentacao', 'quedaTensao', 'temperatura', 'condutores'].includes(tipo)) {
-            modelo[tipo].paragrafos.push(...bloco.paragrafos);
-            modelo[tipo].tabelas.push(...bloco.tabelas);
-        } else if (tipo === 'relatorioDimensionamento') {
-            modelo.relatorioDimensionamento.secoes.push(bloco);
-        } else {
-            modelo[tipo].push(bloco);
+    function extrairRelatorioQuadros(documento, avisos) {
+        const titulos = Array.from(documento.querySelectorAll('p.subTitle'));
+        const indiceRelatorio = titulos.findIndex((item) => normalizarTexto(item.textContent) === 'relatorio de dimensionamento');
+        const quadros = indiceRelatorio < 0 ? null : titulos.slice(indiceRelatorio + 1)
+            .find((item) => normalizarTexto(item.textContent) === 'quadros');
+        if (!quadros) {
+            avisos.push('Subseção “Quadros” do relatório de dimensionamento não localizada.');
+            return [];
         }
-    }
-
-    function acharColuna(cabecalhos, aliases) {
-        return cabecalhos.findIndex((cab) => aliases.some((alias) => cab.includes(alias)));
-    }
-
-    function tabelaPlana(tabela) {
-        return tabela.linhas.map((row) => row.celulas.flatMap((cell) => Array(cell.colspan).fill(cell.texto)));
-    }
-
-    function consolidarRelatorio(modelo) {
-        const tabelas = modelo.relatorioDimensionamento.secoes.flatMap((secao) => secao.tabelas.map((tabela) => ({ tabela, secao })));
-        tabelas.forEach(({ tabela, secao }) => {
-            const matriz = tabelaPlana(tabela);
-            if (matriz.length < 2) return;
-            const heads = matriz[0].map(normalizarTitulo);
-            const circuito = acharColuna(heads, ['circuito', 'circ.']);
-            const quadro = acharColuna(heads, ['quadro', 'qd']);
-            const linhas = matriz.slice(1).filter((row) => row.some(Boolean));
-            if (circuito >= 0) {
-                linhas.forEach((row) => modelo.relatorioDimensionamento.circuitos.push({
-                    quadro: quadro >= 0 ? row[quadro] : '', circuito: row[circuito], valores: row, cabecalhos: matriz[0]
-                }));
-            } else if (quadro >= 0) {
-                linhas.forEach((row) => modelo.relatorioDimensionamento.quadros.push({ quadro: row[quadro], valores: row, cabecalhos: matriz[0] }));
-            } else {
-                const pares = matriz.filter((row) => row.length >= 2 && row[0] && row[1]);
-                if (!pares.length) return;
-                const cabecalhos = pares.map((row) => row[0]);
-                const valores = pares.map((row) => row.slice(1).find(Boolean) || '');
-                const labels = cabecalhos.map(normalizarTitulo);
-                const indiceCircuito = acharColuna(labels, ['circuito', 'numero do circuito']);
-                const indiceQuadro = acharColuna(labels, ['quadro', 'nome do quadro']);
-                const titulo = secao.paragrafos?.[0] || secao.titulo || '';
-                if (indiceCircuito >= 0 || normalizarTitulo(titulo).includes('circuito')) {
-                    modelo.relatorioDimensionamento.circuitos.push({
-                        quadro: indiceQuadro >= 0 ? valores[indiceQuadro] : '',
-                        circuito: indiceCircuito >= 0 ? valores[indiceCircuito] : titulo,
-                        valores, cabecalhos
-                    });
-                } else if (indiceQuadro >= 0 || normalizarTitulo(titulo).includes('quadro')) {
-                    modelo.relatorioDimensionamento.quadros.push({
-                        quadro: indiceQuadro >= 0 ? valores[indiceQuadro] : titulo,
-                        valores, cabecalhos
-                    });
-                }
-            }
+        const elementos = obterElementosDaSecao(quadros); // para obrigatoriamente antes de “Circuitos”
+        const saida = [];
+        elementos.forEach((elemento, indice) => {
+            if (!elemento.matches?.('p') || !normalizarTexto(elemento.textContent).startsWith('dimensionamento ')) return;
+            const seguintes = elementos.slice(indice + 1);
+            const limite = seguintes.findIndex((item) => item.matches?.('p') && normalizarTexto(item.textContent).startsWith('dimensionamento '));
+            const tabelas = tabelasNosElementos(limite < 0 ? seguintes : seguintes.slice(0, limite)).map(tabelaParaModelo).filter(Boolean).slice(0, 2);
+            if (tabelas.length) saida.push(extrairDadosRelatorio(elemento, tabelas));
         });
+        if (!saida.length) avisos.push('Nenhum dimensionamento de quadro foi localizado na subseção “Quadros”.');
+        return saida;
     }
 
     function escolherDecodificacao(buffer) {
-        const bytes = new Uint8Array(buffer);
-        const amostra = bytes.subarray(0, Math.min(bytes.length, 65536));
-        const ascii = new TextDecoder('windows-1252').decode(amostra);
-        const meta = ascii.match(/charset\s*=\s*["']?\s*([\w-]+)/i)?.[1]?.toLowerCase() || '';
-        if (/utf-?8/.test(meta)) return 'utf-8';
-        if (/1252|iso-8859-1|latin1/.test(meta)) return 'windows-1252';
-        const utf = new TextDecoder('utf-8').decode(amostra);
-        return (utf.match(/\ufffd/g) || []).length ? 'windows-1252' : 'utf-8';
+        const amostra = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, 65536));
+        const declaracao = new TextDecoder('windows-1252').decode(amostra)
+            .match(/<meta[^>]+charset\s*=\s*["']?\s*([\w-]+)/i)?.[1]?.toLowerCase() || '';
+        if (/utf-?8/.test(declaracao)) return 'utf-8';
+        if (/windows-?1252|iso-8859-1|latin-?1/.test(declaracao)) return 'windows-1252';
+        return new TextDecoder('utf-8').decode(amostra).includes('\ufffd') ? 'windows-1252' : 'utf-8';
     }
 
     async function interpretarArquivo(file, onProgress = () => {}) {
-        if (!file || !/\.(html?|HTML?)$/.test(file.name || '')) throw new Error('Selecione um arquivo .html ou .htm válido.');
-        onProgress('lendo arquivo');
+        if (!file || !/\.html?$/i.test(file.name || '')) throw new Error('Selecione um arquivo .html ou .htm válido.');
+        onProgress('Lendo arquivo');
         const buffer = await file.arrayBuffer();
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        const codificacao = escolherDecodificacao(buffer);
-        let html = new TextDecoder(codificacao).decode(buffer);
-        let usouFallback = false;
-        if ((html.match(/\ufffd/g) || []).length > 20) {
-            html = new TextDecoder(codificacao === 'utf-8' ? 'windows-1252' : 'utf-8').decode(buffer);
-            usouFallback = true;
+        let codificacao = escolherDecodificacao(buffer);
+        let texto = new TextDecoder(codificacao).decode(buffer);
+        if ((texto.match(/\ufffd/g) || []).length > 20) {
+            const alternativa = codificacao === 'utf-8' ? 'windows-1252' : 'utf-8';
+            const alternativo = new TextDecoder(alternativa).decode(buffer);
+            if ((alternativo.match(/\ufffd/g) || []).length < (texto.match(/\ufffd/g) || []).length) {
+                texto = alternativo;
+                codificacao = alternativa;
+            }
         }
-        if ((html.match(/\ufffd/g) || []).length > 20) throw new Error('Erro de codificação: o arquivo não pôde ser lido como Windows-1252, ISO-8859-1 ou UTF-8.');
-        onProgress('interpretando seções');
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-        html = '';
-        doc.querySelectorAll('script, style, link, iframe, object, embed, base, meta[http-equiv="refresh"]').forEach((node) => node.remove());
-        const codificacaoUsada = usouFallback ? (codificacao === 'utf-8' ? 'windows-1252' : 'utf-8') : codificacao;
-        const modelo = modeloVazio({ nome: file.name, tamanho: file.size, codificacao: codificacaoUsada });
-        if (usouFallback) modelo.avisos.push('Foi necessário usar a codificação alternativa para preservar os caracteres do arquivo.');
-        const titulos = Array.from(doc.querySelectorAll('p.subTitle'));
-        if (!titulos.length) modelo.avisos.push('Nenhuma seção identificada por P.subTitle.');
-        for (let index = 0; index < titulos.length; index += 1) {
-            const titulo = titulos[index];
-            const range = doc.createRange();
-            range.setStartAfter(titulo);
-            if (titulos[index + 1]) range.setEndBefore(titulos[index + 1]);
-            else range.setEndAfter(doc.body.lastChild || titulo);
-            const nodes = Array.from(range.cloneContents().childNodes);
-            adicionarAoModelo(modelo, classificar(textoLimpo(titulo)), extrairBloco(textoLimpo(titulo), nodes));
-            if (index % 10 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
-        }
-        onProgress('processando tabelas');
-        consolidarRelatorio(modelo);
-        const essenciais = ['pavimentos', 'alimentacao', 'fatoresDemanda', 'quadrosProtecao', 'quedaTensao', 'temperatura', 'pontosEletricos', 'condutores'];
-        essenciais.forEach((campo) => {
-            const valor = modelo[campo];
-            const vazio = Array.isArray(valor) ? !valor.length : !valor.paragrafos.length && !valor.tabelas.length;
-            if (vazio) modelo.avisos.push(`Seção não localizada: ${campo}.`);
-        });
+        onProgress('Interpretando estrutura do QiBuilder');
+        const documento = new DOMParser().parseFromString(texto, 'text/html');
+        texto = '';
+        const modelo = {
+            arquivo: { nome: file.name, tamanho: file.size, codificacao }, pavimentos: null,
+            alimentacaoEletrica: null, dimensionamentoQuadros: null, pontosForca: [], pontosLuz: [],
+            quadrosCarga: [], relatorioQuadros: [], avisos: []
+        };
+        onProgress('Extraindo pavimentos');
+        const pavimentos = primeiraTabelaDaSecao(documento, 'Pavimentos da estrutura');
+        modelo.pavimentos = pavimentos.tabela ? { titulo: textoOriginal(pavimentos.elemento), ...tabelaParaModelo(pavimentos.tabela) } : null;
+        if (!modelo.pavimentos) modelo.avisos.push('Seção/tabela “Pavimentos da estrutura” não localizada.');
+        onProgress('Extraindo alimentação elétrica');
+        const alimentacao = primeiraTabelaDaSecao(documento, 'Alimentação elétrica');
+        modelo.alimentacaoEletrica = alimentacao.tabela ? { tituloEntrada: textoOriginal(alimentacao.tabela.rows?.[0]), ...tabelaParaModelo(alimentacao.tabela) } : null;
+        if (!modelo.alimentacaoEletrica) modelo.avisos.push('Seção/tabela “Alimentação elétrica” não localizada.');
+        modelo.dimensionamentoQuadros = extrairDimensionamento(documento, modelo.avisos);
+        onProgress('Consolidando pontos de força');
+        const pontos = extrairPontos(documento, modelo.avisos);
+        modelo.pontosForca = pontos.pontosForca;
+        onProgress('Consolidando pontos de luz');
+        modelo.pontosLuz = pontos.pontosLuz;
+        onProgress('Processando quadros de carga');
+        modelo.quadrosCarga = extrairQuadrosCarga(documento, modelo.avisos);
+        onProgress('Resumindo dimensionamento dos quadros');
+        modelo.relatorioQuadros = extrairRelatorioQuadros(documento, modelo.avisos);
+        const encontradas = [modelo.pavimentos, modelo.alimentacaoEletrica, modelo.dimensionamentoQuadros,
+            modelo.pontosForca.length, modelo.pontosLuz.length, modelo.quadrosCarga.length, modelo.relatorioQuadros.length].filter(Boolean).length;
+        if (!encontradas) throw new Error('O arquivo não possui a estrutura esperada de um memorial elétrico do QiBuilder.');
         return modelo;
     }
 
-    global.MemorialCalculoParser = { interpretarArquivo, normalizarTitulo, tabelaParaModelo, classificar };
+    global.MemorialCalculoParser = { interpretarArquivo, normalizarTexto, obterElementosDaSecao, tabelaParaModelo };
 })(window);

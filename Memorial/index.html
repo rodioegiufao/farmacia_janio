@@ -173,8 +173,8 @@
                             </div>
                             <div class="form-group form-group-wide">
                                 <label for="ultima_prancha"><i class="fas fa-drafting-compass"></i> NOME DA ÚLTIMA PRANCHA *</label>
-                                <input type="text" id="ultima_prancha" placeholder="Ex: PRJ-ELE-SMEC-ECN-06-06" pattern="PRJ-[^-]+-[^-]+-[^-]+-[0-9]+-[0-9]+" title="Use o formato PRJ-XXX-YYYY-ZZZ-AA-BB, com AA e BB numéricos" required>
-                                <small>Use o formato PRJ-XXX-YYYY-ZZZ-AA-BB. O último número substituirá [BBBH] e a relação completa das pranchas substituirá [BBBG].</small>
+                                <input type="text" id="ultima_prancha" placeholder="Ex: PRJ-ELE-SMEC-ECN-06-06" pattern="PRJ-[^-]+-[^-]+(?:-[^-]+)?-[0-9]+-[0-9]+" title="Use o formato PRJ-XXX-YYYY-AA-BB ou PRJ-XXX-YYYY-ZZZ-AA-BB, com AA e BB numéricos" required>
+                                <small>Use o formato PRJ-XXX-YYYY-AA-BB ou PRJ-XXX-YYYY-ZZZ-AA-BB. O último número substituirá [BBBH] e a relação completa das pranchas substituirá [BBBG].</small>
                             </div>
                         </div>
                     </section>

@@ -693,10 +693,10 @@ function getValue(id) {
 
 function obterDadosPranchas(nomeUltimaPrancha) {
     const nomeNormalizado = String(nomeUltimaPrancha || '').trim().toUpperCase().replace(/;$/, '');
-    const partes = nomeNormalizado.match(/^(PRJ-[^-]+-[^-]+-[^-]+)-(\d+)-(\d+)$/);
+    const partes = nomeNormalizado.match(/^(PRJ-[^-]+-[^-]+(?:-[^-]+)?)-(\d+)-(\d+)$/);
 
     if (!partes) {
-        throw new Error('Informe o nome da última prancha no formato PRJ-XXX-YYYY-ZZZ-AA-BB, com AA e BB numéricos.');
+        throw new Error('Informe o nome da última prancha no formato PRJ-XXX-YYYY-AA-BB ou PRJ-XXX-YYYY-ZZZ-AA-BB, com AA e BB numéricos.');
     }
 
     const numeroUltimaPrancha = Number(partes[2]);

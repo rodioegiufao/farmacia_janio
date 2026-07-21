@@ -135,6 +135,47 @@
                                 </select>
                                 <small>Substituirá [DDDD]</small>
                             </div>
+                            <div class="form-group">
+                                <label for="concessionaria"><i class="fas fa-bolt"></i> CONCESSIONÁRIA *</label>
+                                <select id="concessionaria" required>
+                                    <option value="" disabled selected>Selecione a concessionária</option>
+                                    <option value="ÂMBAR ENERGIA RORAIMA">ÂMBAR ENERGIA RORAIMA</option>
+                                    <option value="CPFL">CPFL</option>
+                                </select>
+                                <small>Substituirá [BBBC]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="esquema_ligacao"><i class="fas fa-project-diagram"></i> ESQUEMA DE LIGAÇÃO *</label>
+                                <select id="esquema_ligacao" required>
+                                    <option value="" disabled selected>Selecione o esquema de ligação</option>
+                                    <option value="F+N+T">F+N+T</option>
+                                    <option value="2F+N+T">2F+N+T</option>
+                                    <option value="3F+N+T">3F+N+T</option>
+                                </select>
+                                <small>Substituirá [BBBD]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="esquema_aterramento"><i class="fas fa-arrow-down"></i> ESQUEMA DE ATERRAMENTO *</label>
+                                <select id="esquema_aterramento" required>
+                                    <option value="" disabled selected>Selecione o esquema de aterramento</option>
+                                    <option value="TN-S">TN-S</option>
+                                    <option value="TN-C">TN-C</option>
+                                    <option value="TN-C-S">TN-C-S</option>
+                                    <option value="TT">TT</option>
+                                    <option value="IT">IT</option>
+                                </select>
+                                <small>Substituirá [BBBE]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="ponto_entrega"><i class="fas fa-map-marker-alt"></i> PONTO DE ENTREGA *</label>
+                                <input type="text" id="ponto_entrega" placeholder="Ex: Rua das Flores, nº 100, Centro" required>
+                                <small>Informe a rua e o endereço completo. Substituirá [BBBF]</small>
+                            </div>
+                            <div class="form-group form-group-wide">
+                                <label for="ultima_prancha"><i class="fas fa-drafting-compass"></i> NOME DA ÚLTIMA PRANCHA *</label>
+                                <input type="text" id="ultima_prancha" placeholder="Ex: PRJ-ELE-SMEC-ECN-06-06" pattern="PRJ-[^-]+-[^-]+-[^-]+-[0-9]+-[0-9]+" title="Use o formato PRJ-XXX-YYYY-ZZZ-AA-BB, com AA e BB numéricos" required>
+                                <small>Use o formato PRJ-XXX-YYYY-ZZZ-AA-BB. O último número substituirá [BBBH] e a relação completa das pranchas substituirá [BBBG].</small>
+                            </div>
                         </div>
                     </section>
 

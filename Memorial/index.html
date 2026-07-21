@@ -184,22 +184,24 @@
                         <div class="form-grid">
                             <div class="form-group">
                                 <label for="engenheiro"><i class="fas fa-user-cog"></i> NOME DO ENGENHEIRO *</label>
-                                <input type="text" id="engenheiro" placeholder="Ex: Rodrigo Damasceno Nascimento" required>
+                                <select id="engenheiro" required>
+                                    <option value="" disabled selected>Selecione o responsável técnico</option>
+                                </select>
                                 <small>Substituirá [XXYY]</small>
                             </div>
                             <div class="form-group">
                                 <label for="crea"><i class="fas fa-id-card"></i> NÚMERO DO CREA *</label>
-                                <input type="text" id="crea" placeholder="Ex: 0920192912" required>
+                                <input type="text" id="crea" placeholder="Selecione o responsável técnico" readonly required>
                                 <small>Substituirá [AAAA]</small>
                             </div>
                             <div class="form-group">
                                 <label for="email"><i class="fas fa-envelope"></i> E-MAIL *</label>
-                                <input type="email" id="email" placeholder="Ex: email@dominio.com" required>
+                                <input type="email" id="email" placeholder="Selecione o responsável técnico" readonly required>
                                 <small>Substituirá [BBBB]</small>
                             </div>
                             <div class="form-group">
                                 <label for="telefone"><i class="fas fa-phone"></i> NÚMERO DO TELEFONE COM DDD *</label>
-                                <input type="text" id="telefone" placeholder="Ex: (95) 99146-6367" required>
+                                <input type="text" id="telefone" placeholder="Selecione o responsável técnico" readonly required>
                                 <small>Substituirá [CCCC]</small>
                             </div>
                         </div>

@@ -7,6 +7,25 @@ const TOMADAS_PLACEHOLDER = '__MEMORIAL_TOMADAS_SELECIONADAS__';
 const ELETROCALHAS_PLACEHOLDER = '__MEMORIAL_ELETROCALHAS_SELECIONADAS__';
 const ILUMINACAO_PLACEHOLDER = '__MEMORIAL_ILUMINACAO_SELECIONADA__';
 
+const ENGENHEIROS = {
+    'SALOMÃO JOSE COHEN': {
+        CREA: '040186354-9',
+        EMAIL: 'salomao.cohen@hotmail.com',
+        FONE: '(92) 99136-1006',
+        ENDERECO: 'Rua Mar de SUFE, 67, Conjunto Imperial, Flores, Manaus/AM, CEP 69058-438',
+        RG: '801.420-5',
+        CPF: '317.323.132-53'
+    },
+    'RODRIGO DAMASCENO NASCIMENTO': {
+        CREA: '092019291-2',
+        EMAIL: 'rodrigo.ele@ribeirolopes.eng.br',
+        FONE: '(95) 99146-6367',
+        ENDERECO: 'Rua Antonio Marques, 108, Buritis, Boa Vista/RR, CEP 69309-172',
+        RG: '413.816-3',
+        CPF: '022.331.622-93'
+    }
+};
+
 const MESES_PT_BR = [
     'janeiro',
     'fevereiro',
@@ -32,6 +51,7 @@ let memorialCalculoImportado = null;
 document.addEventListener('DOMContentLoaded', function() {
     initThemeSelector();
     setupDefaultDatePlaceholders();
+    setupEngineerSelector();
     checkTemplate();
     setupEventListeners();
     setupAutomaticIsolationVoltages();
@@ -40,6 +60,30 @@ document.addEventListener('DOMContentLoaded', function() {
     carregarMateriaisIluminacao();
     setupMemorialCalculoImport();
 });
+
+function setupEngineerSelector() {
+    const engineerSelect = document.getElementById('engenheiro');
+    if (!engineerSelect) return;
+
+    Object.keys(ENGENHEIROS).forEach((engineerName) => {
+        const option = document.createElement('option');
+        option.value = engineerName;
+        option.textContent = engineerName;
+        engineerSelect.appendChild(option);
+    });
+
+    engineerSelect.addEventListener('change', updateEngineerFields);
+    updateEngineerFields();
+}
+
+function updateEngineerFields() {
+    const engineerName = document.getElementById('engenheiro')?.value;
+    const engineer = ENGENHEIROS[engineerName];
+
+    document.getElementById('crea').value = engineer?.CREA || '';
+    document.getElementById('email').value = engineer?.EMAIL || '';
+    document.getElementById('telefone').value = engineer?.FONE || '';
+}
 
 function obterDataAtualDocumento() {
     const hoje = new Date();
@@ -442,6 +486,7 @@ function setupEventListeners() {
     if (resetBtn) {
         resetBtn.addEventListener('click', function() {
             if (form) form.reset();
+            updateEngineerFields();
             atualizarTensoesIsolamentoAutomaticas();
             documentosGerados = [];
             dadosProcessados = {};

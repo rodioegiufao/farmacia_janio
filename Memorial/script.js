@@ -507,6 +507,11 @@ function validarFormulario() {
         'responsavel',
         'nome_projeto',
         'tensao_secundaria',
+        'concessionaria',
+        'esquema_ligacao',
+        'esquema_aterramento',
+        'ponto_entrega',
+        'ultima_prancha',
         'engenheiro',
         'crea',
         'email',
@@ -531,6 +536,14 @@ function validarFormulario() {
             if (campo) campo.focus();
             return false;
         }
+    }
+
+    try {
+        obterDadosPranchas(getValue('ultima_prancha'));
+    } catch (error) {
+        alert(error.message);
+        document.getElementById('ultima_prancha')?.focus();
+        return false;
     }
 
     if (!obterMateriaisTomadaSelecionados().length) {
@@ -561,6 +574,7 @@ function coletarDadosFormulario() {
     const dataAtualDocumento = obterDataAtualDocumento();
     const tensaoSecundaria = getValue('tensao_secundaria');
     const tensoesLinha = obterTensoesLinhaPorTensaoSecundaria(tensaoSecundaria);
+    const dadosPranchas = obterDadosPranchas(getValue('ultima_prancha'));
     const dados = {
         YYYY: getValue('numero_art'),
         MMMM: getValue('responsavel'),
@@ -571,6 +585,12 @@ function coletarDadosFormulario() {
         BBBB: getValue('email'),
         CCCC: getValue('telefone'),
         DDDD: tensaoSecundaria,
+        BBBC: getValue('concessionaria'),
+        BBBD: getValue('esquema_ligacao'),
+        BBBE: getValue('esquema_aterramento'),
+        BBBF: getValue('ponto_entrega'),
+        BBBG: dadosPranchas.nomesEmSequencia,
+        BBBH: dadosPranchas.numeroTotal,
         LLLA: tensoesLinha.LLLA,
         LLLB: tensoesLinha.LLLB,
         EEEE: obterTensaoIsolamentoPorTipo(getValue('isolacao_iluminacao')),
@@ -624,6 +644,36 @@ function coletarDadosFormulario() {
 
 function getValue(id) {
     return document.getElementById(id)?.value.trim() || '';
+}
+
+function obterDadosPranchas(nomeUltimaPrancha) {
+    const nomeNormalizado = String(nomeUltimaPrancha || '').trim().toUpperCase().replace(/;$/, '');
+    const partes = nomeNormalizado.match(/^(PRJ-[^-]+-[^-]+-[^-]+)-(\d+)-(\d+)$/);
+
+    if (!partes) {
+        throw new Error('Informe o nome da última prancha no formato PRJ-XXX-YYYY-ZZZ-AA-BB, com AA e BB numéricos.');
+    }
+
+    const numeroUltimaPrancha = Number(partes[2]);
+    const numeroTotal = Number(partes[3]);
+    if (!Number.isSafeInteger(numeroTotal) || numeroTotal < 1) {
+        throw new Error('O número total de pranchas (BB) deve ser maior que zero.');
+    }
+    if (numeroUltimaPrancha !== numeroTotal) {
+        throw new Error('Como o nome informado é o da última prancha, os números AA e BB devem ser iguais.');
+    }
+
+    const larguraNumeroPrancha = Math.max(2, partes[2].length);
+    const numeroTotalFormatado = partes[3].padStart(Math.max(2, partes[3].length), '0');
+    const nomes = Array.from({ length: numeroTotal }, (_, indice) => {
+        const numeroPrancha = String(indice + 1).padStart(larguraNumeroPrancha, '0');
+        return `${partes[1]}-${numeroPrancha}-${numeroTotalFormatado}`;
+    });
+
+    return {
+        numeroTotal: numeroTotalFormatado,
+        nomesEmSequencia: nomes.join(', ')
+    };
 }
 
 function obterTensoesLinhaPorTensaoSecundaria(tensaoSecundaria) {

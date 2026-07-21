@@ -137,12 +137,23 @@
 
     function criarResumoQuadrosXml(quadros) {
         if (!quadros?.length) return criarParagrafoXml(AUSENTE);
+        const tamanho12 = '<w:sz w:val="24"/><w:szCs w:val="24"/>';
         return quadros.map((quadro) => {
             const texto = criarTextoResumo(quadro);
-            const nome = [quadro.nomeQuadro, quadro.descricao].filter(Boolean).join(' – ') || quadro.titulo || 'Quadro';
-            const restante = texto.startsWith(`O quadro ${nome}`) ? texto.slice(`O quadro ${nome}`.length) : texto;
-            return `<w:p><w:pPr><w:spacing w:after="240"/><w:jc w:val="both"/></w:pPr><w:r><w:rPr><w:b/><w:bCs/><w:color w:val="000000"/></w:rPr><w:t xml:space="preserve">${escaparXml(`O quadro ${nome}`)}</w:t></w:r><w:r><w:rPr><w:color w:val="000000"/></w:rPr><w:t xml:space="preserve">${escaparXml(restante)}</w:t></w:r></w:p>`;
+            const nome = [quadro.nomeQuadro, quadro.descricao]
+                .filter((valor) => typeof valor === 'string' && valor.trim())
+                .map((valor) => valor.trim()).join(' – ') || quadro.titulo || 'Quadro';
+            const inicio = `O quadro ${nome}`;
+            const restante = texto.startsWith(inicio) ? texto.slice(inicio.length) : texto;
+            return `<w:p><w:pPr><w:spacing w:after="240"/><w:jc w:val="both"/><w:rPr>${tamanho12}</w:rPr></w:pPr><w:r><w:rPr><w:b/><w:bCs/>${tamanho12}<w:color w:val="000000"/></w:rPr><w:t xml:space="preserve">${escaparXml(inicio)}</w:t></w:r><w:r><w:rPr>${tamanho12}<w:color w:val="000000"/></w:rPr><w:t xml:space="preserve">${escaparXml(restante)}</w:t></w:r></w:p>`;
         }).join('');
+    }
+
+    function validarNomeQuadro(quadro, indice) {
+        const campos = [quadro?.titulo, quadro?.nomeQuadro, quadro?.descricao];
+        const possuiObjetoConvertido = campos.some((valor) =>
+            typeof valor === 'string' && /\[object\s+[^\]]+\]/i.test(valor));
+        if (possuiObjetoConvertido) throw new Error(`Nome inválido identificado no quadro ${indice + 1}.`);
     }
 
     function criarQuadrosCargaXml(quadros) {
@@ -174,6 +185,7 @@
         const arquivo = renderizado.file('word/document.xml');
         if (!arquivo) throw new Error('O template de cálculo não contém word/document.xml.');
         let documentXml = arquivo.asText();
+        (modelo.relatorioQuadros || []).forEach(validarNomeQuadro);
         const substituicoes = {
             AAAB: criarTabelaXml(modelo.pavimentos), AAAC: criarTabelaXml(modelo.alimentacaoEletrica),
             AAAD: criarTabelaXml(modelo.dimensionamentoQuadros), AAAE: criarTabelaXml(tabelaPontos(modelo.pontosForca)),
@@ -186,6 +198,9 @@
         const proibidos = MARCADORES.flatMap((chave) => [`[${chave}]`, `__MEMORIAL_${chave}__`]);
         const remanescentes = proibidos.filter((item) => documentXml.includes(item));
         if (remanescentes.length) throw new Error(`Marcadores não substituídos: ${remanescentes.join(', ')}.`);
+        if (/\[object\s+[^\]]+\]/i.test(documentXml)) {
+            throw new Error('O documento contém um objeto JavaScript convertido em texto.');
+        }
         const teste = new DOMParser().parseFromString(documentXml, 'application/xml');
         if (teste.querySelector('parsererror')) throw new Error('O XML do memorial de cálculo ficou inválido.');
         renderizado.file('word/document.xml', documentXml);

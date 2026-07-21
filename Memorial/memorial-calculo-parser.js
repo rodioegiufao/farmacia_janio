@@ -6,8 +6,12 @@
             .toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     }
 
-    function textoOriginal(elemento) {
-        return String(elemento?.textContent || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+    function textoOriginal(valor) {
+        let texto = '';
+        if (typeof valor === 'string') texto = valor;
+        else if (valor && typeof valor.textContent === 'string') texto = valor.textContent;
+        else if (valor?.textContent && typeof valor.textContent.textContent === 'string') texto = valor.textContent.textContent;
+        return texto.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
     }
 
     function obterElementosDaSecao(tituloElemento) {
@@ -165,10 +169,12 @@
         const protecao = acharOriginal('corrente de atuacao');
         const queda = acharOriginal('dv% parcial') || acharOriginal('queda de tensao');
         const verificacao = acharOriginal('ip < in < iz');
-        const nomeDescricao = textoOriginal({ textContent: titulo }).replace(/^Dimensionamento\s+/i, '');
-        const [nomeQuadro, ...descricao] = nomeDescricao.split(/\s+-\s+/);
+        const tituloTexto = textoOriginal(titulo);
+        const nomeDescricao = tituloTexto.replace(/^Dimensionamento\s+/i, '').trim();
+        const [nomeQuadro, ...partesDescricao] = nomeDescricao.split(/\s+-\s+/);
+        const descricao = partesDescricao.join(' - ').trim();
         return {
-            titulo: textoOriginal({ textContent: titulo }), nomeQuadro, descricao: descricao.join(' - '),
+            titulo: tituloTexto, nomeQuadro: nomeQuadro.trim(), descricao,
             quadroOrigem: valorApos(acharOriginal('quadro '), /Quadro\s+(.+)/i),
             alimentacao: valorApos(acharOriginal('alimentacao'), /Alimenta[cç][aã]o\s*:?\s*(.+)/i),
             tensao: valorApos(acharOriginal('tensao f-f'), /Tens[aã]o\s+F-F\s*:?\s*(.+)/i),

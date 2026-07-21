@@ -267,7 +267,35 @@
                             </div>
                         </div>
                     </section>
-
+                    <section class="form-section qibuilder-import" id="qibuilder-import-section">
+                        <h2><i class="fas fa-file-import"></i> Memorial de cálculo — QiBuilder</h2>
+                        <div class="qibuilder-upload" id="qibuilder-drop-zone">
+                            <label for="qibuilder-html" class="qibuilder-file-label">
+                                <i class="fas fa-cloud-arrow-up"></i>
+                                <span>Selecionar memorial exportado pelo QiBuilder</span>
+                                <small>Arquivos .html ou .htm (inclusive em Windows-1252/ISO-8859-1)</small>
+                            </label>
+                            <input type="file" id="qibuilder-html" accept=".html,.htm,text/html">
+                            <div id="qibuilder-file-info" class="qibuilder-file-info hidden" aria-live="polite"></div>
+                            <button type="button" id="qibuilder-remove" class="btn-file-remove hidden">
+                                <i class="fas fa-trash"></i> Remover arquivo
+                            </button>
+                        </div>
+                        <div id="qibuilder-status" class="qibuilder-status" role="status" aria-live="polite">
+                            Nenhum HTML carregado. O memorial descritivo será gerado normalmente.
+                        </div>
+                        <div id="qibuilder-sections" class="qibuilder-sections hidden"></div>
+                        <div class="qibuilder-options">
+                            <label class="option-item">
+                                <input type="checkbox" id="incluir_relatorio_detalhado">
+                                <span>Incluir relatório detalhado de circuitos</span>
+                            </label>
+                            <label class="option-item">
+                                <input type="checkbox" id="somente_memorial_descritivo">
+                                <span>Gerar somente memorial descritivo</span>
+                            </label>
+                        </div>
+                    </section>
                     <section class="form-section">
                         <h2><i class="fas fa-exclamation-triangle"></i> Circuito de Emergência</h2>
                         <div class="form-grid">
@@ -356,7 +384,8 @@
             <p class="footer-info">Documento gerado com formatação completa do Microsoft Word</p>
         </footer>
     </div>
-
+    <script src="/Memorial/memorial-calculo-parser.js"></script>
+    <script src="/Memorial/docx-memorial-calculo.js"></script>
     <script src="/Memorial/script.js"></script>
 </body>
 </html>

@@ -25,6 +25,7 @@ let dadosProcessados = {};
 let materiaisTomada = [];
 let materiaisEletrocalha = [];
 let materiaisIluminacao = [];
+let memorialCalculoImportado = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     initThemeSelector();
@@ -35,6 +36,7 @@ document.addEventListener('DOMContentLoaded', function() {
     carregarMateriaisTomada();
     carregarMateriaisEletrocalha();
     carregarMateriaisIluminacao();
+    setupMemorialCalculoImport();
 });
 
 function obterDataAtualDocumento() {
@@ -439,6 +441,7 @@ function setupEventListeners() {
             documentosGerados = [];
             dadosProcessados = {};
             setupDefaultDatePlaceholders();
+            limparMemorialCalculoImportado();
             const resultsSection = document.getElementById('results-section');
             if (resultsSection) resultsSection.classList.add('hidden');
         });
@@ -466,8 +469,10 @@ async function processarFormulario() {
     showLoading(true);
 
     try {
+        atualizarEtapaProcessamento('preparando o Word');
         const dados = coletarDadosFormulario();
         await gerarDocumentoWord(dados);
+        atualizarEtapaProcessamento('finalizando documento');
         exibirResultados();
     } catch (error) {
         console.error('Erro ao processar memorial:', error);
@@ -671,6 +676,12 @@ async function processarTemplateWord(arrayBuffer, dados) {
             missingImageMessage: 'Imagem não encontrada na coluna C da planilha.',
             defaultAltText: 'Imagem de iluminação'
         });
+
+        if (memorialCalculoImportado && !document.getElementById('somente_memorial_descritivo')?.checked) {
+            DocxMemorialCalculo.inserirNoDocumento(renderedZip, memorialCalculoImportado, {
+                detalhado: document.getElementById('incluir_relatorio_detalhado')?.checked
+            });
+        }
 
         return renderedZip.generate({
             type: 'arraybuffer',
@@ -1047,6 +1058,87 @@ function showLoading(show) {
         generateBtn.disabled = false;
         generateBtn.innerHTML = '<i class="fas fa-file-export"></i> Gerar Documento';
     }
+}
+
+function atualizarEtapaProcessamento(etapa) {
+    const loading = document.getElementById('loading');
+    if (loading) loading.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${escapeHtml(etapa)}...`;
+    const status = document.getElementById('qibuilder-status');
+    if (status && memorialCalculoImportado) status.textContent = `${etapa}...`;
+}
+
+function setupMemorialCalculoImport() {
+    const input = document.getElementById('qibuilder-html');
+    const remove = document.getElementById('qibuilder-remove');
+    if (!input || !window.MemorialCalculoParser) return;
+    input.addEventListener('change', async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        try {
+            memorialCalculoImportado = null;
+            exibirArquivoQiBuilder(file);
+            memorialCalculoImportado = await MemorialCalculoParser.interpretarArquivo(file, atualizarStatusQiBuilder);
+            exibirResumoQiBuilder(memorialCalculoImportado);
+        } catch (error) {
+            console.error('Erro ao importar HTML do QiBuilder:', error);
+            atualizarStatusQiBuilder(error.message || 'Não foi possível interpretar o arquivo.', true);
+            input.value = '';
+        }
+    });
+    remove?.addEventListener('click', limparMemorialCalculoImportado);
+}
+
+function exibirArquivoQiBuilder(file) {
+    const info = document.getElementById('qibuilder-file-info');
+    const remove = document.getElementById('qibuilder-remove');
+    if (info) {
+        info.textContent = `${file.name} — ${formatarTamanhoArquivo(file.size)}`;
+        info.classList.remove('hidden');
+    }
+    remove?.classList.remove('hidden');
+}
+
+function atualizarStatusQiBuilder(etapa, erro = false) {
+    const status = document.getElementById('qibuilder-status');
+    if (!status) return;
+    status.textContent = erro ? etapa : `${etapa}...`;
+    status.classList.toggle('is-error', erro);
+    status.classList.remove('is-success');
+}
+
+function exibirResumoQiBuilder(modelo) {
+    const status = document.getElementById('qibuilder-status');
+    const container = document.getElementById('qibuilder-sections');
+    if (status) {
+        status.textContent = `Arquivo lido com ${modelo.secoes.length} seções (${modelo.arquivo.codificacao}).`;
+        status.classList.add('is-success');
+        status.classList.remove('is-error');
+    }
+    if (!container) return;
+    const validas = modelo.secoes.filter((secao) => !['ignorar', 'outras'].includes(secao.tipo));
+    container.innerHTML = validas.map((secao) => `<span class="qibuilder-section-tag">${escapeHtml(secao.titulo)} · ${secao.tabelas.length} tabela(s)</span>`).join('')
+        + modelo.avisos.map((aviso) => `<p class="qibuilder-warning"><i class="fas fa-triangle-exclamation"></i> ${escapeHtml(aviso)}</p>`).join('');
+    container.classList.remove('hidden');
+}
+
+function limparMemorialCalculoImportado() {
+    memorialCalculoImportado = null;
+    const input = document.getElementById('qibuilder-html');
+    if (input) input.value = '';
+    document.getElementById('qibuilder-file-info')?.classList.add('hidden');
+    document.getElementById('qibuilder-remove')?.classList.add('hidden');
+    document.getElementById('qibuilder-sections')?.classList.add('hidden');
+    const status = document.getElementById('qibuilder-status');
+    if (status) {
+        status.textContent = 'Nenhum HTML carregado. O memorial descritivo será gerado normalmente.';
+        status.classList.remove('is-error', 'is-success');
+    }
+}
+
+function formatarTamanhoArquivo(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function showDownloadFeedback(nomeDocumento) {

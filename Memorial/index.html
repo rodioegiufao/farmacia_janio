@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador de Memoriais Elétricos</title>
+    <title>Gerador de Memoriais</title>
     <link rel="icon" href="/images/favicon.ico" sizes="any">
-    <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
-    <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
     <link rel="stylesheet" href="/Memorial/style.css">
     <link rel="stylesheet" href="/styles/user-menu.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -16,418 +14,83 @@
     <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.42.4/build/docxtemplater.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.6/dist/docx-preview.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <script src="/js/auth-guard.js"></script>
+    <script src="/js/auth-guard.js"></script>
 </head>
 <body>
-    <div id="theme-selector" class="theme-selector">
-        <div class="theme-selector-content">
-            <div class="theme-logo">Gerador de Memoriais Elétricos</div>
-            <div class="theme-controls">
-                <div class="user-menu" id="userMenu" hidden>
-                    <button type="button" class="user-menu-trigger" id="userMenuTrigger" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu do usuário">
-                        <span id="usuarioIniciais" class="user-avatar" aria-hidden="true"></span>
-                    </button>
-                    <div class="user-menu-panel" id="userMenuPanel" role="menu" hidden>
-                        <div class="user-menu-profile">
-                            <span id="usuarioIniciaisMenu" class="user-avatar user-avatar-large" aria-hidden="true"></span>
-                            <div>
-                                <strong id="usuarioLogado" class="logged-user"></strong>
-                                <small id="usuarioPerfil"></small>
-                            </div>
-                        </div>
-                        <a href="/admin/" class="user-menu-item" id="adminLink" role="menuitem" hidden>
-                            <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
-                            Administração
-                        </a>
-                        <button type="button" class="user-menu-item" id="btnPerfil" role="menuitem">
-                            <i class="fa-solid fa-user-pen" aria-hidden="true"></i>
-                            Perfil
-                        </button>
-                        <button type="button" class="user-menu-item" id="btnLogout" role="menuitem">
-                            <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
-                            Sair
-                        </button>
-                    </div>
-                </div>
-                <label class="theme-switch">
-                    <input type="checkbox" id="theme-toggle">
-                    <span class="theme-slider">
-                        <span class="theme-icon sun">☀️</span>
-                        <span class="theme-icon moon">🌙</span>
-                    </span>
-                </label>
-            </div>
-        </div>
-    </div>
-
+    <div id="theme-selector" class="theme-selector"><div class="theme-selector-content">
+        <div class="theme-logo">Gerador de Memoriais</div><div class="theme-controls">
+            <div    class="user-menu" id="userMenu" hidden><button type="button" class="user-menu-trigger" id="userMenuTrigger" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu do usuário"><span id="usuarioIniciais" class="user-avatar" aria-hidden="true"></span></button><div class="user-menu-panel" id="userMenuPanel" role="menu" hidden><div class="user-menu-profile"><span id="usuarioIniciaisMenu" class="user-avatar user-avatar-large" aria-hidden="true"></span><div><strong id="usuarioLogado" class="logged-user"></strong><small id="usuarioPerfil"></small></div></div><a href="/admin/" class="user-menu-item" id="adminLink" role="menuitem" hidden><i class="fa-solid fa-user-shield"></i> Administração</a><button type="button" class="user-menu-item" id="btnPerfil" role="menuitem"><i class="fa-solid fa-user-pen"></i> Perfil</button><button type="button" class="user-menu-item" id="btnLogout" role="menuitem"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sair</button></div></div>
+            <label class="theme-switch"><input type="checkbox" id="theme-toggle"><span class="theme-slider"><span class="theme-icon sun">☀️</span><span class="theme-icon moon">🌙</span></span></label>
+        </div></div></div>
     <div class="container">
-        <header class="header">
-            <div class="logo">
-                <i class="fas fa-file-word"></i>
-                <div>
-                    <h1>Gerador de Memoriais Elétricos</h1>
-                    <p class="subtitle">Gere separadamente os memoriais descritivo e de cálculo em Word ou PDF</p>
-                </div>
-            </div>
-        </header>
-
+        <header class="header"><div class="logo"><i class="fas fa-file-word"></i><div><h1>Gerador de Memoriais</h1><p class="subtitle">Gere memoriais descritivos e de cálculo para projetos elétricos e de lógica</p></div></div></header>
         <div class="main-content">
             <aside class="sidebar">
-                <div class="sidebar-section">
-                    <h3><i class="fas fa-file-word"></i> Documento Word</h3>
-                    <ul id="template-list">
-                        <li><i class="fas fa-check-circle"></i> MEM-DESCRITIVO-ELÉTRICO (.docx)</li>
-                        <li><i class="fas fa-check-circle"></i> MEM-CÁLCULO-ELÉTRICO (.docx)</li>
-                    </ul>
-                </div>
-
-                <div class="sidebar-section">
-                    <h3><i class="fas fa-lightbulb"></i> Dica Importante</h3>
-                    <div class="tip">
-                        <p><strong>Formatação Word:</strong> O documento gerado mantém a formatação original do template, incluindo:</p>
-                        <ul>
-                            <li>Estilos de fonte e parágrafo</li>
-                            <li>Tabelas e formatação</li>
-                            <li>Marcadores e numeração</li>
-                            <li>Cabeçalhos e rodapés</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="sidebar-section">
-                    <h3><i class="fas fa-download"></i> Templates</h3>
-                    <p>Templates utilizados:</p>
-                    <p><code>/Memorial/templates/MEM-DESCRITIVO-ELÉTRICO.docx</code></p>
-                    <p><code>/Memorial/templates/MEM-CALCULO-ELETRICO.docx</code></p>
-                    <div class="template-status" id="template-status">
-                        <p><i class="fas fa-sync fa-spin"></i> Verificando template...</p>
-                    </div>
-                </div>
+                <div class="sidebar-section"><h3><i class="fas fa-file-word"></i> Documentos disponíveis</h3><ul id="template-list"><li><i class="fas fa-bolt"></i> MEM-DESCRITIVO-ELÉTRICO</li><li><i class="fas fa-calculator"></i> MEM-CÁLCULO-ELÉTRICO</li><li><i class="fas fa-network-wired"></i> MEM-DESCRITIVO-LOGICA</li></ul></div>
+                <div class="sidebar-section"><h3><i class="fas fa-lightbulb"></i> Dica Importante</h3><div class="tip"><p><strong>Formatação Word:</strong> os documentos mantêm estilos, tabelas, cabeçalhos, rodapés, imagens e numeração dos templates.</p></div></div>
+                <div class="sidebar-section"><h3><i class="fas fa-download"></i> Templates</h3><p><code>/Memorial/templates/MEM-DESCRITIVO-ELÉTRICO.docx</code></p><p><code>/Memorial/templates/MEM-CALCULO-ELETRICO.docx</code></p><p><code>/Memorial/templates/MEM-DESCRITIVO-LOGICA.docx</code></p><div class="template-status" id="template-status"><p><i class="fas fa-sync fa-spin"></i> Verificando templates...</p></div></div>
             </aside>
 
             <main class="content">
-                <form id="document-form">
-                    <section class="form-section">
-                        <div class="section-heading">
-                            <h2><i class="fas fa-pencil-alt"></i> Dados Gerais</h2>
-                            <button type="button" id="fill-test-data-btn" class="btn-test-data">
-                                <i class="fas fa-vial"></i> Preencher dados de teste
-                            </button>
-                        </div>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="numero_art"><i class="fas fa-file-signature"></i> NÚMERO DA ART *</label>
-                                <input type="text" id="numero_art" placeholder="Ex: RR20260000000" required>
-                                <small>Substituirá [YYYY]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="responsavel"><i class="fas fa-user-tie"></i> NOME DA SECRETÁRIA OU PROPRIETÁRIO *</label>
-                                <input type="text" id="responsavel" placeholder="Ex: Secretaria Municipal de Obras" required>
-                                <small>Substituirá [MMMM]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="nome_projeto"><i class="fas fa-folder-open"></i> NOME DO PROJETO *</label>
-                                <input type="text" id="nome_projeto" placeholder="Ex: Reforma da Unidade Básica de Saúde" required>
-                                <small>Substituirá [HHHH]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="tensao_secundaria"><i class="fas fa-plug"></i> TENSÃO SECUNDÁRIA *</label>
-                                <select id="tensao_secundaria" required>
-                                    <option value="" disabled selected>Selecione a Tensão Secundária</option>
-                                    <option value="380/220V">380/220V</option>
-                                    <option value="220/127V">220/127V</option>
-                                    <option value="380/220V e 220/127V">380/220V e 220/127V</option>
-                                </select>
-                                <small>Substituirá [DDDD]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="concessionaria"><i class="fas fa-bolt"></i> CONCESSIONÁRIA *</label>
-                                <select id="concessionaria" required>
-                                    <option value="" disabled selected>Selecione a concessionária</option>
-                                    <option value="ÂMBAR ENERGIA RORAIMA">ÂMBAR ENERGIA RORAIMA</option>
-                                    <option value="CPFL">CPFL</option>
-                                </select>
-                                <small>Substituirá [BBBC]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="esquema_ligacao"><i class="fas fa-project-diagram"></i> ESQUEMA DE LIGAÇÃO *</label>
-                                <select id="esquema_ligacao" required>
-                                    <option value="" disabled selected>Selecione o esquema de ligação</option>
-                                    <option value="F+N+T">F+N+T</option>
-                                    <option value="2F+N+T">2F+N+T</option>
-                                    <option value="3F+N+T">3F+N+T</option>
-                                </select>
-                                <small>Substituirá [BBBD]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="esquema_aterramento"><i class="fas fa-arrow-down"></i> ESQUEMA DE ATERRAMENTO *</label>
-                                <select id="esquema_aterramento" required>
-                                    <option value="" disabled selected>Selecione o esquema de aterramento</option>
-                                    <option value="TN-S">TN-S</option>
-                                    <option value="TN-C">TN-C</option>
-                                    <option value="TN-C-S">TN-C-S</option>
-                                    <option value="TT">TT</option>
-                                    <option value="IT">IT</option>
-                                </select>
-                                <small>Substituirá [BBBE]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="ponto_entrega"><i class="fas fa-map-marker-alt"></i> PONTO DE ENTREGA *</label>
-                                <input type="text" id="ponto_entrega" placeholder="Ex: Rua das Flores, nº 100, Centro" required>
-                                <small>Informe a rua e o endereço completo. Substituirá [BBBF]</small>
-                            </div>
-                            <div class="form-group form-group-wide">
-                                <label for="ultima_prancha"><i class="fas fa-drafting-compass"></i> NOME DA ÚLTIMA PRANCHA *</label>
-                                <input type="text" id="ultima_prancha" placeholder="Ex: PRJ-ELE-SMEC-ECN-06-06" pattern="PRJ-[^-]+-[^-]+(?:-[^-]+)?-[0-9]+-[0-9]+" title="Use o formato PRJ-XXX-YYYY-AA-BB ou PRJ-XXX-YYYY-ZZZ-AA-BB, com AA e BB numéricos" required>
-                                <small>Use o formato PRJ-XXX-YYYY-AA-BB ou PRJ-XXX-YYYY-ZZZ-AA-BB. O último número substituirá [BBBH] e a relação completa das pranchas substituirá [BBBG].</small>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="form-section">
-                        <h2><i class="fas fa-hard-hat"></i> Responsável Técnico</h2>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="engenheiro"><i class="fas fa-user-cog"></i> NOME DO ENGENHEIRO *</label>
-                                <select id="engenheiro" required>
-                                    <option value="" disabled selected>Selecione o responsável técnico</option>
-                                </select>
-                                <small>Substituirá [XXYY]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="crea"><i class="fas fa-id-card"></i> NÚMERO DO CREA *</label>
-                                <input type="text" id="crea" placeholder="Selecione o responsável técnico" readonly required>
-                                <small>Substituirá [AAAA]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="email"><i class="fas fa-envelope"></i> E-MAIL *</label>
-                                <input type="email" id="email" placeholder="Selecione o responsável técnico" readonly required>
-                                <small>Substituirá [BBBB]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="telefone"><i class="fas fa-phone"></i> NÚMERO DO TELEFONE COM DDD *</label>
-                                <input type="text" id="telefone" placeholder="Selecione o responsável técnico" readonly required>
-                                <small>Substituirá [CCCC]</small>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="form-section">
-                        <h2><i class="fas fa-lightbulb"></i> Circuito de Iluminação</h2>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="bitola_iluminacao"><i class="fas fa-ruler"></i> BITOLA DO CABO EM mm² ILUMINAÇÃO *</label>
-                                <input type="text" id="bitola_iluminacao" placeholder="Ex: 2,5" required>
-                                <small>Substituirá [FFFF]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="isolacao_iluminacao"><i class="fas fa-shield-alt"></i> TIPO DE ISOLAÇÃO ILUMINAÇÃO *</label>
-                                <select id="isolacao_iluminacao" required>
-                                    <option value="" disabled selected>Selecione</option>
-                                    <option value="PVC">PVC</option>
-                                    <option value="XLPE/EPR">XLPE/EPR</option>
-                                </select>
-                                <small>Substituirá [GGGG]</small>
-                            </div>
-                            <div class="form-group form-group-wide">
-                                <label><i class="fas fa-list-check"></i> MATERIAL DA ILUMINAÇÃO *</label>
-                                <div id="iluminacao-material-options" class="material-options" aria-live="polite">
-                                    <p class="material-options-status"><i class="fas fa-sync fa-spin"></i> Carregando materiais de iluminação...</p>
-                                </div>
-                                <small>Carregado da planilha <code>base_de_dados_memorial.xlsx</code>, aba <code>iluminacao</code>. A imagem será lida diretamente da coluna <code>C</code> da mesma linha na planilha. Substituirá [KKKK] com descrição, imagem e nome da imagem na ordem selecionada.</small>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="form-section">
-                        <h2><i class="fas fa-plug"></i> Circuito de Tomadas</h2>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="bitola_tomadas"><i class="fas fa-ruler"></i> BITOLA DO CABO EM mm² TOMADAS *</label>
-                                <input type="text" id="bitola_tomadas" placeholder="Ex: 2,5" required>
-                                <small>Substituirá [FFFA]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="isolacao_tomadas"><i class="fas fa-shield-alt"></i> TIPO DE ISOLAÇÃO TOMADAS *</label>
-                                <select id="isolacao_tomadas" required>
-                                    <option value="" disabled selected>Selecione</option>
-                                    <option value="PVC">PVC</option>
-                                    <option value="XLPE/EPR">XLPE/EPR</option>
-                                </select>
-                                <small>Substituirá [GGGA]</small>
-                            </div>
-                            <div class="form-group form-group-wide">
-                                <label><i class="fas fa-list-check"></i> MATERIAL DAS TOMADAS *</label>
-                                <div id="tomadas-material-options" class="material-options" aria-live="polite">
-                                    <p class="material-options-status"><i class="fas fa-sync fa-spin"></i> Carregando materiais de tomada...</p>
-                                </div>
-                                <small>Carregado da planilha <code>base_de_dados_memorial.xlsx</code>, aba <code>tomada</code>. A imagem será lida diretamente da coluna <code>C</code> da mesma linha na planilha. Substituirá [IIII] com descrição, imagem e nome da imagem na ordem selecionada.</small>
-                            </div>
-                        </div>
-                    </section>
-                    
-                    <section class="form-section">
-                        <h2><i class="fas fa-grip-lines"></i> Eletrocalhas</h2>
-                        <div class="form-grid">
-                            <div class="form-group form-group-wide">
-                                <label><i class="fas fa-list-check"></i> MATERIAL DAS ELETROCALHAS *</label>
-                                <div id="eletrocalhas-material-options" class="material-options" aria-live="polite">
-                                    <p class="material-options-status"><i class="fas fa-sync fa-spin"></i> Carregando materiais de eletrocalha...</p>
-                                </div>
-                                <small>Carregado da planilha <code>base_de_dados_memorial.xlsx</code>, aba <code>eletrocalha</code>. A imagem será lida diretamente da coluna <code>C</code> da mesma linha na planilha. Substituirá [JJJJ] com descrição, imagem e nome da imagem na ordem selecionada.</small>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="form-section">
-                        <h2><i class="fas fa-wind"></i> Circuito de Climatização</h2>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="bitola_climatizacao"><i class="fas fa-ruler"></i> BITOLA DO CABO EM mm² CLIMATIZAÇÃO *</label>
-                                <input type="text" id="bitola_climatizacao" placeholder="Ex: 4" required>
-                                <small>Substituirá [FFFB]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="isolacao_climatizacao"><i class="fas fa-shield-alt"></i> TIPO DE ISOLAÇÃO CLIMATIZAÇÃO *</label>
-                                <select id="isolacao_climatizacao" required>
-                                    <option value="" disabled selected>Selecione</option>
-                                    <option value="PVC">PVC</option>
-                                    <option value="XLPE/EPR">XLPE/EPR</option>
-                                </select>
-                                <small>Substituirá [GGGB]</small>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="form-section">
-                        <h2><i class="fas fa-fan"></i> Circuito de Exaustão</h2>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="bitola_exaustao"><i class="fas fa-ruler"></i> BITOLA DO CABO EM mm² EXAUSTÃO *</label>
-                                <input type="text" id="bitola_exaustao" placeholder="Ex: 2,5" required>
-                                <small>Substituirá [FFFC]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="isolacao_exaustao"><i class="fas fa-shield-alt"></i> TIPO DE ISOLAÇÃO EXAUSTÃO *</label>
-                                <select id="isolacao_exaustao" required>
-                                    <option value="" disabled selected>Selecione</option>
-                                    <option value="PVC">PVC</option>
-                                    <option value="XLPE/EPR">XLPE/EPR</option>
-                                </select>
-                                <small>Substituirá [GGGC]</small>
-                            </div>
-                        </div>
-                    </section>
-                    <section class="form-section">
-                        <h2><i class="fas fa-exclamation-triangle"></i> Circuito de Emergência</h2>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="bitola_emergencia"><i class="fas fa-ruler"></i> BITOLA DO CABO EM mm² EMERGÊNCIA *</label>
-                                <input type="text" id="bitola_emergencia" placeholder="Ex: 2,5" required>
-                                <small>Substituirá [FFFD]</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="isolacao_emergencia"><i class="fas fa-shield-alt"></i> TIPO DE ISOLAÇÃO EMERGÊNCIA *</label>
-                                <select id="isolacao_emergencia" required>
-                                    <option value="" disabled selected>Selecione</option>
-                                    <option value="PVC">PVC</option>
-                                    <option value="XLPE/EPR">XLPE/EPR</option>
-                                </select>
-                                <small>Substituirá [GGGD]</small>
-                            </div>
-                        </div>
-                    </section>
-                    <section class="form-section qibuilder-import" id="qibuilder-import-section">
-                        <h2><i class="fas fa-file-import"></i> Memorial de cálculo — QiBuilder</h2>
-                        <div class="qibuilder-upload" id="qibuilder-drop-zone">
-                            <label for="qibuilder-html" class="qibuilder-file-label">
-                                <i class="fas fa-cloud-arrow-up"></i>
-                                <span>Selecionar memorial exportado pelo QiBuilder</span>
-                                <small>Arquivos .html ou .htm (inclusive em Windows-1252/ISO-8859-1)</small>
-                            </label>
-                            <input type="file" id="qibuilder-html" accept=".html,.htm,text/html">
-                            <div id="qibuilder-file-info" class="qibuilder-file-info hidden" aria-live="polite"></div>
-                            <button type="button" id="qibuilder-remove" class="btn-file-remove hidden">
-                                <i class="fas fa-trash"></i> Remover arquivo
-                            </button>
-                        </div>
-                        <div id="qibuilder-status" class="qibuilder-status" role="status" aria-live="polite">
-                            Nenhum HTML carregado. O memorial descritivo pode ser gerado sem essa importação.
-                        </div>
-                        <div id="qibuilder-sections" class="qibuilder-sections hidden"></div>
-                    </section>
-                    <section class="form-section">
-                        <h2><i class="fas fa-file-contract"></i> Opções de Geração</h2>
-                        <div class="options-grid">
-                            <div class="option-item">
-                                <input type="checkbox" id="gerar_memorial_eletrico" checked>
-                                <label for="gerar_memorial_eletrico">
-                                    <i class="fas fa-file-alt"></i> MEM-DESCRITIVO-ELÉTRICO
-                                </label>
-                            </div>
-                            <div class="option-item">
-                                <input type="checkbox" id="gerar_memorial_calculo">
-                                <label for="gerar_memorial_calculo">
-                                    <i class="fas fa-calculator"></i> MEM-CÁLCULO-ELÉTRICO
-                                </label>
-                            </div>
-                        </div>
-                    </section>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn-generate" id="generate-btn">
-                            <i class="fas fa-file-export"></i> Gerar Documento
-                        </button>
-                        <button type="button" id="reset-btn" class="btn-reset">
-                            <i class="fas fa-redo"></i> Limpar Formulário
-                        </button>
-                        <div class="loading hidden" id="loading">
-                            <i class="fas fa-spinner fa-spin"></i> Processando documento...
-                        </div>
+                <form id="document-form" novalidate>
+                    <section class="form-section"><div class="section-heading"><h2><i class="fas fa-pencil-alt"></i> Dados comuns</h2><button type="button" id="fill-test-data-btn" class="btn-test-data"><i class="fas fa-vial"></i> Preencher dados de teste</button></div><div class="form-grid">
+                        <div class="form-group"><label for="numero_art">NÚMERO DA ART *</label><input id="numero_art" type="text"><small>[YYYY]</small></div>
+                        <div class="form-group"><label for="responsavel">PROPRIETÁRIO OU RESPONSÁVEL *</label><input id="responsavel" type="text"><small>[MMMM]</small></div>
+                        <div class="form-group"><label for="nome_projeto">NOME DO PROJETO *</label><input id="nome_projeto" type="text"><small>[HHHH]</small></div>
+                        <div class="form-group"><label for="ultima_prancha">NOME DA ÚLTIMA PRANCHA *</label><input id="ultima_prancha" type="text" placeholder="PRJ-ELE-SMEC-ECN-06-06"><small>[BBBH] e [BBBG]</small></div>
+                        <div class="form-group"><label for="engenheiro">RESPONSÁVEL TÉCNICO *</label><select id="engenheiro"><option value="">Selecione</option></select><small>[XXYY]</small></div>
+                        <div class="form-group"><label for="crea">CREA *</label><input id="crea" readonly><small>[AAAA]</small></div>
+                        <div class="form-group"><label for="email">E-MAIL *</label><input id="email" type="email" readonly><small>[BBBB]</small></div>
+                        <div class="form-group"><label for="telefone">TELEFONE *</label><input id="telefone" readonly><small>[CCCC]</small></div>
+                    </div></section>
+                    <div class="memorial-tabs" role="tablist" aria-label="Disciplinas dos memoriais">
+                        <button type="button" id="tab-memorial-eletrico" class="memorial-tab active" role="tab" aria-selected="true" aria-controls="panel-memorial-eletrico" tabindex="0"><i class="fas fa-bolt"></i> Memorial Elétrico</button>
+                        <button type="button" id="tab-memorial-logica" class="memorial-tab" role="tab" aria-selected="false" aria-controls="panel-memorial-logica" tabindex="-1"><i class="fas fa-network-wired"></i> Memorial de Lógica</button>
                     </div>
+                    <div id="panel-memorial-eletrico" class="memorial-tab-panel active" role="tabpanel" aria-labelledby="tab-memorial-eletrico">
+                        <section class="form-section"><h2><i class="fas fa-bolt"></i> Dados elétricos</h2><div class="form-grid">
+                            <div class="form-group"><label for="tensao_secundaria">TENSÃO SECUNDÁRIA *</label><select id="tensao_secundaria"><option value="">Selecione</option><option>380/220V</option><option>220/127V</option><option>380/220V e 220/127V</option></select></div>
+                            <div class="form-group"><label for="concessionaria">CONCESSIONÁRIA *</label><select id="concessionaria"><option value="">Selecione</option><option>ÂMBAR ENERGIA RORAIMA</option><option>CPFL</option></select></div>
+                            <div class="form-group"><label for="esquema_ligacao">ESQUEMA DE LIGAÇÃO *</label><select id="esquema_ligacao"><option value="">Selecione</option><option>F+N+T</option><option>2F+N+T</option><option>3F+N+T</option></select></div>
+                            <div class="form-group"><label for="esquema_aterramento">ATERRAMENTO *</label><select id="esquema_aterramento"><option value="">Selecione</option><option>TN-S</option><option>TN-C</option><option>TN-C-S</option><option>TT</option><option>IT</option></select></div>
+                            <div class="form-group form-group-wide"><label for="ponto_entrega">PONTO DE ENTREGA *</label><input id="ponto_entrega"></div>
+                        </div></section>
+                        <section class="form-section"><h2><i class="fas fa-lightbulb"></i> Circuitos e materiais</h2><div class="form-grid">
+                            <div class="form-group"><label for="bitola_iluminacao">BITOLA ILUMINAÇÃO *</label><input id="bitola_iluminacao"></div><div class="form-group"><label for="isolacao_iluminacao">ISOLAÇÃO ILUMINAÇÃO *</label><select id="isolacao_iluminacao"><option value="">Selecione</option><option>PVC</option><option>XLPE/EPR</option></select><input id="isolamento_iluminacao" readonly></div>
+                            <div class="form-group form-group-wide"><label>MATERIAL DA ILUMINAÇÃO *</label><div id="iluminacao-material-options" class="material-options"></div></div>
+                            <div class="form-group"><label for="bitola_tomadas">BITOLA TOMADAS *</label><input id="bitola_tomadas"></div><div class="form-group"><label for="isolacao_tomadas">ISOLAÇÃO TOMADAS *</label><select id="isolacao_tomadas"><option value="">Selecione</option><option>PVC</option><option>XLPE/EPR</option></select><input id="isolamento_tomadas" readonly></div>
+                            <div class="form-group form-group-wide"><label>MATERIAL DAS TOMADAS *</label><div id="tomadas-material-options" class="material-options"></div></div>
+                            <div class="form-group form-group-wide"><label>MATERIAL DAS ELETROCALHAS *</label><div id="eletrocalhas-material-options" class="material-options"></div></div>
+                            <div class="form-group"><label for="bitola_climatizacao">BITOLA CLIMATIZAÇÃO *</label><input id="bitola_climatizacao"></div><div class="form-group"><label for="isolacao_climatizacao">ISOLAÇÃO CLIMATIZAÇÃO *</label><select id="isolacao_climatizacao"><option value="">Selecione</option><option>PVC</option><option>XLPE/EPR</option></select><input id="isolamento_climatizacao" readonly></div>
+                            <div class="form-group"><label for="bitola_exaustao">BITOLA EXAUSTÃO *</label><input id="bitola_exaustao"></div><div class="form-group"><label for="isolacao_exaustao">ISOLAÇÃO EXAUSTÃO *</label><select id="isolacao_exaustao"><option value="">Selecione</option><option>PVC</option><option>XLPE/EPR</option></select><input id="isolamento_exaustao" readonly></div>
+                            <div class="form-group"><label for="bitola_emergencia">BITOLA EMERGÊNCIA *</label><input id="bitola_emergencia"></div><div class="form-group"><label for="isolacao_emergencia">ISOLAÇÃO EMERGÊNCIA *</label><select id="isolacao_emergencia"><option value="">Selecione</option><option>PVC</option><option>XLPE/EPR</option></select><input id="isolamento_emergencia" readonly></div>
+                        </div></section>
+                        <section class="form-section qibuilder-import" id="qibuilder-import-section"><h2><i class="fas fa-file-import"></i> Memorial de cálculo — QiBuilder</h2><div class="qibuilder-upload" id="qibuilder-drop-zone"><label for="qibuilder-html" class="qibuilder-file-label"><i class="fas fa-cloud-arrow-up"></i><span>Selecionar HTML do QiBuilder</span></label><input type="file" id="qibuilder-html" accept=".html,.htm,text/html"><div id="qibuilder-file-info" class="qibuilder-file-info hidden"></div><button type="button" id="qibuilder-remove" class="btn-file-remove hidden">Remover arquivo</button></div><div id="qibuilder-status" class="qibuilder-status" role="status">Nenhum HTML carregado.</div><div id="qibuilder-sections" class="qibuilder-sections hidden"></div></section>
+                        <section class="form-section"><h2>Opções de geração elétrica</h2><div class="options-grid"><div class="option-item"><input type="checkbox" id="gerar_memorial_eletrico" checked><label for="gerar_memorial_eletrico">MEM-DESCRITIVO-ELÉTRICO</label></div><div class="option-item"><input type="checkbox" id="gerar_memorial_calculo"><label for="gerar_memorial_calculo">MEM-CÁLCULO-ELÉTRICO</label></div></div></section>
+                    </div>
+                    <div id="panel-memorial-logica" class="memorial-tab-panel" role="tabpanel" aria-labelledby="tab-memorial-logica" hidden>
+                        <section class="form-section"><h2>1. Sistemas contemplados</h2><div class="checkbox-grid" id="sistemas-logica"><label class="material-option"><input type="checkbox" name="sistemas_logica" id="sistema-logica-1" value="CFTV"><span><strong>CFTV</strong></span></label><label class="material-option"><input type="checkbox" name="sistemas_logica" id="sistema-logica-2" value="Controle de acesso"><span><strong>Controle de acesso</strong></span></label><label class="material-option"><input type="checkbox" name="sistemas_logica" id="sistema-logica-3" value="Sonorização"><span><strong>Sonorização</strong></span></label><label class="material-option"><input type="checkbox" name="sistemas_logica" id="sistema-logica-4" value="Automação"><span><strong>Automação</strong></span></label><label class="material-option"><input type="checkbox" name="sistemas_logica" id="sistema-logica-5" value="Detecção de incêndio"><span><strong>Detecção de incêndio</strong></span></label></div></section>
+                        <section class="form-section"><h2>2. Cabeamento estruturado</h2><div class="form-grid">
+                            <div class="form-group"><label for="categoria_logica">Categoria *</label><select id="categoria_logica"><option value="">Selecione</option><option>cat5</option><option>cat5e</option><option>cat6</option><option>cat6a</option></select></div><div class="form-group"><label for="classe_logica">Classe</label><input id="classe_logica" readonly></div><div class="form-group"><label for="velocidade_logica">Velocidade</label><input id="velocidade_logica" readonly></div>
+                            <div class="form-group"><label for="blindagem_logica">Blindagem *</label><select id="blindagem_logica"><option value="">Selecione</option><option>UTP</option><option>F-UTP</option><option>S-FTP</option></select></div><div class="form-group"><label for="tipo_cabo_logica">Tipo de cabo *</label><select id="tipo_cabo_logica"><option value="">Selecione</option><option>CMX</option><option>CM</option><option>CMR</option><option>LSZH</option><option>LS7H</option></select></div>
+                            <div class="form-group"><label for="aplicacao_logica">Aplicação *</label><select id="aplicacao_logica"><option value="">Selecione</option><option>Dados</option><option>Voz</option><option>POE</option><option>Dados e Voz</option><option>Outros</option></select></div><div class="form-group conditional-field" id="aplicacao-outra-group" hidden><label for="aplicacao_outra">Especifique a aplicação *</label><input id="aplicacao_outra"></div>
+                            <div class="form-group"><label for="conector_logica">Conector *</label><select id="conector_logica"><option value="">Selecione</option><option>RJ45</option><option>Óptico</option><option>Outros</option></select></div><div class="form-group conditional-field" id="conector-outro-group" hidden><label for="conector_outro">Especifique o conector *</label><input id="conector_outro"></div><div class="form-group"><label for="terminacao_logica">Terminação *</label><select id="terminacao_logica"><option value="">Selecione</option><option>T568A</option><option>T568B</option></select></div>
+                        </div></section>
+                        <section class="form-section"><h2>3. Racks e pontos</h2><div class="form-grid"><div class="form-group"><label for="quantidade_racks">Quantidade total de racks *</label><input type="number" id="quantidade_racks" min="1" step="1"><small>Considere o rack principal e todos os racks secundários.</small></div><div class="form-group"><label for="quantidade_pontos">Quantidade total de pontos de telecomunicações *</label><input type="number" id="quantidade_pontos" min="1" step="1"></div><div class="form-group"><label for="quantidade_conectores">Quantidade de conectores por ponto *</label><input type="number" id="quantidade_conectores" min="1" step="1" value="1"></div><div class="form-group"><label for="reserva_logica">Reserva técnica prevista (%) <button class="help-button" type="button" aria-label="Ajuda sobre reserva técnica" data-tooltip="Informe o percentual de portas, espaço e capacidade que deverá permanecer disponível para futuras ampliações. Exemplo: 20 representa uma reserva técnica de 20%.">?</button></label><input type="number" id="reserva_logica" min="0" max="100" step="0.1"></div></div></section>
+                        <section class="form-section"><h2>4. Distribuição</h2><div class="form-grid"><div class="form-group"><label for="distribuidor_principal">Nome do rack principal *</label><input id="distribuidor_principal" placeholder="CD ou MDF"></div><div class="form-group"><label for="localizacao_rack">Localização do rack principal *</label><input id="localizacao_rack"><small>Informe o pavimento e a sala.</small></div><div class="form-group form-group-wide"><label for="distribuidor-input">Distribuidores secundários <button class="help-button" type="button" aria-label="Ajuda sobre distribuidores secundários" data-tooltip="Adicione o identificador de cada rack secundário separadamente. Exemplo: BD1, BD2 e BD3. O rack principal não deve ser incluído nesta lista.">?</button></label><div class="chip-input-row"><input id="distribuidor-input"><button type="button" id="adicionar-distribuidor" class="btn-add">Adicionar</button></div><div id="distribuidores-chips" class="chips" aria-live="polite"></div><small id="distribuidores-contagem">0 racks secundários adicionados</small></div></div></section>
+                        <section class="form-section"><h2>5. Backbone e fibra óptica</h2><div class="form-grid"><div class="form-group"><label for="backbone_logica">Backbone *</label><select id="backbone_logica"><option>Sim</option><option>Não</option></select></div><div class="form-group optical-field"><label for="fibra_logica">Fibra *</label><select id="fibra_logica"><option value="">Selecione</option><option>OM3</option><option>OM4</option><option>OS2</option><option>OS1</option><option>Não aplicável</option></select></div><div class="form-group optical-field"><label for="conector_optico">Conector óptico *</label><select id="conector_optico"><option value="">Selecione</option><option>LC</option><option>SC</option><option>MPO/MTP</option></select></div><div class="form-group optical-field"><label for="ter_optico">Terminação óptica *</label><select id="ter_optico"><option value="">Selecione</option><option>LC/SC</option><option>ST/FC</option></select></div></div></section>
+                        <section class="form-section"><h2>6. Infraestrutura</h2><div class="form-group"><label>Eletrocalhas de lógica *</label><div id="eletro-log-material-options" class="material-options"></div><small>Seleção independente, carregada da aba <code>eletrocalha</code>; substitui [ELETRO_LOG].</small></div></section>
+                        <section class="form-section"><h2>7. Opções de geração</h2><div class="option-item"><input type="checkbox" id="gerar_memorial_logica" checked><label for="gerar_memorial_logica"><i class="fas fa-network-wired"></i> MEM-DESCRITIVO-LOGICA</label></div></section>
+                    </div>
+                    <div class="form-actions"><button type="submit" class="btn-generate" id="generate-btn"><i class="fas fa-file-export"></i> Gerar documentos</button><button type="button" id="reset-btn" class="btn-reset"><i class="fas fa-redo"></i> Limpar Formulário</button><div class="loading hidden" id="loading"><i class="fas fa-spinner fa-spin"></i> Processando...</div></div>
                 </form>
-
-                <div id="results-section" class="hidden">
-                    <section class="results-section">
-                        <h2><i class="fas fa-download"></i> Documentos Gerados</h2>
-                        <div class="success-message" id="success-message">
-                            <i class="fas fa-check-circle"></i>
-                            <div>
-                                <p><strong>Sucesso!</strong> Documento gerado com opções em Word e PDF.</p>
-                                <p><strong>Sucesso!</strong> Documento(s) gerado(s) com opções em Word e PDF.</p>
-                            </div>
-                        </div>
-
-                        <div class="documents-grid" id="documents-container"></div>
-
-                        <div class="download-options">
-                            <h3><i class="fas fa-file-archive"></i> Download</h3>
-                            <p>Baixe os documentos gerados em Word, PDF ou copie o resumo dos dados utilizados.</p>
-                            <button id="download-all-btn" class="btn-download-all">
-                                <i class="fas fa-file-archive"></i> Baixar ZIP Word
-                            </button>
-                            <button id="download-individual-btn" class="btn-download-individual">
-                                <i class="fas fa-folder-open"></i> Abrir Pasta de Downloads
-                            </button>
-                        </div>
-
-                        <div class="data-summary">
-                            <h3><i class="fas fa-clipboard-check"></i> Dados Utilizados</h3>
-                            <div class="summary-content">
-                                <div id="data-summary-content"></div>
-                                <button id="copy-data-btn" class="btn-copy">
-                                    <i class="fas fa-copy"></i> Copiar Dados
-                                </button>
-                            </div>
-                        </div>
-                    </section>
-                </div>
+                <div id="results-section" class="hidden"><section class="results-section"><h2><i class="fas fa-download"></i> Documentos Gerados</h2><div class="success-message" id="success-message"><i class="fas fa-check-circle"></i><p><strong>Sucesso!</strong> Memorial(is) do projeto gerado(s) em Word e PDF.</p></div><div class="documents-grid" id="documents-container"></div><div class="download-options"><h3>Download</h3><button id="download-all-btn" class="btn-download-all">Baixar ZIP Word</button><button id="download-individual-btn" class="btn-download-individual">Abrir Pasta de Downloads</button></div><div class="data-summary"><h3>Dados Utilizados</h3><div class="summary-content"><pre id="data-summary-content"></pre><button id="copy-data-btn" class="btn-copy">Copiar Dados</button></div></div></section></div>
             </main>
         </div>
 
         <footer class="footer">
-            <p><i class="fas fa-copyright"></i> Sistema de Geração de Memoriais Elétricos</p>
-            <p class="footer-info">Documento gerado com formatação completa do Microsoft Word</p>
+            <p><i class="fas fa-copyright"></i> Sistema de Geração de Memoriais de Projetos</p>
+            <p class="footer-info">Documentos elétricos e de lógica com a formatação original do Microsoft Word</p>
         </footer>
     </div>
     <script src="/Memorial/memorial-calculo-parser.js"></script>

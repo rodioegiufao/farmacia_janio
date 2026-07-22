@@ -530,6 +530,52 @@ body {
     display: none !important;
 }
 
+.memorial-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0 0 22px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bg-card);
+}
+
+.memorial-tab {
+    min-width: 0;
+    padding: 16px 12px;
+    border: 0;
+    border-bottom: 4px solid transparent;
+    background: var(--primary-medium);
+    color: var(--text-secondary);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color .2s, background .2s, border-color .2s;
+}
+
+.memorial-tab + .memorial-tab { border-left: 1px solid var(--border-color); }
+.memorial-tab.active { color: var(--accent-blue); background: var(--bg-card); border-bottom-color: var(--accent-blue); }
+.memorial-tab:focus-visible, .help-button:focus-visible, .chip button:focus-visible, .btn-add:focus-visible { outline: 3px solid var(--accent-blue); outline-offset: -3px; }
+.memorial-tab-panel[hidden], .conditional-field[hidden] { display: none !important; }
+.checkbox-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.chip-input-row { display: flex; gap: 10px; }
+.chip-input-row input { flex: 1; }
+.btn-add { border: 0; border-radius: 8px; padding: 0 18px; background: var(--accent-blue); color: white; font-weight: 600; cursor: pointer; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 999px; background: var(--accent-blue); color: white; }
+.chip button { border: 0; background: transparent; color: inherit; font-size: 1.2rem; cursor: pointer; }
+.help-button { width: 24px; height: 24px; border: 1px solid var(--accent-blue); border-radius: 50%; background: transparent; color: var(--accent-blue); cursor: pointer; font-weight: 700; }
+.status-ok { color: #27ae60; }
+.status-warning { color: #f39c12; }
+.status-error { color: #e74c3c; }
+
+@media (max-width: 520px) {
+    .memorial-tab { padding: 12px 6px; font-size: .82rem; }
+    .memorial-tab i { display: block; margin-bottom: 5px; }
+    .chip-input-row { flex-direction: column; }
+    .btn-add { min-height: 42px; }
+}
+
 .results-section {
     margin-top: 30px;
     padding-top: 30px;

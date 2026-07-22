@@ -1,11 +1,21 @@
 const TEMPLATE_DESCRITIVO_URL = '/Memorial/templates/MEM-DESCRITIVO-ELÉTRICO.docx';
 const TEMPLATE_CALCULO_URL = '/Memorial/templates/MEM-CALCULO-ELETRICO.docx';
+const TEMPLATE_LOGICA_URL = '/Memorial/templates/MEM-DESCRITIVO-LOGICA.docx';
 const TEMPLATE_DESCRITIVO_NAME = 'MEM-DESCRITIVO-ELÉTRICO';
 const TEMPLATE_CALCULO_NAME = 'MEM-CALCULO-ELÉTRICO';
+const TEMPLATE_LOGICA_NAME = 'MEM-DESCRITIVO-LOGICA';
 const MEMORIAL_DATABASE_URL = '/Memorial/base_de_dados_memorial.xlsx';
 const TOMADAS_PLACEHOLDER = '__MEMORIAL_TOMADAS_SELECIONADAS__';
 const ELETROCALHAS_PLACEHOLDER = '__MEMORIAL_ELETROCALHAS_SELECIONADAS__';
 const ILUMINACAO_PLACEHOLDER = '__MEMORIAL_ILUMINACAO_SELECIONADA__';
+const ELETRO_LOG_PLACEHOLDER = '__MEMORIAL_ELETRO_LOG_SELECIONADO__';
+const DADOS_CATEGORIA = {
+    cat5: { classe: 'C', velocidade: '100 Mbps' },
+    cat5e: { classe: 'D', velocidade: '1 Gbps' },
+    cat6: { classe: 'E', velocidade: '1 Gbps' },
+    cat6a: { classe: 'EA', velocidade: '10 Gbps' }
+};
+const PLACEHOLDERS_LOGICA = ['[BBBBH]', '[CATEGORIA]', '[CLASSE]', '[VELOCIDADE]', '[BLINDAGEM]', '[TIPO_CABO]', '[APLICACAO]', '[CONECTOR]', '[TERMINACAO]', '[FIBRA]', '[QUANTIDADE_RACKS]', '[QUANTIDADE_PONTOS]', '[RESERVA]', '[DISTRIBUIDOR_PRINCIPAL]', '[LOCALIZACAO]', '[LISTA_DISTRIBUIDORES]', '[BACKBONE]', '[CONECTOR_OPTICO]', '[TER_OPTICO]', '[ELETRO_LOG]', '[QUANTIDADE]', '[TIPO]', '[FUSÃO/PIGTAIL/OUTRO]', ELETRO_LOG_PLACEHOLDER];
 
 const ENGENHEIROS = {
     'SALOMÃO JOSE COHEN': {
@@ -47,6 +57,8 @@ let materiaisTomada = [];
 let materiaisEletrocalha = [];
 let materiaisIluminacao = [];
 let memorialCalculoImportado = null;
+let distribuidoresSecundarios = [];
+let abaMemorialAtiva = 'eletrico';
 
 document.addEventListener('DOMContentLoaded', function() {
     initThemeSelector();
@@ -59,6 +71,8 @@ document.addEventListener('DOMContentLoaded', function() {
     carregarMateriaisEletrocalha();
     carregarMateriaisIluminacao();
     setupMemorialCalculoImport();
+    setupMemorialTabs();
+    setupLogicaControls();
 });
 
 function setupEngineerSelector() {
@@ -101,33 +115,21 @@ function setupDefaultDatePlaceholders() {
 async function checkTemplate() {
     const statusElement = document.getElementById('template-status');
 
-    try {
-        const respostas = await Promise.all([
-            fetch(TEMPLATE_DESCRITIVO_URL, { method: 'HEAD' }),
-            fetch(TEMPLATE_CALCULO_URL, { method: 'HEAD' })
-        ]);
-
-        if (respostas.every((response) => response.ok)) {
-            statusElement.innerHTML = `
-                <p><i class="fas fa-check-circle" style="color: #27ae60;"></i>
-                Templates encontrados!</p>
-                <small>Memoriais descritivo e de cálculo prontos para geração</small>
-            `;
-        } else {
-            statusElement.innerHTML = `
-                <p><i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i>
-                Template não encontrado</p>
-                <small>Verifique se o arquivo está em /Memorial/templates/</small>
-            `;
+    const templates = [
+        ['MEM-DESCRITIVO-ELÉTRICO', TEMPLATE_DESCRITIVO_URL],
+        ['MEM-CALCULO-ELETRICO', TEMPLATE_CALCULO_URL],
+        ['MEM-DESCRITIVO-LOGICA', TEMPLATE_LOGICA_URL]
+    ];
+    const estados = await Promise.all(templates.map(async ([nome, url]) => {
+        try {
+            const response = await fetch(url, { method: 'HEAD' });
+            return { nome, estado: response.ok ? 'encontrado' : 'não encontrado', classe: response.ok ? 'fa-check-circle status-ok' : 'fa-exclamation-triangle status-warning' };
+        } catch (error) {
+            console.error(`Erro ao verificar ${nome}:`, error);
+            return { nome, estado: 'erro ao verificar', classe: 'fa-times-circle status-error' };
         }
-    } catch (error) {
-        statusElement.innerHTML = `
-            <p><i class="fas fa-times-circle" style="color: #e74c3c;"></i>
-            Erro ao verificar template</p>
-            <small>Verifique o console para detalhes</small>
-        `;
-        console.error('Erro ao verificar template:', error);
-    }
+    }));
+    statusElement.innerHTML = estados.map(({ nome, estado, classe }) => `<p><i class="fas ${classe}"></i> <strong>${escapeHtml(nome)}</strong>: ${estado}</p>`).join('');
 }
 
 const TENSAO_ISOLAMENTO_POR_ISOLACAO = {
@@ -414,6 +416,12 @@ function renderizarOpcoesMateriaisEletrocalha() {
         materiais: materiaisEletrocalha,
         emptyMessage: 'Nenhum material encontrado na aba eletrocalha.'
     });
+    renderizarOpcoesMateriais({
+        containerId: 'eletro-log-material-options',
+        inputName: 'materiais_eletrocalha_logica',
+        materiais: materiaisEletrocalha,
+        emptyMessage: 'Nenhum material encontrado na aba eletrocalha.'
+    });
 }
 
 function renderizarOpcoesMateriaisIluminacao() {
@@ -453,6 +461,10 @@ function obterMateriaisEletrocalhaSelecionados() {
     return obterMateriaisSelecionados('materiais_eletrocalha', materiaisEletrocalha);
 }
 
+function obterMateriaisEletrocalhaLogicaSelecionados() {
+    return obterMateriaisSelecionados('materiais_eletrocalha_logica', materiaisEletrocalha);
+}
+
 function obterMateriaisIluminacaoSelecionados() {
     return obterMateriaisSelecionados('materiais_iluminacao', materiaisIluminacao);
 }
@@ -471,6 +483,91 @@ function escapeHtml(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+}
+
+function ativarAbaMemorial(disciplina, moverFoco = false) {
+    abaMemorialAtiva = disciplina;
+    ['eletrico', 'logica'].forEach((nome) => {
+        const ativo = nome === disciplina;
+        const tab = document.getElementById(`tab-memorial-${nome}`);
+        const panel = document.getElementById(`panel-memorial-${nome}`);
+        tab?.classList.toggle('active', ativo);
+        tab?.setAttribute('aria-selected', String(ativo));
+        tab?.setAttribute('tabindex', ativo ? '0' : '-1');
+        panel?.classList.toggle('active', ativo);
+        if (panel) panel.hidden = !ativo;
+        if (ativo && moverFoco) tab?.focus();
+    });
+}
+
+function setupMemorialTabs() {
+    const tabs = Array.from(document.querySelectorAll('.memorial-tab'));
+    tabs.forEach((tab, index) => {
+        const disciplina = tab.id.endsWith('logica') ? 'logica' : 'eletrico';
+        tab.addEventListener('click', () => ativarAbaMemorial(disciplina));
+        tab.addEventListener('keydown', (event) => {
+            if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+            event.preventDefault();
+            const deslocamento = event.key === 'ArrowRight' ? 1 : -1;
+            const destino = tabs[(index + deslocamento + tabs.length) % tabs.length];
+            ativarAbaMemorial(destino.id.endsWith('logica') ? 'logica' : 'eletrico', true);
+        });
+    });
+}
+
+function atualizarCategoriaLogica() {
+    const dados = DADOS_CATEGORIA[getValue('categoria_logica')] || { classe: '', velocidade: '' };
+    document.getElementById('classe_logica').value = dados.classe;
+    document.getElementById('velocidade_logica').value = dados.velocidade;
+}
+
+function atualizarCamposCondicionaisLogica() {
+    const outrosAplicacao = getValue('aplicacao_logica') === 'Outros';
+    const outroConector = getValue('conector_logica') === 'Outros';
+    document.getElementById('aplicacao-outra-group').hidden = !outrosAplicacao;
+    document.getElementById('conector-outro-group').hidden = !outroConector;
+    const possuiBackbone = getValue('backbone_logica') === 'Sim';
+    document.querySelectorAll('.optical-field select').forEach((campo) => { campo.disabled = !possuiBackbone; });
+}
+
+function renderizarDistribuidores() {
+    const container = document.getElementById('distribuidores-chips');
+    if (!container) return;
+    container.innerHTML = distribuidoresSecundarios.map((item, index) => `<span class="chip">${escapeHtml(item)} <button type="button" data-remove-distribuidor="${index}" aria-label="Remover ${escapeHtml(item)}">×</button></span>`).join('');
+    document.getElementById('distribuidores-contagem').textContent = `${distribuidoresSecundarios.length} rack(s) secundário(s) adicionado(s)`;
+}
+
+function adicionarDistribuidor() {
+    const input = document.getElementById('distribuidor-input');
+    const valor = input?.value.trim() || '';
+    if (!valor) return;
+    if (distribuidoresSecundarios.some((item) => item.toLocaleLowerCase('pt-BR') === valor.toLocaleLowerCase('pt-BR'))) {
+        alert('Este distribuidor secundário já foi adicionado.');
+        input.focus();
+        return;
+    }
+    distribuidoresSecundarios.push(valor);
+    input.value = '';
+    renderizarDistribuidores();
+}
+
+function setupLogicaControls() {
+    document.getElementById('categoria_logica')?.addEventListener('change', atualizarCategoriaLogica);
+    ['aplicacao_logica', 'conector_logica', 'backbone_logica'].forEach((id) => document.getElementById(id)?.addEventListener('change', atualizarCamposCondicionaisLogica));
+    document.getElementById('adicionar-distribuidor')?.addEventListener('click', adicionarDistribuidor);
+    document.getElementById('distribuidor-input')?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') { event.preventDefault(); adicionarDistribuidor(); }
+    });
+    document.getElementById('distribuidores-chips')?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-remove-distribuidor]');
+        if (!button) return;
+        distribuidoresSecundarios.splice(Number(button.dataset.removeDistribuidor), 1);
+        renderizarDistribuidores();
+    });
+    document.querySelectorAll('.help-button').forEach((button) => button.addEventListener('click', () => alert(button.dataset.tooltip)));
+    atualizarCategoriaLogica();
+    atualizarCamposCondicionaisLogica();
+    renderizarDistribuidores();
 }
 
 function setupEventListeners() {
@@ -492,6 +589,15 @@ function setupEventListeners() {
             dadosProcessados = {};
             setupDefaultDatePlaceholders();
             limparMemorialCalculoImportado();
+            distribuidoresSecundarios = [];
+            renderizarDistribuidores();
+            document.getElementById('quantidade_conectores').value = '1';
+            document.getElementById('gerar_memorial_eletrico').checked = true;
+            document.getElementById('gerar_memorial_calculo').checked = false;
+            document.getElementById('gerar_memorial_logica').checked = true;
+            atualizarCategoriaLogica();
+            atualizarCamposCondicionaisLogica();
+            ativarAbaMemorial('eletrico');
             const resultsSection = document.getElementById('results-section');
             if (resultsSection) resultsSection.classList.add('hidden');
         });
@@ -544,185 +650,161 @@ function preencherDadosDeTeste() {
         campo.dispatchEvent(new Event('input', { bubbles: true }));
         campo.dispatchEvent(new Event('change', { bubbles: true }));
     });
+    if (abaMemorialAtiva === 'logica') {
+        const logica = { categoria_logica: 'cat6', blindagem_logica: 'UTP', tipo_cabo_logica: 'LSZH', aplicacao_logica: 'Dados e Voz', conector_logica: 'RJ45', terminacao_logica: 'T568B', fibra_logica: 'OM3', quantidade_racks: '4', quantidade_pontos: '120', quantidade_conectores: '1', reserva_logica: '20', distribuidor_principal: 'CD', localizacao_rack: 'Pavimento térreo, sala técnica', backbone_logica: 'Sim', conector_optico: 'LC', ter_optico: 'LC/SC' };
+        Object.entries(logica).forEach(([id, value]) => { const campo = document.getElementById(id); campo.value = value; campo.dispatchEvent(new Event('change', { bubbles: true })); });
+        document.querySelectorAll('[name="sistemas_logica"]').forEach((item) => { item.checked = ['CFTV', 'Controle de acesso'].includes(item.value); });
+        distribuidoresSecundarios = ['BD1', 'BD2', 'BD3'];
+        renderizarDistribuidores();
+    }
 }
 async function processarFormulario() {
-    const gerarDescritivo = document.getElementById('gerar_memorial_eletrico')?.checked;
+    const gerarEletrico = document.getElementById('gerar_memorial_eletrico')?.checked;
     const gerarCalculo = document.getElementById('gerar_memorial_calculo')?.checked;
-    if (!gerarDescritivo && !gerarCalculo) {
+    const gerarLogica = document.getElementById('gerar_memorial_logica')?.checked;
+    if (!gerarEletrico && !gerarCalculo && !gerarLogica) {
         alert('Selecione pelo menos um documento para gerar.');
         return;
     }
-
+    if (!validarCamposComuns()) return;
+    if ((gerarEletrico || gerarCalculo) && !validarFormularioEletrico()) { ativarAbaMemorial('eletrico'); return; }
     if (gerarCalculo && !memorialCalculoImportado) {
+        ativarAbaMemorial('eletrico');
         alert('Para gerar o memorial de cálculo, importe o HTML do QiBuilder.');
         return;
     }
-
-    if (!validarFormulario()) return;
-
+    if (gerarLogica && !validarFormularioLogica()) { ativarAbaMemorial('logica'); return; }
     showLoading(true);
-
     try {
         documentosGerados = [];
-        const dados = coletarDadosFormulario();
-        if (gerarDescritivo) {
-            atualizarEtapaProcessamento('Preparando o template descritivo');
+        const dadosComuns = coletarDadosComuns();
+        const resumos = [];
+        if (gerarEletrico) {
+            const dados = { ...dadosComuns, ...coletarDadosEletricos() };
+            atualizarEtapaProcessamento('Preparando memorial descritivo elétrico');;
             await gerarMemorialDescritivo(dados);
+            resumos.push(dados);
         }
         if (gerarCalculo) {
-            atualizarEtapaProcessamento('Preparando o template Word');
+            const dados = { ...dadosComuns, ...coletarDadosEletricos() };
+            atualizarEtapaProcessamento('Preparando memorial de cálculo elétrico');
             await gerarMemorialCalculo(dados, memorialCalculoImportado);
+            resumos.push(dados);
         }
-        atualizarEtapaProcessamento('Finalizando documento');
+        if (gerarLogica) {
+            const dados = { ...dadosComuns, ...coletarDadosLogica() };
+            atualizarEtapaProcessamento('Preparando memorial descritivo de lógica');
+            await gerarMemorialDescritivoLogica(dados);
+            resumos.push(dados);
+        }
+        dadosProcessados = Object.assign({}, ...resumos);
+        atualizarEtapaProcessamento('Finalizando documentos');
         exibirResultados();
     } catch (error) {
-        console.error('Erro ao processar memorial:', error);
-        alert(error.message || 'Erro ao gerar o memorial. Verifique o console para detalhes.');
-    } finally {
-        showLoading(false);
-    }
+        console.error('Erro ao processar memoriais:', error);
+        alert(error.message || 'Erro ao gerar os memoriais.');
+    } finally { showLoading(false); }
 }
 
-function validarFormulario() {
-    const camposObrigatorios = [
-        'numero_art',
-        'responsavel',
-        'nome_projeto',
-        'tensao_secundaria',
-        'concessionaria',
-        'esquema_ligacao',
-        'esquema_aterramento',
-        'ponto_entrega',
-        'ultima_prancha',
-        'engenheiro',
-        'crea',
-        'email',
-        'telefone',
-        'bitola_iluminacao',
-        'isolacao_iluminacao',
-        'bitola_tomadas',
-        'isolacao_tomadas',
-        'bitola_climatizacao',
-        'isolacao_climatizacao',
-        'bitola_exaustao',
-        'isolacao_exaustao',
-        'bitola_emergencia',
-        'isolacao_emergencia'
-    ];
+function focarCampoInvalido(campo, mensagem) {
+    alert(mensagem || `Por favor, preencha o campo obrigatório: ${campo?.closest('.form-group')?.querySelector('label')?.textContent.replace('*', '').trim() || campo?.id}`);
+    campo?.focus();
+    return false;
+}
 
-    for (const campoId of camposObrigatorios) {
-        const campo = document.getElementById(campoId);
-        if (!campo || !campo.value.trim()) {
-            const labelText = campo?.closest('.form-group')?.querySelector('label')?.textContent.replace('*', '').trim() || campoId;
-            alert(`Por favor, preencha o campo obrigatório: ${labelText}`);
-            if (campo) campo.focus();
-            return false;
-        }
+function validarListaCampos(ids) {
+    for (const id of ids) {
+        const campo = document.getElementById(id);
+        if (!campo || !campo.value.trim()) return focarCampoInvalido(campo);
+    }
+    return true;
+}
+
+function validarCamposComuns() {
+    if (!validarListaCampos(['numero_art', 'responsavel', 'nome_projeto', 'ultima_prancha', 'engenheiro', 'crea', 'email', 'telefone'])) return false;
+    try { obterDadosPranchas(getValue('ultima_prancha')); }
+    catch (error) { return focarCampoInvalido(document.getElementById('ultima_prancha'), error.message); }
+    return true;
+}
+
+function validarFormularioEletrico() {
+    const campos = ['tensao_secundaria', 'concessionaria', 'esquema_ligacao', 'esquema_aterramento', 'ponto_entrega', 'bitola_iluminacao', 'isolacao_iluminacao', 'bitola_tomadas', 'isolacao_tomadas', 'bitola_climatizacao', 'isolacao_climatizacao', 'bitola_exaustao', 'isolacao_exaustao', 'bitola_emergencia', 'isolacao_emergencia'];
+    if (!validarListaCampos(campos)) return false;
+    const materiais = [[obterMateriaisTomadaSelecionados(), 'tomada', 'tomadas-material-options'], [obterMateriaisIluminacaoSelecionados(), 'iluminação', 'iluminacao-material-options'], [obterMateriaisEletrocalhaSelecionados(), 'eletrocalha', 'eletrocalhas-material-options']];
+    for (const [itens, nome, id] of materiais) {
+        if (!itens.length) { alert(`Por favor, selecione pelo menos um material de ${nome}.`); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return false; }
+    }
+    return true;
+}
+
+function validarFormularioLogica() {
+    if (!document.querySelectorAll('[name="sistemas_logica"]:checked').length) { alert('Selecione pelo menos um sistema contemplado.'); return false; }
+    const campos = ['categoria_logica', 'blindagem_logica', 'tipo_cabo_logica', 'aplicacao_logica', 'conector_logica', 'terminacao_logica', 'quantidade_racks', 'quantidade_pontos', 'quantidade_conectores', 'reserva_logica', 'distribuidor_principal', 'localizacao_rack', 'backbone_logica'];
+    if (!validarListaCampos(campos)) return false;
+    if (getValue('aplicacao_logica') === 'Outros' && !getValue('aplicacao_outra')) return focarCampoInvalido(document.getElementById('aplicacao_outra'));
+    if (getValue('conector_logica') === 'Outros' && !getValue('conector_outro')) return focarCampoInvalido(document.getElementById('conector_outro'));
+    const inteiros = [['quantidade_racks', 1], ['quantidade_pontos', 1], ['quantidade_conectores', 1]];
+    for (const [id, minimo] of inteiros) { const numero = Number(getValue(id)); if (!Number.isInteger(numero) || numero < minimo) return focarCampoInvalido(document.getElementById(id), 'Informe um número inteiro maior ou igual a 1.'); }
+    const reserva = Number(getValue('reserva_logica'));
+    if (!Number.isFinite(reserva) || reserva < 0 || reserva > 100) return focarCampoInvalido(document.getElementById('reserva_logica'), 'A reserva técnica deve estar entre 0 e 100.');
+    if (Number(getValue('quantidade_racks')) !== 1 + distribuidoresSecundarios.length) return focarCampoInvalido(document.getElementById('quantidade_racks'), 'A quantidade total de racks deve corresponder a um rack principal mais a quantidade de racks secundários adicionados.');
+    if (getValue('backbone_logica') === 'Sim') {
+        if (!distribuidoresSecundarios.length) { alert('Adicione pelo menos um distribuidor secundário para o backbone.'); document.getElementById('distribuidor-input')?.focus(); return false; }
+        if (!getValue('fibra_logica') || getValue('fibra_logica') === 'Não aplicável') return focarCampoInvalido(document.getElementById('fibra_logica'), 'Selecione uma fibra aplicável quando o backbone estiver ativo.');
+        if (!validarListaCampos(['conector_optico', 'ter_optico'])) return false;
     }
 
-    try {
-        obterDadosPranchas(getValue('ultima_prancha'));
-    } catch (error) {
-        alert(error.message);
-        document.getElementById('ultima_prancha')?.focus();
-        return false;
-    }
-
-    if (!obterMateriaisTomadaSelecionados().length) {
-        alert('Por favor, selecione pelo menos um material de tomada.');
-        document.getElementById('tomadas-material-options')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return false;
-    }
-
-    if (!obterMateriaisIluminacaoSelecionados().length) {
-        alert('Por favor, selecione pelo menos um material de iluminação.');
-        document.getElementById('iluminacao-material-options')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return false;
-    }
-
-    if (!obterMateriaisEletrocalhaSelecionados().length) {
-        alert('Por favor, selecione pelo menos um material de eletrocalha.');
-        document.getElementById('eletrocalhas-material-options')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return false;
-    }
+    if (!obterMateriaisEletrocalhaLogicaSelecionados().length) { alert('Selecione pelo menos uma eletrocalha para o memorial de lógica.'); document.getElementById('eletro-log-material-options')?.scrollIntoView({ behavior: 'smooth' }); return false; }
 
     return true;
 }
 
-function coletarDadosFormulario() {
-    const tomadasSelecionadas = obterMateriaisTomadaSelecionados();
-    const eletrocalhasSelecionadas = obterMateriaisEletrocalhaSelecionados();
-    const iluminacaoSelecionada = obterMateriaisIluminacaoSelecionados();
-    const dataAtualDocumento = obterDataAtualDocumento();
-    const tensaoSecundaria = getValue('tensao_secundaria');
-    const tensoesLinha = obterTensoesLinhaPorTensaoSecundaria(tensaoSecundaria);
-    const dadosPranchas = obterDadosPranchas(getValue('ultima_prancha'));
-    const dados = {
-        YYYY: getValue('numero_art'),
-        MMMM: getValue('responsavel'),
-        MES_ATUAL: dataAtualDocumento.MES_ATUAL,
-        ANO_ATUAL: dataAtualDocumento.ANO_ATUAL,
-        XXYY: getValue('engenheiro'),
-        AAAA: getValue('crea'),
-        BBBB: getValue('email'),
-        CCCC: getValue('telefone'),
-        DDDD: tensaoSecundaria,
-        BBBC: getValue('concessionaria'),
-        BBBD: getValue('esquema_ligacao'),
-        BBBE: getValue('esquema_aterramento'),
-        BBBF: getValue('ponto_entrega'),
-        BBBG: dadosPranchas.nomesEmSequencia,
-        BBBH: dadosPranchas.numeroTotal,
-        LLLA: tensoesLinha.LLLA,
-        LLLB: tensoesLinha.LLLB,
-        EEEE: obterTensaoIsolamentoPorTipo(getValue('isolacao_iluminacao')),
-        FFFF: getValue('bitola_iluminacao'),
-        GGGG: getValue('isolacao_iluminacao'),
-        EEEA: obterTensaoIsolamentoPorTipo(getValue('isolacao_tomadas')),
-        FFFA: getValue('bitola_tomadas'),
-        GGGA: getValue('isolacao_tomadas'),
-        EEEB: obterTensaoIsolamentoPorTipo(getValue('isolacao_climatizacao')),
-        FFFB: getValue('bitola_climatizacao'),
-        GGGB: getValue('isolacao_climatizacao'),
-        EEEC: obterTensaoIsolamentoPorTipo(getValue('isolacao_exaustao')),
-        FFFC: getValue('bitola_exaustao'),
-        GGGC: getValue('isolacao_exaustao'),
-        EEED: obterTensaoIsolamentoPorTipo(getValue('isolacao_emergencia')),
-        FFFD: getValue('bitola_emergencia'),
-        GGGD: getValue('isolacao_emergencia'),
-        HHHH: getValue('nome_projeto'),
-        IIII: TOMADAS_PLACEHOLDER,
-        JJJJ: ELETROCALHAS_PLACEHOLDER,
-        KKKK: ILUMINACAO_PLACEHOLDER,
-        TOMADAS_SELECIONADAS: tomadasSelecionadas.map((material) => material.nome).join(', '),
-        ELETROCALHAS_SELECIONADAS: eletrocalhasSelecionadas.map((material) => material.nome).join(', '),
-        ILUMINACAO_SELECIONADA: iluminacaoSelecionada.map((material) => material.nome).join(', '),
+function formatarListaPortugues(itens) {
+    const valores = itens.map((item) => String(item || '').trim()).filter(Boolean);
+    if (!valores.length) return '';
+    if (valores.length === 1) return valores[0];
+    if (valores.length === 2) return `${valores[0]} e ${valores[1]}`;
+    return `${valores.slice(0, -1).join(', ')} e ${valores[valores.length - 1]}`;
+}
 
-        // Placeholders existentes no template que não foram solicitados como inputs nesta tela.
-        // Mantê-los vazios evita a exibição de valores indefinidos no documento gerado.
-        XXXX: '',
-        ZXXZ: '',
-        ZXZX: ''
-    };
+function gerarTextoBackbone({ possuiBackbone, distribuidorPrincipal, distribuidores }) {
+    if (possuiBackbone !== 'Sim') return 'O projeto não contempla a utilização do Backbone.';
+    const lista = formatarListaPortugues(distribuidores);
+    const preposicao = distribuidores.length === 1 ? 'ao' : 'aos';
+    return `O backbone será constituído por fibra óptica, interligando o rack principal ${distribuidorPrincipal} ${preposicao} ${lista}, com quantidades compatíveis de fibras ou pares compatíveis com a utilização prevista e com a reserva técnica indicada no projeto.`;
+}
 
-    Object.defineProperty(dados, '__tomadasSelecionadas', {
-        value: tomadasSelecionadas,
-        enumerable: false
-    });
+function coletarDadosComuns() {
+    const data = obterDataAtualDocumento();
+    const pranchas = obterDadosPranchas(getValue('ultima_prancha'));
+    return { YYYY: getValue('numero_art'), MMMM: getValue('responsavel'), HHHH: getValue('nome_projeto'), XXYY: getValue('engenheiro'), AAAA: getValue('crea'), BBBB: getValue('email'), CCCC: getValue('telefone'), BBBG: pranchas.nomesEmSequencia, BBBH: pranchas.numeroTotal, MES_ATUAL: data.MES_ATUAL, ANO_ATUAL: data.ANO_ATUAL };
+}
 
-    Object.defineProperty(dados, '__eletrocalhasSelecionadas', {
-        value: eletrocalhasSelecionadas,
-        enumerable: false
-    });
-
-    Object.defineProperty(dados, '__iluminacaoSelecionada', {
-        value: iluminacaoSelecionada,
-        enumerable: false
-    });
-
-    dadosProcessados = { ...dados };
+function coletarDadosEletricos() {
+    const tomadas = obterMateriaisTomadaSelecionados();
+    const eletrocalhas = obterMateriaisEletrocalhaSelecionados();
+    const iluminacao = obterMateriaisIluminacaoSelecionados();
+    const tensao = getValue('tensao_secundaria');
+    const linhas = obterTensoesLinhaPorTensaoSecundaria(tensao);
+    const dados = { DDDD: tensao, BBBC: getValue('concessionaria'), BBBD: getValue('esquema_ligacao'), BBBE: getValue('esquema_aterramento'), BBBF: getValue('ponto_entrega'), ...linhas, EEEE: obterTensaoIsolamentoPorTipo(getValue('isolacao_iluminacao')), FFFF: getValue('bitola_iluminacao'), GGGG: getValue('isolacao_iluminacao'), EEEA: obterTensaoIsolamentoPorTipo(getValue('isolacao_tomadas')), FFFA: getValue('bitola_tomadas'), GGGA: getValue('isolacao_tomadas'), EEEB: obterTensaoIsolamentoPorTipo(getValue('isolacao_climatizacao')), FFFB: getValue('bitola_climatizacao'), GGGB: getValue('isolacao_climatizacao'), EEEC: obterTensaoIsolamentoPorTipo(getValue('isolacao_exaustao')), FFFC: getValue('bitola_exaustao'), GGGC: getValue('isolacao_exaustao'), EEED: obterTensaoIsolamentoPorTipo(getValue('isolacao_emergencia')), FFFD: getValue('bitola_emergencia'), GGGD: getValue('isolacao_emergencia'), IIII: TOMADAS_PLACEHOLDER, JJJJ: ELETROCALHAS_PLACEHOLDER, KKKK: ILUMINACAO_PLACEHOLDER, TOMADAS_SELECIONADAS: tomadas.map((x) => x.nome).join(', '), ELETROCALHAS_SELECIONADAS: eletrocalhas.map((x) => x.nome).join(', '), ILUMINACAO_SELECIONADA: iluminacao.map((x) => x.nome).join(', '), XXXX: '', ZXXZ: '', ZXZX: '' };
+    Object.defineProperties(dados, { __tomadasSelecionadas: { value: tomadas }, __eletrocalhasSelecionadas: { value: eletrocalhas }, __iluminacaoSelecionada: { value: iluminacao } });
     return dados;
 }
+
+function obterAplicacaoFinal() { return getValue('aplicacao_logica') === 'Outros' ? `Outros — ${getValue('aplicacao_outra')}` : getValue('aplicacao_logica'); }
+function obterConectorFinal() { return getValue('conector_logica') === 'Outros' ? `Outros — ${getValue('conector_outro')}` : getValue('conector_logica'); }
+
+function coletarDadosLogica() {
+    const sistemas = Array.from(document.querySelectorAll('[name="sistemas_logica"]:checked')).map((item) => item.value);
+    const conector = obterConectorFinal();
+    const terminacaoOptica = getValue('ter_optico');
+    const eletrocalhas = obterMateriaisEletrocalhaLogicaSelecionados();
+    const dados = { BBBBH: formatarListaPortugues(sistemas), CATEGORIA: getValue('categoria_logica'), CLASSE: getValue('classe_logica'), VELOCIDADE: getValue('velocidade_logica'), BLINDAGEM: getValue('blindagem_logica'), TIPO_CABO: getValue('tipo_cabo_logica'), APLICACAO: obterAplicacaoFinal(), CONECTOR: conector, TIPO: conector, QUANTIDADE: getValue('quantidade_conectores'), TERMINACAO: getValue('terminacao_logica'), FIBRA: getValue('fibra_logica'), QUANTIDADE_RACKS: getValue('quantidade_racks'), QUANTIDADE_PONTOS: getValue('quantidade_pontos'), RESERVA: getValue('reserva_logica'), DISTRIBUIDOR_PRINCIPAL: getValue('distribuidor_principal'), LOCALIZACAO: getValue('localizacao_rack'), LISTA_DISTRIBUIDORES: formatarListaPortugues(distribuidoresSecundarios), BACKBONE: gerarTextoBackbone({ possuiBackbone: getValue('backbone_logica'), distribuidorPrincipal: getValue('distribuidor_principal'), distribuidores: distribuidoresSecundarios }), CONECTOR_OPTICO: getValue('conector_optico'), TER_OPTICO: terminacaoOptica, 'FUSÃO/PIGTAIL/OUTRO': terminacaoOptica, ELETRO_LOG: ELETRO_LOG_PLACEHOLDER };
+    Object.defineProperty(dados, '__eletrocalhasLogicaSelecionadas', { value: eletrocalhas, enumerable: false });
+    return dados;
+}
+
+function coletarDadosFormulario() { return { ...coletarDadosComuns(), ...coletarDadosEletricos() }; }
 
 function getValue(id) {
     return document.getElementById(id)?.value.trim() || '';
@@ -775,7 +857,12 @@ async function gerarMemorialDescritivo(dados) {
     }
 
     const arrayBuffer = await response.arrayBuffer();
-    const docxContent = await processarTemplateWord(arrayBuffer, dados);
+    const docxContent = await processarTemplateWord(arrayBuffer, dados, { insercoesMateriais: [
+        { materiais: dados.__tomadasSelecionadas || [], opcoes: { placeholder: TOMADAS_PLACEHOLDER, emptyMessage: 'Nenhum material de tomada selecionado.', imageFilePrefix: 'memorial_tomada', missingImageMessage: 'Imagem não encontrada na coluna C da planilha.', defaultAltText: 'Imagem de tomada' } },
+        { materiais: dados.__eletrocalhasSelecionadas || [], opcoes: { placeholder: ELETROCALHAS_PLACEHOLDER, emptyMessage: 'Nenhum material de eletrocalha selecionado.', imageFilePrefix: 'memorial_eletrocalha', missingImageMessage: 'Imagem não encontrada na coluna C da planilha.', defaultAltText: 'Imagem de eletrocalha' } },
+        { materiais: dados.__iluminacaoSelecionada || [], opcoes: { placeholder: ILUMINACAO_PLACEHOLDER, emptyMessage: 'Nenhum material de iluminação selecionado.', imageFilePrefix: 'memorial_iluminacao', missingImageMessage: 'Imagem não encontrada na coluna C da planilha.', defaultAltText: 'Imagem de iluminação' } }
+    ] });
+    const 
     const nomeProjeto = (dados.HHHH || 'memorial_descritivo_eletrico').replace(/[^a-z0-9]/gi, '_').toLowerCase();
 
     documentosGerados.push({
@@ -785,6 +872,18 @@ async function gerarMemorialDescritivo(dados) {
         conteudo: docxContent,
         tipo: 'memorial_descritivo_eletrico'
     });
+}
+
+async function gerarMemorialDescritivoLogica(dados) {
+    const response = await fetch(TEMPLATE_LOGICA_URL);
+    if (!response.ok) throw new Error(`Template de lógica não encontrado: ${TEMPLATE_LOGICA_URL}`);
+    const arrayBuffer = await response.arrayBuffer();
+    const conteudo = await processarTemplateWord(arrayBuffer, dados, { insercoesMateriais: [{
+        materiais: dados.__eletrocalhasLogicaSelecionadas || [],
+        opcoes: { placeholder: ELETRO_LOG_PLACEHOLDER, emptyMessage: 'Nenhuma eletrocalha selecionada.', imageFilePrefix: 'memorial_logica_eletrocalha', missingImageMessage: 'Imagem não encontrada na coluna C da planilha.', defaultAltText: 'Imagem de eletrocalha para infraestrutura de lógica' }
+    }], placeholdersProibidos: PLACEHOLDERS_LOGICA });
+    const nomeProjeto = (dados.HHHH || 'memorial_descritivo_logica').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    documentosGerados.push({ nome: 'Memorial Descritivo de Lógica', nomeArquivo: `${TEMPLATE_LOGICA_NAME} - ${nomeProjeto}.docx`, nomeArquivoPdf: `${TEMPLATE_LOGICA_NAME} - ${nomeProjeto}.pdf`, conteudo, tipo: 'memorial_descritivo_logica' });
 }
 
 async function gerarMemorialCalculo(dados, modeloQiBuilder) {
@@ -802,7 +901,7 @@ async function gerarMemorialCalculo(dados, modeloQiBuilder) {
     });
 }
 
-async function processarTemplateWord(arrayBuffer, dados) {
+async function processarTemplateWord(arrayBuffer, dados, opcoes = {}) {
     try {
         const zip = new PizZip(arrayBuffer);
         const doc = new docxtemplater(zip, {
@@ -815,31 +914,14 @@ async function processarTemplateWord(arrayBuffer, dados) {
             nullGetter: () => ''
         });
 
-        doc.setData(dados);
-        doc.render();
+        doc.render(dados);
 
         const renderedZip = doc.getZip();
-        await inserirMateriaisNoDocumento(renderedZip, dados.__tomadasSelecionadas || [], {
-            placeholder: TOMADAS_PLACEHOLDER,
-            emptyMessage: 'Nenhum material de tomada selecionado.',
-            imageFilePrefix: 'memorial_tomada',
-            missingImageMessage: 'Imagem não encontrada na coluna C da planilha.',
-            defaultAltText: 'Imagem de tomada'
-        });
-        await inserirMateriaisNoDocumento(renderedZip, dados.__eletrocalhasSelecionadas || [], {
-            placeholder: ELETROCALHAS_PLACEHOLDER,
-            emptyMessage: 'Nenhum material de eletrocalha selecionado.',
-            imageFilePrefix: 'memorial_eletrocalha',
-            missingImageMessage: 'Imagem não encontrada na coluna C da planilha.',
-            defaultAltText: 'Imagem de eletrocalha'
-        });
-        await inserirMateriaisNoDocumento(renderedZip, dados.__iluminacaoSelecionada || [], {
-            placeholder: ILUMINACAO_PLACEHOLDER,
-            emptyMessage: 'Nenhum material de iluminação selecionado.',
-            imageFilePrefix: 'memorial_iluminacao',
-            missingImageMessage: 'Imagem não encontrada na coluna C da planilha.',
-            defaultAltText: 'Imagem de iluminação'
-        });
+        for (const insercao of opcoes.insercoesMateriais || []) {
+            await inserirMateriaisNoDocumento(renderedZip, insercao.materiais, insercao.opcoes);
+        }
+        const documentXml = lerArquivoZipComoTexto(renderedZip.file('word/document.xml'));
+        validarPlaceholdersRestantes(documentXml, opcoes.placeholdersProibidos || []);
 
         return renderedZip.generate({
             type: 'arraybuffer',
@@ -852,8 +934,13 @@ async function processarTemplateWord(arrayBuffer, dados) {
             console.log('Descrição do erro:', error.properties.explanation);
             console.log('Erro na tag:', error.properties.xtag);
         }
-        throw new Error('Falha ao gerar o documento Word com Docxtemplater.');
+        throw new Error(error.message || 'Falha ao gerar o documento Word com Docxtemplater.');
     }
+}
+
+function validarPlaceholdersRestantes(documentXml, placeholders) {
+    const encontrados = placeholders.filter((placeholder) => documentXml.includes(placeholder));
+    if (encontrados.length) throw new Error(`Os seguintes campos não foram processados: ${encontrados.join(', ')}`);
 }
 
 async function inserirMateriaisNoDocumento(zip, materiaisSelecionados, options) {
@@ -1057,7 +1144,7 @@ function exibirResultados() {
         const docElement = document.createElement('div');
         docElement.className = 'document-card';
         docElement.innerHTML = `
-            <h4><i class="fas fa-file-word"></i> ${doc.nome}</h4>
+            <h4><i class="fas ${doc.tipo === 'memorial_descritivo_logica' ? 'fa-network-wired' : 'fa-file-word'}"></i> ${doc.nome}</h4>
             <p>Arquivo Word: <strong>${doc.nomeArquivo}</strong></p>
             <p>Arquivo PDF: <strong>${doc.nomeArquivoPdf}</strong></p>
             <p>Formatos disponíveis: Microsoft Word (.docx) ou PDF (.pdf)</p>
@@ -1163,13 +1250,13 @@ function baixarTodosDocumentos() {
             const url = URL.createObjectURL(content);
             const a = document.createElement('a');
             a.href = url;
-            const nomeProjeto = (dadosProcessados.HHHH || 'memorial_descritivo_eletrico').replace(/[^a-z0-9]/gi, '_');
-            a.download = `Memoriais_Eletricos_${nomeProjeto}.zip`;
+            const nomeProjeto = (dadosProcessados.HHHH || 'projeto').replace(/[^a-z0-9]/gi, '_');
+            a.download = `Memoriais_Projeto_${nomeProjeto}.zip`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(url), 100);
-            showDownloadFeedback('memoriais elétricos');
+            showDownloadFeedback('memoriais do projeto');
         })
         .catch(function(error) {
             console.error('Erro ao criar ZIP:', error);

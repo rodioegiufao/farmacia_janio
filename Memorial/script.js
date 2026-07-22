@@ -15,7 +15,7 @@ const DADOS_CATEGORIA = {
     cat6: { classe: 'E', velocidade: '1 Gbps' },
     cat6a: { classe: 'EA', velocidade: '10 Gbps' }
 };
-const PLACEHOLDERS_LOGICA = ['[BBBBH]', '[CATEGORIA]', '[CLASSE]', '[VELOCIDADE]', '[BLINDAGEM]', '[TIPO_CABO]', '[APLICACAO]', '[CONECTOR]', '[TERMINACAO]', '[FIBRA]', '[QUANTIDADE_RACKS]', '[QUANTIDADE_PONTOS]', '[RESERVA]', '[DISTRIBUIDOR_PRINCIPAL]', '[LOCALIZACAO]', '[LISTA_DISTRIBUIDORES]', '[BACKBONE]', '[CONECTOR_OPTICO]', '[TER_OPTICO]', '[ELETRO_LOG]', '[QUANTIDADE]', '[TIPO]', '[FUSÃO/PIGTAIL/OUTRO]', ELETRO_LOG_PLACEHOLDER];
+const PLACEHOLDERS_LOGICA = ['[BBBBH]', '[BBBL]', '[BBBM]', '[CATEGORIA]', '[CLASSE]', '[VELOCIDADE]', '[BLINDAGEM]', '[TIPO_CABO]', '[APLICACAO]', '[CONECTOR]', '[TERMINACAO]', '[FIBRA]', '[QUANTIDADE_RACKS]', '[QUANTIDADE_PONTOS]', '[RESERVA]', '[DISTRIBUIDOR_PRINCIPAL]', '[LOCALIZACAO]', '[LISTA_DISTRIBUIDORES]', '[BACKBONE]', '[CONECTOR_OPTICO]', '[TER_OPTICO]', '[ELETRO_LOG]', '[QUANTIDADE]', '[TIPO]', '[FUSÃO/PIGTAIL/OUTRO]', ELETRO_LOG_PLACEHOLDER];
 
 const ENGENHEIROS = {
     'SALOMÃO JOSE COHEN': {
@@ -629,6 +629,7 @@ function preencherDadosDeTeste() {
         esquema_aterramento: 'TN-S',
         ponto_entrega: 'Rua Antônio Marquês, n° 144, Buritis',
         ultima_prancha: 'PRJ-ELE-SMEC-ENC-06-06',
+        ultima_prancha_logica: 'PRJ-LOG-SMEC-ENC-06-06',
         engenheiro: 'RODRIGO DAMASCENO NASCIMENTO',
         bitola_iluminacao: '2,5',
         isolacao_iluminacao: 'XLPE/EPR',
@@ -680,19 +681,19 @@ async function processarFormulario() {
         const dadosComuns = coletarDadosComuns();
         const resumos = [];
         if (gerarEletrico) {
-            const dados = { ...dadosComuns, ...coletarDadosEletricos() };
+            const dados = combinarDadosComMetadados(dadosComuns, coletarDadosEletricos());
             atualizarEtapaProcessamento('Preparando memorial descritivo elétrico');;
             await gerarMemorialDescritivo(dados);
             resumos.push(dados);
         }
         if (gerarCalculo) {
-            const dados = { ...dadosComuns, ...coletarDadosEletricos() };
+            const dados = combinarDadosComMetadados(dadosComuns, coletarDadosEletricos());
             atualizarEtapaProcessamento('Preparando memorial de cálculo elétrico');
             await gerarMemorialCalculo(dados, memorialCalculoImportado);
             resumos.push(dados);
         }
         if (gerarLogica) {
-            const dados = { ...dadosComuns, ...coletarDadosLogica() };
+            const dados = combinarDadosComMetadados(dadosComuns, coletarDadosLogica());
             atualizarEtapaProcessamento('Preparando memorial descritivo de lógica');
             await gerarMemorialDescritivoLogica(dados);
             resumos.push(dados);
@@ -721,13 +722,18 @@ function validarListaCampos(ids) {
 }
 
 function validarCamposComuns() {
-    if (!validarListaCampos(['numero_art', 'responsavel', 'nome_projeto', 'ultima_prancha', 'engenheiro', 'crea', 'email', 'telefone'])) return false;
-    try { obterDadosPranchas(getValue('ultima_prancha')); }
-    catch (error) { return focarCampoInvalido(document.getElementById('ultima_prancha'), error.message); }
+    return validarListaCampos(['numero_art', 'responsavel', 'nome_projeto', 'engenheiro', 'crea', 'email', 'telefone']);
+}
+
+function validarUltimaPrancha(id) {
+    if (!validarListaCampos([id])) return false;
+    try { obterDadosPranchas(getValue(id)); }
+    catch (error) { return focarCampoInvalido(document.getElementById(id), error.message); }
     return true;
 }
 
 function validarFormularioEletrico() {
+    if (!validarUltimaPrancha('ultima_prancha')) return false;
     const campos = ['tensao_secundaria', 'concessionaria', 'esquema_ligacao', 'esquema_aterramento', 'ponto_entrega', 'bitola_iluminacao', 'isolacao_iluminacao', 'bitola_tomadas', 'isolacao_tomadas', 'bitola_climatizacao', 'isolacao_climatizacao', 'bitola_exaustao', 'isolacao_exaustao', 'bitola_emergencia', 'isolacao_emergencia'];
     if (!validarListaCampos(campos)) return false;
     const materiais = [[obterMateriaisTomadaSelecionados(), 'tomada', 'tomadas-material-options'], [obterMateriaisIluminacaoSelecionados(), 'iluminação', 'iluminacao-material-options'], [obterMateriaisEletrocalhaSelecionados(), 'eletrocalha', 'eletrocalhas-material-options']];
@@ -738,6 +744,7 @@ function validarFormularioEletrico() {
 }
 
 function validarFormularioLogica() {
+    if (!validarUltimaPrancha('ultima_prancha_logica')) return false;
     if (!document.querySelectorAll('[name="sistemas_logica"]:checked').length) { alert('Selecione pelo menos um sistema contemplado.'); return false; }
     const campos = ['categoria_logica', 'blindagem_logica', 'tipo_cabo_logica', 'aplicacao_logica', 'conector_logica', 'terminacao_logica', 'quantidade_racks', 'quantidade_pontos', 'quantidade_conectores', 'reserva_logica', 'distribuidor_principal', 'localizacao_rack', 'backbone_logica'];
     if (!validarListaCampos(campos)) return false;
@@ -799,12 +806,21 @@ function coletarDadosLogica() {
     const conector = obterConectorFinal();
     const terminacaoOptica = getValue('ter_optico');
     const eletrocalhas = obterMateriaisEletrocalhaLogicaSelecionados();
-    const dados = { BBBBH: formatarListaPortugues(sistemas), CATEGORIA: getValue('categoria_logica'), CLASSE: getValue('classe_logica'), VELOCIDADE: getValue('velocidade_logica'), BLINDAGEM: getValue('blindagem_logica'), TIPO_CABO: getValue('tipo_cabo_logica'), APLICACAO: obterAplicacaoFinal(), CONECTOR: conector, TIPO: conector, QUANTIDADE: getValue('quantidade_conectores'), TERMINACAO: getValue('terminacao_logica'), FIBRA: getValue('fibra_logica'), QUANTIDADE_RACKS: getValue('quantidade_racks'), QUANTIDADE_PONTOS: getValue('quantidade_pontos'), RESERVA: getValue('reserva_logica'), DISTRIBUIDOR_PRINCIPAL: getValue('distribuidor_principal'), LOCALIZACAO: getValue('localizacao_rack'), LISTA_DISTRIBUIDORES: formatarListaPortugues(distribuidoresSecundarios), BACKBONE: gerarTextoBackbone({ possuiBackbone: getValue('backbone_logica'), distribuidorPrincipal: getValue('distribuidor_principal'), distribuidores: distribuidoresSecundarios }), CONECTOR_OPTICO: getValue('conector_optico'), TER_OPTICO: terminacaoOptica, 'FUSÃO/PIGTAIL/OUTRO': terminacaoOptica, ELETRO_LOG: ELETRO_LOG_PLACEHOLDER };
+    const pranchas = obterDadosPranchas(getValue('ultima_prancha_logica'));
+    const dados = { BBBL: pranchas.numeroTotal, BBBM: pranchas.nomesEmSequencia, BBBBH: formatarListaPortugues(sistemas), CATEGORIA: getValue('categoria_logica'), CLASSE: getValue('classe_logica'), VELOCIDADE: getValue('velocidade_logica'), BLINDAGEM: getValue('blindagem_logica'), TIPO_CABO: getValue('tipo_cabo_logica'), APLICACAO: obterAplicacaoFinal(), CONECTOR: conector, TIPO: conector, QUANTIDADE: getValue('quantidade_conectores'), TERMINACAO: getValue('terminacao_logica'), FIBRA: getValue('fibra_logica'), QUANTIDADE_RACKS: getValue('quantidade_racks'), QUANTIDADE_PONTOS: getValue('quantidade_pontos'), RESERVA: getValue('reserva_logica'), DISTRIBUIDOR_PRINCIPAL: getValue('distribuidor_principal'), LOCALIZACAO: getValue('localizacao_rack'), LISTA_DISTRIBUIDORES: formatarListaPortugues(distribuidoresSecundarios), BACKBONE: gerarTextoBackbone({ possuiBackbone: getValue('backbone_logica'), distribuidorPrincipal: getValue('distribuidor_principal'), distribuidores: distribuidoresSecundarios }), CONECTOR_OPTICO: getValue('conector_optico'), TER_OPTICO: terminacaoOptica, 'FUSÃO/PIGTAIL/OUTRO': terminacaoOptica, ELETRO_LOG: ELETRO_LOG_PLACEHOLDER };
     Object.defineProperty(dados, '__eletrocalhasLogicaSelecionadas', { value: eletrocalhas, enumerable: false });
     return dados;
 }
 
-function coletarDadosFormulario() { return { ...coletarDadosComuns(), ...coletarDadosEletricos() }; }
+function combinarDadosComMetadados(dadosComuns, dadosEspecificos) {
+    const dados = { ...dadosComuns, ...dadosEspecificos };
+    Object.entries(Object.getOwnPropertyDescriptors(dadosEspecificos))
+        .filter(([chave]) => chave.startsWith('__'))
+        .forEach(([chave, descritor]) => Object.defineProperty(dados, chave, descritor));
+    return dados;
+}
+
+function coletarDadosFormulario() { return combinarDadosComMetadados(coletarDadosComuns(), coletarDadosEletricos()); }
 
 function getValue(id) {
     return document.getElementById(id)?.value.trim() || '';

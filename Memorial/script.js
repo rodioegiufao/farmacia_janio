@@ -862,7 +862,6 @@ async function gerarMemorialDescritivo(dados) {
         { materiais: dados.__eletrocalhasSelecionadas || [], opcoes: { placeholder: ELETROCALHAS_PLACEHOLDER, emptyMessage: 'Nenhum material de eletrocalha selecionado.', imageFilePrefix: 'memorial_eletrocalha', missingImageMessage: 'Imagem não encontrada na coluna C da planilha.', defaultAltText: 'Imagem de eletrocalha' } },
         { materiais: dados.__iluminacaoSelecionada || [], opcoes: { placeholder: ILUMINACAO_PLACEHOLDER, emptyMessage: 'Nenhum material de iluminação selecionado.', imageFilePrefix: 'memorial_iluminacao', missingImageMessage: 'Imagem não encontrada na coluna C da planilha.', defaultAltText: 'Imagem de iluminação' } }
     ] });
-    const 
     const nomeProjeto = (dados.HHHH || 'memorial_descritivo_eletrico').replace(/[^a-z0-9]/gi, '_').toLowerCase();
 
     documentosGerados.push({

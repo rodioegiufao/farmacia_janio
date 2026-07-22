@@ -496,6 +496,11 @@ function setupEventListeners() {
             if (resultsSection) resultsSection.classList.add('hidden');
         });
     }
+    
+    const fillTestDataBtn = document.getElementById('fill-test-data-btn');
+    if (fillTestDataBtn) {
+        fillTestDataBtn.addEventListener('click', preencherDadosDeTeste);
+    }
 
     const copyBtn = document.getElementById('copy-data-btn');
     if (copyBtn) copyBtn.addEventListener('click', copiarDados);
@@ -507,7 +512,39 @@ function setupEventListeners() {
         });
     }
 }
+function preencherDadosDeTeste() {
+    const dadosDeTeste = {
+        numero_art: 'RR2026123456',
+        responsavel: 'Secretaria Municipal de Obras',
+        nome_projeto: 'Reforma da Unidade Básica de Saúde',
+        tensao_secundaria: '220/127V',
+        concessionaria: 'ÂMBAR ENERGIA RORAIMA',
+        esquema_ligacao: '3F+N+T',
+        esquema_aterramento: 'TN-S',
+        ponto_entrega: 'Rua Antônio Marquês, n° 144, Buritis',
+        ultima_prancha: 'PRJ-ELE-SMEC-ENC-06-06',
+        engenheiro: 'RODRIGO DAMASCENO NASCIMENTO',
+        bitola_iluminacao: '2,5',
+        isolacao_iluminacao: 'XLPE/EPR',
+        bitola_tomadas: '4',
+        isolacao_tomadas: 'XLPE/EPR',
+        bitola_climatizacao: '4 e 6',
+        isolacao_climatizacao: 'XLPE/EPR',
+        bitola_exaustao: '2,5',
+        isolacao_exaustao: 'XLPE/EPR',
+        bitola_emergencia: '2,5',
+        isolacao_emergencia: 'XLPE/EPR'
+    };
 
+    Object.entries(dadosDeTeste).forEach(([id, value]) => {
+        const campo = document.getElementById(id);
+        if (!campo) return;
+
+        campo.value = value;
+        campo.dispatchEvent(new Event('input', { bubbles: true }));
+        campo.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+}
 async function processarFormulario() {
     const gerarDescritivo = document.getElementById('gerar_memorial_eletrico')?.checked;
     const gerarCalculo = document.getElementById('gerar_memorial_calculo')?.checked;

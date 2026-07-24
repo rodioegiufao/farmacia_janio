@@ -42,7 +42,10 @@ function buildProjectCode(project) {
   if (normalized.includes("eletr")) return "PRJ-ELE";
   return `PRJ-${String(project || "GER").replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase() || "GER"}`;
 }
-
+function normalizeText(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
 function formatChecklistText(etapa, atividade) {
   const e = String(etapa || "").trim();
   const a = String(atividade || "").trim();
@@ -91,30 +94,33 @@ async function readWorkbookTemplates() {
     const projeto = String(row[0] || "").trim() || lastProjeto;
     const tipo = String(row[1] || "").trim() || lastTipo;
     const etapa = String(row[2] || "").trim() || lastEtapa;
-    const atividade = String(row[3] || "").trim();
+    const estagio = String(row[3] || "").trim();
     if (projeto) lastProjeto = projeto;
     if (tipo) lastTipo = tipo;
     if (etapa) lastEtapa = etapa;
-    if (!projeto || !tipo || !etapa || !atividade) return;
+    if (!projeto || !tipo || !etapa || !estagio) return;
     const key = `${projeto}|||${tipo}`;
     if (!groups.has(key)) groups.set(key, { projeto, tipo, codigoProjeto: buildProjectCode(projeto), etapas: [] });
     const group = groups.get(key);
     let stage = group.etapas.find((item) => item.etapa === etapa);
-    if (!stage) group.etapas.push((stage = { etapa, atividades: [] }));
-    stage.atividades.push(atividade);
+    if (!stage) group.etapas.push((stage = { etapa, estagios: [] }));
+    if (!stage.estagios.some((item) => normalizeText(item) === normalizeText(estagio))) stage.estagios.push(estagio);
   });
   return (cachedTemplates = [...groups.values()]);
 }
 
-function templateToItems(template, checklistId) {
+function templateToItems(template, checklistId, selectedItems) {
+  const selected = Array.isArray(selectedItems)
+    ? new Set(selectedItems.map((item) => `${normalizeText(item.etapa)}|||${normalizeText(item.estagio || item.atividade)}`))
+    : null;
   let ordem = 0;
-  return (template?.etapas || []).flatMap((stage) => stage.atividades.map((atividade) => ({
+  return (template?.etapas || []).flatMap((stage) => (stage.estagios || stage.atividades || []).map((estagio) => ({
     checklist_id: checklistId,
     etapa: stage.etapa,
-    atividade,
-    texto: formatChecklistText(stage.etapa, atividade),
+    atividade: estagio,
+    texto: formatChecklistText(stage.etapa, estagio),
     ordem: ordem++
-  })));
+  }))).filter((item) => !selected || selected.has(`${normalizeText(item.etapa)}|||${normalizeText(item.atividade)}`));
 }
 
 function mapItem(record) {
@@ -122,6 +128,7 @@ function mapItem(record) {
     id: record.id,
     checklistId: record.checklist_id,
     etapa: record.etapa || "",
+    estagio: record.estagio || record.atividade || "",
     atividade: record.atividade || "",
     texto: record.texto || "",
     ordem: record.ordem || 0,
@@ -141,7 +148,7 @@ function fromDatabaseRecord(record) {
     tipo: record.tipo || "",
     codigoProjeto: record.codigo_projeto || buildProjectCode(record.projeto),
     status: record.status || "Não iniciado",
-    prioridade: record.prioridade || "Média",
+    prioridade: ["P0", "P1", "P2", "P3"].includes(record.prioridade) ? record.prioridade : "P1",
     dataInicio: record.data_inicio || "",
     dataConclusao: record.data_conclusao || record.data_prevista || "",
     bucket: record.bucket || "Outros",
@@ -169,32 +176,46 @@ module.exports = async function plannerChecklistHandler(req, res) {
     if (req.method === "POST") {
       requireAdmin(user);
       const body = parseRequestBody(req);
-      if (!body.obra || !body.nomeTarefa || !body.projeto || !body.tipo) return sendJson(res, 400, { error: "Nome da obra, nome da tarefa, projeto e tipo são obrigatórios." });
-      const template = templates.find((item) => item.projeto === body.projeto && item.tipo === body.tipo);
+      if (!String(body.obra || "").trim() || !String(body.projeto || "").trim() || !String(body.tipo || "").trim()) return sendJson(res, 400, { error: "Nome da obra, projeto e tipo são obrigatórios." });
+      const template = templates.find((item) => normalizeText(item.projeto) === normalizeText(body.projeto) && normalizeText(item.tipo) === normalizeText(body.tipo));
       if (!template) return sendJson(res, 404, { error: "Projeto + Tipo não encontrado na aba Descricionado da planilha." });
-      const codigoProjeto = template.codigoProjeto || buildProjectCode(body.projeto);
+      const codigoProjeto = template.codigoProjeto || buildProjectCode(template.projeto);
+      const nomeTarefa = String(body.nomeTarefa || "").trim() || `${template.projeto} — ${template.tipo}`;
+      const itens = templateToItems(template, "pending", body.itensSelecionados);
+      if (Array.isArray(body.itensSelecionados)) {
+        const solicitados = new Set(body.itensSelecionados.map((item) => `${normalizeText(item.etapa)}|||${normalizeText(item.estagio || item.atividade)}`));
+        if (!itens.length) return sendJson(res, 400, { error: "Selecione ao menos um estágio válido." });
+        if (solicitados.size !== itens.length) return sendJson(res, 400, { error: "A seleção contém etapa ou estágio que não pertence ao modelo da planilha." });
+      }
       const checklistRows = await supabaseRequest(CHECKLISTS_TABLE, "", { method: "POST", body: JSON.stringify({
-        obra: body.obra, nome_tarefa: body.nomeTarefa, projeto: body.projeto, tipo: body.tipo, codigo_projeto: codigoProjeto,
-        status: body.status || "Não iniciado", prioridade: body.prioridade || "Média", data_inicio: body.dataInicio || null,
+        obra: String(body.obra).trim(), nome_tarefa: nomeTarefa, projeto: template.projeto, tipo: template.tipo, codigo_projeto: codigoProjeto,
+        status: body.status || "Não iniciado", prioridade: ["P0", "P1", "P2", "P3"].includes(body.prioridade) ? body.prioridade : "P1", data_inicio: body.dataInicio || null,
         data_conclusao: body.dataConclusao || null, bucket: body.bucket || "Outros", responsavel: body.responsavel || null,
         anotacoes: body.anotacoes || null, criado_por: user.id, criado_por_nome: user.nome
       }) });
       const checklist = checklistRows[0];
-      const itens = templateToItems(template, checklist.id);
-      const itemRows = itens.length ? await supabaseRequest(ITEMS_TABLE, "", { method: "POST", body: JSON.stringify(itens) }) : [];
+      itens.forEach((item) => { item.checklist_id = checklist.id; });
+      const itemRows = await supabaseRequest(ITEMS_TABLE, "", { method: "POST", body: JSON.stringify(itens) });
       sendJson(res, 201, fromDatabaseRecord({ ...checklist, planner_checklist_itens: itemRows }));
       return;
     }
 
     if (req.method === "PATCH" || req.method === "PUT") {
       const body = parseRequestBody(req);
-      if (body.itemId) {
+      if (body.itemId || Array.isArray(body.itemIds)) {
+        const itemIds = [...new Set((body.itemIds || [body.itemId]).filter(Boolean).map(String))];
+        if (!itemIds.length || (body.itemIds && !body.checklistId)) return sendJson(res, 400, { error: "Informe o checklist e os itens." });
+        if (body.itemIds) {
+          const existing = await supabaseRequest(ITEMS_TABLE, `?checklist_id=eq.${encodeURIComponent(body.checklistId)}&id=in.(${itemIds.map(encodeURIComponent).join(",")})&select=id`);
+          if (!Array.isArray(existing) || existing.length !== itemIds.length) return sendJson(res, 400, { error: "Um ou mais itens não pertencem ao checklist informado." });
+        }
         const concluido = Boolean(body.concluido);
-        const rows = await supabaseRequest(ITEMS_TABLE, `?id=eq.${encodeURIComponent(body.itemId)}`, { method: "PATCH", body: JSON.stringify({
+        const filter = itemIds.length === 1 ? `?id=eq.${encodeURIComponent(itemIds[0])}` : `?id=in.(${itemIds.map(encodeURIComponent).join(",")})`;
+        const rows = await supabaseRequest(ITEMS_TABLE, filter, { method: "PATCH", body: JSON.stringify({
           concluido, concluido_em: concluido ? new Date().toISOString() : null, concluido_por: concluido ? user.id : null,
           concluido_por_nome: concluido ? user.nome : null, atualizado_em: new Date().toISOString()
         }) });
-        return sendJson(res, 200, { item: mapItem(rows[0] || {}) });
+        return sendJson(res, 200, { item: mapItem(rows[0] || {}), itens: (rows || []).map(mapItem) });
       }
       requireAdmin(user);
       if (!body.id) return sendJson(res, 400, { error: "Informe o ID da tarefa." });

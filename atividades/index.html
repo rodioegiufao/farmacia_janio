@@ -353,6 +353,7 @@
         <form id="plannerForm" class="form-grid planner-form">
           <input type="hidden" id="plannerId" />
           <label>Nome da obra<input type="text" id="plannerObra" placeholder="Ex.: Escola Nova Canaã" required /></label>
+          <label>Nome da tarefa <span class="optional">(opcional)</span><input type="text" id="plannerNomeTarefa" placeholder="Preenchido a partir do projeto e tipo" /></label>
           <label>Projeto<select id="plannerProjeto" required></select></label>
           <label>Tipo<select id="plannerTipo" required></select></label>
           <label>Status<select id="plannerStatus" required></select></label>
@@ -362,6 +363,11 @@
           <label>Responsável<input type="text" id="plannerResponsavel" placeholder="Ex.: Rodrigo" /></label>
           <label class="span-2">Anotações<textarea id="plannerAnotacoes" rows="5" placeholder="Recebimentos:
 - Recebimento do Projeto Arquitetônico no dia XX/XX/20XX"></textarea></label>
+          <section class="planner-selection span-2" aria-labelledby="plannerSelectionTitle">
+            <div class="planner-selection-heading"><h3 id="plannerSelectionTitle">Etapas e estágios da tarefa</h3><div><button type="button" class="secondary compact" id="plannerSelecionarTodos">Selecionar todos</button><button type="button" class="secondary compact" id="plannerLimparSelecao">Limpar seleção</button></div></div>
+            <div id="plannerEtapasPreview" class="planner-etapas-preview"><p>Selecione um Projeto e um Tipo válidos.</p></div>
+          </section>
+          <div id="plannerFormMessage" class="planner-form-message span-2" role="status" aria-live="polite" tabindex="-1"></div>
           <div class="form-actions span-2">
             <button type="submit" class="primary" id="btnSalvarPlanner">Criar tarefa</button>
             <button type="button" class="secondary" id="btnCancelarPlanner">Cancelar</button>

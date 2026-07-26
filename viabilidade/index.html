@@ -365,6 +365,56 @@
                                 <select id="cliente" required>
                                     <option value="">Selecione um cliente</option>
                                 </select>
+                                <small>Não encontrou? Selecione “Inserir cliente manualmente”.</small>
+                            </div>
+                        </div>
+
+                        <div id="cliente-manual-fields" class="manual-client-panel hidden" aria-hidden="true">
+                            <div class="manual-client-heading">
+                                <i class="fas fa-pen-to-square"></i>
+                                <div>
+                                    <h3>Dados do cliente</h3>
+                                    <p>Preencha os dados que serão inseridos nos documentos.</p>
+                                </div>
+                            </div>
+
+                            <div class="form-grid-2">
+                                <div class="form-group">
+                                    <label for="cliente_manual_nome">Nome / Razão Social *</label>
+                                    <input type="text" id="cliente_manual_nome" autocomplete="organization">
+                                </div>
+                                <div class="form-group">
+                                    <label for="cliente_manual_cnpj">CNPJ *</label>
+                                    <input type="text" id="cliente_manual_cnpj" inputmode="numeric" placeholder="00.000.000/0000-00">
+                                </div>
+                                <div class="form-group manual-client-full-width">
+                                    <label for="cliente_manual_endereco">Endereço da sede *</label>
+                                    <input type="text" id="cliente_manual_endereco" autocomplete="street-address">
+                                </div>
+                                <div class="form-group">
+                                    <label for="cliente_manual_responsavel">Responsável legal *</label>
+                                    <input type="text" id="cliente_manual_responsavel" autocomplete="name">
+                                </div>
+                                <div class="form-group">
+                                    <label for="cliente_manual_nacionalidade">Nacionalidade *</label>
+                                    <input type="text" id="cliente_manual_nacionalidade" placeholder="Ex.: brasileira">
+                                </div>
+                                <div class="form-group">
+                                    <label for="cliente_manual_estado_civil">Estado civil *</label>
+                                    <input type="text" id="cliente_manual_estado_civil" placeholder="Ex.: Casado(a)">
+                                </div>
+                                <div class="form-group">
+                                    <label for="cliente_manual_identidade">Identidade / RG *</label>
+                                    <input type="text" id="cliente_manual_identidade">
+                                </div>
+                                <div class="form-group">
+                                    <label for="cliente_manual_cpf">CPF *</label>
+                                    <input type="text" id="cliente_manual_cpf" inputmode="numeric" placeholder="000.000.000-00">
+                                </div>
+                                <div class="form-group manual-client-full-width">
+                                    <label for="cliente_manual_domicilio">Domicílio do responsável *</label>
+                                    <input type="text" id="cliente_manual_domicilio" autocomplete="street-address">
+                                </div>
                             </div>
                         </div>
                     </section>

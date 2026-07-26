@@ -80,7 +80,13 @@ const CLIENTES = {
         "DOMICILIO": "Rua Olavo Brasil filho, 101, apartamento 03, Jardim Floresta, CEP 69.312-133"
     }
 };
-
+const CLIENTE_MANUAL_VALUE = '__cliente_manual__';
+const CLIENTE_MANUAL_FIELD_IDS = [
+    'cliente_manual_nome', 'cliente_manual_cnpj', 'cliente_manual_endereco',
+    'cliente_manual_responsavel', 'cliente_manual_nacionalidade',
+    'cliente_manual_estado_civil', 'cliente_manual_identidade',
+    'cliente_manual_cpf', 'cliente_manual_domicilio'
+];
 // Dados para os Transformadores
 const PT_TRAFO = [112.5, 150, 225, 500, 750, 1000, 1250, 1500];
 const TENSOES_TRAFO = ["220/127V", "380V/220V"]; 
@@ -280,9 +286,28 @@ function populateSelectors() {
             option.textContent = cliente;
             clienteSelect.appendChild(option);
         });
+        const manualOption = document.createElement('option');
+        manualOption.value = CLIENTE_MANUAL_VALUE;
+        manualOption.textContent = 'Inserir cliente manualmente';
+        clienteSelect.appendChild(manualOption);
     }
 }
+function toggleClienteManualFields() {
+    const clienteSelect = document.getElementById('cliente');
+    const manualFields = document.getElementById('cliente-manual-fields');
+    if (!clienteSelect || !manualFields) return;
 
+    const show = clienteSelect.value === CLIENTE_MANUAL_VALUE;
+    manualFields.classList.toggle('hidden', !show);
+    manualFields.setAttribute('aria-hidden', String(!show));
+
+    CLIENTE_MANUAL_FIELD_IDS.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) field.required = show;
+    });
+
+    if (show) document.getElementById('cliente_manual_nome')?.focus();
+}
 async function checkTemplates() {
     const statusElement = document.getElementById('template-status');
     
@@ -333,9 +358,15 @@ function setupEventListeners() {
             // Recarrega as opções de potência e tensão e listener
             populateTrafoPotenciasAndTensoes();
             setupTrafoQuantityListener();
+            toggleClienteManualFields();
             const resultsSection = document.getElementById('results-section');
             if (resultsSection) resultsSection.classList.add('hidden');
         });
+    }
+    const clienteSelect = document.getElementById('cliente');
+    if (clienteSelect) {
+        clienteSelect.addEventListener('change', toggleClienteManualFields);
+        toggleClienteManualFields();
     }
     
     // Botão copiar dados
@@ -593,8 +624,20 @@ function coletarDadosFormulario() {
     
     // Dados do cliente
     const clienteNome = document.getElementById('cliente').value;
-    const cliData = CLIENTES[clienteNome];
-    dados['MMMM'] = clienteNome;
+    const clienteManual = clienteNome === CLIENTE_MANUAL_VALUE;
+    const cliData = clienteManual ? {
+        CNPJ: document.getElementById('cliente_manual_cnpj').value.trim(),
+        END_SEDE: document.getElementById('cliente_manual_endereco').value.trim(),
+        RESPONSAVEL: document.getElementById('cliente_manual_responsavel').value.trim(),
+        NACIONALIDADE: document.getElementById('cliente_manual_nacionalidade').value.trim(),
+        ESTADO_CIVIL: document.getElementById('cliente_manual_estado_civil').value.trim(),
+        IDENTIDADE: document.getElementById('cliente_manual_identidade').value.trim(),
+        CPF: document.getElementById('cliente_manual_cpf').value.trim(),
+        DOMICILIO: document.getElementById('cliente_manual_domicilio').value.trim()
+    } : CLIENTES[clienteNome];
+    dados['MMMM'] = clienteManual
+        ? document.getElementById('cliente_manual_nome').value.trim()
+        : clienteNome;
     dados['NNNN'] = cliData.CNPJ;
     dados['OOOO'] = cliData.END_SEDE;
     dados['PPPP'] = cliData.RESPONSAVEL;

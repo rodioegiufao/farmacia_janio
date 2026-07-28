@@ -1529,7 +1529,7 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
   line-height: 1.3;
 }
 .planner-card-type { color: var(--text-light); font-size: .8rem; }
-.planner-card-work { color: var(--text-light); font-size: .82rem; font-weight: 600; }
+.planner-card-work { color: var(--text-lighter); font-size: .9rem; font-weight: 700; text-transform: uppercase; }
 .planner-card-badges { display: flex; flex-wrap: wrap; gap: 5px; }
 .planner-card-badges .badge { padding: 3px 7px; font-size: .65rem; }
 .planner-due { color: var(--text-light); font-size: .75rem; }

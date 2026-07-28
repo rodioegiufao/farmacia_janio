@@ -2,7 +2,7 @@ const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const prioridades = ["P0", "P1", "P2", "P3"];
 const plannerStatusLista = ["Não iniciado", "Em andamento", "Concluído", "Atrasado", "Pausado"];
 const plannerPrioridades = ["P0", "P1", "P2", "P3"];
-const plannerBuckets = ["Projeto Elétrico Baixa Tensão", "SPDA", "Subestação", "Alimentador", "Cabeamento", "CFTV", "Iluminação Externa", "Outros"];
+const plannerBuckets = ["Projeto Elétrico Baixa Tensão", "Projeto Elétrico de Alimentadores", "Projeto de Iluminação Externa", "Projeto de Subestação", "Projeto de Lógica Estruturada", "Projeto de SPDA", "Cabeamento", "CFTV", "Outros"];
 const plannerProjetosDisponiveis = ["Projetos Elétricos de Baixa Tensão"];
 const plannerTiposDisponiveis = [
   "Prédios Públicos Gerais",
@@ -11,6 +11,29 @@ const plannerTiposDisponiveis = [
   "Prédios Privados Gerais",
   "Prédios Privados Pequenos (<200m²)"
 ];
+const plannerEtapasBase = [
+  { etapa: "Lançamento", estagios: ["Pontos e iluminação", "Tomadas de uso geral", "Tomadas de uso específico", "Pontos de emergência", "Pontos de climatização", "Pontos de exaustão"] },
+  { etapa: "Distribuição", estagios: ["Eletrocalhas", "Perfilados", "Cabos PP", "Eletrodutos", "Pontos de conexão"] },
+  { etapa: "Plotagem", estagios: ["Iluminação", "Tomadas de uso geral", "Tomadas de uso específico", "Emergência", "Climatização", "Exaustão"] },
+  { etapa: "Compatibilização", estagios: ["Elétrico com outras disciplinas"] },
+  { etapa: "Estudos", estagios: ["NBR 5413 e ABNT NBR ISO/CIE 8995-1", "NBR 5410", "Livros Mamede", "Manual de Plotagem"] }
+];
+function criarModelosFallbackPlanner() {
+  return plannerTiposDisponiveis.map((tipo) => {
+    const etapas = plannerEtapasBase.map((grupo) => ({ etapa: grupo.etapa, estagios: [...grupo.estagios] }));
+    if (tipo.includes("Saúde")) etapas.find((grupo) => grupo.etapa === "Estudos").estagios.push("RDC/SOMASUS");
+    if (tipo.includes("com IT-Médico")) {
+      etapas.find((grupo) => grupo.etapa === "Lançamento").estagios.push("Pontos de IT-médico");
+      etapas.find((grupo) => grupo.etapa === "Plotagem").estagios.push("IT-médico");
+    }
+    if (tipo === "Prédios Privados Gerais") etapas.find((grupo) => grupo.etapa === "Distribuição").estagios = ["Eletrocalhas, perfilados, cabos PP e eletrodutos", "Pontos de conexão"];
+    if (tipo.includes("Pequenos")) {
+      etapas.find((grupo) => grupo.etapa === "Distribuição").estagios = ["Eletrodutos", "Pontos de conexão"];
+      etapas.find((grupo) => grupo.etapa === "Plotagem").estagios = ["Iluminação", "Tomadas de uso geral, específico, emergência e climatização"];
+    }
+    return { projeto: plannerProjetosDisponiveis[0], tipo, codigoProjeto: "PRJ-ELE", etapas };
+  });
+}
 const coresPrioridade = {
   P0: "#48bb78",
   P1: "#ecc94b",
@@ -99,6 +122,8 @@ let plannerModelos = [];
 let plannerChecklists = [];
 let carregandoPlanner = false;
 let plannerDetalheAtualId = null;
+let plannerFocoAnterior = null;
+let plannerArrastandoId = null;
 
 const campos = {
   id: document.getElementById("atividadeId"),
@@ -160,10 +185,12 @@ const plannerEls = {
   dataConclusao: document.getElementById("plannerDataConclusao"),
   bucket: document.getElementById("plannerBucket"),
   anotacoes: document.getElementById("plannerAnotacoes"),
-  etapasPreview: document.getElementById("plannerEtapasPreview"),
   formMessage: document.getElementById("plannerFormMessage"),
-  selecionarTodos: document.getElementById("plannerSelecionarTodos"),
-  limparSelecao: document.getElementById("plannerLimparSelecao"),
+  busca: document.getElementById("plannerBusca"),
+  filtroStatus: document.getElementById("plannerFiltroStatus"),
+  filtroPrioridade: document.getElementById("plannerFiltroPrioridade"),
+  filtroResponsavel: document.getElementById("plannerFiltroResponsavel"),
+  agrupar: document.getElementById("plannerAgrupar"),
   detalheModal: document.getElementById("plannerDetalhesModal"),
   detalheForm: document.getElementById("plannerDetalhesForm"),
   detalheId: document.getElementById("plannerDetalhesId"),
@@ -1919,6 +1946,18 @@ function opcoesUnicasPlanner(values) {
   const seen = new Set();
   return values.filter((value) => { const key = normalizarOpcaoPlanner(value); if (!key || seen.has(key)) return false; seen.add(key); return true; });
 }
+function obterBucketDoProjeto(projeto, codigoProjeto = "") {
+  const texto = `${normalizarOpcaoPlanner(projeto)} ${normalizarOpcaoPlanner(codigoProjeto)}`;
+  if (texto.includes("baixa tensao")) return "Projeto Elétrico Baixa Tensão";
+  if (texto.includes("alimentador") || texto.includes("prj-ali")) return "Projeto Elétrico de Alimentadores";
+  if (texto.includes("iluminacao externa") || texto.includes("prj-ilux")) return "Projeto de Iluminação Externa";
+  if (texto.includes("subestacao") || texto.includes("sub")) return "Projeto de Subestação";
+  if (texto.includes("spda")) return "Projeto de SPDA";
+  if (texto.includes("cabeamento") || texto.includes("prj-cab")) return "Cabeamento";
+  if (texto.includes("cftv")) return "CFTV";
+  if (texto.includes("logica")) return "Projeto de Lógica Estruturada";
+  return "Outros";
+}
 function obterModeloPlannerSelecionado() {
   const projeto = normalizarOpcaoPlanner(plannerEls.projeto?.value);
   const tipo = normalizarOpcaoPlanner(plannerEls.tipo?.value);
@@ -1930,64 +1969,65 @@ function mostrarMensagemPlanner(texto, tipo = "error") {
   plannerEls.formMessage.dataset.type = texto ? tipo : "";
   if (texto && tipo === "error") plannerEls.formMessage.focus();
 }
-function atualizarEstadoCheckboxEtapa(container) {
-  const pai = container.querySelector('[data-planner-etapa]');
-  const filhos = [...container.querySelectorAll('[data-planner-estagio]')];
-  const selecionados = filhos.filter((item) => item.checked).length;
-  pai.checked = filhos.length > 0 && selecionados === filhos.length;
-  pai.indeterminate = selecionados > 0 && selecionados < filhos.length;
-  pai.setAttribute("aria-checked", pai.indeterminate ? "mixed" : String(pai.checked));
-  const count = container.querySelector("[data-planner-count]");
-  if (count) count.textContent = `${selecionados} de ${filhos.length} selecionados`;
-}
-function renderizarSelecaoEtapasPlanner() {
-  const modelo = obterModeloPlannerSelecionado();
-  if (!modelo) { plannerEls.etapasPreview.innerHTML = "<p>Selecione um Projeto e um Tipo válidos.</p>"; plannerEls.btnSalvar.disabled = true; return; }
-  plannerEls.etapasPreview.innerHTML = (modelo.etapas || []).map((grupo, index) => {
-    const estagios = grupo.estagios || grupo.atividades || [];
-    return `<section class="planner-etapa-group" data-preview-group><div class="planner-etapa-head"><input type="checkbox" id="planner-etapa-${index}" data-planner-etapa checked aria-checked="true"><label for="planner-etapa-${index}">${escapeHtml(grupo.etapa)}</label><span data-planner-count>${estagios.length} de ${estagios.length} selecionados</span><button type="button" class="planner-expand" data-toggle-group aria-expanded="true" aria-label="Recolher ${escapeHtml(grupo.etapa)}">⌄</button></div><div class="planner-estagios">${estagios.map((estagio, itemIndex) => `<label><input type="checkbox" data-planner-estagio data-etapa="${escapeHtml(grupo.etapa)}" value="${escapeHtml(estagio)}" id="planner-estagio-${index}-${itemIndex}" checked><span>${escapeHtml(estagio)}</span></label>`).join("")}</div></section>`;
-  }).join("");
-  plannerEls.btnSalvar.disabled = false;
-  mostrarMensagemPlanner("");
-}
-function obterItensPlannerSelecionados() {
-  return [...plannerEls.etapasPreview.querySelectorAll('[data-planner-estagio]:checked')].map((input) => ({ etapa: input.dataset.etapa, estagio: input.value }));
-}
+
 function atualizarNomeTarefaPlanner() {
   const modelo = obterModeloPlannerSelecionado();
   if (modelo && plannerEls.nomeTarefa && !plannerEls.nomeTarefa.dataset.editado) plannerEls.nomeTarefa.value = `${modelo.projeto} — ${modelo.tipo}`;
 }
-function atualizarSelecaoPlanner(event) {
-  const group = event.target.closest("[data-preview-group]");
-  if (event.target.matches("[data-planner-etapa]")) group.querySelectorAll("[data-planner-estagio]").forEach((item) => { item.checked = event.target.checked; });
-  if (group && event.target.matches("[data-planner-etapa], [data-planner-estagio]")) atualizarEstadoCheckboxEtapa(group);
-  if (event.target.matches("[data-toggle-group]")) { const list = group.querySelector(".planner-estagios"); const expanded = event.target.getAttribute("aria-expanded") === "true"; event.target.setAttribute("aria-expanded", String(!expanded)); list.hidden = expanded; }
-}
+
 function inicializarPlanner() {
   if (!plannerEls.form) return;
-  preencherSelect(plannerEls.statusTarefa, plannerStatusLista); preencherSelect(plannerEls.prioridade, plannerPrioridades);
-  preencherSelect(plannerEls.detalheStatus, plannerStatusLista); preencherSelect(plannerEls.detalhePrioridade, plannerPrioridades); preencherSelect(plannerEls.detalheBucket, plannerBuckets);
-  plannerEls.btnNovo?.addEventListener("click", abrirPlannerModal); plannerEls.btnFechar?.addEventListener("click", fecharPlannerModal); plannerEls.btnCancelar?.addEventListener("click", fecharPlannerModal);
-  plannerEls.btnFecharDetalhes?.addEventListener("click", fecharDetalhesPlanner); plannerEls.btnExcluir?.addEventListener("click", excluirPlannerAtual);
+  preencherSelect(plannerEls.statusTarefa, plannerStatusLista);
+  preencherSelect(plannerEls.prioridade, plannerPrioridades);
+  preencherSelect(plannerEls.detalheStatus, plannerStatusLista);
+  preencherSelect(plannerEls.detalhePrioridade, plannerPrioridades);
+  preencherSelect(plannerEls.detalheBucket, plannerBuckets);
+  preencherFiltroPlanner(plannerEls.filtroStatus, plannerStatusLista, "Todos");
+  preencherFiltroPlanner(plannerEls.filtroPrioridade, plannerPrioridades, "Todas");
+  plannerEls.btnNovo?.addEventListener("click", (event) => abrirPlannerModal("", event.currentTarget));
+  plannerEls.btnFechar?.addEventListener("click", fecharPlannerModal);
+  plannerEls.btnCancelar?.addEventListener("click", fecharPlannerModal);
+  plannerEls.btnFecharDetalhes?.addEventListener("click", fecharDetalhesPlanner);
+  plannerEls.btnExcluir?.addEventListener("click", excluirPlannerAtual);
   plannerEls.modal?.addEventListener("click", (event) => { if (event.target === plannerEls.modal) fecharPlannerModal(); });
   plannerEls.detalheModal?.addEventListener("click", (event) => { if (event.target === plannerEls.detalheModal) fecharDetalhesPlanner(); });
   plannerEls.projeto?.addEventListener("change", atualizarTiposPlanner);
-  plannerEls.tipo?.addEventListener("change", () => { renderizarSelecaoEtapasPlanner(); atualizarNomeTarefaPlanner(); });
+  plannerEls.tipo?.addEventListener("change", atualizarNomeTarefaPlanner);
   plannerEls.nomeTarefa?.addEventListener("input", () => { plannerEls.nomeTarefa.dataset.editado = "true"; });
-  plannerEls.etapasPreview?.addEventListener("click", atualizarSelecaoPlanner); plannerEls.etapasPreview?.addEventListener("change", atualizarSelecaoPlanner);
-  plannerEls.selecionarTodos?.addEventListener("click", () => { plannerEls.etapasPreview.querySelectorAll("input[type=checkbox]").forEach((i) => { i.checked = true; }); plannerEls.etapasPreview.querySelectorAll("[data-preview-group]").forEach(atualizarEstadoCheckboxEtapa); });
-  plannerEls.limparSelecao?.addEventListener("click", () => { plannerEls.etapasPreview.querySelectorAll("input[type=checkbox]").forEach((i) => { i.checked = false; }); plannerEls.etapasPreview.querySelectorAll("[data-preview-group]").forEach(atualizarEstadoCheckboxEtapa); });
-  plannerEls.board?.addEventListener("click", (e) => { const card = e.target.closest("[data-planner-id]"); if (card) abrirDetalhesPlanner(card.dataset.plannerId); });
-  plannerEls.board?.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-planner-id]")) abrirDetalhesPlanner(e.target.dataset.plannerId); });
+  [plannerEls.busca, plannerEls.filtroStatus, plannerEls.filtroPrioridade, plannerEls.filtroResponsavel, plannerEls.agrupar].forEach((el) => el?.addEventListener(el === plannerEls.busca ? "input" : "change", renderizarPlanner));
+  plannerEls.board?.addEventListener("click", manipularCliqueBoardPlanner);
+  plannerEls.board?.addEventListener("keydown", manipularTecladoBoardPlanner);
+  plannerEls.board?.addEventListener("dragstart", iniciarArrastoPlanner);
+  plannerEls.board?.addEventListener("dragend", finalizarArrastoPlanner);
+  plannerEls.board?.addEventListener("dragover", permitirSoltarPlanner);
+  plannerEls.board?.addEventListener("dragleave", sairDestinoPlanner);
+  plannerEls.board?.addEventListener("drop", soltarPlanner);
   plannerEls.detalheChecklist?.addEventListener("click", manipularDetalhePlanner);
-  plannerEls.form.addEventListener("submit", salvarChecklistPlanner); plannerEls.detalheForm?.addEventListener("submit", salvarDetalhesPlanner);
+  plannerEls.form.addEventListener("submit", salvarChecklistPlanner);
+  plannerEls.detalheForm?.addEventListener("submit", salvarDetalhesPlanner);
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (!plannerEls.detalheModal?.hidden) fecharDetalhesPlanner();
+    else if (!plannerEls.modal?.hidden) fecharPlannerModal();
+  });
+}
+function preencherFiltroPlanner(select, valores, rotulo) {
+  if (!select) return;
+  select.innerHTML = `<option value="">${rotulo}</option>${opcoesUnicasPlanner(valores).map((valor) => `<option value="${escapeHtml(valor)}">${escapeHtml(valor)}</option>`).join("")}`;
 }
 
 async function carregarPlanner() {
   if (!plannerEls.board || !usuarioAtualEhAdmin()) return;
-  try { carregandoPlanner = true; renderizarPlanner(); const data = await fetch(API_PLANNER_URL).then(validarResposta); plannerModelos = data.modelos || []; plannerChecklists = data.checklists || []; atualizarProjetosPlanner(); }
-  catch (erro) { plannerEls.status.textContent = `Não foi possível carregar o Planner: ${erro.message}`; plannerModelos = []; plannerChecklists = []; }
-  finally { carregandoPlanner = false; renderizarPlanner(); }
+  try {
+    carregandoPlanner = true; renderizarPlanner();
+    const data = await fetch(API_PLANNER_URL).then(validarResposta);
+    plannerModelos = data.modelos?.length ? data.modelos : criarModelosFallbackPlanner();
+    plannerChecklists = data.checklists || [];
+    atualizarProjetosPlanner(); atualizarFiltrosPlanner();
+  } catch (erro) {
+    plannerEls.status.textContent = `Não foi possível carregar o Planner: ${erro.message}`;
+    plannerModelos = []; plannerChecklists = [];
+  } finally { carregandoPlanner = false; renderizarPlanner(); }
 }
 
 function atualizarProjetosPlanner() {
@@ -1997,84 +2037,153 @@ function atualizarProjetosPlanner() {
 
 function atualizarTiposPlanner() {
   const projeto = normalizarOpcaoPlanner(plannerEls.projeto?.value);
-  const source = plannerModelos.length ? plannerModelos.filter((m) => normalizarOpcaoPlanner(m.projeto) === projeto).map((m) => m.tipo) : plannerTiposDisponiveis;
-  preencherSelect(plannerEls.tipo, opcoesUnicasPlanner(source)); plannerEls.tipo.disabled = !source.length;
-  renderizarSelecaoEtapasPlanner(); atualizarNomeTarefaPlanner();
+  const source = plannerModelos.filter((m) => normalizarOpcaoPlanner(m.projeto) === projeto).map((m) => m.tipo);
+  preencherSelect(plannerEls.tipo, opcoesUnicasPlanner(source)); plannerEls.tipo.disabled = !source.length; atualizarNomeTarefaPlanner();
 }
 
-function abrirPlannerModal() {
+function atualizarFiltrosPlanner() {
+  const atual = plannerEls.filtroResponsavel?.value || "";
+  preencherFiltroPlanner(plannerEls.filtroResponsavel, plannerChecklists.map((item) => item.responsavel).filter(Boolean), "Todos");
+  if (plannerEls.filtroResponsavel) plannerEls.filtroResponsavel.value = atual;
+  const buckets = opcoesUnicasPlanner([...plannerBuckets, ...plannerChecklists.map((item) => item.bucket).filter(Boolean)]);
+  preencherSelect(plannerEls.detalheBucket, buckets);
+}
+function projetoDoBucket(bucket) {
+  return plannerModelos.find((modelo) => obterBucketDoProjeto(modelo.projeto, modelo.codigoProjeto) === bucket)?.projeto || "";
+}
+function abrirPlannerModal(bucket = "", gatilho = document.activeElement) {
   if (!usuarioAtualEhAdmin()) return;
+  plannerFocoAnterior = gatilho;
   plannerEls.form.reset(); plannerEls.nomeTarefa.dataset.editado = ""; plannerEls.id.value = ""; plannerEls.btnSalvar.textContent = "Criar tarefa";
-  atualizarProjetosPlanner(); plannerEls.statusTarefa.value = "Não iniciado"; plannerEls.prioridade.value = "P1"; plannerEls.modal.hidden = false; mostrarMensagemPlanner(""); plannerEls.obra.focus();
+  atualizarProjetosPlanner();
+  const projeto = projetoDoBucket(bucket);
+  if (projeto) { plannerEls.projeto.value = projeto; atualizarTiposPlanner(); }
+  plannerEls.statusTarefa.value = "Não iniciado"; plannerEls.prioridade.value = "P1"; plannerEls.modal.hidden = false; mostrarMensagemPlanner(""); plannerEls.obra.focus();
 }
 
-function fecharPlannerModal() { plannerEls.modal.hidden = true; }
-function fecharDetalhesPlanner() { plannerEls.detalheModal.hidden = true; plannerDetalheAtualId = null; }
+function fecharPlannerModal() { plannerEls.modal.hidden = true; plannerFocoAnterior?.focus?.(); }
+function fecharDetalhesPlanner() { plannerEls.detalheModal.hidden = true; plannerDetalheAtualId = null; plannerFocoAnterior?.focus?.(); }
 
 async function salvarChecklistPlanner(event) {
-  event.preventDefault(); const modelo = obterModeloPlannerSelecionado(); const itensSelecionados = obterItensPlannerSelecionados();
+  event.preventDefault();
   if (!plannerEls.obra.value.trim()) return mostrarMensagemPlanner("Informe o nome da obra.");
-  if (!modelo) return mostrarMensagemPlanner("Selecione um Projeto e um Tipo válidos.");
-  if (!itensSelecionados.length) return mostrarMensagemPlanner("Selecione ao menos um estágio para criar a tarefa.");
-  const payload = { obra: plannerEls.obra.value.trim(), projeto: modelo.projeto, tipo: modelo.tipo, status: plannerEls.statusTarefa.value, prioridade: plannerEls.prioridade.value, dataInicio: plannerEls.dataInicio.value, dataConclusao: plannerEls.dataConclusao.value, bucket: "Outros", responsavel: plannerEls.responsavel.value.trim(), anotacoes: plannerEls.anotacoes.value.trim(), itensSelecionados };
+  if (!plannerEls.projeto.value) return mostrarMensagemPlanner("Selecione um Projeto.");
+  if (!plannerEls.tipo.value) return mostrarMensagemPlanner("Selecione um Tipo.");
+  const modelo = obterModeloPlannerSelecionado();
+  if (!modelo) return mostrarMensagemPlanner("Não existe modelo para o Projeto e Tipo selecionados.");
+  const itensSelecionados = (modelo.etapas || []).flatMap((grupo) => {
+    const estagios = grupo.estagios || grupo.atividades || [];
+    return estagios.map((estagio) => ({ etapa: grupo.etapa, estagio }));
+  });
+  if (!itensSelecionados.length) return mostrarMensagemPlanner("Não foram encontradas etapas e estágios para o Projeto e Tipo selecionados.");
+  const payload = { obra: plannerEls.obra.value.trim(), projeto: modelo.projeto, tipo: modelo.tipo, status: plannerEls.statusTarefa.value, prioridade: plannerEls.prioridade.value, dataInicio: plannerEls.dataInicio.value, dataConclusao: plannerEls.dataConclusao.value, bucket: obterBucketDoProjeto(modelo.projeto, modelo.codigoProjeto), responsavel: plannerEls.responsavel.value.trim(), anotacoes: plannerEls.anotacoes.value.trim(), itensSelecionados };
   const nome = plannerEls.nomeTarefa.value.trim(); if (nome) payload.nomeTarefa = nome;
-  try { plannerEls.btnSalvar.disabled = true; const salvo = await fetch(API_PLANNER_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(validarResposta); plannerChecklists.unshift(salvo); fecharPlannerModal(); renderizarPlanner(); abrirDetalhesPlanner(salvo.id); }
-  catch (erro) { mostrarMensagemPlanner(`Não foi possível criar a tarefa: ${erro.message}`); }
+  try {
+    plannerEls.btnSalvar.disabled = true;
+    const salvo = await fetch(API_PLANNER_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(validarResposta);
+    plannerChecklists.unshift(salvo); fecharPlannerModal(); atualizarFiltrosPlanner(); renderizarPlanner(); abrirDetalhesPlanner(salvo.id);
+  } catch (erro) { mostrarMensagemPlanner(`Não foi possível criar a tarefa: ${erro.message}`); }
   finally { plannerEls.btnSalvar.disabled = false; }
 }
 
 function calcularProgressoPlanner(checklist) { const itens = checklist.itens || []; const total = itens.length; const concluidos = itens.filter((item) => item.concluido).length; return { total, concluidos, percentual: total ? Math.round((concluidos / total) * 100) : 0 }; }
 function agruparItensPlannerPorEtapa(itens = []) { const groups = new Map(); itens.forEach((item) => { const etapa = item.etapa || "Outros"; if (!groups.has(etapa)) groups.set(etapa, []); groups.get(etapa).push(item); }); return [...groups.entries()].map(([etapa, items]) => ({ etapa, itens: items })); }
-
+function checklistsPlannerFiltrados() {
+  const busca = normalizarOpcaoPlanner(plannerEls.busca?.value);
+  return plannerChecklists.filter((checklist) => {
+    const texto = [checklist.obra, checklist.nomeTarefa, checklist.projeto, checklist.tipo, checklist.responsavel, checklist.codigoProjeto, ...(checklist.itens || []).flatMap((item) => [item.etapa, item.estagio, item.atividade, item.texto])].join(" ");
+    return (!busca || normalizarOpcaoPlanner(texto).includes(busca)) && (!plannerEls.filtroStatus?.value || checklist.status === plannerEls.filtroStatus.value) && (!plannerEls.filtroPrioridade?.value || checklist.prioridade === plannerEls.filtroPrioridade.value) && (!plannerEls.filtroResponsavel?.value || checklist.responsavel === plannerEls.filtroResponsavel.value);
+  });
+}
+function gruposPlanner(checklists) {
+  const agrupamento = plannerEls.agrupar?.value || "bucket";
+  let nomes;
+  if (agrupamento === "status") nomes = plannerStatusLista;
+  else if (agrupamento === "prioridade") nomes = plannerPrioridades;
+  else nomes = opcoesUnicasPlanner([...plannerBuckets, ...plannerChecklists.map((item) => item.bucket || obterBucketDoProjeto(item.projeto, item.codigoProjeto))]);
+  return nomes.map((nome) => ({ nome, itens: checklists.filter((item) => (agrupamento === "bucket" ? item.bucket || obterBucketDoProjeto(item.projeto, item.codigoProjeto) : item[agrupamento]) === nome) }));
+}
 function renderizarPlanner() {
-  if (!plannerEls.board) return; if (carregandoPlanner) { plannerEls.status.textContent = "Carregando modelos da planilha e tarefas salvas..."; plannerEls.board.innerHTML = ""; return; }
-  plannerEls.status.textContent = plannerModelos.length ? `${plannerModelos.length} combinação(ões) Projeto + Tipo carregadas da aba Descricionado.` : "Planilha indisponível: usando opções de fallback.";
-  if (!plannerChecklists.length) { plannerEls.board.innerHTML = `<div class="weekly-empty-state empty">Nenhuma tarefa criada${usuarioAtualEhAdmin() ? ". Clique em “+ Adicionar tarefa”." : "."}</div>`; return; }
-  plannerEls.board.innerHTML = plannerChecklists.map(criarCardPlanner).join("");
+  if (!plannerEls.board) return;
+  if (carregandoPlanner) { plannerEls.status.textContent = "Carregando modelos e tarefas salvas..."; plannerEls.board.innerHTML = ""; return; }
+  plannerEls.status.textContent = plannerModelos.length ? `${plannerModelos.length} combinação(ões) Projeto + Tipo disponíveis.` : "Nenhum modelo foi retornado pela API.";
+  const filtrados = checklistsPlannerFiltrados();
+  if (!filtrados.length && plannerChecklists.length) { plannerEls.board.innerHTML = '<div class="planner-empty">Nenhuma tarefa corresponde à busca e aos filtros.</div>'; return; }
+  plannerEls.board.innerHTML = gruposPlanner(filtrados).map(criarBucketPlanner).join("");
+}
+function criarBucketPlanner(grupo) {
+  const podeAdicionar = (plannerEls.agrupar?.value || "bucket") === "bucket" && usuarioAtualEhAdmin();
+  return `<section class="planner-bucket-column" data-drop-bucket="${escapeHtml(grupo.nome)}"><header class="planner-bucket-header"><h3>${escapeHtml(grupo.nome)}</h3><span>${grupo.itens.length}</span></header>${podeAdicionar ? `<button type="button" class="planner-add-task" data-add-bucket="${escapeHtml(grupo.nome)}"><i class="fas fa-plus" aria-hidden="true"></i> Adicionar tarefa</button>` : ""}<div class="planner-bucket-cards">${grupo.itens.map(criarCardPlanner).join("")}</div></section>`;
 }
 
 function criarCardPlanner(checklist) {
   const p = calcularProgressoPlanner(checklist); const titulo = checklist.nomeTarefa || `${checklist.projeto} — ${checklist.tipo}`;
-  return `<article class="planner-card" role="button" tabindex="0" data-planner-id="${escapeHtml(checklist.id)}"><div class="planner-card-top"><span class="planner-code">${escapeHtml(checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto))}</span><span class="planner-bucket">${escapeHtml(checklist.bucket || "Outros")}</span></div><h3>${escapeHtml(titulo)}</h3><p class="planner-meta">${escapeHtml(checklist.obra)}${checklist.responsavel ? ` • ${escapeHtml(checklist.responsavel)}` : ""}</p><div class="planner-card-badges"><span class="badge ${classeStatus(checklist.status || "Não iniciado")}">${escapeHtml(checklist.status || "Não iniciado")}</span><span class="badge ${classePrioridade(checklist.prioridade || "P1")}">${escapeHtml(checklist.prioridade || "P1")}</span></div><p class="planner-meta"><i class="far fa-calendar"></i> ${checklist.dataInicio ? formatarData(checklist.dataInicio) : "Sem início"} → ${checklist.dataConclusao ? formatarData(checklist.dataConclusao) : "Sem conclusão"}</p><footer class="planner-footer"><span><i class="far fa-square-check"></i> ${p.concluidos} / ${p.total} · ${p.percentual}%</span><div class="planner-progress-bar"><span style="width:${p.percentual}%"></span></div></footer></article>`;
+  const grupos = agruparItensPlannerPorEtapa(checklist.itens);
+  const atrasada = checklist.dataConclusao && new Date(`${checklist.dataConclusao}T23:59:59`) < new Date() && p.percentual < 100;
+  const iniciais = String(checklist.responsavel || "?").split(/\s+/).slice(0, 2).map((parte) => parte[0]).join("").toUpperCase();
+  return `<article class="planner-card" role="button" tabindex="0" draggable="${usuarioAtualEhAdmin()}" data-planner-id="${escapeHtml(checklist.id)}" aria-label="Abrir tarefa ${escapeHtml(titulo)}"><div class="planner-card-top"><span class="planner-code">${escapeHtml(checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto))}</span><span class="planner-avatar" title="${escapeHtml(checklist.responsavel || "Sem responsável")}">${escapeHtml(iniciais)}</span></div><h3>${escapeHtml(titulo)}</h3><p class="planner-card-work">${escapeHtml(checklist.obra)}</p><div class="planner-card-badges"><span class="badge ${classeStatus(checklist.status || "Não iniciado")}">${escapeHtml(checklist.status || "Não iniciado")}</span><span class="badge ${classePrioridade(checklist.prioridade || "P1")}">${escapeHtml(checklist.prioridade || "P1")}</span></div><p class="planner-due ${atrasada ? "overdue" : ""}"><i class="far fa-calendar"></i> ${checklist.dataConclusao ? formatarData(checklist.dataConclusao) : "Sem conclusão"}</p><div class="planner-card-checklist">${grupos.map(criarGrupoCardPlanner).join("")}</div><footer class="planner-footer"><span><i class="far fa-square-check"></i> ${p.concluidos} / ${p.total}</span><strong>${p.percentual}%</strong></footer><div class="planner-progress-bar"><span style="width:${p.percentual}%"></span></div></article>`;
+}
+function criarGrupoCardPlanner(grupo) {
+  const gp = calcularProgressoPlanner({ itens: grupo.itens });
+  const state = gp.concluidos === gp.total && gp.total ? "true" : gp.concluidos ? "mixed" : "false";
+  const ids = grupo.itens.map((item) => item.id).join(",");
+  return `<section class="planner-card-group"><div class="planner-card-group-title"><button type="button" class="planner-stage-check ${state === "true" ? "done" : ""}" data-card-stage data-item-ids="${escapeHtml(ids)}" data-concluido="${state !== "true"}" role="checkbox" aria-checked="${state}" aria-label="Alterar etapa ${escapeHtml(grupo.etapa)}"><i class="fas fa-check"></i></button><strong>${escapeHtml(grupo.etapa)}</strong><span>${gp.concluidos}/${gp.total}</span></div>${grupo.itens.map((item) => `<button type="button" class="planner-task ${item.concluido ? "done" : ""}" data-card-item data-item-id="${escapeHtml(item.id)}" data-concluido="${!item.concluido}" role="checkbox" aria-checked="${item.concluido}" aria-label="${item.concluido ? "Reabrir" : "Concluir"} ${escapeHtml(item.estagio || item.atividade || item.texto)}"><span class="planner-circle"><i class="fas fa-check"></i></span><span>${escapeHtml(item.estagio || item.atividade || item.texto)}</span></button>`).join("")}</section>`;
+}
+function manipularCliqueBoardPlanner(event) {
+  const adicionar = event.target.closest("[data-add-bucket]");
+  if (adicionar) return abrirPlannerModal(adicionar.dataset.addBucket, adicionar);
+  const item = event.target.closest("[data-card-item]");
+  const etapa = event.target.closest("[data-card-stage]");
+  if (item || etapa) { event.stopPropagation(); const card = event.target.closest("[data-planner-id]"); return atualizarItensPlannerEmLote((item ? [item.dataset.itemId] : etapa.dataset.itemIds.split(",")), (item || etapa).dataset.concluido === "true", card.dataset.plannerId, false); }
+  const card = event.target.closest("[data-planner-id]"); if (card) { plannerFocoAnterior = card; abrirDetalhesPlanner(card.dataset.plannerId); }
+}
+function manipularTecladoBoardPlanner(event) { if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-planner-id]")) { event.preventDefault(); plannerFocoAnterior = event.target; abrirDetalhesPlanner(event.target.dataset.plannerId); } }
+function iniciarArrastoPlanner(event) { const card = event.target.closest("[data-planner-id]"); if (!card || matchMedia("(max-width: 720px)").matches) return event.preventDefault(); plannerArrastandoId = card.dataset.plannerId; card.classList.add("is-dragging"); event.dataTransfer.effectAllowed = "move"; }
+function finalizarArrastoPlanner(event) { event.target.closest("[data-planner-id]")?.classList.remove("is-dragging"); plannerEls.board.querySelectorAll(".is-drop-target").forEach((el) => el.classList.remove("is-drop-target")); plannerArrastandoId = null; }
+function permitirSoltarPlanner(event) { const bucket = event.target.closest("[data-drop-bucket]"); if (!bucket || (plannerEls.agrupar?.value || "bucket") !== "bucket") return; event.preventDefault(); bucket.classList.add("is-drop-target"); }
+function sairDestinoPlanner(event) { const bucket = event.target.closest("[data-drop-bucket]"); if (bucket && !bucket.contains(event.relatedTarget)) bucket.classList.remove("is-drop-target"); }
+async function soltarPlanner(event) { const bucket = event.target.closest("[data-drop-bucket]"); if (!bucket || !plannerArrastandoId) return; event.preventDefault(); bucket.classList.remove("is-drop-target"); await moverChecklistPlanner(plannerArrastandoId, bucket.dataset.dropBucket); }
+async function moverChecklistPlanner(id, novoBucket) {
+  const checklist = plannerChecklists.find((item) => String(item.id) === String(id)); if (!checklist || checklist.bucket === novoBucket) return;
+  const anterior = checklist.bucket; checklist.bucket = novoBucket; renderizarPlanner();
+  try { const salvo = await fetch(API_PLANNER_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: checklist.id, bucket: novoBucket }) }).then(validarResposta); Object.assign(checklist, salvo); }
+  catch (erro) { checklist.bucket = anterior; renderizarPlanner(); plannerEls.status.textContent = `Não foi possível mover a tarefa: ${erro.message}`; }
 }
 
 function abrirDetalhesPlanner(id) {
   const checklist = plannerChecklists.find((item) => String(item.id) === String(id)); if (!checklist) return; plannerDetalheAtualId = checklist.id; const p = calcularProgressoPlanner(checklist);
   plannerEls.detalheId.value = checklist.id; plannerEls.detalheTag.textContent = checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto); plannerEls.detalheTitulo.value = checklist.nomeTarefa || `${checklist.projeto} — ${checklist.tipo}`; plannerEls.detalheObra.textContent = `${checklist.obra} • ${checklist.projeto} / ${checklist.tipo}`;
-  plannerEls.detalheResponsavel.value = checklist.responsavel || ""; plannerEls.detalheStatus.value = checklist.status || "Não iniciado"; plannerEls.detalhePrioridade.value = ["P0","P1","P2","P3"].includes(checklist.prioridade) ? checklist.prioridade : "P1"; plannerEls.detalheDataInicio.value = checklist.dataInicio || ""; plannerEls.detalheDataConclusao.value = checklist.dataConclusao || ""; plannerEls.detalheBucket.value = checklist.bucket || "Outros"; plannerEls.detalheAnotacoes.value = checklist.anotacoes || ""; plannerEls.detalheChecklistTitulo.textContent = `Lista de verificação (${p.concluidos}/${p.total} · ${p.percentual}%)`;
-  plannerEls.detalheChecklist.innerHTML = agruparItensPlannerPorEtapa(checklist.itens).map((grupo, gi) => { const gp = calcularProgressoPlanner({ itens: grupo.itens }); const state = gp.concluidos === gp.total ? "true" : gp.concluidos ? "mixed" : "false"; return `<section class="planner-detail-group" data-detail-group><div class="planner-detail-group-head"><button type="button" class="planner-stage-check ${state === "true" ? "done" : ""}" data-stage-toggle data-item-ids="${grupo.itens.map(i=>escapeHtml(i.id)).join(",")}" data-concluido="${state !== "true"}" aria-checked="${state}" role="checkbox"><i class="fas fa-check"></i></button><strong>${escapeHtml(grupo.etapa)}</strong><span>${gp.concluidos}/${gp.total} · ${gp.percentual}%</span><button type="button" class="planner-expand" data-detail-expand aria-expanded="true">⌄</button></div><div class="planner-stage-progress"><span style="width:${gp.percentual}%"></span></div><div class="planner-detail-items">${grupo.itens.map(item => `<button type="button" class="planner-checklist-row ${item.concluido ? "done" : ""}" data-item-toggle data-item-id="${escapeHtml(item.id)}" data-concluido="${!item.concluido}"><span class="planner-check-circle"><i class="fas fa-check"></i></span><span>${escapeHtml(item.estagio || item.atividade || item.texto)}</span></button>`).join("")}</div></section>`; }).join("");
-  const admin = usuarioAtualEhAdmin(); [plannerEls.detalheTitulo, plannerEls.detalheResponsavel, plannerEls.detalheStatus, plannerEls.detalhePrioridade, plannerEls.detalheDataInicio, plannerEls.detalheDataConclusao, plannerEls.detalheBucket, plannerEls.detalheAnotacoes].forEach((el) => { if (el) el.disabled = !admin; }); plannerEls.detalheModal.hidden = false;
+  plannerEls.detalheResponsavel.value = checklist.responsavel || ""; plannerEls.detalheStatus.value = checklist.status || "Não iniciado"; plannerEls.detalhePrioridade.value = ["P0","P1","P2","P3"].includes(checklist.prioridade) ? checklist.prioridade : "P1"; plannerEls.detalheDataInicio.value = checklist.dataInicio || ""; plannerEls.detalheDataConclusao.value = checklist.dataConclusao || ""; plannerEls.detalheBucket.value = checklist.bucket || obterBucketDoProjeto(checklist.projeto, checklist.codigoProjeto); plannerEls.detalheAnotacoes.value = checklist.anotacoes || ""; plannerEls.detalheChecklistTitulo.textContent = `Lista de verificação (${p.concluidos}/${p.total} · ${p.percentual}%)`;
+  plannerEls.detalheChecklist.innerHTML = agruparItensPlannerPorEtapa(checklist.itens).map((grupo) => { const gp = calcularProgressoPlanner({ itens: grupo.itens }); const state = gp.concluidos === gp.total && gp.total ? "true" : gp.concluidos ? "mixed" : "false"; return `<section class="planner-detail-group" data-detail-group><div class="planner-detail-group-head"><button type="button" class="planner-stage-check ${state === "true" ? "done" : ""}" data-stage-toggle data-item-ids="${grupo.itens.map(i=>escapeHtml(i.id)).join(",")}" data-concluido="${state !== "true"}" aria-checked="${state}" role="checkbox"><i class="fas fa-check"></i></button><strong>${escapeHtml(grupo.etapa)}</strong><span>${gp.concluidos}/${gp.total} · ${gp.percentual}%</span><button type="button" class="planner-expand" data-detail-expand aria-expanded="true" aria-label="Recolher etapa">⌄</button></div><div class="planner-stage-progress"><span style="width:${gp.percentual}%"></span></div><div class="planner-detail-items">${grupo.itens.map(item => `<button type="button" class="planner-checklist-row ${item.concluido ? "done" : ""}" data-item-toggle data-item-id="${escapeHtml(item.id)}" data-concluido="${!item.concluido}" role="checkbox" aria-checked="${item.concluido}"><span class="planner-check-circle"><i class="fas fa-check"></i></span><span>${escapeHtml(item.estagio || item.atividade || item.texto)}</span></button>`).join("")}</div></section>`; }).join("");
+  const admin = usuarioAtualEhAdmin(); [plannerEls.detalheTitulo, plannerEls.detalheResponsavel, plannerEls.detalheStatus, plannerEls.detalhePrioridade, plannerEls.detalheDataInicio, plannerEls.detalheDataConclusao, plannerEls.detalheBucket, plannerEls.detalheAnotacoes].forEach((el) => { if (el) el.disabled = !admin; }); plannerEls.detalheModal.hidden = false; plannerEls.detalheTitulo.focus();
 }
-async function manipularDetalhePlanner(event) {
-  const expand = event.target.closest("[data-detail-expand]"); if (expand) { const group = expand.closest("[data-detail-group]"); const items = group.querySelector(".planner-detail-items"); const open = expand.getAttribute("aria-expanded") === "true"; expand.setAttribute("aria-expanded", String(!open)); items.hidden = open; return; }
+function manipularDetalhePlanner(event) {
+  const expand = event.target.closest("[data-detail-expand]"); if (expand) { const group = expand.closest("[data-detail-group]"); const items = group.querySelector(".planner-detail-items"); const expanded = expand.getAttribute("aria-expanded") === "true"; expand.setAttribute("aria-expanded", String(!expanded)); items.hidden = expanded; return; }
   const stage = event.target.closest("[data-stage-toggle]"); const item = event.target.closest("[data-item-toggle]");
-  if (stage) return atualizarItensPlannerEmLote(stage.dataset.itemIds.split(","), stage.dataset.concluido === "true");
-  if (item) return atualizarItensPlannerEmLote([item.dataset.itemId], item.dataset.concluido === "true");
+  if (stage) return atualizarItensPlannerEmLote(stage.dataset.itemIds.split(","), stage.dataset.concluido === "true", plannerDetalheAtualId, true);
+  if (item) return atualizarItensPlannerEmLote([item.dataset.itemId], item.dataset.concluido === "true", plannerDetalheAtualId, true);
 }
-async function atualizarItensPlannerEmLote(itemIds, concluido) {
-  const checklist = plannerChecklists.find((c) => String(c.id) === String(plannerDetalheAtualId)); if (!checklist) return; const antigos = new Map();
-  checklist.itens.forEach((i) => { if (itemIds.includes(String(i.id))) { antigos.set(String(i.id), i.concluido); i.concluido = concluido; } }); renderizarPlanner(); abrirDetalhesPlanner(checklist.id);
+async function atualizarItensPlannerEmLote(itemIds, concluido, checklistId = plannerDetalheAtualId, reabrirDetalhes = true) {
+  const checklist = plannerChecklists.find((c) => String(c.id) === String(checklistId)); if (!checklist) return; const antigos = new Map();
+  checklist.itens.forEach((i) => { if (itemIds.includes(String(i.id))) { antigos.set(String(i.id), i.concluido); i.concluido = concluido; } }); renderizarPlanner(); if (reabrirDetalhes) abrirDetalhesPlanner(checklist.id);
   try { await fetch(API_PLANNER_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ checklistId: checklist.id, itemIds, concluido }) }).then(validarResposta); }
-  catch (erro) { checklist.itens.forEach((i) => { if (antigos.has(String(i.id))) i.concluido = antigos.get(String(i.id)); }); renderizarPlanner(); abrirDetalhesPlanner(checklist.id); console.error("Falha ao atualizar checklist", erro); }
+  catch (erro) { checklist.itens.forEach((i) => { if (antigos.has(String(i.id))) i.concluido = antigos.get(String(i.id)); }); renderizarPlanner(); if (reabrirDetalhes) abrirDetalhesPlanner(checklist.id); plannerEls.status.textContent = `Falha ao atualizar o checklist: ${erro.message}`; }
 }
 
 async function salvarDetalhesPlanner(event) {
   event.preventDefault(); if (!usuarioAtualEhAdmin()) return; const payload = { id: plannerEls.detalheId.value, nomeTarefa: plannerEls.detalheTitulo.value.trim(), status: plannerEls.detalheStatus.value, prioridade: plannerEls.detalhePrioridade.value, dataInicio: plannerEls.detalheDataInicio.value, dataConclusao: plannerEls.detalheDataConclusao.value, bucket: plannerEls.detalheBucket.value, responsavel: plannerEls.detalheResponsavel.value.trim(), anotacoes: plannerEls.detalheAnotacoes.value.trim() };
-  try { const salvo = await fetch(API_PLANNER_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(validarResposta); const idx = plannerChecklists.findIndex((item) => item.id === salvo.id); if (idx >= 0) plannerChecklists[idx] = salvo; renderizarPlanner(); abrirDetalhesPlanner(salvo.id); } catch (erro) { console.error("Não foi possível salvar os detalhes", erro); }
+  try { const salvo = await fetch(API_PLANNER_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(validarResposta); const idx = plannerChecklists.findIndex((item) => String(item.id) === String(salvo.id)); if (idx >= 0) plannerChecklists[idx] = salvo; atualizarFiltrosPlanner(); renderizarPlanner(); abrirDetalhesPlanner(salvo.id); } catch (erro) { plannerEls.status.textContent = `Não foi possível salvar os detalhes: ${erro.message}`; }
 }
 
 async function excluirPlannerAtual() {
   if (!usuarioAtualEhAdmin() || !plannerDetalheAtualId || !confirm("Excluir esta tarefa do Planner?")) return;
-  try {
-    await fetch(`${API_PLANNER_URL}?id=${encodeURIComponent(plannerDetalheAtualId)}`, { method: "DELETE" }).then(validarResposta);
-    plannerChecklists = plannerChecklists.filter((item) => item.id !== plannerDetalheAtualId);
-    fecharDetalhesPlanner(); renderizarPlanner();
-  } catch (erro) { alert(`Não foi possível excluir: ${erro.message}`); }
+  try { await fetch(`${API_PLANNER_URL}?id=${encodeURIComponent(plannerDetalheAtualId)}`, { method: "DELETE" }).then(validarResposta); plannerChecklists = plannerChecklists.filter((item) => item.id !== plannerDetalheAtualId); fecharDetalhesPlanner(); atualizarFiltrosPlanner(); renderizarPlanner(); }
+  catch (erro) { alert(`Não foi possível excluir: ${erro.message}`); }
 }
 function gerarCodigoProjeto(projeto) {
-  const texto = normalizarTexto(projeto);
-  if (texto.includes("eletr")) return "PRJ-ELE";
-  return `PRJ-${String(projeto || "GER").slice(0, 3).toUpperCase()}`;
+  const texto = normalizarOpcaoPlanner(projeto);
+  const codigos = [["baixa tensao","PRJ-ELE"],["alimentador","PRJ-ALI"],["iluminacao externa","PRJ-ILUX"],["subestacao","PRJ-SUB"],["logica","PRJ-LOG"],["cabeamento","PRJ-CAB"],["cftv","PRJ-CFTV"],["spda","PRJ-SPDA"],["aterramento","PRJ-ATE"],["automacao","PRJ-ATM"],["sdai","PRJ-SDAI"],["telefonia","PRJ-TEF"],["sonorizacao","PRJ-SOM"],["fotovoltaico","PRJ-FOT"]];
+  return codigos.find(([termo]) => texto.includes(termo))?.[1] || `PRJ-${String(projeto || "GER").replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase() || "GER"}`;
 }
 function gerarId() {
   if (window.crypto && typeof window.crypto.randomUUID === "function") {

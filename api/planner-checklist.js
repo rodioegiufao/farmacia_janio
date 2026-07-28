@@ -1,246 +1,174 @@
-const fs = require("fs");
-const path = require("path");
-const JSZip = require("jszip");
 const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
+const {
+  PLANNER_MODELOS,
+  normalizarChavePlanner,
+  localizarModeloPlanner
+} = require("../atividades/planner-modelos");
 
 const CHECKLISTS_TABLE = "planner_checklists";
 const ITEMS_TABLE = "planner_checklist_itens";
-const SHEET_NAME = "Descricionado";
-const EXCEL_CANDIDATES = [
-  path.join(process.cwd(), "Check-list Geral.xlsx"),
-  path.join(process.cwd(), "atividades", "Check-list Geral.xlsx"),
-  path.join(process.cwd(), "Check-list Geral.xlsm")
-];
+const BUCKET_PADRAO = "Projeto Elétrico Baixa Tensão";
 
-let cachedTemplates = null;
+
 function requireAdmin(user) {
   if (user?.perfil === "admin") return;
   const error = new Error("Apenas administradores podem criar, editar ou excluir tarefas do Planner.");
   error.statusCode = 403;
   throw error;
 }
-function xmlText(xml, tag) {
-  const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`));
-  return match ? match[1] : "";
-}
-
-function decodeXml(value) {
-  return String(value || "")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'");
-}
-
-function columnIndex(cellRef) {
-  const letters = String(cellRef || "").match(/[A-Z]+/)?.[0] || "";
-  return letters.split("").reduce((total, letter) => total * 26 + letter.charCodeAt(0) - 64, 0) - 1;
-}
-function buildProjectCode(project) {
-  const normalized = String(project || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  if (normalized.includes("eletr")) return "PRJ-ELE";
-  return `PRJ-${String(project || "GER").replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase() || "GER"}`;
-}
-function normalizeText(value) {
-  return String(value || "").trim().replace(/\s+/g, " ").normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "").toLowerCase();
-}
-function formatChecklistText(etapa, atividade) {
-  const e = String(etapa || "").trim();
-  const a = String(atividade || "").trim();
-  const n = e.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  if (n === "lancamento") return `Lançamento dos/das ${a}`;
-  if (n === "distribuicao") return `Distribuição de/dos/das ${a}`;
-  if (n === "plotagem") return `Finalização da Plotagem de ${a}`;
-  if (n === "compatibilizacao") return `Compatibilização — ${a}`;
-  if (n === "estudos" || n === "estudo") return `Estudo de ${a}`;
-  return `${e} — ${a}`;
-}
-async function readWorkbookTemplates() {
-  if (cachedTemplates) return cachedTemplates;
-  const workbookPath = EXCEL_CANDIDATES.find((candidate) => fs.existsSync(candidate));
-  if (!workbookPath) return (cachedTemplates = []);
-  const zip = await JSZip.loadAsync(fs.readFileSync(workbookPath));
-  const workbookXml = await zip.file("xl/workbook.xml").async("string");
-  const workbookRels = await zip.file("xl/_rels/workbook.xml.rels").async("string");
-  const sheetMatch = [...workbookXml.matchAll(/<sheet[^>]+>/g)].find((match) => new RegExp(`name=["']${SHEET_NAME}["']`).test(match[0]));
-  if (!sheetMatch) return [];
-
-  const relId = sheetMatch[0].match(/r:id=["']([^"']+)/)?.[1];
-  const relMatch = [...workbookRels.matchAll(/<Relationship[^>]+>/g)].find((match) => match[0].match(/Id=["']([^"']+)/)?.[1] === relId);
-  const target = relMatch?.[0].match(/Target=["']([^"']+)/)?.[1];
-  if (!target) return [];
-
-  const sharedFile = zip.file("xl/sharedStrings.xml");
-  const sharedStrings = sharedFile ? [...(await sharedFile.async("string")).matchAll(/<si[\s\S]*?<\/si>/g)].map((match) => decodeXml([...match[0].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map((part) => part[1]).join(""))) : [];
-  const sheetPath = target.replace(/^\//, "").startsWith("xl/") ? target.replace(/^\//, "") : path.posix.join("xl", target);
-  const sheetXml = await zip.file(sheetPath).async("string");
-
-  const rows = [...sheetXml.matchAll(/<row[^>]*>[\s\S]*?<\/row>/g)].map((rowMatch) => {
-    const values = [];
-    [...rowMatch[0].matchAll(/<c[^>]*r=["']([^"']+)["'][^>]*>[\s\S]*?<\/c>/g)].forEach((cellMatch) => {
-      const cellXml = cellMatch[0];
-      const value = xmlText(cellXml, "v") || xmlText(cellXml, "t");
-      const type = cellXml.match(/t=["']([^"']+)/)?.[1];
-      values[columnIndex(cellMatch[1])] = type === "s" ? sharedStrings[Number(value)] || "" : decodeXml(value);
-    });
-    return values;
-  });
-
-  let lastProjeto = "", lastTipo = "", lastEtapa = "";
-  const groups = new Map();
-  rows.slice(1).forEach((row) => {
-    const projeto = String(row[0] || "").trim() || lastProjeto;
-    const tipo = String(row[1] || "").trim() || lastTipo;
-    const etapa = String(row[2] || "").trim() || lastEtapa;
-    const estagio = String(row[3] || "").trim();
-    if (projeto) lastProjeto = projeto;
-    if (tipo) lastTipo = tipo;
-    if (etapa) lastEtapa = etapa;
-    if (!projeto || !tipo || !etapa || !estagio) return;
-    const key = `${projeto}|||${tipo}`;
-    if (!groups.has(key)) groups.set(key, { projeto, tipo, codigoProjeto: buildProjectCode(projeto), etapas: [] });
-    const group = groups.get(key);
-    let stage = group.etapas.find((item) => item.etapa === etapa);
-    if (!stage) group.etapas.push((stage = { etapa, estagios: [] }));
-    if (!stage.estagios.some((item) => normalizeText(item) === normalizeText(estagio))) stage.estagios.push(estagio);
-  });
-  return (cachedTemplates = [...groups.values()]);
-}
-
-function templateToItems(template, checklistId, selectedItems) {
-  const selected = Array.isArray(selectedItems)
-    ? new Set(selectedItems.map((item) => `${normalizeText(item.etapa)}|||${normalizeText(item.estagio || item.atividade)}`))
-    : null;
+function texto(valor) { return String(valor ?? "").trim(); }
+function formatChecklistText(etapa, estagio) { return `${texto(etapa)} — ${texto(estagio)}`; }
+function templateToItems(modelo, checklistId) {
   let ordem = 0;
-  return (template?.etapas || []).flatMap((stage) => (stage.estagios || stage.atividades || []).map((estagio) => ({
+  return modelo.etapas.flatMap((grupo, ordemEtapa) => grupo.estagios.map((estagio, ordemEstagio) => ({
     checklist_id: checklistId,
-    etapa: stage.etapa,
-    atividade: estagio,
-    texto: formatChecklistText(stage.etapa, estagio),
-    ordem: ordem++
-  }))).filter((item) => !selected || selected.has(`${normalizeText(item.etapa)}|||${normalizeText(item.atividade)}`));
+    etapa: grupo.etapa.trim(),
+    atividade: estagio.trim(),
+    texto: formatChecklistText(grupo.etapa, estagio),
+    ordem: ordem++,
+    ordemEtapa,
+    ordemEstagio
+  })));
 }
 
-function mapItem(record) {
+function mapItem(record, indices = {}) {
   return {
     id: record.id,
     checklistId: record.checklist_id,
-    etapa: record.etapa || "",
-    estagio: record.estagio || record.atividade || "",
-    atividade: record.atividade || "",
-    texto: record.texto || "",
-    ordem: record.ordem || 0,
+    etapa: texto(record.etapa),
+    estagio: texto(record.estagio || record.atividade),
+    atividade: texto(record.atividade),
+    texto: texto(record.texto),
+    ordem: Number(record.ordem) || 0,
+    ordemEtapa: indices.ordemEtapa ?? (Number(record.ordem_etapa) || 0),
+    ordemEstagio: indices.ordemEstagio ?? (Number(record.ordem_estagio) || 0),
     concluido: Boolean(record.concluido),
     concluidoEm: record.concluido_em || "",
     concluidoPor: record.concluido_por || "",
     concluidoPorNome: record.concluido_por_nome || ""
   };
 }
-
+function mapItems(records, modelo) {
+  const ordemEtapas = new Map((modelo?.etapas || []).map((grupo, index) => [normalizarChavePlanner(grupo.etapa), index]));
+  const contadores = new Map();
+  return (records || []).map((record) => {
+    const chave = normalizarChavePlanner(record.etapa);
+    const ordemEstagio = contadores.get(chave) || 0;
+    contadores.set(chave, ordemEstagio + 1);
+    return mapItem(record, { ordemEtapa: ordemEtapas.get(chave) ?? 999, ordemEstagio });
+  }).sort((a, b) => a.ordem - b.ordem);
+}
 function fromDatabaseRecord(record) {
+  const modelo = localizarModeloPlanner(record.projeto, record.tipo);
   return {
     id: record.id,
-    obra: record.obra || "",
-    nomeTarefa: record.nome_tarefa || record.titulo || "",
-    projeto: record.projeto || "",
-    tipo: record.tipo || "",
-    codigoProjeto: record.codigo_projeto || buildProjectCode(record.projeto),
-    status: record.status || "Não iniciado",
+    obra: texto(record.obra),
+    nomeTarefa: texto(record.nome_tarefa || record.titulo),
+    projeto: modelo?.projeto || texto(record.projeto),
+    codigoProjeto: texto(record.codigo_projeto) || modelo?.codigoProjeto || "PRJ-GER",
+    tipo: modelo?.tipo || texto(record.tipo),
+    status: texto(record.status) || "Não iniciado",
     prioridade: ["P0", "P1", "P2", "P3"].includes(record.prioridade) ? record.prioridade : "P1",
     dataInicio: record.data_inicio || "",
     dataConclusao: record.data_conclusao || record.data_prevista || "",
-    bucket: record.bucket || "Outros",
-    responsavel: record.responsavel || "",
-    anotacoes: record.anotacoes || record.observacoes || "",
-    itens: (record.planner_checklist_itens || record.itens || []).map(mapItem).sort((a, b) => a.ordem - b.ordem),
+    responsavel: texto(record.responsavel),
+    anotacoes: texto(record.anotacoes || record.observacoes),
+    bucket: texto(record.bucket) || (modelo ? BUCKET_PADRAO : "Outros"),
+    itens: mapItems(record.planner_checklist_itens || record.itens || [], modelo),
     criadoPor: record.criado_por || "",
     criadoPorNome: record.criado_por_nome || "",
     criadoEm: record.criado_em || "",
     atualizadoEm: record.atualizado_em || ""
   };
 }
-
+async function migrarChecklist(record) {
+  const modelo = localizarModeloPlanner(record.projeto, record.tipo);
+  if (!modelo) return record;
+  const patch = {};
+  if (texto(record.projeto) !== modelo.projeto) patch.projeto = modelo.projeto;
+  if (texto(record.tipo) !== modelo.tipo) patch.tipo = modelo.tipo;
+  if (!texto(record.codigo_projeto)) patch.codigo_projeto = modelo.codigoProjeto;
+  if (!texto(record.bucket)) patch.bucket = BUCKET_PADRAO;
+  if (Object.keys(patch).length) {
+    patch.atualizado_em = new Date().toISOString();
+    const rows = await supabaseRequest(CHECKLISTS_TABLE, `?id=eq.${encodeURIComponent(record.id)}`, { method: "PATCH", body: JSON.stringify(patch) });
+    Object.assign(record, rows?.[0] || patch);
+  }
+  if (!(record.planner_checklist_itens || []).length) {
+    record.planner_checklist_itens = await supabaseRequest(ITEMS_TABLE, "", {
+      method: "POST",
+      body: JSON.stringify(templateToItems(modelo, record.id).map(({ ordemEtapa, ordemEstagio, ...item }) => item))
+    });
+  }
+  return record;
+}
 module.exports = async function plannerChecklistHandler(req, res) {
   try {
     const user = await requireUser(req);
-    const templates = await readWorkbookTemplates();
 
     if (req.method === "GET") {
-      const data = await supabaseRequest(CHECKLISTS_TABLE, "?select=*,planner_checklist_itens(*)&order=criado_em.desc");
-      sendJson(res, 200, { modelos: templates, checklists: Array.isArray(data) ? data.map(fromDatabaseRecord) : [] });
-      return;
+      const rows = await supabaseRequest(CHECKLISTS_TABLE, "?select=*,planner_checklist_itens(*)&order=criado_em.desc");
+      const migrated = await Promise.all((Array.isArray(rows) ? rows : []).map(migrarChecklist));
+      return sendJson(res, 200, { modelos: PLANNER_MODELOS, checklists: migrated.map(fromDatabaseRecord) });
     }
 
     if (req.method === "POST") {
       requireAdmin(user);
       const body = parseRequestBody(req);
-      if (!String(body.obra || "").trim() || !String(body.projeto || "").trim() || !String(body.tipo || "").trim()) return sendJson(res, 400, { error: "Nome da obra, projeto e tipo são obrigatórios." });
-      const template = templates.find((item) => normalizeText(item.projeto) === normalizeText(body.projeto) && normalizeText(item.tipo) === normalizeText(body.tipo));
-      if (!template) return sendJson(res, 404, { error: "Projeto + Tipo não encontrado na aba Descricionado da planilha." });
-      const codigoProjeto = template.codigoProjeto || buildProjectCode(template.projeto);
-      const nomeTarefa = String(body.nomeTarefa || "").trim() || `${template.projeto} — ${template.tipo}`;
-      const itens = templateToItems(template, "pending", body.itensSelecionados);
-      if (Array.isArray(body.itensSelecionados)) {
-        const solicitados = new Set(body.itensSelecionados.map((item) => `${normalizeText(item.etapa)}|||${normalizeText(item.estagio || item.atividade)}`));
-        if (!itens.length) return sendJson(res, 400, { error: "Selecione ao menos um estágio válido." });
-        if (solicitados.size !== itens.length) return sendJson(res, 400, { error: "A seleção contém etapa ou estágio que não pertence ao modelo da planilha." });
-      }
+      if (!texto(body.obra) || !texto(body.projeto) || !texto(body.tipo)) return sendJson(res, 400, { mensagem: "Nome da obra, projeto e tipo são obrigatórios." });
+      const modelo = localizarModeloPlanner(body.projeto, body.tipo);
+      if (!modelo) return sendJson(res, 422, { mensagem: "Projeto + Tipo não corresponde a um modelo do Planner." });
+      const agora = new Date().toISOString();
       const checklistRows = await supabaseRequest(CHECKLISTS_TABLE, "", { method: "POST", body: JSON.stringify({
-        obra: String(body.obra).trim(), nome_tarefa: nomeTarefa, projeto: template.projeto, tipo: template.tipo, codigo_projeto: codigoProjeto,
-        status: body.status || "Não iniciado", prioridade: ["P0", "P1", "P2", "P3"].includes(body.prioridade) ? body.prioridade : "P1", data_inicio: body.dataInicio || null,
-        data_conclusao: body.dataConclusao || null, bucket: body.bucket || "Outros", responsavel: body.responsavel || null,
-        anotacoes: body.anotacoes || null, criado_por: user.id, criado_por_nome: user.nome
+        obra: texto(body.obra), nome_tarefa: texto(body.nomeTarefa) || `${modelo.projeto} — ${modelo.tipo}`,
+        projeto: modelo.projeto, tipo: modelo.tipo, codigo_projeto: modelo.codigoProjeto,
+        status: texto(body.status) || "Não iniciado", prioridade: ["P0", "P1", "P2", "P3"].includes(body.prioridade) ? body.prioridade : "P1",
+        data_inicio: body.dataInicio || null, data_conclusao: body.dataConclusao || null,
+        bucket: texto(body.bucket) || BUCKET_PADRAO, responsavel: texto(body.responsavel) || null,
+        anotacoes: texto(body.anotacoes) || null, criado_por: user.id, criado_por_nome: user.nome, atualizado_em: agora
       }) });
       const checklist = checklistRows[0];
-      itens.forEach((item) => { item.checklist_id = checklist.id; });
-      const itemRows = await supabaseRequest(ITEMS_TABLE, "", { method: "POST", body: JSON.stringify(itens) });
-      sendJson(res, 201, fromDatabaseRecord({ ...checklist, planner_checklist_itens: itemRows }));
-      return;
+      const dbItems = templateToItems(modelo, checklist.id).map(({ ordemEtapa, ordemEstagio, ...item }) => item);
+      const itemRows = await supabaseRequest(ITEMS_TABLE, "", { method: "POST", body: JSON.stringify(dbItems) });
+      return sendJson(res, 201, fromDatabaseRecord({ ...checklist, planner_checklist_itens: itemRows }));
     }
 
     if (req.method === "PATCH" || req.method === "PUT") {
       const body = parseRequestBody(req);
       if (body.itemId || Array.isArray(body.itemIds)) {
         const itemIds = [...new Set((body.itemIds || [body.itemId]).filter(Boolean).map(String))];
-        if (!itemIds.length || (body.itemIds && !body.checklistId)) return sendJson(res, 400, { error: "Informe o checklist e os itens." });
-        if (body.itemIds) {
-          const existing = await supabaseRequest(ITEMS_TABLE, `?checklist_id=eq.${encodeURIComponent(body.checklistId)}&id=in.(${itemIds.map(encodeURIComponent).join(",")})&select=id`);
-          if (!Array.isArray(existing) || existing.length !== itemIds.length) return sendJson(res, 400, { error: "Um ou mais itens não pertencem ao checklist informado." });
-        }
+        if (!itemIds.length || !body.checklistId) return sendJson(res, 400, { mensagem: "Informe o checklist e os itens." });
+        const existing = await supabaseRequest(ITEMS_TABLE, `?checklist_id=eq.${encodeURIComponent(body.checklistId)}&id=in.(${itemIds.map(encodeURIComponent).join(",")})&select=id`);
+        if (!Array.isArray(existing) || existing.length !== itemIds.length) return sendJson(res, 422, { mensagem: "Um ou mais itens não pertencem à tarefa informada." });
         const concluido = Boolean(body.concluido);
-        const filter = itemIds.length === 1 ? `?id=eq.${encodeURIComponent(itemIds[0])}` : `?id=in.(${itemIds.map(encodeURIComponent).join(",")})`;
-        const rows = await supabaseRequest(ITEMS_TABLE, filter, { method: "PATCH", body: JSON.stringify({
-          concluido, concluido_em: concluido ? new Date().toISOString() : null, concluido_por: concluido ? user.id : null,
-          concluido_por_nome: concluido ? user.nome : null, atualizado_em: new Date().toISOString()
-        }) });
+        const filter = `?id=in.(${itemIds.map(encodeURIComponent).join(",")})`;
+        const rows = await supabaseRequest(ITEMS_TABLE, filter, { method: "PATCH", body: JSON.stringify({ concluido, concluido_em: concluido ? new Date().toISOString() : null, concluido_por: concluido ? user.id : null, concluido_por_nome: concluido ? user.nome : null, atualizado_em: new Date().toISOString() }) });
         return sendJson(res, 200, { item: mapItem(rows[0] || {}), itens: (rows || []).map(mapItem) });
       }
       requireAdmin(user);
-      if (!body.id) return sendJson(res, 400, { error: "Informe o ID da tarefa." });
+      if (!body.id) return sendJson(res, 400, { mensagem: "Informe o ID da tarefa." });
       const patch = {};
       [["nomeTarefa", "nome_tarefa"], ["status", "status"], ["prioridade", "prioridade"], ["dataInicio", "data_inicio"], ["dataConclusao", "data_conclusao"], ["bucket", "bucket"], ["responsavel", "responsavel"], ["anotacoes", "anotacoes"]].forEach(([from, to]) => {
-        if (Object.prototype.hasOwnProperty.call(body, from)) patch[to] = body[from] || null;
+        if (Object.prototype.hasOwnProperty.call(body, from)) patch[to] = texto(body[from]) || null;
       });
       patch.atualizado_em = new Date().toISOString();
       const rows = await supabaseRequest(CHECKLISTS_TABLE, `?id=eq.${encodeURIComponent(body.id)}&select=*,planner_checklist_itens(*)`, { method: "PATCH", body: JSON.stringify(patch) });
-      if (!Array.isArray(rows) || !rows.length) return sendJson(res, 404, { error: "Checklist não encontrado." });
-      sendJson(res, 200, fromDatabaseRecord(rows[0]));
-      return;
+      if (!rows?.length) return sendJson(res, 404, { mensagem: "Tarefa não encontrada." });
+      return sendJson(res, 200, fromDatabaseRecord(rows[0]));
     }
     if (req.method === "DELETE") {
       requireAdmin(user);
       const id = new URL(req.url, "http://localhost").searchParams.get("id") || parseRequestBody(req).id;
-      if (!id) return sendJson(res, 400, { error: "Informe o ID da tarefa." });
+      if (!id) return sendJson(res, 400, { mensagem: "Informe o ID da tarefa." });
+      const existing = await supabaseRequest(CHECKLISTS_TABLE, `?id=eq.${encodeURIComponent(id)}&select=id`);
+      if (!existing?.length) return sendJson(res, 404, { mensagem: "Tarefa não encontrada." });
       await supabaseRequest(CHECKLISTS_TABLE, `?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
-      sendJson(res, 200, { ok: true });
-      return;
+      return sendJson(res, 200, { ok: true });
     }
 
-    sendJson(res, 405, { error: "Método não suportado." });
+    return sendJson(res, 405, { mensagem: "Método não suportado." }, { Allow: "GET, POST, PATCH, DELETE" });
   } catch (error) {
     console.error("Erro na API do Planner:", error);
-    sendJson(res, error.statusCode || 500, { error: error.message || "Erro interno ao processar o Planner." });
+    sendJson(res, error.statusCode || 500, { mensagem: error.message || "Erro interno ao processar o Planner." });
   }
 };

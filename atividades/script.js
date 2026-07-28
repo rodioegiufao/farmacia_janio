@@ -1843,9 +1843,15 @@ async function apiRequest(method, atividade) {
 }
 
 async function validarResposta(response) {
-  const data = await response.json().catch(() => null);
+  const contentType = response.headers.get("content-type") || "";
+  let data = null;
+  if (contentType.includes("application/json")) data = await response.json().catch(() => null);
+  else {
+    const texto = await response.text();
+    data = texto ? { mensagem: texto } : null;
+  }
   if (!response.ok) {
-    throw new Error(data?.error || "Erro inesperado na comunicação com o servidor.");
+    throw new Error(data?.mensagem || data?.message || data?.erro || data?.error || `Erro HTTP ${response.status}`);
   }
   return data;
 }
@@ -1940,7 +1946,7 @@ function classeStatus(status) {
   return status.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replaceAll(" ", "-");
 }
 function normalizarOpcaoPlanner(value) {
-  return String(value || "").trim().replace(/\s+/g, " ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return normalizarChavePlanner(value);
 }
 function opcoesUnicasPlanner(values) {
   const seen = new Set();
@@ -1959,9 +1965,7 @@ function obterBucketDoProjeto(projeto, codigoProjeto = "") {
   return "Outros";
 }
 function obterModeloPlannerSelecionado() {
-  const projeto = normalizarOpcaoPlanner(plannerEls.projeto?.value);
-  const tipo = normalizarOpcaoPlanner(plannerEls.tipo?.value);
-  return plannerModelos.find((modelo) => normalizarOpcaoPlanner(modelo.projeto) === projeto && normalizarOpcaoPlanner(modelo.tipo) === tipo) || null;
+  return localizarModeloPlanner(plannerEls.projeto?.value, plannerEls.tipo?.value, plannerModelos);
 }
 function mostrarMensagemPlanner(texto, tipo = "error") {
   if (!plannerEls.formMessage) return;
@@ -2021,12 +2025,13 @@ async function carregarPlanner() {
   try {
     carregandoPlanner = true; renderizarPlanner();
     const data = await fetch(API_PLANNER_URL).then(validarResposta);
-    plannerModelos = data.modelos?.length ? data.modelos : criarModelosFallbackPlanner();
-    plannerChecklists = data.checklists || [];
+    plannerModelos = Array.isArray(data.modelos) && data.modelos.length ? data.modelos : PLANNER_MODELOS;
+    plannerChecklists = Array.isArray(data.checklists) ? data.checklists : [];
     atualizarProjetosPlanner(); atualizarFiltrosPlanner();
   } catch (erro) {
     plannerEls.status.textContent = `Não foi possível carregar o Planner: ${erro.message}`;
-    plannerModelos = []; plannerChecklists = [];
+    plannerModelos = PLANNER_MODELOS; plannerChecklists = [];
+    atualizarProjetosPlanner(); atualizarFiltrosPlanner();
   } finally { carregandoPlanner = false; renderizarPlanner(); }
 }
 
@@ -2036,8 +2041,8 @@ function atualizarProjetosPlanner() {
 }
 
 function atualizarTiposPlanner() {
-  const projeto = normalizarOpcaoPlanner(plannerEls.projeto?.value);
-  const source = plannerModelos.filter((m) => normalizarOpcaoPlanner(m.projeto) === projeto).map((m) => m.tipo);
+  const projeto = normalizarProjetoPlanner(plannerEls.projeto?.value);
+  const source = plannerModelos.filter((m) => normalizarProjetoPlanner(m.projeto) === projeto).map((m) => m.tipo);
   preencherSelect(plannerEls.tipo, opcoesUnicasPlanner(source)); plannerEls.tipo.disabled = !source.length; atualizarNomeTarefaPlanner();
 }
 
@@ -2071,12 +2076,7 @@ async function salvarChecklistPlanner(event) {
   if (!plannerEls.tipo.value) return mostrarMensagemPlanner("Selecione um Tipo.");
   const modelo = obterModeloPlannerSelecionado();
   if (!modelo) return mostrarMensagemPlanner("Não existe modelo para o Projeto e Tipo selecionados.");
-  const itensSelecionados = (modelo.etapas || []).flatMap((grupo) => {
-    const estagios = grupo.estagios || grupo.atividades || [];
-    return estagios.map((estagio) => ({ etapa: grupo.etapa, estagio }));
-  });
-  if (!itensSelecionados.length) return mostrarMensagemPlanner("Não foram encontradas etapas e estágios para o Projeto e Tipo selecionados.");
-  const payload = { obra: plannerEls.obra.value.trim(), projeto: modelo.projeto, tipo: modelo.tipo, status: plannerEls.statusTarefa.value, prioridade: plannerEls.prioridade.value, dataInicio: plannerEls.dataInicio.value, dataConclusao: plannerEls.dataConclusao.value, bucket: obterBucketDoProjeto(modelo.projeto, modelo.codigoProjeto), responsavel: plannerEls.responsavel.value.trim(), anotacoes: plannerEls.anotacoes.value.trim(), itensSelecionados };
+  const payload = { obra: plannerEls.obra.value.trim(), projeto: modelo.projeto.trim(), tipo: modelo.tipo.trim(), status: plannerEls.statusTarefa.value, prioridade: plannerEls.prioridade.value, dataInicio: plannerEls.dataInicio.value, dataConclusao: plannerEls.dataConclusao.value, bucket: obterBucketDoProjeto(modelo.projeto, modelo.codigoProjeto), responsavel: plannerEls.responsavel.value.trim(), anotacoes: plannerEls.anotacoes.value.trim() };
   const nome = plannerEls.nomeTarefa.value.trim(); if (nome) payload.nomeTarefa = nome;
   try {
     plannerEls.btnSalvar.disabled = true;
@@ -2121,7 +2121,7 @@ function criarCardPlanner(checklist) {
   const grupos = agruparItensPlannerPorEtapa(checklist.itens);
   const atrasada = checklist.dataConclusao && new Date(`${checklist.dataConclusao}T23:59:59`) < new Date() && p.percentual < 100;
   const iniciais = String(checklist.responsavel || "?").split(/\s+/).slice(0, 2).map((parte) => parte[0]).join("").toUpperCase();
-  return `<article class="planner-card" role="button" tabindex="0" draggable="${usuarioAtualEhAdmin()}" data-planner-id="${escapeHtml(checklist.id)}" aria-label="Abrir tarefa ${escapeHtml(titulo)}"><div class="planner-card-top"><span class="planner-code">${escapeHtml(checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto))}</span><span class="planner-avatar" title="${escapeHtml(checklist.responsavel || "Sem responsável")}">${escapeHtml(iniciais)}</span></div><h3>${escapeHtml(titulo)}</h3><p class="planner-card-work">${escapeHtml(checklist.obra)}</p><div class="planner-card-badges"><span class="badge ${classeStatus(checklist.status || "Não iniciado")}">${escapeHtml(checklist.status || "Não iniciado")}</span><span class="badge ${classePrioridade(checklist.prioridade || "P1")}">${escapeHtml(checklist.prioridade || "P1")}</span></div><p class="planner-due ${atrasada ? "overdue" : ""}"><i class="far fa-calendar"></i> ${checklist.dataConclusao ? formatarData(checklist.dataConclusao) : "Sem conclusão"}</p><div class="planner-card-checklist">${grupos.map(criarGrupoCardPlanner).join("")}</div><footer class="planner-footer"><span><i class="far fa-square-check"></i> ${p.concluidos} / ${p.total}</span><strong>${p.percentual}%</strong></footer><div class="planner-progress-bar"><span style="width:${p.percentual}%"></span></div></article>`;
+  return `<article class="planner-card" role="button" tabindex="0" draggable="${usuarioAtualEhAdmin()}" data-planner-id="${escapeHtml(checklist.id)}" aria-label="Abrir tarefa ${escapeHtml(titulo)}"><div class="planner-card-top"><span class="planner-code">${escapeHtml(checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto))}</span><span class="planner-avatar" title="${escapeHtml(checklist.responsavel || "Sem responsável")}">${escapeHtml(iniciais)}</span></div><h3>${escapeHtml(titulo)}</h3><p class="planner-card-project">${escapeHtml(checklist.projeto)}</p><p class="planner-card-type">${escapeHtml(checklist.tipo)}</p><p class="planner-card-work">${escapeHtml(checklist.obra)}</p><div class="planner-card-badges"><span class="badge ${classeStatus(checklist.status || "Não iniciado")}">${escapeHtml(checklist.status || "Não iniciado")}</span><span class="badge ${classePrioridade(checklist.prioridade || "P1")}">${escapeHtml(checklist.prioridade || "P1")}</span></div><p class="planner-due ${atrasada ? "overdue" : ""}"><i class="far fa-calendar"></i> ${checklist.dataConclusao ? formatarData(checklist.dataConclusao) : "Sem conclusão"}</p><div class="planner-card-checklist">${grupos.map(criarGrupoCardPlanner).join("")}</div><footer class="planner-footer"><span><i class="far fa-square-check"></i> ${p.concluidos} / ${p.total}</span><strong>${p.percentual}%</strong></footer><div class="planner-progress-bar"><span style="width:${p.percentual}%"></span></div></article>`;
 }
 function criarGrupoCardPlanner(grupo) {
   const gp = calcularProgressoPlanner({ itens: grupo.itens });

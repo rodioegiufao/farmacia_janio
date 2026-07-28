@@ -2,6 +2,7 @@ const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const prioridades = ["P0", "P1", "P2", "P3"];
 const plannerStatusLista = ["Não iniciado", "Em andamento", "Concluído", "Atrasado", "Pausado"];
 const plannerPrioridades = ["P0", "P1", "P2", "P3"];
+const plannerResponsaveis = ["Geovanna", "Bruno", "Rodrigo", "Hellen"];
 const plannerBuckets = ["Projeto Elétrico Baixa Tensão", "Projeto Elétrico de Alimentadores", "Projeto de Iluminação Externa", "Projeto de Subestação", "Projeto de Lógica Estruturada", "Projeto de SPDA", "Cabeamento", "CFTV", "Outros"];
 const plannerProjetosDisponiveis = ["Projetos Elétricos de Baixa Tensão"];
 const plannerTiposDisponiveis = [
@@ -2074,6 +2075,7 @@ async function salvarChecklistPlanner(event) {
   if (!plannerEls.obra.value.trim()) return mostrarMensagemPlanner("Informe o nome da obra.");
   if (!plannerEls.projeto.value) return mostrarMensagemPlanner("Selecione um Projeto.");
   if (!plannerEls.tipo.value) return mostrarMensagemPlanner("Selecione um Tipo.");
+  if (!plannerResponsaveis.includes(plannerEls.responsavel.value)) return mostrarMensagemPlanner("Selecione uma pessoa responsável do setor.");
   const modelo = obterModeloPlannerSelecionado();
   if (!modelo) return mostrarMensagemPlanner("Não existe modelo para o Projeto e Tipo selecionados.");
   const payload = { obra: plannerEls.obra.value.trim(), projeto: modelo.projeto.trim(), tipo: modelo.tipo.trim(), status: plannerEls.statusTarefa.value, prioridade: plannerEls.prioridade.value, dataInicio: plannerEls.dataInicio.value, dataConclusao: plannerEls.dataConclusao.value, bucket: obterBucketDoProjeto(modelo.projeto, modelo.codigoProjeto), responsavel: plannerEls.responsavel.value.trim(), anotacoes: plannerEls.anotacoes.value.trim() };

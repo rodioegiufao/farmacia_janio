@@ -366,7 +366,15 @@
           <label>Prioridade<select id="plannerPrioridade" required></select></label>
           <label>Data de início<input type="date" id="plannerDataInicio" /></label>
           <label>Data de conclusão<input type="date" id="plannerDataConclusao" /></label>
-          <label>Responsável<input type="text" id="plannerResponsavel" placeholder="Ex.: Rodrigo" /></label>
+           <label>Responsável
+            <select id="plannerResponsavel" required>
+              <option value="">Selecione uma pessoa</option>
+              <option value="Geovanna">Geovanna</option>
+              <option value="Bruno">Bruno</option>
+              <option value="Rodrigo">Rodrigo</option>
+              <option value="Hellen">Hellen</option>
+            </select>
+          </label>
           <label class="span-2">Anotações<textarea id="plannerAnotacoes" rows="5" placeholder="Recebimentos:
 - Recebimento do Projeto Arquitetônico no dia XX/XX/20XX"></textarea></label>
           <div id="plannerFormMessage" class="planner-form-message span-2" role="status" aria-live="polite" tabindex="-1"></div>

@@ -1568,4 +1568,30 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 [data-theme="light"] .planner-task.done { color: rgba(45,55,72,.58); }
 [data-theme="light"] .planner-detail-group { background: #fff; }
 @media (max-width: 1050px) { .planner-controls { grid-template-columns: repeat(3, minmax(150px, 1fr)); } .planner-search { grid-column: span 2; } }
-@media (max-width: 720px) { .planner-toolbar { align-items: flex-start; flex-direction: column; } .planner-toolbar .primary { width: 100%; } .planner-controls { display: flex; overflow-x: auto; } .planner-controls label { flex: 0 0 180px; } .planner-bucket-column { flex-basis: 305px; max-height: calc(100vh - 300px); } .planner-detail-card { padding: 18px; } }
+@media (max-width: 720px) { .planner-toolbar { align-items: flex-start; flex-direction: column; } .planner-toolbar .primary { width: 100%; } .planner-controls { display: flex; overflow-x: auto; } .planner-controls label { flex: 0 0 180px; } .planner-bucket-column { flex-basis: 305px; max-height: calc(100vh - 300px); } .planner-detail-card { padding: 18px; } }/* Planejamento individual dos estágios */
+.planner-item-modal { position: fixed; inset: 0; z-index: 1200; display: flex; justify-content: flex-end; padding: 18px; background: rgba(0,0,0,.48); font-family: "Segoe UI", system-ui, sans-serif; }
+.planner-item-modal[hidden] { display: none; }
+.planner-item-card { position: relative; width: min(520px, 100%); max-height: calc(100vh - 36px); padding: 26px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 14px; background: var(--card-bg); color: var(--text-lighter); box-shadow: 0 20px 50px rgba(0,0,0,.35); }
+.planner-item-header { padding-right: 30px; border-bottom: 1px solid var(--border-color); }
+.planner-item-header span, .planner-item-header p { color: var(--text-light); }
+.planner-item-header h2 { margin: 7px 0; }
+.planner-item-form { display: grid; gap: 8px; padding-top: 18px; }
+.planner-item-form label { margin-top: 7px; color: var(--text-light); font-weight: 700; }
+.planner-item-form input, .planner-item-form select, .planner-item-form textarea { width: 100%; }
+.planner-item-form small, .planner-item-completion-info, #plannerItemMessage { color: var(--text-light); }
+#plannerItemMessage { min-height: 1.3em; color: var(--accent-light); }
+.planner-task-row { display: grid; grid-template-columns: 24px minmax(0,1fr); gap: 4px; align-items: start; }
+.planner-item-check { display: grid; place-items: center; min-width: 24px; padding: 6px 2px; border: 0; background: transparent; box-shadow: none; }
+.planner-item-content { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; min-width: 0; padding: 5px; border: 0; background: transparent; color: var(--text-lighter); box-shadow: none; text-align: left; }
+.planner-item-content:hover, .planner-item-check:hover { background: rgba(99,179,237,.09); transform: none; box-shadow: none; }
+.planner-item-name { flex: 1 1 100%; font-size: .76rem; }
+.planner-item-metadata { display: flex; flex-wrap: wrap; gap: 4px 9px; font-size: .67rem; color: var(--text-light); }
+.planner-item-owner::before { content: "👤 "; }
+.planner-task-row.done .planner-item-name { opacity: .58; text-decoration: line-through; }
+.planner-task-row.done .planner-circle, .planner-task-row.done .planner-check-circle { border-color: var(--success); background: var(--success); color: white; }
+.planner-item-overdue { color: #ff8a80; font-weight: 700; }
+.planner-item-due-today { color: var(--accent-light); font-weight: 700; }
+.planner-item-due-soon { color: #f6ad55; font-weight: 700; }
+[data-theme="light"] .planner-item-card { background: #fff; }
+[data-theme="light"] .planner-item-overdue { color: #b42318; }
+@media (max-width: 600px) { .planner-item-modal { padding: 0; } .planner-item-card { width: 100%; max-height: 100vh; border-radius: 0; } }

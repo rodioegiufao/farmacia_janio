@@ -345,6 +345,7 @@
         <label>Status<select id="plannerFiltroStatus"><option value="">Todos</option></select></label>
         <label>Prioridade<select id="plannerFiltroPrioridade"><option value="">Todas</option></select></label>
         <label>Responsável<select id="plannerFiltroResponsavel"><option value="">Todos</option></select></label>
+        <label>Prazos dos estágios<select id="plannerFiltroPrazo"><option value="">Todos</option><option value="sem-prazo">Sem agendamento</option><option value="agendados">Agendados</option><option value="hoje">Para hoje</option><option value="proximo">Próximos</option><option value="atrasado">Atrasados</option></select></label>
         <label>Agrupar por<select id="plannerAgrupar"><option value="bucket">Bucket</option><option value="status">Status</option><option value="prioridade">Prioridade</option></select></label>
       </div>
       <div id="plannerModelosStatus" class="planner-status" aria-live="polite"></div>
@@ -412,6 +413,18 @@
             <button type="submit" class="primary" id="btnSalvarDetalhesPlanner">Salvar detalhes</button>
             <button type="button" class="secondary" id="btnExcluirPlanner">Excluir tarefa</button>
           </div>
+        </form>
+      </div>
+    </div>
+    <div class="planner-item-modal" id="plannerItemModal" hidden>
+      <div class="planner-item-card" role="dialog" aria-modal="true" aria-labelledby="plannerItemTitulo">
+        <button type="button" id="btnFecharPlannerItem" class="planner-modal-close" aria-label="Fechar detalhes do estágio">&times;</button>
+        <header class="planner-item-header"><span id="plannerItemEtapa"></span><h2 id="plannerItemTitulo"></h2><p id="plannerItemProjetoTipo"></p></header>
+        <form id="plannerItemForm" class="planner-item-form"><input type="hidden" id="plannerItemChecklistId"><input type="hidden" id="plannerItemId">
+          <label for="plannerItemDataPrevista">Data prevista</label><input type="date" id="plannerItemDataPrevista"><label for="plannerItemHoraPrevista">Horário previsto</label><input type="time" id="plannerItemHoraPrevista">
+          <label for="plannerItemResponsavel">Responsável</label><select id="plannerItemResponsavel"><option value="">Herdar responsável da tarefa</option><option>Geovanna</option><option>Bruno</option><option>Rodrigo</option><option>Hellen</option></select><small id="plannerItemResponsavelInfo"></small>
+          <label for="plannerItemObservacoes">Observações</label><textarea id="plannerItemObservacoes" rows="5" maxlength="5000"></textarea><div id="plannerItemConclusaoInfo" class="planner-item-completion-info"></div><div id="plannerItemMessage" role="status" aria-live="polite"></div>
+          <div class="form-actions"><button type="submit" class="primary" id="btnSalvarPlannerItem">Salvar estágio</button><button type="button" class="secondary" id="btnPlannerItemConclusao">Concluir estágio</button><button type="button" class="secondary" id="btnLimparPlannerItem">Limpar agendamento</button><button type="button" class="secondary" id="btnCancelarPlannerItem">Cancelar</button></div>
         </form>
       </div>
     </div>

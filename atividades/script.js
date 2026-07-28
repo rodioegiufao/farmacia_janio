@@ -2016,6 +2016,7 @@ function inicializarPlanner() {
   document.getElementById("btnCancelarPlannerItem")?.addEventListener("click", fecharDetalhesItemPlanner);
   document.getElementById("btnLimparPlannerItem")?.addEventListener("click", limparAgendamentoItemPlanner);
   document.getElementById("btnPlannerItemConclusao")?.addEventListener("click", async () => { const achado = localizarItemPlanner(document.getElementById("plannerItemChecklistId").value, document.getElementById("plannerItemId").value); if (achado) await atualizarItensPlannerEmLote([String(achado.item.id)], !achado.item.concluido, achado.checklist.id, true); abrirDetalhesItemPlanner(achado.checklist.id, achado.item.id); });
+  habilitarMovimentoPlannerItem();
   plannerEls.form.addEventListener("submit", salvarChecklistPlanner);
   plannerEls.detalheForm?.addEventListener("submit", salvarDetalhesPlanner);
   document.addEventListener("keydown", (event) => {
@@ -2023,6 +2024,42 @@ function inicializarPlanner() {
     if (!plannerEls.itemModal?.hidden) fecharDetalhesItemPlanner();
     else if (!plannerEls.detalheModal?.hidden) fecharDetalhesPlanner();
     else if (!plannerEls.modal?.hidden) fecharPlannerModal();
+  });
+}
+function habilitarMovimentoPlannerItem() {
+  const card = plannerEls.itemModal?.querySelector(".planner-item-card");
+  const handle = card?.querySelector(".planner-item-header");
+  if (!card || !handle) return;
+
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || window.matchMedia("(max-width: 600px)").matches) return;
+    const inicio = card.getBoundingClientRect();
+    const estilos = getComputedStyle(card);
+    const deslocamentoX = Number.parseFloat(estilos.getPropertyValue("--planner-item-x")) || 0;
+    const deslocamentoY = Number.parseFloat(estilos.getPropertyValue("--planner-item-y")) || 0;
+    const origemX = event.clientX;
+    const origemY = event.clientY;
+    card.classList.add("is-moving");
+    handle.setPointerCapture(event.pointerId);
+
+    const mover = (moveEvent) => {
+      const limiteX = Math.max(0, window.innerWidth - card.offsetWidth);
+      const limiteY = Math.max(0, window.innerHeight - card.offsetHeight);
+      const esquerda = Math.min(limiteX, Math.max(0, inicio.left + moveEvent.clientX - origemX));
+      const topo = Math.min(limiteY, Math.max(0, inicio.top + moveEvent.clientY - origemY));
+      card.style.setProperty("--planner-item-x", `${deslocamentoX + esquerda - inicio.left}px`);
+      card.style.setProperty("--planner-item-y", `${deslocamentoY + topo - inicio.top}px`);
+    };
+    const parar = () => {
+      card.classList.remove("is-moving");
+      handle.removeEventListener("pointermove", mover);
+      handle.removeEventListener("pointerup", parar);
+      handle.removeEventListener("pointercancel", parar);
+    };
+
+    handle.addEventListener("pointermove", mover);
+    handle.addEventListener("pointerup", parar);
+    handle.addEventListener("pointercancel", parar);
   });
 }
 function preencherFiltroPlanner(select, valores, rotulo) {

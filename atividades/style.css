@@ -1571,8 +1571,10 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 @media (max-width: 720px) { .planner-toolbar { align-items: flex-start; flex-direction: column; } .planner-toolbar .primary { width: 100%; } .planner-controls { display: flex; overflow-x: auto; } .planner-controls label { flex: 0 0 180px; } .planner-bucket-column { flex-basis: 305px; max-height: calc(100vh - 300px); } .planner-detail-card { padding: 18px; } }/* Planejamento individual dos estágios */
 .planner-item-modal { position: fixed; inset: 0; z-index: 1200; display: flex; justify-content: flex-end; padding: 18px; background: rgba(0,0,0,.48); font-family: "Segoe UI", system-ui, sans-serif; }
 .planner-item-modal[hidden] { display: none; }
-.planner-item-card { position: relative; width: min(520px, 100%); max-height: calc(100vh - 36px); padding: 26px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 14px; background: var(--card-bg); color: var(--text-lighter); box-shadow: 0 20px 50px rgba(0,0,0,.35); }
-.planner-item-header { padding-right: 30px; border-bottom: 1px solid var(--border-color); }
+.planner-item-card { position: relative; width: min(520px, 100%); max-height: calc(100vh - 36px); padding: 26px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 14px; background: var(--bg-card); color: var(--text-lighter); box-shadow: 0 20px 50px rgba(0,0,0,.35); transform: translate(var(--planner-item-x, 0), var(--planner-item-y, 0)); }
+.planner-item-card.is-moving { user-select: none; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+.planner-item-header { padding-right: 30px; border-bottom: 1px solid var(--border-color); cursor: grab; touch-action: none; }
+.planner-item-card.is-moving .planner-item-header { cursor: grabbing; }
 .planner-item-header span, .planner-item-header p { color: var(--text-light); }
 .planner-item-header h2 { margin: 7px 0; }
 .planner-item-form { display: grid; gap: 8px; padding-top: 18px; }
@@ -1594,4 +1596,4 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 .planner-item-due-soon { color: #f6ad55; font-weight: 700; }
 [data-theme="light"] .planner-item-card { background: #fff; }
 [data-theme="light"] .planner-item-overdue { color: #b42318; }
-@media (max-width: 600px) { .planner-item-modal { padding: 0; } .planner-item-card { width: 100%; max-height: 100vh; border-radius: 0; } }
+@media (max-width: 600px) { .planner-item-modal { padding: 0; } .planner-item-card { width: 100%; max-height: 100vh; border-radius: 0; transform: none; } .planner-item-header { cursor: default; touch-action: auto; } }

@@ -718,13 +718,30 @@ function renderizarPaginacaoAtividades(totalPaginas) {
     { texto: "Anterior", pagina: paginaAtividadesAtual - 1, desabilitado: paginaAtividadesAtual === 1 }
   ];
 
-  for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
-    botoes.push({ texto: String(pagina), pagina, atual: pagina === paginaAtividadesAtual });
+  const paginasVisiveis = new Set([1, totalPaginas]);
+  for (let pagina = paginaAtividadesAtual - 1; pagina <= paginaAtividadesAtual + 1; pagina += 1) {
+    if (pagina > 1 && pagina < totalPaginas) paginasVisiveis.add(pagina);
   }
+
+  const paginasOrdenadas = [...paginasVisiveis].sort((a, b) => a - b);
+  paginasOrdenadas.forEach((pagina, indice) => {
+    if (indice > 0 && pagina - paginasOrdenadas[indice - 1] > 1) {
+      botoes.push({ texto: "…", separador: true });
+    }
+    botoes.push({ texto: String(pagina), pagina, atual: pagina === paginaAtividadesAtual });
+  });
 
   botoes.push({ texto: "Próxima", pagina: paginaAtividadesAtual + 1, desabilitado: paginaAtividadesAtual === totalPaginas });
 
-  botoes.forEach(({ texto, pagina, atual, desabilitado }) => {
+botoes.forEach(({ texto, pagina, atual, desabilitado, separador }) => {
+    if (separador) {
+      const reticencias = document.createElement("span");
+      reticencias.className = "pagination-ellipsis";
+      reticencias.textContent = texto;
+      reticencias.setAttribute("aria-hidden", "true");
+      atividadesPaginacao.appendChild(reticencias);
+      return;
+    }
     const botao = document.createElement("button");
     botao.type = "button";
     botao.textContent = texto;

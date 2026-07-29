@@ -183,11 +183,14 @@ module.exports = async function plannerChecklistHandler(req, res) {
       const body = parseRequestBody(req);
       const acaoItem = body.acao || (Object.prototype.hasOwnProperty.call(body, "concluido") ? "alterarConclusaoItens" : "");
       if (acaoItem === "atualizarDetalhesItem") {
-        requireAdmin(user);
         if (!body.checklistId || !body.itemId) return sendJson(res, 400, { mensagem: "Informe o checklist e o estágio." });
         const checklists = await supabaseRequest(CHECKLISTS_TABLE, `?id=eq.${encodeURIComponent(body.checklistId)}&select=id,responsavel`);
-        if (!checklists?.length) return sendJson(res, 404, { mensagem: "Tarefa não encontrada." });
-        const existing = await supabaseRequest(ITEMS_TABLE, `?id=eq.${encodeURIComponent(body.itemId)}&checklist_id=eq.${encodeURIComponent(body.checklistId)}&select=id`);
+        const checklist = checklists?.[0];
+        if (!checklist) return sendJson(res, 404, { mensagem: "Tarefa não encontrada." });
+        if (user?.perfil !== "admin" && !nomesCorrespondem(user?.nome, checklist.responsavel)) {
+          return sendJson(res, 403, { mensagem: "Apenas os colaboradores responsáveis pela tarefa podem planejar este estágio." });
+        }
+        const existing = await supabaseRequest(ITEMS_TABLE, `?id=eq.${encodeURIComponent(body.itemId)}&checklist_id=eq.${encodeURIComponent(body.checklistId)}&select=id,responsavel`);
         if (!existing?.length) return sendJson(res, 422, { mensagem: "O estágio não pertence à tarefa informada." });
         const data = texto(body.dataPrevista), hora = texto(body.horaPrevista), responsavel = texto(body.responsavel), observacoes = texto(body.observacoes);
         if (data && !/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(data)) return sendJson(res, 422, { mensagem: "Data prevista inválida. Use YYYY-MM-DD." });
@@ -195,8 +198,10 @@ module.exports = async function plannerChecklistHandler(req, res) {
         if (hora && !data) return sendJson(res, 422, { mensagem: "Para informar um horário, selecione também a data prevista." });
         if (observacoes.length > 5000) return sendJson(res, 422, { mensagem: "As observações devem possuir no máximo 5.000 caracteres." });
         if (responsavel && !["Geovanna", "Bruno", "Rodrigo", "Hellen", "Rian"].includes(responsavel)) return sendJson(res, 422, { mensagem: "Responsável inválido." });
-        if (responsavel && !listarResponsaveis(checklists[0].responsavel).includes(responsavel)) return sendJson(res, 422, { mensagem: "O responsável pelo estágio deve estar entre os responsáveis da tarefa." });
-        const rows = await supabaseRequest(ITEMS_TABLE, `?id=eq.${encodeURIComponent(body.itemId)}&checklist_id=eq.${encodeURIComponent(body.checklistId)}`, { method: "PATCH", body: JSON.stringify({ data_prevista: data || null, hora_prevista: hora || null, responsavel: responsavel || null, observacoes: observacoes || null, atualizado_em: new Date().toISOString() }) });
+        if (responsavel && !listarResponsaveis(checklist.responsavel).includes(responsavel)) return sendJson(res, 422, { mensagem: "O responsável pelo estágio deve estar entre os responsáveis da tarefa." });
+        const patchItem = { data_prevista: data || null, hora_prevista: hora || null, observacoes: observacoes || null, atualizado_em: new Date().toISOString() };
+        if (user?.perfil === "admin") patchItem.responsavel = responsavel || null;
+        const rows = await supabaseRequest(ITEMS_TABLE, `?id=eq.${encodeURIComponent(body.itemId)}&checklist_id=eq.${encodeURIComponent(body.checklistId)}`, { method: "PATCH", body: JSON.stringify(patchItem) });
         return sendJson(res, 200, { item: mapItem(rows[0] || {}) });
       }
       if (acaoItem === "alterarConclusaoItens" && (body.itemId || Array.isArray(body.itemIds))) {

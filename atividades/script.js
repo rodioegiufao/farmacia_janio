@@ -2326,6 +2326,8 @@ async function moverChecklistPlanner(id, novoBucket) {
 }
 
 function abrirDetalhesPlanner(id) {
+  const bucketModelo = obterBucketModeloPlanner(projeto, codigoProjeto, plannerModelos);
+  if (bucketModelo) return bucketModelo;
   const checklist = plannerChecklists.find((item) => String(item.id) === String(id)); if (!checklist) return; plannerDetalheAtualId = checklist.id; const p = calcularProgressoPlanner(checklist);
   plannerEls.detalheId.value = checklist.id; plannerEls.detalheTag.textContent = checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto); plannerEls.detalheTitulo.value = checklist.nomeTarefa || `${checklist.projeto} — ${checklist.tipo}`; plannerEls.detalheObra.textContent = `Obra: ${checklist.obraCodigo ? `${checklist.obraCodigo} — ` : ""}${checklist.obra} • ${checklist.projeto} / ${checklist.tipo}`;
   selecionarResponsaveisPlanner(plannerEls.detalheResponsavel, checklist.responsaveis || checklist.responsavel); plannerEls.detalheStatus.value = checklist.status || "Não iniciado"; plannerEls.detalhePrioridade.value = ["P0","P1","P2","P3"].includes(checklist.prioridade) ? checklist.prioridade : "P1"; plannerEls.detalheDataInicio.value = checklist.dataInicio || ""; plannerEls.detalheDataConclusao.value = checklist.dataConclusao || ""; plannerEls.detalheBucket.value = checklist.bucket || obterBucketDoProjeto(checklist.projeto, checklist.codigoProjeto); plannerEls.detalheAnotacoes.value = checklist.anotacoes || ""; const resumoPrazos = calcularResumoPrazosPlanner(checklist); const partesResumo = [resumoPrazos.agendados && `${resumoPrazos.agendados} agendados`, resumoPrazos.hoje && `${resumoPrazos.hoje} hoje`, resumoPrazos.atrasados && `${resumoPrazos.atrasados} atrasados`].filter(Boolean); plannerEls.detalheChecklistTitulo.textContent = `Lista de verificação (${p.concluidos}/${p.total} · ${p.percentual}%)${partesResumo.length ? ` — ${partesResumo.join(" · ")}` : ""}`;
@@ -2357,8 +2359,10 @@ async function excluirPlannerAtual() {
   catch (erro) { alert(`Não foi possível excluir: ${erro.message}`); }
 }
 function gerarCodigoProjeto(projeto) {
+  const modelo = plannerModelos.find((item) => normalizarProjetoPlanner(item.projeto) === normalizarProjetoPlanner(projeto));
+  if (modelo?.codigoProjeto) return modelo.codigoProjeto;
   const texto = normalizarOpcaoPlanner(projeto);
-  const codigos = [["baixa tensao","PRJ-ELE"],["alimentador","PRJ-ALI"],["iluminacao externa","PRJ-ILUX"],["subestacao","PRJ-SUB"],["logica","PRJ-LOG"],["cabeamento","PRJ-CAB"],["cftv","PRJ-CFTV"],["spda","PRJ-SPDA"],["aterramento","PRJ-ATE"],["automacao","PRJ-ATM"],["sdai","PRJ-SDAI"],["telefonia","PRJ-TEF"],["sonorizacao","PRJ-SOM"],["fotovoltaico","PRJ-FOT"]];
+  const codigos = [["baixa tensao","PRJ-ELE"],["prj-ali","PRJ-ALI"],["alimentador","PRJ-ALI"],[" ali ","PRJ-ALI"],["prj-ilux","PRJ-ILUX"],["iluminacao externa","PRJ-ILUX"],["ilux","PRJ-ILUX"],["subestacao","PRJ-SUB"],["logica","PRJ-LOG"],["cabeamento","PRJ-CAB"],["cftv","PRJ-CFTV"],["spda","PRJ-SPDA"],["aterramento","PRJ-ATE"],["automacao","PRJ-ATM"],["sdai","PRJ-SDAI"],["telefonia","PRJ-TEF"],["sonorizacao","PRJ-SOM"],["fotovoltaico","PRJ-FOT"]];
   return codigos.find(([termo]) => texto.includes(termo))?.[1] || `PRJ-${String(projeto || "GER").replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase() || "GER"}`;
 }
 function gerarId() {

@@ -8,7 +8,6 @@ const {
 
 const CHECKLISTS_TABLE = "planner_checklists";
 const ITEMS_TABLE = "planner_checklist_itens";
-const BUCKET_PADRAO = "Projeto Elétrico Baixa Tensão";
 const RESPONSAVEIS_VALIDOS = ["Geovanna", "Bruno", "Rodrigo", "Hellen", "Rian"];
 
 
@@ -114,7 +113,7 @@ function fromDatabaseRecord(record) {
     responsavel: listarResponsaveis(record.responsavel).join(" · "),
     responsaveis: listarResponsaveis(record.responsavel),
     anotacoes: texto(record.anotacoes || record.observacoes),
-    bucket: texto(record.bucket) || (modelo ? BUCKET_PADRAO : "Outros"),
+    bucket: texto(record.bucket) || modelo?.bucket || "Outros",
     itens: mapItems(record.planner_checklist_itens || record.itens || [], modelo),
     criadoPor: record.criado_por || "",
     criadoPorNome: record.criado_por_nome || "",
@@ -129,7 +128,7 @@ async function migrarChecklist(record) {
   if (texto(record.projeto) !== modelo.projeto) patch.projeto = modelo.projeto;
   if (texto(record.tipo) !== modelo.tipo) patch.tipo = modelo.tipo;
   if (!texto(record.codigo_projeto)) patch.codigo_projeto = modelo.codigoProjeto;
-  if (!texto(record.bucket)) patch.bucket = BUCKET_PADRAO;
+  if (!texto(record.bucket)) patch.bucket = modelo.bucket || "Outros";
   if (Object.keys(patch).length) {
     patch.atualizado_em = new Date().toISOString();
     const rows = await supabaseRequest(CHECKLISTS_TABLE, `?id=eq.${encodeURIComponent(record.id)}`, { method: "PATCH", body: JSON.stringify(patch) });
@@ -170,7 +169,7 @@ module.exports = async function plannerChecklistHandler(req, res) {
         projeto: modelo.projeto, tipo: modelo.tipo, codigo_projeto: modelo.codigoProjeto,
         status: texto(body.status) || "Não iniciado", prioridade: ["P0", "P1", "P2", "P3"].includes(body.prioridade) ? body.prioridade : "P1",
         data_inicio: body.dataInicio || null, data_conclusao: body.dataConclusao || null,
-        bucket: texto(body.bucket) || BUCKET_PADRAO, responsavel: responsaveis,
+        bucket: texto(body.bucket) || modelo.bucket || "Outros", responsavel: responsaveis,
         anotacoes: texto(body.anotacoes) || null, criado_por: user.id, criado_por_nome: user.nome, atualizado_em: agora
       }) });
       const checklist = checklistRows[0];

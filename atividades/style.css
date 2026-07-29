@@ -1489,7 +1489,14 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 .planner-panel,
 .planner-modal,
 .planner-detail-modal { font-family: "Segoe UI", system-ui, sans-serif; }
-.planner-panel { display: grid; gap: 14px; min-width: 0; padding: 0; overflow: hidden; background: #202225; }
+.planner-panel {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(99, 179, 237, 0.07), transparent 320px), var(--bg-card);
+}
 .planner-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 22px 10px; }
 .planner-toolbar h2 { margin: 3px 0 8px; color: var(--text-lighter); font-size: clamp(1.35rem, 2.8vw, 1.9rem); }
 .planner-breadcrumb { color: var(--text-light); font-size: .78rem; }

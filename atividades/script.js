@@ -658,13 +658,13 @@ function renderizarTabela() {
   if (atividadesPaginacao) atividadesPaginacao.innerHTML = "";
   
   if (carregando) {
-    tabela.innerHTML = `<tr><td colspan="14" class="empty">Carregando atividades do Supabase...</td></tr>`;
+    tabela.innerHTML = `<tr><td colspan="13" class="empty">Carregando atividades do Supabase...</td></tr>`;
     atualizarDashboard();
     return;
   }
 
   if (!listaFiltrada.length) {
-    tabela.innerHTML = `<tr><td colspan="14" class="empty">Nenhuma atividade encontrada.</td></tr>`;
+    tabela.innerHTML = `<tr><td colspan="13" class="empty">Nenhuma atividade encontrada.</td></tr>`;
     atualizarDashboard();
     return;
   }
@@ -686,7 +686,7 @@ function renderizarTabela() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(atividade.colaborador)}</td>
-      <td><span class="obra-code">${escapeHtml(atividade.obraCodigo || "—")}</span></td><td>${escapeHtml(atividade.obra)}</td>
+      <td>${escapeHtml(atividade.obra)}</td>
       <td><span class="badge ${classePrioridade(atividade.prioridade)}">${escapeHtml(atividade.prioridade)}</span></td>
       <td>${escapeHtml(atividade.projeto)}</td>
       <td>${escapeHtml(atividade.trabalhos)}</td>

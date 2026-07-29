@@ -17,6 +17,25 @@ function requireAdmin(user) {
   throw error;
 }
 function texto(valor) { return String(valor ?? "").trim(); }
+function nomesCorrespondem(nomeUsuario, responsavel) {
+  const usuario = normalizarChavePlanner(nomeUsuario);
+  const atribuido = normalizarChavePlanner(responsavel);
+  if (!usuario || !atribuido) return false;
+  return usuario === atribuido
+    || usuario.startsWith(`${atribuido} `)
+    || atribuido.startsWith(`${usuario} `);
+}
+function checklistVisivelParaUsuario(record, user) {
+  if (user?.perfil === "admin") return true;
+  if (nomesCorrespondem(user?.nome, record?.responsavel)) return true;
+  const itens = record?.planner_checklist_itens || record?.itens || [];
+  return itens.some((item) => nomesCorrespondem(user?.nome, item.responsavel));
+}
+function itemEditavelPeloUsuario(item, checklist, user) {
+  if (user?.perfil === "admin") return true;
+  if (nomesCorrespondem(user?.nome, item?.responsavel)) return true;
+  return !texto(item?.responsavel) && nomesCorrespondem(user?.nome, checklist?.responsavel);
+}
 function formatChecklistText(etapa, estagio) { return `${texto(etapa)} — ${texto(estagio)}`; }
 function templateToItems(modelo, checklistId) {
   let ordem = 0;
@@ -114,7 +133,8 @@ module.exports = async function plannerChecklistHandler(req, res) {
     if (req.method === "GET") {
       const rows = await supabaseRequest(CHECKLISTS_TABLE, "?select=*,planner_checklist_itens(*)&order=criado_em.desc");
       const migrated = await Promise.all((Array.isArray(rows) ? rows : []).map(migrarChecklist));
-      return sendJson(res, 200, { modelos: PLANNER_MODELOS, checklists: migrated.map(fromDatabaseRecord) });
+      const visiveis = migrated.filter((record) => checklistVisivelParaUsuario(record, user));
+      return sendJson(res, 200, { modelos: PLANNER_MODELOS, checklists: visiveis.map(fromDatabaseRecord) });
     }
 
     if (req.method === "POST") {
@@ -153,15 +173,21 @@ module.exports = async function plannerChecklistHandler(req, res) {
         if (hora && !/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(hora)) return sendJson(res, 422, { mensagem: "Horário previsto inválido. Use HH:mm." });
         if (hora && !data) return sendJson(res, 422, { mensagem: "Para informar um horário, selecione também a data prevista." });
         if (observacoes.length > 5000) return sendJson(res, 422, { mensagem: "As observações devem possuir no máximo 5.000 caracteres." });
-        if (responsavel && !["Geovanna", "Bruno", "Rodrigo", "Hellen"].includes(responsavel)) return sendJson(res, 422, { mensagem: "Responsável inválido." });
+        if (responsavel && !["Geovanna", "Bruno", "Rodrigo", "Hellen", "Rian"].includes(responsavel)) return sendJson(res, 422, { mensagem: "Responsável inválido." });
         const rows = await supabaseRequest(ITEMS_TABLE, `?id=eq.${encodeURIComponent(body.itemId)}&checklist_id=eq.${encodeURIComponent(body.checklistId)}`, { method: "PATCH", body: JSON.stringify({ data_prevista: data || null, hora_prevista: hora || null, responsavel: responsavel || null, observacoes: observacoes || null, atualizado_em: new Date().toISOString() }) });
         return sendJson(res, 200, { item: mapItem(rows[0] || {}) });
       }
       if (acaoItem === "alterarConclusaoItens" && (body.itemId || Array.isArray(body.itemIds))) {
         const itemIds = [...new Set((body.itemIds || [body.itemId]).filter(Boolean).map(String))];
         if (!itemIds.length || !body.checklistId) return sendJson(res, 400, { mensagem: "Informe o checklist e os itens." });
-        const existing = await supabaseRequest(ITEMS_TABLE, `?checklist_id=eq.${encodeURIComponent(body.checklistId)}&id=in.(${itemIds.map(encodeURIComponent).join(",")})&select=id`);
+        const checklists = await supabaseRequest(CHECKLISTS_TABLE, `?id=eq.${encodeURIComponent(body.checklistId)}&select=id,responsavel`);
+        const checklist = checklists?.[0];
+        if (!checklist) return sendJson(res, 404, { mensagem: "Tarefa não encontrada." });
+        const existing = await supabaseRequest(ITEMS_TABLE, `?checklist_id=eq.${encodeURIComponent(body.checklistId)}&id=in.(${itemIds.map(encodeURIComponent).join(",")})&select=id,responsavel`);
         if (!Array.isArray(existing) || existing.length !== itemIds.length) return sendJson(res, 422, { mensagem: "Um ou mais itens não pertencem à tarefa informada." });
+        if (!existing.every((item) => itemEditavelPeloUsuario(item, checklist, user))) {
+          return sendJson(res, 403, { mensagem: "Você só pode marcar os estágios atribuídos a você." });
+        }
         const concluido = Boolean(body.concluido);
         const filter = `?id=in.(${itemIds.map(encodeURIComponent).join(",")})`;
         const rows = await supabaseRequest(ITEMS_TABLE, filter, { method: "PATCH", body: JSON.stringify({ concluido, concluido_em: concluido ? new Date().toISOString() : null, concluido_por: concluido ? user.id : null, concluido_por_nome: concluido ? user.nome : null, atualizado_em: new Date().toISOString() }) });

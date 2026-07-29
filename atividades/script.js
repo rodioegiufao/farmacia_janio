@@ -2,7 +2,7 @@ const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const prioridades = ["P0", "P1", "P2", "P3"];
 const plannerStatusLista = ["Não iniciado", "Em andamento", "Concluído", "Atrasado", "Pausado"];
 const plannerPrioridades = ["P0", "P1", "P2", "P3"];
-const plannerResponsaveis = ["Geovanna", "Bruno", "Rodrigo", "Hellen"];
+const plannerResponsaveis = ["Geovanna", "Bruno", "Rodrigo", "Hellen", "Rian"];
 const plannerBuckets = ["Projeto Elétrico Baixa Tensão", "Projeto Elétrico de Alimentadores", "Projeto de Iluminação Externa", "Projeto de Subestação", "Projeto de Lógica Estruturada", "Projeto de SPDA", "Cabeamento", "CFTV", "Outros"];
 const plannerProjetosDisponiveis = ["Projetos Elétricos de Baixa Tensão"];
 const plannerTiposDisponiveis = [
@@ -318,13 +318,12 @@ async function inicializar() {
   if (usuarioAtual) {
     await carregarAtividades();
     await carregarAtividadesSemanais();
-    if (usuarioAtualEhAdmin()) await carregarPlanner();
+    await carregarPlanner();
   }
 }
 
 function alternarSecao(event) {
   const targetId = event.currentTarget.dataset.sectionTarget;
-  if (targetId === "plannerSection" && !usuarioAtualEhAdmin()) return;
 
   sectionTabs.forEach((tab) => {
     const ativo = tab.dataset.sectionTarget === targetId;
@@ -359,14 +358,12 @@ function usuarioAtualEhAdmin() {
 }
 
 function aplicarPermissaoPlanner() {
-  const podeAcessarPlanner = usuarioAtualEhAdmin();
-  if (plannerTab) plannerTab.hidden = !podeAcessarPlanner;
-  if (plannerEls.btnNovo) plannerEls.btnNovo.hidden = !podeAcessarPlanner;
-  if (plannerEls.btnSalvarDetalhes) plannerEls.btnSalvarDetalhes.hidden = !podeAcessarPlanner;
-  if (plannerEls.btnExcluir) plannerEls.btnExcluir.hidden = !podeAcessarPlanner;
-  if (plannerPanel) plannerPanel.hidden = !podeAcessarPlanner || plannerPanel.hidden;
+  const podeGerenciarPlanner = usuarioAtualEhAdmin();
+  if (plannerTab) plannerTab.hidden = !usuarioAtual;
+  if (plannerEls.btnNovo) plannerEls.btnNovo.hidden = !podeGerenciarPlanner;
+  if (plannerEls.btnSalvarDetalhes) plannerEls.btnSalvarDetalhes.hidden = !podeGerenciarPlanner;
+  if (plannerEls.btnExcluir) plannerEls.btnExcluir.hidden = !podeGerenciarPlanner;
   if (plannerEls.modal) plannerEls.modal.hidden = true;
-  if (!podeAcessarPlanner && plannerTab?.classList.contains("active")) alternarAba("atividade");
 }
 
 function aplicarPermissoesAtividadesSemanais() {
@@ -2176,13 +2173,18 @@ function criarDataHoraLocalPlanner(data, hora = "") { if (!data) return null; co
 function obterSituacaoPrazoItemPlanner(item) { if (!item?.dataPrevista) return "sem-prazo"; if (item.concluido) return "futuro"; const agora = new Date(), prazo = criarDataHoraLocalPlanner(item.dataPrevista, item.horaPrevista); if (prazo < agora) return "atrasado"; const hoje = criarDataLocalPlanner(item.dataPrevista), inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()); if (hoje.getTime() === inicioHoje.getTime()) return "hoje"; if (prazo - agora < 86400000) return "proximo"; return "futuro"; }
 function formatarPrazoItemPlanner(item) { const data = criarDataLocalPlanner(item?.dataPrevista); if (!data) return ""; const agora = new Date(), amanha = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + 1); let texto = data.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }); if (data.toDateString() === agora.toDateString()) texto = "Hoje"; else if (data.toDateString() === amanha.toDateString()) texto = "Amanhã"; return `${texto}${item.horaPrevista ? ` às ${String(item.horaPrevista).slice(0, 5)}` : ""}`; }
 function obterResponsavelEfetivoItemPlanner(item, checklist) { return item?.responsavel || checklist?.responsavel || ""; }
+function usuarioPodeConcluirItemPlanner(item, checklist) {
+  if (usuarioAtualEhAdmin()) return true;
+  const responsavel = obterResponsavelEfetivoItemPlanner(item, checklist);
+  return Boolean(responsavel && colaboradorDoUsuario() === colaboradores.find((nome) => normalizarTexto(nome) === normalizarTexto(responsavel)));
+}
 function renderizarMetadadosItemPlanner(item, checklist) { const prazo = formatarPrazoItemPlanner(item), responsavel = obterResponsavelEfetivoItemPlanner(item, checklist), situacao = obterSituacaoPrazoItemPlanner(item); if (!prazo && !responsavel) return ""; return `<span class="planner-item-metadata ${situacao === "atrasado" ? "planner-item-overdue" : situacao === "hoje" ? "planner-item-due-today" : situacao === "proximo" ? "planner-item-due-soon" : ""}">${prazo ? `<span class="planner-item-date"><i class="far fa-calendar"></i> ${situacao === "atrasado" ? "Atrasado · " : ""}${escapeHtml(prazo)}</span>` : ""}${responsavel ? `<span class="planner-item-owner">${escapeHtml(responsavel)}</span>` : ""}</span>`; }
 function calcularResumoPrazosPlanner(checklist) { const estados = (checklist.itens || []).map(obterSituacaoPrazoItemPlanner); return { agendados: estados.filter(e => e !== "sem-prazo").length, hoje: estados.filter(e => e === "hoje").length, atrasados: estados.filter(e => e === "atrasado").length }; }
 function localizarItemPlanner(checklistId, itemId) { const checklist = plannerChecklists.find(c => String(c.id) === String(checklistId)); const item = checklist?.itens?.find(i => String(i.id) === String(itemId)); return checklist && item ? { checklist, item } : null; }
 let plannerItemFocoAnterior = null;
 function abrirDetalhesItemPlanner(checklistId, itemId, gatilho) { const achado = localizarItemPlanner(checklistId, itemId); if (!achado) return; const { checklist, item } = achado; plannerItemFocoAnterior = gatilho || plannerItemFocoAnterior; document.getElementById("plannerItemChecklistId").value = checklist.id; document.getElementById("plannerItemId").value = item.id; document.getElementById("plannerItemEtapa").textContent = item.etapa; document.getElementById("plannerItemTitulo").textContent = item.estagio || item.atividade || item.texto; document.getElementById("plannerItemProjetoTipo").textContent = `${checklist.obra} · ${checklist.projeto} / ${checklist.tipo}`; document.getElementById("plannerItemDataPrevista").value = item.dataPrevista || ""; document.getElementById("plannerItemHoraPrevista").value = String(item.horaPrevista || "").slice(0,5); document.getElementById("plannerItemResponsavel").value = item.responsavel || ""; document.getElementById("plannerItemObservacoes").value = item.observacoes || ""; const efetivo = obterResponsavelEfetivoItemPlanner(item, checklist); document.getElementById("plannerItemResponsavelInfo").textContent = !item.responsavel && efetivo ? `${efetivo} — herdado da tarefa` : ""; document.getElementById("btnPlannerItemConclusao").textContent = item.concluido ? "Reabrir estágio" : "Concluir estágio"; document.getElementById("plannerItemConclusaoInfo").textContent = item.concluido ? `Concluído por ${item.concluidoPorNome || "usuário"}${item.concluidoEm ? ` em ${new Date(item.concluidoEm).toLocaleString("pt-BR")}` : ""}` : "Estágio não concluído"; const admin = usuarioAtualEhAdmin(); ["plannerItemDataPrevista","plannerItemHoraPrevista","plannerItemResponsavel","plannerItemObservacoes"].forEach(id => document.getElementById(id).disabled = !admin); document.getElementById("btnSalvarPlannerItem").hidden = !admin; document.getElementById("btnLimparPlannerItem").hidden = !admin; document.getElementById("plannerItemMessage").textContent = ""; plannerEls.itemModal.hidden = false; document.getElementById("plannerItemDataPrevista").focus(); }
 function fecharDetalhesItemPlanner() { plannerEls.itemModal.hidden = true; plannerItemFocoAnterior?.focus(); }
-async function atualizarDetalhesItemPlanner(payload, mensagem) { const achado = localizarItemPlanner(payload.checklistId, payload.itemId); const resposta = await fetch(API_PLANNER_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "atualizarDetalhesItem", ...payload }) }).then(validarResposta); Object.assign(achado.item, resposta.item); renderizarPlanner(); if (!plannerEls.detalheModal.hidden) abrirDetalhesPlanner(achado.checklist.id); abrirDetalhesItemPlanner(achado.checklist.id, achado.item.id); document.getElementById("plannerItemMessage").textContent = mensagem; }
+function abrirDetalhesItemPlanner(checklistId, itemId, gatilho) { const achado = localizarItemPlanner(checklistId, itemId); if (!achado) return; const { checklist, item } = achado; plannerItemFocoAnterior = gatilho || plannerItemFocoAnterior; document.getElementById("plannerItemChecklistId").value = checklist.id; document.getElementById("plannerItemId").value = item.id; document.getElementById("plannerItemEtapa").textContent = item.etapa; document.getElementById("plannerItemTitulo").textContent = item.estagio || item.atividade || item.texto; document.getElementById("plannerItemProjetoTipo").textContent = `${checklist.obra} · ${checklist.projeto} / ${checklist.tipo}`; document.getElementById("plannerItemDataPrevista").value = item.dataPrevista || ""; document.getElementById("plannerItemHoraPrevista").value = String(item.horaPrevista || "").slice(0,5); document.getElementById("plannerItemResponsavel").value = item.responsavel || ""; document.getElementById("plannerItemObservacoes").value = item.observacoes || ""; const efetivo = obterResponsavelEfetivoItemPlanner(item, checklist); document.getElementById("plannerItemResponsavelInfo").textContent = !item.responsavel && efetivo ? `${efetivo} — herdado da tarefa` : ""; const podeConcluir = usuarioPodeConcluirItemPlanner(item, checklist); const botaoConclusao = document.getElementById("btnPlannerItemConclusao"); botaoConclusao.textContent = item.concluido ? "Reabrir estágio" : "Concluir estágio"; botaoConclusao.disabled = !podeConcluir; botaoConclusao.title = podeConcluir ? "" : "Somente o responsável pode marcar este estágio"; document.getElementById("plannerItemConclusaoInfo").textContent = item.concluido ? `Concluído por ${item.concluidoPorNome || "usuário"}${item.concluidoEm ? ` em ${new Date(item.concluidoEm).toLocaleString("pt-BR")}` : ""}` : "Estágio não concluído"; const admin = usuarioAtualEhAdmin(); ["plannerItemDataPrevista","plannerItemHoraPrevista","plannerItemResponsavel","plannerItemObservacoes"].forEach(id => document.getElementById(id).disabled = !admin); document.getElementById("btnSalvarPlannerItem").hidden = !admin; document.getElementById("btnLimparPlannerItem").hidden = !admin; document.getElementById("plannerItemMessage").textContent = ""; plannerEls.itemModal.hidden = false; (admin ? document.getElementById("plannerItemDataPrevista") : botaoConclusao).focus(); }
 async function salvarDetalhesItemPlanner(event) { event.preventDefault(); if (!usuarioAtualEhAdmin()) return; const dataPrevista = document.getElementById("plannerItemDataPrevista").value, horaPrevista = document.getElementById("plannerItemHoraPrevista").value; if (horaPrevista && !dataPrevista) { document.getElementById("plannerItemMessage").textContent = "Para informar um horário, selecione também a data prevista."; return; } const botao = document.getElementById("btnSalvarPlannerItem"), original = botao.textContent; botao.disabled = true; botao.textContent = "Salvando..."; try { await atualizarDetalhesItemPlanner({ checklistId: document.getElementById("plannerItemChecklistId").value, itemId: document.getElementById("plannerItemId").value, dataPrevista, horaPrevista, responsavel: document.getElementById("plannerItemResponsavel").value, observacoes: document.getElementById("plannerItemObservacoes").value }, "Detalhes do estágio salvos."); } catch (erro) { document.getElementById("plannerItemMessage").textContent = erro.message; } finally { botao.disabled = false; botao.textContent = original; } }
 async function limparAgendamentoItemPlanner() { if (!usuarioAtualEhAdmin() || !confirm("Deseja limpar o planejamento deste estágio?")) return; try { await atualizarDetalhesItemPlanner({ checklistId: document.getElementById("plannerItemChecklistId").value, itemId: document.getElementById("plannerItemId").value, dataPrevista: "", horaPrevista: "", responsavel: "", observacoes: "" }, "Planejamento do estágio limpo."); } catch (erro) { document.getElementById("plannerItemMessage").textContent = erro.message; } }
 function criarGrupoCardPlanner(grupo) {

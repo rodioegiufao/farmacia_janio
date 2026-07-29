@@ -1,4 +1,5 @@
 const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
+const { enriquecerRegistroComObra, resolverOuCriarObra } = require("./_obras");
 
 const SUPABASE_TABLE = "atividades_colaboradores";
 
@@ -39,6 +40,7 @@ const FIELD_TO_COLUMN = {
   id: "id",
   colaborador: "colaborador",
   obra: "obra",
+  obraId: "obra_id",
   prioridade: "prioridade",
   projeto: "projeto",
   trabalhos: "trabalhos",
@@ -101,18 +103,26 @@ function fromDatabaseRecord(record) {
   }, {});
 }
 
+async function fromDatabaseRecordComObra(record) {
+  const enriched = await enriquecerRegistroComObra(record);
+  return { ...fromDatabaseRecord(enriched), obraId: enriched.obra_id || "", obraCodigo: enriched.obraCodigo || "", obra: enriched.obra || "" };
+}
+
 module.exports = async function atividadesHandler(req, res) {
   try {
     if (req.method === "GET") {
       const user = await requireUser(req);
       const data = await supabaseRequest(SUPABASE_TABLE, "?select=*&order=criado_em.desc");
-      sendJson(res, 200, Array.isArray(data) ? data.map(fromDatabaseRecord) : []);
+      sendJson(res, 200, Array.isArray(data) ? await Promise.all(data.map(fromDatabaseRecordComObra)) : []);
       return;
     }
 
     if (req.method === "POST") {
       const user = await requireUser(req);
       const body = parseRequestBody(req);
+      const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id });
+      body.obraId = obra.id;
+      body.obra = obra.nome;
       const record = toDatabaseRecord(body);
       record.usuario_id = user.id;
       record.criado_por_nome = user.nome;
@@ -123,7 +133,7 @@ module.exports = async function atividadesHandler(req, res) {
         method: "POST",
         body: JSON.stringify(record)
       });
-      sendJson(res, 201, fromDatabaseRecord(data[0] || {}));
+      sendJson(res, 201, { ...fromDatabaseRecord(data[0] || {}), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome });
       return;
     }
 
@@ -146,6 +156,9 @@ module.exports = async function atividadesHandler(req, res) {
         return;
       }
 
+      const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id });
+      body.obraId = obra.id;
+      body.obra = obra.nome;
       const record = toDatabaseRecord(body);
       enforceCollaboratorPermission(record, user);
       delete record.usuario_id;
@@ -154,7 +167,7 @@ module.exports = async function atividadesHandler(req, res) {
         method: "PATCH",
         body: JSON.stringify(record)
       });
-      sendJson(res, 200, fromDatabaseRecord(data[0] || {}));
+      sendJson(res, 200, { ...fromDatabaseRecord(data[0] || {}), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome });
       return;
     }
 

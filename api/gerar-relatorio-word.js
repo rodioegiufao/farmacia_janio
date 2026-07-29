@@ -19,8 +19,10 @@ function formatarNumero(valor, casas = 2) { return Number(valor || 0).toLocaleSt
 function formatarPercentual(valor) { return `${formatarNumero(valor, 0)}%`; }
 function formatarHorasRelatorio(valor) { const horas = Number(valor || 0); return `${formatarNumero(horas)} ${pluralizar(horas, "hora trabalhada", "horas trabalhadas")}`; }
 function percentual(parte, total) { return total ? Math.round((parte / total) * 100) : 0; }
-function chaveProjeto(a) { const obra = (a.obra || "Obra não informada").trim(); const projeto = (a.projeto || "Projeto não informado").trim(); return `${obra} — ${projeto}`; }
-function contarProjetosTrabalhados(lista) { return new Set(lista.map(chaveProjeto)).size; }
+function normalizarNomeObra(valor) { return normalizarTexto(valor).replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/g, " "); }
+function identidadeProjeto(a) { return `${a.obraId || `legado:${normalizarNomeObra(a.obra)}`}|${normalizarTexto(a.projeto)}`; }
+function chaveProjeto(a) { const obra = (a.obra || "Obra não informada").trim(); const codigo = String(a.obraCodigo || "").trim(); const projeto = (a.projeto || "Projeto não informado").trim(); return `${codigo ? `${codigo} — ` : ""}${obra} — ${projeto}`; }
+function contarProjetosTrabalhados(lista) { return new Set(lista.map(identidadeProjeto)).size; }
 function contarPor(lista, campo, valor) { return lista.filter((a) => normalizarTexto(a[campo]) === normalizarTexto(valor)).length; }
 function topDescricao(lista) { return [...new Set(lista.map((a) => a.descricao || a.atividade || a.titulo).filter(Boolean).map((t) => String(t).trim()).filter(Boolean))].slice(0, 4); }
 function mapaOrdenado(obj) { return Object.entries(obj).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); }
@@ -79,9 +81,9 @@ function pontoGerencialProjeto(p, indicadores = {}) {
 function gerarAnalisePorProjeto(listaAtividades) {
   const mapa = new Map();
   listaAtividades.forEach((a) => {
-    const chave = chaveProjeto(a);
-    if (!mapa.has(chave)) mapa.set(chave, { chave, obra: a.obra || "Obra não informada", projeto: a.projeto || "Projeto não informado", atividades: 0, horas: 0, colaboradores: new Set(), status: {}, prioridades: {}, trabalhos: [], finalizadas: 0, progresso: 0, atrasadas: 0 });
-    const item = mapa.get(chave);
+    const identidade = identidadeProjeto(a);
+    if (!mapa.has(identidade)) mapa.set(identidade, { chave: chaveProjeto(a), obra: a.obra || "Obra não informada", projeto: a.projeto || "Projeto não informado", atividades: 0, horas: 0, colaboradores: new Set(), status: {}, prioridades: {}, trabalhos: [], finalizadas: 0, progresso: 0, atrasadas: 0 });
+    const item = mapa.get(identidade);
     item.atividades += 1; item.horas += calcularHorasAtividade(a);
     if (a.colaborador) item.colaboradores.add(a.colaborador);
     item.status[a.status || "Sem status"] = (item.status[a.status || "Sem status"] || 0) + 1;
@@ -95,7 +97,7 @@ function gerarAnalisePorProjeto(listaAtividades) {
     .sort((a, b) => b.horas - a.horas || b.atividades - a.atividades || a.chave.localeCompare(b.chave));
 }
 
-function agruparPorColaborador(lista) { return lista.reduce((acc, a) => { const n = a.colaborador || "Sem colaborador"; acc[n] ||= { total: 0, finalizadas: 0, progresso: 0, atrasadas: 0, horas: 0, projetosSet: new Set() }; acc[n].total++; acc[n].finalizadas += statusEh(a, "Finalizado") ? 1 : 0; acc[n].progresso += statusEh(a, "Em progresso") ? 1 : 0; acc[n].atrasadas += statusEh(a, "Atrasado") ? 1 : 0; acc[n].horas += calcularHorasAtividade(a); acc[n].projetosSet.add(chaveProjeto(a)); return acc; }, {}); }
+function agruparPorColaborador(lista) { return lista.reduce((acc, a) => { const n = a.colaborador || "Sem colaborador"; acc[n] ||= { total: 0, finalizadas: 0, progresso: 0, atrasadas: 0, horas: 0, projetosSet: new Set() }; acc[n].total++; acc[n].finalizadas += statusEh(a, "Finalizado") ? 1 : 0; acc[n].progresso += statusEh(a, "Em progresso") ? 1 : 0; acc[n].atrasadas += statusEh(a, "Atrasado") ? 1 : 0; acc[n].horas += calcularHorasAtividade(a); acc[n].projetosSet.add(identidadeProjeto(a)); return acc; }, {}); }
 function itemMaximo(entries, campo) { return entries.reduce((max, atual) => (!max || atual[1][campo] > max[1][campo] ? atual : max), null); }
 
 function identificarProjetosCriticos(atividades) {

@@ -1608,3 +1608,7 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 [data-theme="light"] .planner-item-card { background: #fff; }
 [data-theme="light"] .planner-item-overdue { color: #b42318; }
 @media (max-width: 600px) { .planner-item-modal { padding: 0; } .planner-item-card { width: 100%; max-height: 100vh; border-radius: 0; transform: none; } .planner-item-header { cursor: default; touch-action: auto; } }
+/* Identidade central da obra */
+.obra-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; white-space: nowrap; color: #2457a6; }
+.obra-badge { background: #e8f0fe; color: #174ea6; }
+label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margin-top: .35rem; color: #64748b; font-weight: 500; }

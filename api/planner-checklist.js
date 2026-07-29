@@ -1,4 +1,5 @@
 const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
+const { enriquecerRegistroComObra, resolverOuCriarObra } = require("./_obras");
 const {
   PLANNER_MODELOS,
   normalizarChavePlanner,
@@ -99,6 +100,8 @@ function fromDatabaseRecord(record) {
   const modelo = localizarModeloPlanner(record.projeto, record.tipo);
   return {
     id: record.id,
+    obraId: record.obra_id || "",
+    obraCodigo: record.obraCodigo || "",
     obra: texto(record.obra),
     nomeTarefa: texto(record.nome_tarefa || record.titulo),
     projeto: modelo?.projeto || texto(record.projeto),
@@ -148,7 +151,8 @@ module.exports = async function plannerChecklistHandler(req, res) {
       const rows = await supabaseRequest(CHECKLISTS_TABLE, "?select=*,planner_checklist_itens(*)&order=criado_em.desc");
       const migrated = await Promise.all((Array.isArray(rows) ? rows : []).map(migrarChecklist));
       const visiveis = migrated.filter((record) => checklistVisivelParaUsuario(record, user));
-      return sendJson(res, 200, { modelos: PLANNER_MODELOS, checklists: visiveis.map(fromDatabaseRecord) });
+      const enriched = await Promise.all(visiveis.map(enriquecerRegistroComObra));
+      return sendJson(res, 200, { modelos: PLANNER_MODELOS, checklists: enriched.map(fromDatabaseRecord) });
     }
 
     if (req.method === "POST") {
@@ -160,8 +164,9 @@ module.exports = async function plannerChecklistHandler(req, res) {
       const responsaveis = serializarResponsaveis(body.responsaveis ?? body.responsavel);
       if (!responsaveis) return sendJson(res, 422, { mensagem: "Selecione pelo menos um responsável válido." });
       const agora = new Date().toISOString();
+      const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id });
       const checklistRows = await supabaseRequest(CHECKLISTS_TABLE, "", { method: "POST", body: JSON.stringify({
-        obra: texto(body.obra), nome_tarefa: texto(body.nomeTarefa) || `${modelo.projeto} — ${modelo.tipo}`,
+        obra_id: obra.id, obra: obra.nome, nome_tarefa: texto(body.nomeTarefa) || `${modelo.projeto} — ${modelo.tipo}`,
         projeto: modelo.projeto, tipo: modelo.tipo, codigo_projeto: modelo.codigoProjeto,
         status: texto(body.status) || "Não iniciado", prioridade: ["P0", "P1", "P2", "P3"].includes(body.prioridade) ? body.prioridade : "P1",
         data_inicio: body.dataInicio || null, data_conclusao: body.dataConclusao || null,
@@ -171,7 +176,7 @@ module.exports = async function plannerChecklistHandler(req, res) {
       const checklist = checklistRows[0];
       const dbItems = templateToItems(modelo, checklist.id).map(({ ordemEtapa, ordemEstagio, ...item }) => item);
       const itemRows = await supabaseRequest(ITEMS_TABLE, "", { method: "POST", body: JSON.stringify(dbItems) });
-      return sendJson(res, 201, fromDatabaseRecord({ ...checklist, planner_checklist_itens: itemRows }));
+      return sendJson(res, 201, fromDatabaseRecord({ ...checklist, obraCodigo: obra.codigo, planner_checklist_itens: itemRows }));
     }
 
     if (req.method === "PATCH" || req.method === "PUT") {
@@ -212,6 +217,10 @@ module.exports = async function plannerChecklistHandler(req, res) {
       requireAdmin(user);
       if (!body.id) return sendJson(res, 400, { mensagem: "Informe o ID da tarefa." });
       const patch = {};
+      if (Object.prototype.hasOwnProperty.call(body, "obraId") || Object.prototype.hasOwnProperty.call(body, "obra")) {
+        const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id });
+        patch.obra_id = obra.id; patch.obra = obra.nome;
+      }
       [["nomeTarefa", "nome_tarefa"], ["status", "status"], ["prioridade", "prioridade"], ["dataInicio", "data_inicio"], ["dataConclusao", "data_conclusao"], ["bucket", "bucket"], ["anotacoes", "anotacoes"]].forEach(([from, to]) => {
         if (Object.prototype.hasOwnProperty.call(body, from)) patch[to] = texto(body[from]) || null;
       });

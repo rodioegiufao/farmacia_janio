@@ -1,4 +1,5 @@
 const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
+const { enriquecerRegistroComObra, resolverOuCriarObra } = require("./_obras");
 
 const SUPABASE_TABLE = "atividades_semanais";
 
@@ -9,6 +10,8 @@ const FIELD_TO_COLUMN = {
   descricao: "descricao",
   prioridade: "prioridade",
   entregas: "entregas",
+  obraId: "obra_id",
+  obra: "obra",
   criadoEm: "criado_em",
   atualizadoEm: "atualizado_em"
 };
@@ -21,7 +24,10 @@ function toDatabaseRecord(weeklyActivity) {
     return record;
   }, {});
 }
-
+async function fromDatabaseRecordComObra(record) {
+  const enriched = await enriquecerRegistroComObra(record);
+  return { ...fromDatabaseRecord(enriched), obraId: enriched.obra_id || null, obraCodigo: enriched.obraCodigo || "", obra: enriched.obra || "" };
+}
 function fromDatabaseRecord(record) {
   return Object.entries(FIELD_TO_COLUMN).reduce((weeklyActivity, [field, column]) => {
     weeklyActivity[field] = record[column] ?? "";
@@ -50,7 +56,7 @@ module.exports = async function atividadesSemanaisHandler(req, res) {
     if (req.method === "GET") {
       await requireUser(req);
       const data = await supabaseRequest(SUPABASE_TABLE, "?select=*&order=criado_em.desc");
-      sendJson(res, 200, Array.isArray(data) ? data.map(fromDatabaseRecord) : []);
+      sendJson(res, 200, Array.isArray(data) ? await Promise.all(data.map(fromDatabaseRecordComObra)) : []);
       return;
     }
 
@@ -58,6 +64,10 @@ module.exports = async function atividadesSemanaisHandler(req, res) {
       const user = await requireUser(req);
       requireAdmin(user);
       const body = parseRequestBody(req);
+      if (body.obraId || String(body.obra || "").trim()) {
+        const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id });
+        body.obraId = obra.id; body.obra = obra.nome; body.obraCodigo = obra.codigo;
+      } else { body.obraId = null; body.obra = ""; }
       const record = toDatabaseRecord(body);
       delete record.atualizado_em;
       validateRequiredFields(record);
@@ -66,7 +76,7 @@ module.exports = async function atividadesSemanaisHandler(req, res) {
         method: "POST",
         body: JSON.stringify(record)
       });
-      sendJson(res, 201, fromDatabaseRecord(data[0] || {}));
+      sendJson(res, 201, { ...fromDatabaseRecord(data[0] || {}), obraId: body.obraId, obraCodigo: body.obraCodigo || "", obra: body.obra });
       return;
     }
 
@@ -79,6 +89,10 @@ module.exports = async function atividadesSemanaisHandler(req, res) {
         return;
       }
 
+      if (body.obraId || String(body.obra || "").trim()) {
+        const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id });
+        body.obraId = obra.id; body.obra = obra.nome; body.obraCodigo = obra.codigo;
+      } else { body.obraId = null; body.obra = ""; }
       const record = toDatabaseRecord(body);
       delete record.id;
       delete record.criado_em;
@@ -93,7 +107,7 @@ module.exports = async function atividadesSemanaisHandler(req, res) {
         sendJson(res, 404, { error: "Atividade semanal não encontrada." });
         return;
       }
-      sendJson(res, 200, fromDatabaseRecord(data[0] || {}));
+      sendJson(res, 200, { ...fromDatabaseRecord(data[0] || {}), obraId: body.obraId, obraCodigo: body.obraCodigo || "", obra: body.obra });
       return;
     }
 

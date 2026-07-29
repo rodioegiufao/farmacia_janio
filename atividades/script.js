@@ -77,6 +77,7 @@ const statusLista = ["Atrasado", "Em progresso", "Pausado", "Finalizado"];
 const API_URL = "/api/atividades";
 const API_SEMANA_URL = "/api/atividades-semanais";
 const API_PLANNER_URL = "/api/planner-checklist";
+const API_OBRAS_URL = "/api/obras";
 const AUTH_URL = "/api/auth";
 const API_RELATORIO_WORD_URL = "/api/gerar-relatorio-word";
 const LIMITE_VISUALIZACAO_ATIVIDADES = 10;
@@ -113,6 +114,7 @@ const btnSemanaProxima = document.getElementById("btnSemanaProxima");
 const indicadorSemanaAtual = document.getElementById("indicadorSemanaAtual");
 
 let atividades = [];
+let obrasCadastradas = [];
 let atividadesSemanais = [];
 let carregando = false;
 let carregandoSemanais = false;
@@ -128,6 +130,7 @@ let plannerArrastandoId = null;
 
 const campos = {
   id: document.getElementById("atividadeId"),
+  obraId: document.getElementById("obraId"),
   colaborador: document.getElementById("colaborador"),
   obra: document.getElementById("obra"),
   prioridade: document.getElementById("prioridade"),
@@ -153,6 +156,8 @@ const filtros = {
 
 const camposSemanais = {
   id: document.getElementById("atividadeSemanalId"),
+  obraId: document.getElementById("semanaObraId"),
+  obra: document.getElementById("semanaObra"),
   semana: document.getElementById("semanaAtividade"),
   atividade: document.getElementById("tituloAtividadeSemanal"),
   prioridade: document.getElementById("prioridadeAtividadeSemanal"),
@@ -175,6 +180,7 @@ const plannerEls = {
   btnCancelar: document.getElementById("btnCancelarPlanner"),
   btnSalvar: document.getElementById("btnSalvarPlanner"),
   id: document.getElementById("plannerId"),
+  obraId: document.getElementById("plannerObraId"),
   obra: document.getElementById("plannerObra"),
   projeto: document.getElementById("plannerProjeto"),
   tipo: document.getElementById("plannerTipo"),
@@ -269,6 +275,7 @@ async function inicializar() {
   preencherSelect(filtrosDashboard.obra, [], "Todas as obras");
   preencherSelect(filtrosCalendario.colaborador, colaboradores, "Todos os colaboradores");
   preencherSelect(filtrosCalendario.status, statusLista, "Todos os status");
+  inicializarAutocompleteObras();
   if (filtrosCalendario.dataReferencia && !filtrosCalendario.dataReferencia.value) filtrosCalendario.dataReferencia.value = obterDataIsoLocal(new Date());
 
   form.addEventListener("submit", salvarAtividade);
@@ -316,6 +323,7 @@ async function inicializar() {
   btnCalendarioAnterior?.addEventListener("click", () => navegarSemanaCalendario(-1));
   btnCalendarioProximo?.addEventListener("click", () => navegarSemanaCalendario(1));
   if (usuarioAtual) {
+    await carregarObras();
     await carregarAtividades();
     await carregarAtividadesSemanais();
     await carregarPlanner();
@@ -491,7 +499,38 @@ function normalizarTexto(texto) {
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
 }
-
+function normalizarNomeObra(valor) {
+  return String(valor ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/g, " ");
+}
+function localizarObraCadastrada(valor) {
+  const digitado = String(valor || "").trim();
+  const chave = normalizarNomeObra(digitado.replace(/^OBR-\d+\s*[—-]\s*/i, ""));
+  return obrasCadastradas.find((obra) => obra.codigo.toLowerCase() === digitado.toLowerCase() || normalizarNomeObra(obra.nome) === chave) || null;
+}
+async function carregarObras() {
+  try { obrasCadastradas = await fetch(API_OBRAS_URL).then(validarResposta); }
+  catch (erro) { console.error("Não foi possível carregar o cadastro central de obras:", erro); obrasCadastradas = []; }
+  const datalist = document.getElementById("obrasCadastradas");
+  if (datalist) datalist.innerHTML = obrasCadastradas.map((obra) => `<option value="${escapeHtml(obra.nome)}" label="${escapeHtml(`${obra.codigo} — ${obra.nome}`)}"></option>`).join("");
+  atualizarOpcoesDashboard();
+}
+function configurarAutocompleteObra(input, hidden, identificacao, { opcional = false } = {}) {
+  if (!input || !hidden) return;
+  const atualizar = (canonizar = false) => {
+    const obra = localizarObraCadastrada(input.value);
+    hidden.value = obra?.id || "";
+    if (obra && canonizar) input.value = obra.nome;
+    if (identificacao) identificacao.textContent = obra ? `${obra.codigo} — ${obra.nome}` : (!input.value.trim() && opcional ? "Sem obra vinculada." : "Uma nova obra será cadastrada ao salvar.");
+  };
+  input.addEventListener("input", () => atualizar(false));
+  input.addEventListener("change", () => atualizar(true));
+  input.addEventListener("blur", () => atualizar(true));
+}
+function inicializarAutocompleteObras() {
+  configurarAutocompleteObra(campos.obra, campos.obraId, document.getElementById("obraIdentificacao"));
+  configurarAutocompleteObra(plannerEls.obra, plannerEls.obraId, document.getElementById("plannerObraIdentificacao"));
+  configurarAutocompleteObra(camposSemanais.obra, camposSemanais.obraId, document.getElementById("semanaObraIdentificacao"), { opcional: true });
+}
 async function sair() {
   await fetch(AUTH_URL, { method: "DELETE" }).catch(() => null);
   redirecionarParaLoginInicial();
@@ -521,6 +560,7 @@ async function salvarAtividade(event) {
     id: campos.id.value || gerarId(),
     colaborador: usuarioAtual?.perfil === "admin" ? campos.colaborador.value : colaboradorDoUsuario(),
     obra: campos.obra.value.trim(),
+    obraId: campos.obraId.value,
     prioridade: campos.prioridade.value,
     projeto: campos.projeto.value,
     trabalhos: campos.trabalhos.value.trim(),
@@ -544,6 +584,7 @@ async function salvarAtividade(event) {
   try {
     setFormDisabled(true);
     const atividadeSalva = await apiRequest(campos.id.value ? "PUT" : "POST", atividade);
+    await carregarObras();
     const indice = atividades.findIndex((item) => item.id === atividade.id);
 
     if (indice >= 0) {
@@ -555,6 +596,7 @@ async function salvarAtividade(event) {
     form.reset();
     preencherColaboradoresPermitidos();
     campos.id.value = "";
+    campos.obraId.value = "";
     btnCancelarEdicao.style.display = "none";
     document.getElementById("btnSalvar").textContent = "Salvar atividade";
     atualizarOpcoesDashboard();
@@ -600,7 +642,7 @@ function renderizarTabela() {
 
   const listaFiltrada = atividades.filter((atividade) => {
     const termo = filtros.busca.value.toLowerCase().trim();
-    const textoBusca = `${atividade.obra} ${atividade.trabalhos} ${atividade.observacoes}`.toLowerCase();
+    const textoBusca = `${atividade.obraCodigo} ${atividade.obra} ${atividade.projeto} ${atividade.trabalhos} ${atividade.observacoes}`.toLowerCase();
 
     const correspondeBusca = !termo || textoBusca.includes(termo);
     const correspondeData = atividadeCorrespondeAoDia(atividade, filtros.data.value);
@@ -616,13 +658,13 @@ function renderizarTabela() {
   if (atividadesPaginacao) atividadesPaginacao.innerHTML = "";
   
   if (carregando) {
-    tabela.innerHTML = `<tr><td colspan="13" class="empty">Carregando atividades do Supabase...</td></tr>`;
+    tabela.innerHTML = `<tr><td colspan="14" class="empty">Carregando atividades do Supabase...</td></tr>`;
     atualizarDashboard();
     return;
   }
 
   if (!listaFiltrada.length) {
-    tabela.innerHTML = `<tr><td colspan="13" class="empty">Nenhuma atividade encontrada.</td></tr>`;
+    tabela.innerHTML = `<tr><td colspan="14" class="empty">Nenhuma atividade encontrada.</td></tr>`;
     atualizarDashboard();
     return;
   }
@@ -644,7 +686,7 @@ function renderizarTabela() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(atividade.colaborador)}</td>
-      <td>${escapeHtml(atividade.obra)}</td>
+      <td><span class="obra-code">${escapeHtml(atividade.obraCodigo || "—")}</span></td><td>${escapeHtml(atividade.obra)}</td>
       <td><span class="badge ${classePrioridade(atividade.prioridade)}">${escapeHtml(atividade.prioridade)}</span></td>
       <td>${escapeHtml(atividade.projeto)}</td>
       <td>${escapeHtml(atividade.trabalhos)}</td>
@@ -749,6 +791,7 @@ function cancelarEdicao() {
   form.reset();
   preencherColaboradoresPermitidos();
   campos.id.value = "";
+  campos.obraId.value = "";
   btnCancelarEdicao.style.display = "none";
   document.getElementById("btnSalvar").textContent = "Salvar atividade";
 }
@@ -799,12 +842,15 @@ async function salvarAtividadeSemanal(event) {
     atividade: camposSemanais.atividade.value.trim(),
     prioridade: camposSemanais.prioridade.value,
     entregas: camposSemanais.entregas.value.trim(),
-    descricao: camposSemanais.descricao.value.trim()
+    descricao: camposSemanais.descricao.value.trim(),
+    obraId: camposSemanais.obraId.value || null,
+    obra: camposSemanais.obra.value.trim()
   };
 
   try {
     setFormSemanalDisabled(true);
     const atividadeSalva = await apiRequestSemanal(camposSemanais.id.value ? "PUT" : "POST", atividadeSemanal);
+    await carregarObras();
     const indice = atividadesSemanais.findIndex((item) => item.id === atividadeSalva.id);
 
     if (indice >= 0) {
@@ -828,7 +874,7 @@ function obterAtividadesSemanaisFiltradas() {
   const termo = filtrosSemanais.busca.value.toLowerCase().trim();
   const semanaSelecionada = filtrosSemanais.semana.value;
   return atividadesSemanais.filter((atividadeSemanal) => {
-    const textoBusca = `${atividadeSemanal.semana} ${atividadeSemanal.atividade} ${atividadeSemanal.descricao} ${atividadeSemanal.prioridade} ${atividadeSemanal.entregas}`.toLowerCase();
+    const textoBusca = `${atividadeSemanal.obraCodigo} ${atividadeSemanal.obra} ${atividadeSemanal.semana} ${atividadeSemanal.atividade} ${atividadeSemanal.descricao} ${atividadeSemanal.prioridade} ${atividadeSemanal.entregas}`.toLowerCase();
     const correspondeBusca = !termo || textoBusca.includes(termo);
     const correspondeSemana = !semanaSelecionada || atividadeSemanal.semana === semanaSelecionada;
     return correspondeBusca && correspondeSemana;
@@ -1014,6 +1060,7 @@ function criarItemAtividadeSemanal(atividadeSemanal, podeGerenciarAtividadesSema
         <div class="weekly-activity-title-row">
           <strong>${escapeHtml(atividadeSemanal.atividade || "Atividade sem título")}</strong>
           ${atividadeSemanal.prioridade ? `<span class="badge ${classePrioridade(atividadeSemanal.prioridade)}">${escapeHtml(atividadeSemanal.prioridade)}</span>` : ""}
+          ${atividadeSemanal.obraId ? `<span class="badge obra-badge">${escapeHtml(`${atividadeSemanal.obraCodigo} — ${atividadeSemanal.obra}`)}</span>` : ""}
         </div>
         ${atividadeSemanal.entregas ? `<p class="weekly-activity-deliveries"><i class="fas fa-box-open" aria-hidden="true"></i> <strong>Entregas:</strong> ${escapeHtml(atividadeSemanal.entregas)}</p>` : ""}
         <p>${escapeHtml(atividadeSemanal.descricao || "Sem descrição cadastrada.")}</p>
@@ -1071,6 +1118,9 @@ function editarAtividadeSemanal(id) {
   camposSemanais.prioridade.value = atividadeSemanal.prioridade || prioridades[0];
   camposSemanais.entregas.value = atividadeSemanal.entregas || "";
   camposSemanais.descricao.value = atividadeSemanal.descricao || "";
+  camposSemanais.obraId.value = atividadeSemanal.obraId || "";
+  camposSemanais.obra.value = atividadeSemanal.obra || "";
+  document.getElementById("semanaObraIdentificacao").textContent = atividadeSemanal.obraId ? `${atividadeSemanal.obraCodigo} — ${atividadeSemanal.obra}` : "Sem obra vinculada.";
   btnCancelarEdicaoSemanal.style.display = "inline-block";
   btnSalvarAtividadeSemanal.textContent = "Atualizar atividade semanal";
   document.getElementById("semanaSection").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1098,6 +1148,8 @@ async function excluirAtividadeSemanal(id) {
 function limparFormularioSemanal() {
   formSemanal.reset();
   camposSemanais.id.value = "";
+  camposSemanais.obraId.value = "";
+  document.getElementById("semanaObraIdentificacao").textContent = "Sem obra vinculada.";
   btnCancelarEdicaoSemanal.style.display = "none";
   btnSalvarAtividadeSemanal.textContent = "Salvar atividade semanal";
 }
@@ -1245,7 +1297,7 @@ function criarEventoCalendario(atividade) {
 }
 
 function obterTituloEventoCalendario(atividade) {
-  return `${atividade.colaborador || "Sem colaborador"} - ${atividade.trabalhos || "Atividade"} (${atividade.status || "Sem status"})`;
+  return `${atividade.obraCodigo ? `${atividade.obraCodigo} — ` : ""}${atividade.obra || "Obra não informada"}\n${atividade.trabalhos || "Atividade"} (${atividade.status || "Sem status"})`;
 }
 function atualizarDashboard() {
   const listaDashboard = filtrarAtividadesDashboard();
@@ -1274,7 +1326,7 @@ function filtrarAtividadesDashboard() {
     const correspondeStatus = !filtrosDashboard.status.value || atividade.status === filtrosDashboard.status.value;
     const correspondePrioridade = !filtrosDashboard.prioridade.value || atividade.prioridade === filtrosDashboard.prioridade.value;
     const correspondeProjeto = !filtrosDashboard.projeto.value || atividade.projeto === filtrosDashboard.projeto.value;
-    const correspondeObra = !filtrosDashboard.obra.value || atividade.obra === filtrosDashboard.obra.value;
+    const correspondeObra = !filtrosDashboard.obra.value || (atividade.obraId || `legado:${normalizarNomeObra(atividade.obra)}`) === filtrosDashboard.obra.value;
 
     return dentroPeriodo && correspondeColaborador && correspondeStatus && correspondePrioridade && correspondeProjeto && correspondeObra;
   });
@@ -1314,7 +1366,12 @@ function obterDataReferenciaAtividade(atividade) {
 
 // Considera projeto trabalhado como combinação única de obra + projeto.
 function contarProjetosTrabalhados(lista) {
-  return new Set(lista.map((a) => `${normalizarTexto(a.obra)}|${normalizarTexto(a.projeto)}`).filter((chave) => chave !== "|")).size;
+  return new Set(lista.map(chaveProjetoAtividade).filter((chave) => chave !== "legado:|")).size;
+}
+
+function chaveProjetoAtividade(atividade) {
+  const identidadeObra = atividade.obraId || `legado:${normalizarNomeObra(atividade.obra)}`;
+  return `${identidadeObra}|${normalizarTexto(atividade.projeto)}`;
 }
 
 function renderizarResumoColaboradores(lista) {
@@ -1491,9 +1548,9 @@ function obterMesesFinalizados(lista) {
 
 function atualizarOpcoesDashboard() {
   const valorObra = filtrosDashboard.obra.value;
-  const obras = [...new Set(atividades.map((a) => a.obra).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  preencherSelect(filtrosDashboard.obra, obras, "Todas as obras");
-  if (obras.includes(valorObra)) filtrosDashboard.obra.value = valorObra;
+  filtrosDashboard.obra.innerHTML = '<option value="">Todas as obras</option>';
+  obrasCadastradas.forEach((obra) => { const option = document.createElement("option"); option.value = obra.id; option.textContent = `${obra.codigo} — ${obra.nome}`; filtrosDashboard.obra.appendChild(option); });
+  if ([...filtrosDashboard.obra.options].some((option) => option.value === valorObra)) filtrosDashboard.obra.value = valorObra;
 }
 
 async function gerarRelatorioWord() {
@@ -1773,10 +1830,9 @@ function exportarCSV() {
   }
 
   const cabecalho = [
+    "ID da atividade", "ID da Obra", "Código da Obra", "Nome da Obra", "Projeto/Disciplina",
     "Colaborador",
-    "Nome da obra",
     "Prioridade",
-    "Projeto",
     "Trabalhos",
     "Etapa",
     "Data de início",
@@ -1790,10 +1846,9 @@ function exportarCSV() {
   ];
 
   const linhas = atividades.map((a) => [
+    a.id, a.obraId, a.obraCodigo, a.obra, a.projeto,
     a.colaborador,
-    a.obra,
     a.prioridade,
-    a.projeto,
     a.trabalhos,
     a.etapa,
     a.dataInicio,
@@ -2131,7 +2186,7 @@ async function salvarChecklistPlanner(event) {
   if (!responsaveis.length) return mostrarMensagemPlanner("Selecione pelo menos uma pessoa responsável do setor.");
   const modelo = obterModeloPlannerSelecionado();
   if (!modelo) return mostrarMensagemPlanner("Não existe modelo para o Projeto e Tipo selecionados.");
-  const payload = { obra: plannerEls.obra.value.trim(), projeto: modelo.projeto.trim(), tipo: modelo.tipo.trim(), status: plannerEls.statusTarefa.value, prioridade: plannerEls.prioridade.value, dataInicio: plannerEls.dataInicio.value, dataConclusao: plannerEls.dataConclusao.value, bucket: obterBucketDoProjeto(modelo.projeto, modelo.codigoProjeto), responsaveis, anotacoes: plannerEls.anotacoes.value.trim() };
+  const payload = { obra: plannerEls.obra.value.trim(), obraId: plannerEls.obraId.value, projeto: modelo.projeto.trim(), tipo: modelo.tipo.trim(), status: plannerEls.statusTarefa.value, prioridade: plannerEls.prioridade.value, dataInicio: plannerEls.dataInicio.value, dataConclusao: plannerEls.dataConclusao.value, bucket: obterBucketDoProjeto(modelo.projeto, modelo.codigoProjeto), responsaveis, anotacoes: plannerEls.anotacoes.value.trim() };
   const nome = plannerEls.nomeTarefa.value.trim(); if (nome) payload.nomeTarefa = nome;
   try {
     plannerEls.btnSalvar.disabled = true;
@@ -2146,7 +2201,7 @@ function agruparItensPlannerPorEtapa(itens = []) { const groups = new Map(); ite
 function checklistsPlannerFiltrados() {
   const busca = normalizarOpcaoPlanner(plannerEls.busca?.value);
   return plannerChecklists.filter((checklist) => {
-    const texto = [checklist.obra, checklist.nomeTarefa, checklist.projeto, checklist.tipo, checklist.responsavel, checklist.codigoProjeto, ...(checklist.itens || []).flatMap((item) => [item.etapa, item.estagio, item.atividade, item.texto, item.responsavel, item.observacoes, formatarPrazoItemPlanner(item)])].join(" ");
+    const texto = [checklist.obraCodigo, checklist.obra, checklist.nomeTarefa, checklist.projeto, checklist.tipo, checklist.responsavel, checklist.codigoProjeto, ...(checklist.itens || []).flatMap((item) => [item.etapa, item.estagio, item.atividade, item.texto, item.responsavel, item.observacoes, formatarPrazoItemPlanner(item)])].join(" ");
     return (!busca || normalizarOpcaoPlanner(texto).includes(busca)) && (!plannerEls.filtroStatus?.value || checklist.status === plannerEls.filtroStatus.value) && (!plannerEls.filtroPrioridade?.value || checklist.prioridade === plannerEls.filtroPrioridade.value) && (!plannerEls.filtroResponsavel?.value || nomesResponsaveisPlanner(checklist).includes(plannerEls.filtroResponsavel.value)) && (!plannerEls.filtroPrazo?.value || (checklist.itens || []).some((item) => { const estado = obterSituacaoPrazoItemPlanner(item); return plannerEls.filtroPrazo.value === "agendados" ? estado !== "sem-prazo" : estado === plannerEls.filtroPrazo.value; }));
   });
 }
@@ -2177,7 +2232,7 @@ function criarCardPlanner(checklist) {
   const atrasada = checklist.dataConclusao && new Date(`${checklist.dataConclusao}T23:59:59`) < new Date() && p.percentual < 100;
   const responsaveis = nomesResponsaveisPlanner(checklist); const nomes = responsaveis.join(", ");
   const iniciais = responsaveis.length ? responsaveis.map((nome) => nome[0]).join("").slice(0, 3).toUpperCase() : "?";
-  return `<article class="planner-card" role="button" tabindex="0" draggable="${usuarioAtualEhAdmin()}" data-planner-id="${escapeHtml(checklist.id)}" aria-label="Abrir tarefa ${escapeHtml(titulo)}"><div class="planner-card-top"><span class="planner-code">${escapeHtml(checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto))}</span><span class="planner-avatar" title="${escapeHtml(nomes || "Sem responsável")}">${escapeHtml(iniciais)}</span></div><p class="planner-card-work">${escapeHtml(checklist.obra)}</p><h3>${escapeHtml(titulo)}</h3><p class="planner-card-project">${escapeHtml(checklist.projeto)}</p><p class="planner-card-type">${escapeHtml(checklist.tipo)}</p><div class="planner-card-badges"><span class="badge ${classeStatus(checklist.status || "Não iniciado")}">${escapeHtml(checklist.status || "Não iniciado")}</span><span class="badge ${classePrioridade(checklist.prioridade || "P1")}">${escapeHtml(checklist.prioridade || "P1")}</span></div><p class="planner-due ${atrasada ? "overdue" : ""}"><i class="far fa-calendar"></i> ${checklist.dataConclusao ? formatarData(checklist.dataConclusao) : "Sem conclusão"}</p><div class="planner-card-checklist">${grupos.map(criarGrupoCardPlanner).join("")}</div><footer class="planner-footer"><span><i class="far fa-square-check"></i> ${p.concluidos} / ${p.total}</span>${resumo.agendados ? `<span>📅 ${resumo.agendados}</span>` : ""}${resumo.hoje ? `<span>Hoje ${resumo.hoje}</span>` : ""}${resumo.atrasados ? `<span>⚠ ${resumo.atrasados}</span>` : ""}<strong>${p.percentual}%</strong></footer><div class="planner-progress-bar"><span style="width:${p.percentual}%"></span></div></article>`;
+  return `<article class="planner-card" role="button" tabindex="0" draggable="${usuarioAtualEhAdmin()}" data-planner-id="${escapeHtml(checklist.id)}" aria-label="Abrir tarefa ${escapeHtml(titulo)}"><div class="planner-card-top"><span class="planner-code">${escapeHtml(checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto))}</span><span class="planner-code obra-code">${escapeHtml(checklist.obraCodigo || "—")}</span><span class="planner-avatar" title="${escapeHtml(nomes || "Sem responsável")}">${escapeHtml(iniciais)}</span></div><p class="planner-card-work">${escapeHtml(checklist.obra)}</p><h3>${escapeHtml(titulo)}</h3><p class="planner-card-project">${escapeHtml(checklist.projeto)}</p><p class="planner-card-type">${escapeHtml(checklist.tipo)}</p><div class="planner-card-badges"><span class="badge ${classeStatus(checklist.status || "Não iniciado")}">${escapeHtml(checklist.status || "Não iniciado")}</span><span class="badge ${classePrioridade(checklist.prioridade || "P1")}">${escapeHtml(checklist.prioridade || "P1")}</span></div><p class="planner-due ${atrasada ? "overdue" : ""}"><i class="far fa-calendar"></i> ${checklist.dataConclusao ? formatarData(checklist.dataConclusao) : "Sem conclusão"}</p><div class="planner-card-checklist">${grupos.map(criarGrupoCardPlanner).join("")}</div><footer class="planner-footer"><span><i class="far fa-square-check"></i> ${p.concluidos} / ${p.total}</span>${resumo.agendados ? `<span>📅 ${resumo.agendados}</span>` : ""}${resumo.hoje ? `<span>Hoje ${resumo.hoje}</span>` : ""}${resumo.atrasados ? `<span>⚠ ${resumo.atrasados}</span>` : ""}<strong>${p.percentual}%</strong></footer><div class="planner-progress-bar"><span style="width:${p.percentual}%"></span></div></article>`;
 }
 function criarDataLocalPlanner(valor) { if (!valor) return null; const [ano, mes, dia] = valor.split("-").map(Number); return ano && mes && dia ? new Date(ano, mes - 1, dia) : null; }
 function criarDataHoraLocalPlanner(data, hora = "") { if (!data) return null; const [ano, mes, dia] = data.split("-").map(Number); const [horas = 23, minutos = 59] = hora ? hora.split(":").map(Number) : [23, 59]; return new Date(ano, mes - 1, dia, horas, minutos, 0, 0); }
@@ -2226,7 +2281,7 @@ async function moverChecklistPlanner(id, novoBucket) {
 
 function abrirDetalhesPlanner(id) {
   const checklist = plannerChecklists.find((item) => String(item.id) === String(id)); if (!checklist) return; plannerDetalheAtualId = checklist.id; const p = calcularProgressoPlanner(checklist);
-  plannerEls.detalheId.value = checklist.id; plannerEls.detalheTag.textContent = checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto); plannerEls.detalheTitulo.value = checklist.nomeTarefa || `${checklist.projeto} — ${checklist.tipo}`; plannerEls.detalheObra.textContent = `${checklist.obra} • ${checklist.projeto} / ${checklist.tipo}`;
+  plannerEls.detalheId.value = checklist.id; plannerEls.detalheTag.textContent = checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto); plannerEls.detalheTitulo.value = checklist.nomeTarefa || `${checklist.projeto} — ${checklist.tipo}`; plannerEls.detalheObra.textContent = `Obra: ${checklist.obraCodigo ? `${checklist.obraCodigo} — ` : ""}${checklist.obra} • ${checklist.projeto} / ${checklist.tipo}`;
   selecionarResponsaveisPlanner(plannerEls.detalheResponsavel, checklist.responsaveis || checklist.responsavel); plannerEls.detalheStatus.value = checklist.status || "Não iniciado"; plannerEls.detalhePrioridade.value = ["P0","P1","P2","P3"].includes(checklist.prioridade) ? checklist.prioridade : "P1"; plannerEls.detalheDataInicio.value = checklist.dataInicio || ""; plannerEls.detalheDataConclusao.value = checklist.dataConclusao || ""; plannerEls.detalheBucket.value = checklist.bucket || obterBucketDoProjeto(checklist.projeto, checklist.codigoProjeto); plannerEls.detalheAnotacoes.value = checklist.anotacoes || ""; const resumoPrazos = calcularResumoPrazosPlanner(checklist); const partesResumo = [resumoPrazos.agendados && `${resumoPrazos.agendados} agendados`, resumoPrazos.hoje && `${resumoPrazos.hoje} hoje`, resumoPrazos.atrasados && `${resumoPrazos.atrasados} atrasados`].filter(Boolean); plannerEls.detalheChecklistTitulo.textContent = `Lista de verificação (${p.concluidos}/${p.total} · ${p.percentual}%)${partesResumo.length ? ` — ${partesResumo.join(" · ")}` : ""}`;
   plannerEls.detalheChecklist.innerHTML = agruparItensPlannerPorEtapa(checklist.itens).map((grupo) => { const gp = calcularProgressoPlanner({ itens: grupo.itens }); const state = gp.concluidos === gp.total && gp.total ? "true" : gp.concluidos ? "mixed" : "false"; return `<section class="planner-detail-group" data-detail-group><div class="planner-detail-group-head"><button type="button" class="planner-stage-check ${state === "true" ? "done" : ""}" data-stage-toggle data-item-ids="${grupo.itens.map(i=>escapeHtml(i.id)).join(",")}" data-concluido="${state !== "true"}" aria-checked="${state}" role="checkbox"><i class="fas fa-check"></i></button><strong>${escapeHtml(grupo.etapa)}</strong><span>${gp.concluidos}/${gp.total} · ${gp.percentual}%</span><button type="button" class="planner-expand" data-detail-expand aria-expanded="true" aria-label="Recolher etapa">⌄</button></div><div class="planner-stage-progress"><span style="width:${gp.percentual}%"></span></div><div class="planner-detail-items">${grupo.itens.map(item => `<div class="planner-task-row ${item.concluido ? "done" : ""}"><button type="button" class="planner-item-check" data-item-toggle data-item-id="${escapeHtml(item.id)}" data-concluido="${!item.concluido}" role="checkbox" aria-checked="${item.concluido}"><span class="planner-check-circle"><i class="fas fa-check"></i></span></button><button type="button" class="planner-item-content" data-detail-item data-item-id="${escapeHtml(item.id)}"><span class="planner-item-name">${escapeHtml(item.estagio || item.atividade || item.texto)}</span>${renderizarMetadadosItemPlanner(item, checklist)}<span aria-hidden="true">›</span></button></div>`).join("")}</div></section>`; }).join("");
   const admin = usuarioAtualEhAdmin(); [plannerEls.detalheTitulo, plannerEls.detalheResponsavel, plannerEls.detalheStatus, plannerEls.detalhePrioridade, plannerEls.detalheDataInicio, plannerEls.detalheDataConclusao, plannerEls.detalheBucket, plannerEls.detalheAnotacoes].forEach((el) => { if (el) el.disabled = !admin; }); plannerEls.detalheModal.hidden = false; plannerEls.detalheTitulo.focus();

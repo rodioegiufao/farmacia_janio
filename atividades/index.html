@@ -93,7 +93,7 @@
       </div>
 
       <form id="atividadeForm" class="form-grid">
-        <input type="hidden" id="atividadeId" />
+        <input type="hidden" id="obraId" />
 
         <label>
           Colaborador
@@ -102,7 +102,8 @@
 
         <label>
           Nome da obra
-          <input type="text" id="obra" placeholder="Ex.: Ampliação do HGR" required />
+          <input type="text" id="obra" list="obrasCadastradas" autocomplete="off" placeholder="Ex.: Ampliação do HGR" required />
+          <small id="obraIdentificacao">Digite o nome para cadastrar ou selecione uma obra existente.</small>
         </label>
 
         <label>
@@ -202,7 +203,7 @@
             <thead>
               <tr>
                 <th>Colaborador</th>
-                <th>Obra</th>
+                <th>ID da obra</th><th>Obra</th>
                 <th>Prioridade</th>
                 <th>Projeto</th>
                 <th>Trabalhos</th>
@@ -359,7 +360,8 @@
         <p>Selecione Projeto + Tipo para gerar automaticamente a lista de verificação da aba Descricionado.</p>
         <form id="plannerForm" class="form-grid planner-form">
           <input type="hidden" id="plannerId" />
-          <label>Nome da obra<input type="text" id="plannerObra" placeholder="Ex.: Escola Nova Canaã" required /></label>
+          <input type="hidden" id="plannerObraId" />
+          <label>Nome da obra<input type="text" id="plannerObra" list="obrasCadastradas" autocomplete="off" placeholder="Ex.: Escola Nova Canaã" required /><small id="plannerObraIdentificacao">Digite ou selecione uma obra.</small></label>
           <label>Nome da tarefa <span class="optional">(opcional)</span><input type="text" id="plannerNomeTarefa" placeholder="Preenchido a partir do projeto e tipo" /></label>
           <label>Projeto<select id="plannerProjeto" required></select></label>
           <label>Tipo<select id="plannerTipo" required></select></label>
@@ -459,6 +461,7 @@
         <!-- Formulário simples para cadastro e edição de atividades semanais. -->
         <form id="atividadeSemanalForm" class="form-grid weekly-form">
           <input type="hidden" id="atividadeSemanalId" />
+          <input type="hidden" id="semanaObraId" />
 
           <label>
             Semana
@@ -468,7 +471,8 @@
           <label>
             Atividade
             <input type="text" id="tituloAtividadeSemanal" placeholder="Ex.: Revisão dos projetos elétricos" required />
-          </label>
+          </label>]
+          <label>Obra/Projeto vinculado <span class="optional">(opcional)</span><input type="text" id="semanaObra" list="obrasCadastradas" autocomplete="off" placeholder="Nome ou código da obra" /><small id="semanaObraIdentificacao">Sem obra vinculada.</small></label>
           <label>
             Prioridade
             <select id="prioridadeAtividadeSemanal" required></select>
@@ -488,6 +492,7 @@
             <button type="button" class="secondary" id="btnLimparFormularioSemanal">Limpar formulário</button>
           </div>
         </form>
+        <datalist id="obrasCadastradas"></datalist>
       </div>
       <section class="weekly-list-section" aria-labelledby="weeklyListTitle">
         <div class="panel-header records-header">

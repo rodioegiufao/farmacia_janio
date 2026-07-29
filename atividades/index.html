@@ -367,15 +367,15 @@
           <label>Prioridade<select id="plannerPrioridade" required></select></label>
           <label>Data de início<input type="date" id="plannerDataInicio" /></label>
           <label>Data de conclusão<input type="date" id="plannerDataConclusao" /></label>
-           <label>Responsável
-            <select id="plannerResponsavel" required>
-              <option value="">Selecione uma pessoa</option>
+           <label>Responsáveis <span class="optional">(selecione um ou mais)</span>
+            <select id="plannerResponsavel" class="planner-responsaveis-select" multiple size="5" required aria-describedby="plannerResponsavelAjuda">
               <option value="Geovanna">Geovanna</option>
               <option value="Bruno">Bruno</option>
               <option value="Rodrigo">Rodrigo</option>
               <option value="Hellen">Hellen</option>
               <option value="Rian">Rian</option>
             </select>
+            <small id="plannerResponsavelAjuda">Use Ctrl (Windows) ou Command (Mac) para selecionar várias pessoas.</small>
           </label>
           <label class="span-2">Anotações<textarea id="plannerAnotacoes" rows="5" placeholder="Recebimentos:
 - Recebimento do Projeto Arquitetônico no dia XX/XX/20XX"></textarea></label>
@@ -398,7 +398,7 @@
         <form id="plannerDetalhesForm" class="planner-detail-body">
           <input type="hidden" id="plannerDetalhesId" />
           <div class="planner-field-grid">
-            <label>Responsável<input type="text" id="plannerDetalhesResponsavel" /></label>
+            <label>Responsáveis <span class="optional">(um ou mais)</span><select id="plannerDetalhesResponsavel" class="planner-responsaveis-select" multiple size="5"><option value="Geovanna">Geovanna</option><option value="Bruno">Bruno</option><option value="Rodrigo">Rodrigo</option><option value="Hellen">Hellen</option><option value="Rian">Rian</option></select></label>
             <label>Status<select id="plannerDetalhesStatus" class="planner-status-select"></select></label>
             <label>Prioridade<select id="plannerDetalhesPrioridade" class="planner-priority-select"></select></label>
             <label>Data de início<input type="date" id="plannerDetalhesDataInicio" /></label>

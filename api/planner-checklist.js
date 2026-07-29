@@ -8,6 +8,7 @@ const {
 const CHECKLISTS_TABLE = "planner_checklists";
 const ITEMS_TABLE = "planner_checklist_itens";
 const BUCKET_PADRAO = "Projeto Elétrico Baixa Tensão";
+const RESPONSAVEIS_VALIDOS = ["Geovanna", "Bruno", "Rodrigo", "Hellen", "Rian"];
 
 
 function requireAdmin(user) {
@@ -17,13 +18,25 @@ function requireAdmin(user) {
   throw error;
 }
 function texto(valor) { return String(valor ?? "").trim(); }
+function listarResponsaveis(valor) {
+  if (Array.isArray(valor)) return [...new Set(valor.map(texto).filter(Boolean))];
+  const bruto = texto(valor);
+  if (!bruto) return [];
+  try { const parsed = JSON.parse(bruto); if (Array.isArray(parsed)) return [...new Set(parsed.map(texto).filter(Boolean))]; } catch (_) { /* Compatibilidade com registros antigos. */ }
+  return [...new Set(bruto.split(/\s*(?:\||·|,|;)\s*/).map(texto).filter(Boolean))];
+}
+function serializarResponsaveis(valor) {
+  const nomes = listarResponsaveis(valor);
+  if (!nomes.length || nomes.some((nome) => !RESPONSAVEIS_VALIDOS.includes(nome))) return "";
+  return JSON.stringify(nomes);
+}
 function nomesCorrespondem(nomeUsuario, responsavel) {
   const usuario = normalizarChavePlanner(nomeUsuario);
-  const atribuido = normalizarChavePlanner(responsavel);
-  if (!usuario || !atribuido) return false;
-  return usuario === atribuido
-    || usuario.startsWith(`${atribuido} `)
-    || atribuido.startsWith(`${usuario} `);
+  if (!usuario) return false;
+  return listarResponsaveis(responsavel).some((nome) => {
+    const atribuido = normalizarChavePlanner(nome);
+    return atribuido && (usuario === atribuido || usuario.startsWith(`${atribuido} `) || atribuido.startsWith(`${usuario} `));
+  });
 }
 function checklistVisivelParaUsuario(record, user) {
   if (user?.perfil === "admin") return true;
@@ -95,7 +108,8 @@ function fromDatabaseRecord(record) {
     prioridade: ["P0", "P1", "P2", "P3"].includes(record.prioridade) ? record.prioridade : "P1",
     dataInicio: record.data_inicio || "",
     dataConclusao: record.data_conclusao || record.data_prevista || "",
-    responsavel: texto(record.responsavel),
+    responsavel: listarResponsaveis(record.responsavel).join(" · "),
+    responsaveis: listarResponsaveis(record.responsavel),
     anotacoes: texto(record.anotacoes || record.observacoes),
     bucket: texto(record.bucket) || (modelo ? BUCKET_PADRAO : "Outros"),
     itens: mapItems(record.planner_checklist_itens || record.itens || [], modelo),
@@ -143,13 +157,15 @@ module.exports = async function plannerChecklistHandler(req, res) {
       if (!texto(body.obra) || !texto(body.projeto) || !texto(body.tipo)) return sendJson(res, 400, { mensagem: "Nome da obra, projeto e tipo são obrigatórios." });
       const modelo = localizarModeloPlanner(body.projeto, body.tipo);
       if (!modelo) return sendJson(res, 422, { mensagem: "Projeto + Tipo não corresponde a um modelo do Planner." });
+      const responsaveis = serializarResponsaveis(body.responsaveis ?? body.responsavel);
+      if (!responsaveis) return sendJson(res, 422, { mensagem: "Selecione pelo menos um responsável válido." });
       const agora = new Date().toISOString();
       const checklistRows = await supabaseRequest(CHECKLISTS_TABLE, "", { method: "POST", body: JSON.stringify({
         obra: texto(body.obra), nome_tarefa: texto(body.nomeTarefa) || `${modelo.projeto} — ${modelo.tipo}`,
         projeto: modelo.projeto, tipo: modelo.tipo, codigo_projeto: modelo.codigoProjeto,
         status: texto(body.status) || "Não iniciado", prioridade: ["P0", "P1", "P2", "P3"].includes(body.prioridade) ? body.prioridade : "P1",
         data_inicio: body.dataInicio || null, data_conclusao: body.dataConclusao || null,
-        bucket: texto(body.bucket) || BUCKET_PADRAO, responsavel: texto(body.responsavel) || null,
+        bucket: texto(body.bucket) || BUCKET_PADRAO, responsavel: responsaveis,
         anotacoes: texto(body.anotacoes) || null, criado_por: user.id, criado_por_nome: user.nome, atualizado_em: agora
       }) });
       const checklist = checklistRows[0];
@@ -196,9 +212,14 @@ module.exports = async function plannerChecklistHandler(req, res) {
       requireAdmin(user);
       if (!body.id) return sendJson(res, 400, { mensagem: "Informe o ID da tarefa." });
       const patch = {};
-      [["nomeTarefa", "nome_tarefa"], ["status", "status"], ["prioridade", "prioridade"], ["dataInicio", "data_inicio"], ["dataConclusao", "data_conclusao"], ["bucket", "bucket"], ["responsavel", "responsavel"], ["anotacoes", "anotacoes"]].forEach(([from, to]) => {
+      [["nomeTarefa", "nome_tarefa"], ["status", "status"], ["prioridade", "prioridade"], ["dataInicio", "data_inicio"], ["dataConclusao", "data_conclusao"], ["bucket", "bucket"], ["anotacoes", "anotacoes"]].forEach(([from, to]) => {
         if (Object.prototype.hasOwnProperty.call(body, from)) patch[to] = texto(body[from]) || null;
       });
+      if (Object.prototype.hasOwnProperty.call(body, "responsaveis") || Object.prototype.hasOwnProperty.call(body, "responsavel")) {
+        const responsaveis = serializarResponsaveis(body.responsaveis ?? body.responsavel);
+        if (!responsaveis) return sendJson(res, 422, { mensagem: "Selecione pelo menos um responsável válido." });
+        patch.responsavel = responsaveis;
+      }
       patch.atualizado_em = new Date().toISOString();
       const rows = await supabaseRequest(CHECKLISTS_TABLE, `?id=eq.${encodeURIComponent(body.id)}&select=*,planner_checklist_itens(*)`, { method: "PATCH", body: JSON.stringify(patch) });
       if (!rows?.length) return sendJson(res, 404, { mensagem: "Tarefa não encontrada." });

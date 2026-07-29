@@ -1366,6 +1366,10 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 
 .planner-modal-card h2 { color: var(--text-lighter); margin-bottom: 6px; }
 .planner-modal-card p { margin-bottom: 18px; opacity: 0.82; }
+.planner-responsaveis-select { min-height: 132px; padding: 6px; }
+.planner-responsaveis-select option { padding: 7px 10px; border-radius: 6px; }
+.planner-responsaveis-select option:checked { color: #fff; background: var(--accent-light); }
+.planner-responsaveis-select + small { display: block; margin-top: 6px; color: var(--text-muted); font-weight: 500; line-height: 1.35; }
 .planner-modal-close { position: absolute; top: 12px; right: 14px; padding: 0; color: var(--text-lighter); background: transparent; font-size: 1.6rem; box-shadow: none; }
 .planner-modal-close:hover { transform: none; box-shadow: none; }
 

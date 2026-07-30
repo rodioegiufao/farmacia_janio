@@ -1,3 +1,8 @@
+const {
+  consolidarAtividades,
+  consolidarAtividadesPorColaborador,
+  normalizarNomeObra: normalizarNomeObraAgrupamento
+} = globalThis.ATIVIDADE_AGRUPAMENTO;
 const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const prioridades = ["P0", "P1", "P2", "P3"];
 const plannerStatusLista = ["Não iniciado", "Em andamento", "Concluído", "Atrasado", "Pausado"];
@@ -1343,7 +1348,8 @@ function obterTituloEventoCalendario(atividade) {
   return `${atividade.obraCodigo ? `${atividade.obraCodigo} — ` : ""}${atividade.obra || "Obra não informada"}\n${atividade.trabalhos || "Atividade"} (${atividade.status || "Sem status"})`;
 }
 function atualizarDashboard() {
-  const listaDashboard = filtrarAtividadesDashboard();
+  const registrosFiltrados = filtrarRegistrosDashboard();
+  const listaDashboard = aplicarFiltrosConsolidadosDashboard(consolidarAtividades(registrosFiltrados));
   const total = listaDashboard.length;
   const finalizadas = listaDashboard.filter((a) => a.status === "Finalizado").length;
 
@@ -1359,20 +1365,30 @@ function atualizarDashboard() {
   renderizarGraficosDashboard(listaDashboard);
 }
 
-function filtrarAtividadesDashboard() {
+function filtrarRegistrosDashboard() {
   const periodo = obterIntervaloDashboard();
 
   return atividades.filter((atividade) => {
     const dataReferencia = obterDataReferenciaAtividade(atividade);
     const dentroPeriodo = !dataReferencia || (dataReferencia >= periodo.inicio && dataReferencia <= periodo.fim);
     const correspondeColaborador = !filtrosDashboard.colaborador.value || atividade.colaborador === filtrosDashboard.colaborador.value;
+    const correspondeProjeto = !filtrosDashboard.projeto.value || atividade.projeto === filtrosDashboard.projeto.value;
+    const identidadeObra = atividade.obraId || `legado:${normalizarNomeObraAgrupamento(atividade.obra)}`;
+    const correspondeObra = !filtrosDashboard.obra.value || identidadeObra === filtrosDashboard.obra.value;
+    return dentroPeriodo && correspondeColaborador && correspondeProjeto && correspondeObra;
+  });
+}
+
+function aplicarFiltrosConsolidadosDashboard(lista) {
+  return lista.filter((atividade) => {
     const correspondeStatus = !filtrosDashboard.status.value || atividade.status === filtrosDashboard.status.value;
     const correspondePrioridade = !filtrosDashboard.prioridade.value || atividade.prioridade === filtrosDashboard.prioridade.value;
-    const correspondeProjeto = !filtrosDashboard.projeto.value || atividade.projeto === filtrosDashboard.projeto.value;
-    const correspondeObra = !filtrosDashboard.obra.value || (atividade.obraId || `legado:${normalizarNomeObra(atividade.obra)}`) === filtrosDashboard.obra.value;
-
-    return dentroPeriodo && correspondeColaborador && correspondeStatus && correspondePrioridade && correspondeProjeto && correspondeObra;
+    return correspondeStatus && correspondePrioridade;
   });
+}
+
+function filtrarAtividadesDashboard() {
+  return aplicarFiltrosConsolidadosDashboard(consolidarAtividades(filtrarRegistrosDashboard()));
 }
 
 function obterIntervaloDashboard() {
@@ -1437,7 +1453,8 @@ function renderizarResumoColaboradores(lista) {
 }
 
 function agruparPorColaborador(lista) {
-  return lista.reduce((acc, atividade) => {
+  const registros = lista.flatMap((atividade) => atividade.registros || [atividade]);
+  return consolidarAtividadesPorColaborador(registros).reduce((acc, atividade) => {
     const nome = atividade.colaborador || "Sem colaborador";
     acc[nome] ||= { total: 0, finalizadas: 0, progresso: 0, atrasadas: 0, horas: 0, projetosSet: new Set(), projetos: 0 };
     acc[nome].total += 1;
@@ -1445,7 +1462,7 @@ function agruparPorColaborador(lista) {
     acc[nome].progresso += atividade.status === "Em progresso" ? 1 : 0;
     acc[nome].atrasadas += atividade.status === "Atrasado" ? 1 : 0;
     acc[nome].horas += calcularHorasAtividade(atividade);
-    acc[nome].projetosSet.add(`${normalizarTexto(atividade.obra)}|${normalizarTexto(atividade.projeto)}`);
+    acc[nome].projetosSet.add(chaveProjetoAtividade(atividade));
     acc[nome].projetos = acc[nome].projetosSet.size;
     return acc;
   }, {});
@@ -1472,16 +1489,21 @@ function renderizarGraficosDashboard(lista) {
 }
 
 function obterChaveProjetoObra(atividade) {
-  const obra = (atividade.obra || "Obra não informada").trim();
-  const projeto = (atividade.projeto || "Projeto não informado").trim();
-  return `${obra} — ${projeto}`;
+  return chaveProjetoAtividade(atividade);
+}
+
+function obterEtiquetaProjetoObra(atividade) {
+  const codigo = String(atividade.obraCodigo || "").trim();
+  const obra = String(atividade.obra || "Obra não informada").trim();
+  const projeto = String(atividade.projeto || "Projeto não informado").trim();
+  return `${codigo ? `${codigo} — ` : ""}${obra} — ${projeto}`;
 }
 
 function agruparIndicadoresPorProjetoObra(lista) {
   const mapa = new Map();
   lista.forEach((atividade) => {
     const chave = obterChaveProjetoObra(atividade);
-    const atual = mapa.get(chave) || { atividades: 0, horas: 0 };
+    const atual = mapa.get(chave) || { etiqueta: obterEtiquetaProjetoObra(atividade), atividades: 0, horas: 0 };
     atual.atividades += 1;
     atual.horas += calcularHorasAtividade(atividade);
     mapa.set(chave, atual);
@@ -1492,24 +1514,22 @@ function agruparIndicadoresPorProjetoObra(lista) {
     .slice(0, 10);
 
   return {
-    labels,
-    atividades: labels.map((label) => mapa.get(label).atividades),
-    horas: labels.map((label) => Number(mapa.get(label).horas.toFixed(2)))
+    labels: labels.map((chave) => mapa.get(chave).etiqueta),
+    atividades: labels.map((chave) => mapa.get(chave).atividades),
+    horas: labels.map((chave) => Number(mapa.get(chave).horas.toFixed(2)))
   };
 }
 
 function obterObrasPegando(lista) {
   const mapa = new Map();
-  lista
-    .filter((atividade) => atividade.obra)
-    .forEach((atividade) => {
-      const obra = atividade.obra.trim();
-      const horas = calcularHorasAtividade(atividade);
-      mapa.set(obra, (mapa.get(obra) || 0) + horas);
-    });
-
-  const labels = [...mapa.keys()].sort((a, b) => mapa.get(b) - mapa.get(a) || a.localeCompare(b));
-  return { labels, valores: labels.map((label) => Number(mapa.get(label).toFixed(2))) };
+  lista.filter((atividade) => atividade.obra).forEach((atividade) => {
+    const chave = atividade.obraId || `legado:${normalizarNomeObraAgrupamento(atividade.obra)}`;
+    const atual = mapa.get(chave) || { nome: String(atividade.obra).trim(), horas: 0 };
+    atual.horas += calcularHorasAtividade(atividade);
+    mapa.set(chave, atual);
+  });
+  const chaves = [...mapa.keys()].sort((a, b) => mapa.get(b).horas - mapa.get(a).horas || mapa.get(a).nome.localeCompare(mapa.get(b).nome));
+  return { labels: chaves.map((chave) => mapa.get(chave).nome), valores: chaves.map((chave) => Number(mapa.get(chave).horas.toFixed(2))) };
 }
 
 function criarOuAtualizarGrafico(canvasId, tipo, labels, valores, label, horizontal = false) {
@@ -1566,12 +1586,14 @@ function renderizarAtividadesFinalizadas(lista) {
 }
 
 function obterNomeAtividade(atividade) {
-  return atividade.trabalhos || atividade.etapa || atividade.projeto || atividade.obra || "Atividade sem nome";
+  const obra = `${atividade.obraCodigo ? `${atividade.obraCodigo} — ` : ""}${atividade.obra || "Obra não informada"}`;
+  return `${obra} — ${atividade.projeto || "Projeto não informado"}${atividade.etapa ? ` — ${atividade.etapa}` : ""}`;
 }
 
 function obterDetalheAtividadeFinalizada(atividade) {
-  const partes = [atividade.colaborador, atividade.obra, atividade.projeto].filter(Boolean);
-  const data = atividade.dataTermino || atividade.dataInicio || atividade.criadoEm || atividade.criado_em;
+  const partes = [(atividade.colaboradores || [atividade.colaborador]).filter(Boolean).join(" e "), formatarHoras(calcularHorasAtividade(atividade))].filter(Boolean);
+  if (atividade.quantidadeRegistros > 1) partes.push(`${atividade.quantidadeRegistros} lançamentos consolidados`);
+  const data = atividade.dataTerminoMaisRecente || atividade.dataTermino || atividade.dataInicio || atividade.criadoEm || atividade.criado_em;
   if (data) partes.push(`Finalizada em ${formatarData(data)}`);
   return partes.join(" • ") || "Sem detalhes adicionais";
 }
@@ -1615,11 +1637,12 @@ async function gerarRelatorioWord() {
       btnGerarRelatorioWord.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Gerando...';
     }
     atualizarDashboard();
-    const atividadesRelatorio = filtrarAtividadesDashboard();
+    const registrosAtividadesRelatorio = filtrarRegistrosDashboard();
+    const atividadesRelatorio = aplicarFiltrosConsolidadosDashboard(consolidarAtividades(registrosAtividadesRelatorio));
     
     const atividadesSemanaisRelatorio = filtrarAtividadesSemanaisPorPeriodo(obterAtividadesSemanaisFiltradas());
     const payload = {
-      atividades: atividadesRelatorio,
+      atividades: atividadesRelatorio.flatMap((atividade) => atividade.registros || []),
       atividadesSemanais: atividadesSemanaisRelatorio,
       tituloRelatorio: obterTituloRelatorioWord(atividadesSemanaisRelatorio),
       filtros: obterFiltrosDashboardRelatorio(),
@@ -1981,6 +2004,7 @@ function obterIntervaloAtividade(atividade) {
 }
 
 function calcularHorasAtividade(atividade) {
+  if (atividade?.consolidada && Number.isFinite(Number(atividade.horasConsolidadas))) return Number(atividade.horasConsolidadas);
   const intervalo = obterIntervaloAtividade(atividade);
   if (!intervalo) return 0;
   return (intervalo.fim - intervalo.inicio) / 36e5;

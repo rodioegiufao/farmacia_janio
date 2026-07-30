@@ -1483,10 +1483,29 @@ function obterIntervaloDashboard() {
   }
 
   if (filtrosDashboard.periodo.value === "ano-atual") {
-    return { inicio: new Date(hoje.getFullYear(), 0, 1), fim: hoje };
+    return { inicio: new Date(hoje.getFullYear(), 0, 1), fim: new Date(hoje.getFullYear(), 11, 31, 23, 59, 59, 999) };
   }
 
-  return { inicio: new Date(hoje.getFullYear(), hoje.getMonth(), 1), fim: hoje };
+  if (filtrosDashboard.periodo.value === "mes-anterior") {
+    return { inicio: new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1), fim: new Date(hoje.getFullYear(), hoje.getMonth(), 0, 23, 59, 59, 999) };
+  }
+
+  if (filtrosDashboard.periodo.value === "personalizado" && filtrosDashboard.dataInicio.value && filtrosDashboard.dataFim.value) {
+    return { inicio: new Date(`${filtrosDashboard.dataInicio.value}T00:00:00`), fim: new Date(`${filtrosDashboard.dataFim.value}T23:59:59.999`) };
+  }
+
+  return { inicio: new Date(hoje.getFullYear(), hoje.getMonth(), 1), fim: new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0, 23, 59, 59, 999) };
+}
+
+function obterPeriodoRelatorioWord() {
+  const { inicio, fim } = obterIntervaloDashboard();
+  const tipoFiltro = filtrosDashboard.periodo.value;
+  const tipo = tipoFiltro.startsWith("semana") ? "semanal" : tipoFiltro === "ano-atual" ? "anual" : tipoFiltro === "personalizado" ? "personalizado" : "mensal";
+  const mes = inicio.toLocaleDateString("pt-BR", { month: "long" }).toUpperCase();
+  const ano = String(inicio.getFullYear());
+  const numeroSemana = Math.ceil((((inicio - new Date(inicio.getFullYear(), 0, 1)) / 86400000) + new Date(inicio.getFullYear(), 0, 1).getDay() + 1) / 7);
+  const rotulo = tipo === "semanal" ? `SEMANA ${numeroSemana}` : tipo === "mensal" ? `${mes} / ${ano}` : tipo === "anual" ? `ANO ${ano}` : `${formatarData(obterDataIsoLocal(inicio))} A ${formatarData(obterDataIsoLocal(fim))}`;
+  return { tipo, rotulo, dataInicio: obterDataIsoLocal(inicio), dataFim: obterDataIsoLocal(fim), mes, ano };
 }
 
 function obterDataReferenciaAtividade(atividade) {
@@ -1716,6 +1735,8 @@ async function gerarRelatorioWord() {
     const payload = {
       atividades: atividadesRelatorio.flatMap((atividade) => atividade.registros || []),
       atividadesSemanais: atividadesSemanaisRelatorio,
+      periodoRelatorio: obterPeriodoRelatorioWord(),
+      historicoAtividades: [],
       tituloRelatorio: obterTituloRelatorioWord(atividadesSemanaisRelatorio),
       filtros: obterFiltrosDashboardRelatorio(),
       graficos: await prepararGraficosParaRelatorio(atividadesRelatorio)
@@ -1736,7 +1757,8 @@ async function gerarRelatorioWord() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `relatorio-atividades-setor-${new Date().toISOString().slice(0, 10)}.docx`;
+    const periodoArquivo = obterPeriodoRelatorioWord();
+    link.download = `relatorio-atividades-${normalizarTexto(periodoArquivo.rotulo).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.docx`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1923,17 +1945,14 @@ function dataDentroDoIntervalo(data, intervalo) {
 }
 
 function filtrarAtividadesSemanaisPorPeriodo(lista) {
-  if (!["semana-atual", "semana-anterior"].includes(filtrosDashboard.periodo.value)) return lista;
-
   const periodo = obterIntervaloDashboard();
-  const dataReferencia = new Date(periodo.inicio);
-  dataReferencia.setHours(12, 0, 0, 0);
-  const filtradas = lista.filter((atividadeSemanal) => {
+  return lista.filter((atividadeSemanal) => {
     const intervaloSemana = extrairIntervaloSemana(atividadeSemanal.semana);
-    return intervaloSemana ? dataDentroDoIntervalo(dataReferencia, intervaloSemana) : false;
+    if (intervaloSemana) return intervaloSemana.inicio <= periodo.fim && intervaloSemana.fim >= periodo.inicio;
+    const entrega = atividadeSemanal.entregas || atividadeSemanal.entrega || atividadeSemanal.entregaPrevista;
+    const dataEntrega = entrega && /^\d{4}-\d{2}-\d{2}/.test(entrega) ? new Date(`${entrega.slice(0, 10)}T12:00:00`) : null;
+    return dataEntrega ? dataDentroDoIntervalo(dataEntrega, periodo) : false;
   });
-
-  return filtradas.length ? filtradas : lista;
 }
 
 function obterTituloRelatorioWord(atividadesSemanaisRelatorio) {

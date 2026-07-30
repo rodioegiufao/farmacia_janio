@@ -165,10 +165,10 @@ function prepararGraficos(zip, graficos={}, indicadores={}) { const defs=[ ["sta
 function prepararTemplateParaGraficos(zip) {
   let doc = zip.file("word/document.xml").asText();
 
-  // Corrige marcadores do modelo Word que podem ter sido salvos de forma quebrada
-  // entre runs XML pelo editor. Sem isso, o Docxtemplater interpreta o primeiro
-  // colchete como tag não fechada e a API retorna 500 ao gerar o relatório.
-  doc = doc.replace(/<w:t>\[AAAA<\/w:t>/g, "<w:t>[AAAA]</w:t>");
+    // Corrige marcadores do modelo Word que podem ter sido salvos de forma quebrada␊
+  // entre runs XML pelo editor. O Docxtemplater já recompõe tags divididas entre
+  // runs (como [AAAA] no modelo atual); adicionar o colchete final nesse caso
+  // preservaria o colchete do run seguinte e produziria a tag inválida [AAAA]].
   doc = doc.replace(/<w:t>\[<\/w:t><\/w:r><w:r[^>]*>(?:<w:rPr>[\s\S]*?<\/w:rPr>)?<w:t>IIII<\/w:t><\/w:r><w:r[^>]*>(?:<w:rPr>[\s\S]*?<\/w:rPr>)?<w:t>\]<\/w:t>/g, "<w:t>[IIII]</w:t>");
   doc = doc.replace(/\[(BBBB|CCCC|DDDD|EEEE|FFFF|GGGG|HHHH|IIII|JJJJ)\]/g, "[@$1]");
 

@@ -81,6 +81,7 @@ const API_OBRAS_URL = "/api/obras";
 const AUTH_URL = "/api/auth";
 const API_RELATORIO_WORD_URL = "/api/gerar-relatorio-word";
 const LIMITE_VISUALIZACAO_ATIVIDADES = 10;
+const CHAVE_SECAO_ATIVA = "atividades:secao-ativa";
 
 const appContent = document.getElementById("appContent");
 const btnLogout = document.getElementById("btnLogout");
@@ -290,6 +291,7 @@ async function inicializar() {
   btnSemanaAnterior?.addEventListener("click", () => navegarSemanaPlanejamento(-1));
   btnSemanaProxima?.addEventListener("click", () => navegarSemanaPlanejamento(1));
   sectionTabs.forEach((tab) => tab.addEventListener("click", alternarSecao));
+  restaurarSecaoAtiva();
   inicializarPlanner();
 
   Object.values(filtros).forEach((filtro) => {
@@ -343,10 +345,34 @@ function alternarSecao(event) {
     panel.hidden = panel.dataset.sectionPanel !== targetId;
   });
 
+  salvarSecaoAtiva(targetId);
+
   if (targetId === "dashboardSection") atualizarDashboard();
   if (targetId === "calendarioSection") renderizarCalendario();
   if (targetId === "semanaSection" && usuarioAtual && !atividadesSemanais.length) carregarAtividadesSemanais();
   if (targetId === "plannerSection" && !plannerChecklists.length) carregarPlanner();
+}
+
+function salvarSecaoAtiva(targetId) {
+  try {
+    localStorage.setItem(CHAVE_SECAO_ATIVA, targetId);
+  } catch (_erro) {
+    // A navegação continua funcionando quando o navegador bloqueia o armazenamento local.
+  }
+}
+
+function restaurarSecaoAtiva() {
+  let targetId;
+
+  try {
+    targetId = localStorage.getItem(CHAVE_SECAO_ATIVA);
+  } catch (_erro) {
+    return;
+  }
+
+  const tab = Array.from(sectionTabs).find((item) => item.dataset.sectionTarget === targetId);
+
+  if (tab && !tab.hidden) alternarSecao({ currentTarget: tab });
 }
 
 function alternarAba(aba) {

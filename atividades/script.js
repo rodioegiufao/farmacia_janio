@@ -141,8 +141,10 @@ const campos = {
   obra: document.getElementById("obra"),
   prioridade: document.getElementById("prioridade"),
   projeto: document.getElementById("projeto"),
+  projetoOutro: document.getElementById("projetoOutro"),
   trabalhos: document.getElementById("trabalhos"),
   etapa: document.getElementById("etapa"),
+  etapaOutro: document.getElementById("etapaOutro"),
   dataInicio: document.getElementById("dataInicio"),
   horaInicio: document.getElementById("horaInicio"),
   dataTermino: document.getElementById("dataTermino"),
@@ -270,6 +272,7 @@ async function inicializar() {
   preencherSelect(campos.projeto, projetos);
   preencherSelect(campos.etapa, etapas);
   preencherSelect(campos.status, statusLista);
+  configurarCamposOutros();
 
   preencherSelect(filtros.colaborador, colaboradores, "Todos os colaboradores");
   preencherSelect(filtros.status, statusLista, "Todos os status");
@@ -601,7 +604,44 @@ function configurarValidacaoDatasAtividade() {
   campos.dataTermino.addEventListener("change", atualizarRestricoesDatasAtividade);
   atualizarRestricoesDatasAtividade();
 }
+function configurarCamposOutros() {
+  campos.projeto.addEventListener("change", () => atualizarCampoOutro("projeto"));
+  campos.etapa.addEventListener("change", () => atualizarCampoOutro("etapa"));
+  atualizarCamposOutros();
+}
 
+function atualizarCampoOutro(tipo, focar = true) {
+  const select = campos[tipo];
+  const input = campos[`${tipo}Outro`];
+  const container = document.getElementById(`${tipo}OutroField`);
+  const exibir = select.value === "Outros";
+
+  container.hidden = !exibir;
+  input.required = exibir;
+  input.disabled = !exibir;
+  if (!exibir) input.value = "";
+  if (exibir && focar) input.focus();
+}
+
+function atualizarCamposOutros(focar = false) {
+  atualizarCampoOutro("projeto", focar);
+  atualizarCampoOutro("etapa", focar);
+}
+
+function valorComOpcaoOutro(tipo) {
+  return campos[tipo].value === "Outros" ? campos[`${tipo}Outro`].value.trim() : campos[tipo].value;
+}
+
+function preencherOpcaoComOutro(tipo, valor, opcoes) {
+  if (valor && !opcoes.includes(valor)) {
+    campos[tipo].value = "Outros";
+    campos[`${tipo}Outro`].value = valor;
+  } else {
+    campos[tipo].value = valor || "";
+    campos[`${tipo}Outro`].value = "";
+  }
+  atualizarCampoOutro(tipo, false);
+}
 async function salvarAtividade(event) {
   event.preventDefault();
 
@@ -611,9 +651,9 @@ async function salvarAtividade(event) {
     obra: campos.obra.value.trim(),
     obraId: campos.obraId.value,
     prioridade: campos.prioridade.value,
-    projeto: campos.projeto.value,
+    projeto: valorComOpcaoOutro("projeto"),
     trabalhos: campos.trabalhos.value.trim(),
-    etapa: campos.etapa.value,
+    etapa: valorComOpcaoOutro("etapa"),
     dataInicio: campos.dataInicio.value,
     horaInicio: campos.horaInicio.value,
     dataTermino: campos.dataTermino.value,
@@ -649,6 +689,7 @@ async function salvarAtividade(event) {
     }
 
     form.reset();
+    atualizarCamposOutros();
     atualizarRestricoesDatasAtividade();
     preencherColaboradoresPermitidos();
     campos.id.value = "";
@@ -832,11 +873,13 @@ function editarAtividade(id) {
   const atividade = atividades.find((item) => item.id === id);
   if (!atividade) return;
 
-  Object.keys(campos).forEach((campo) => {
+  Object.keys(campos).filter((campo) => !["projeto", "projetoOutro", "etapa", "etapaOutro"].includes(campo)).forEach((campo) => {
     if (campo === "id") campos[campo].value = atividade.id;
     else campos[campo].value = atividade[campo] || "";
   });
 
+  preencherOpcaoComOutro("projeto", atividade.projeto, projetos);
+  preencherOpcaoComOutro("etapa", atividade.etapa, etapas);
   atualizarRestricoesDatasAtividade();
 
   btnCancelarEdicao.style.display = "inline-block";
@@ -864,6 +907,7 @@ async function excluirAtividade(id) {
 
 function cancelarEdicao() {
   form.reset();
+  atualizarCamposOutros();
   atualizarRestricoesDatasAtividade();
   preencherColaboradoresPermitidos();
   campos.id.value = "";

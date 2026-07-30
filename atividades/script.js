@@ -282,6 +282,7 @@ async function inicializar() {
   preencherSelect(filtrosCalendario.colaborador, colaboradores, "Todos os colaboradores");
   preencherSelect(filtrosCalendario.status, statusLista, "Todos os status");
   inicializarAutocompleteObras();
+  configurarValidacaoDatasAtividade();
   if (filtrosCalendario.dataReferencia && !filtrosCalendario.dataReferencia.value) filtrosCalendario.dataReferencia.value = obterDataIsoLocal(new Date());
 
   form.addEventListener("submit", salvarAtividade);
@@ -584,6 +585,23 @@ function preencherSelect(select, opcoes, placeholder = "Selecione") {
   });
 }
 
+function atualizarRestricoesDatasAtividade() {
+  campos.dataTermino.min = campos.dataInicio.value || "1000-01-01";
+  campos.dataTermino.setCustomValidity(
+    campos.dataInicio.value && campos.dataTermino.value && campos.dataTermino.value < campos.dataInicio.value
+      ? "A data de término deve ser maior ou igual à data de início."
+      : ""
+  );
+}
+
+function configurarValidacaoDatasAtividade() {
+  campos.dataInicio.addEventListener("input", atualizarRestricoesDatasAtividade);
+  campos.dataInicio.addEventListener("change", atualizarRestricoesDatasAtividade);
+  campos.dataTermino.addEventListener("input", atualizarRestricoesDatasAtividade);
+  campos.dataTermino.addEventListener("change", atualizarRestricoesDatasAtividade);
+  atualizarRestricoesDatasAtividade();
+}
+
 async function salvarAtividade(event) {
   event.preventDefault();
 
@@ -605,7 +623,13 @@ async function salvarAtividade(event) {
     observacoes: campos.observacoes.value.trim(),
     criadoEm: campos.id.value ? atividades.find((item) => item.id === campos.id.value)?.criadoEm : new Date().toISOString()
   };
-  
+
+  atualizarRestricoesDatasAtividade();
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+
   const conflito = encontrarConflitoHorario(atividade, atividades);
   if (conflito) {
     alert(`Este horário já possui atividade registrada para ${atividade.colaborador}: ${conflito.trabalhos} (${formatarDataHora(conflito.dataInicio, conflito.horaInicio)} até ${formatarDataHora(conflito.dataTermino, conflito.horaTermino)}).`);
@@ -625,6 +649,7 @@ async function salvarAtividade(event) {
     }
 
     form.reset();
+    atualizarRestricoesDatasAtividade();
     preencherColaboradoresPermitidos();
     campos.id.value = "";
     campos.obraId.value = "";
@@ -812,6 +837,8 @@ function editarAtividade(id) {
     else campos[campo].value = atividade[campo] || "";
   });
 
+  atualizarRestricoesDatasAtividade();
+
   btnCancelarEdicao.style.display = "inline-block";
   document.getElementById("btnSalvar").textContent = "Atualizar atividade";
   if (usuarioAtual?.perfil !== "admin") {
@@ -837,6 +864,7 @@ async function excluirAtividade(id) {
 
 function cancelarEdicao() {
   form.reset();
+  atualizarRestricoesDatasAtividade();
   preencherColaboradoresPermitidos();
   campos.id.value = "";
   campos.obraId.value = "";

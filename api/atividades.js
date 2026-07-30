@@ -5,6 +5,36 @@ const SUPABASE_TABLE = "atividades_colaboradores";
 
 const COLABORADORES = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 
+function isValidActivityDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  if (year < 1000) return false;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function validateActivityDates(activity) {
+  const dateFields = [
+    ["dataPrevista", "data prevista"],
+    ["dataInicio", "data de início"],
+    ["dataTermino", "data de término"]
+  ];
+
+  dateFields.forEach(([field, label]) => {
+    if (activity[field] && !isValidActivityDate(activity[field])) {
+      const error = new Error(`A ${label} deve ser uma data válida com ano de 4 dígitos.`);
+      error.statusCode = 400;
+      throw error;
+    }
+  });
+
+  if (activity.dataInicio && activity.dataTermino && activity.dataTermino < activity.dataInicio) {
+    const error = new Error("A data de término deve ser maior ou igual à data de início.");
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
 function normalizeText(text) {
   return String(text || "")
     .toLowerCase()
@@ -120,6 +150,7 @@ module.exports = async function atividadesHandler(req, res) {
     if (req.method === "POST") {
       const user = await requireUser(req);
       const body = parseRequestBody(req);
+      validateActivityDates(body);
       const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id });
       body.obraId = obra.id;
       body.obra = obra.nome;
@@ -144,6 +175,8 @@ module.exports = async function atividadesHandler(req, res) {
         sendJson(res, 400, { error: "ID da atividade não informado." });
         return;
       }
+
+      validateActivityDates(body);
 
       const atuais = await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(body.id)}&select=id,usuario_id`);
       const atual = Array.isArray(atuais) ? atuais[0] : null;

@@ -12,8 +12,18 @@ assert.equal(templatePath, productionTemplatePath, "o teste deve usar exatamente
 console.log("Template testado:", templatePath);
 const novoZip = () => new PizZip(fs.readFileSync(templatePath));
 const periodo = { tipo: "semanal", rotulo: "Semana 30", dataInicio: "2026-07-19", dataFim: "2026-07-25", ano: "2026" };
-const atividade = { consolidada: true, obraId: "1", obraCodigo: "OBR-000023", obra: "Posto", projeto: "Elétrico", etapa: "Plotagem", trabalhos: ["Trabalho A", "Trabalho B"], colaboradores: ["Hellen"], quantidadeRegistros: 3, horasConsolidadas: 8, status: "Atrasado", prioridade: "P2", percentualConclusao: 40 };
+const textoLongo = `Descrição técnica integral ${"sem qualquer corte no conteúdo registrado ".repeat(15)}fim do lançamento.`;
+const registros = [
+  { id: "1", obraId: "1", obraCodigo: "OBR-000023", obra: "Posto", projeto: "Elétrico", etapa: "Plotagem", trabalhos: textoLongo, observacoes: "Primeira observação\ncom nova linha.", colaborador: "Hellen", dataInicio: "2026-07-19", horaInicio: "08:00:00", dataTermino: "2026-07-19", horaTermino: "10:00:00", criadoEm: "2026-07-19T12:00:00Z", status: "Atrasado", prioridade: "P2" },
+  { id: "2", obraId: "1", obraCodigo: "OBR-000023", obra: "Posto", projeto: "Elétrico", etapa: "Plotagem", trabalhos: "Texto deliberadamente repetido.", observacoes: "Segunda observação.", colaborador: "Bruno", dataInicio: "2026-07-20", horaInicio: "13:00", dataTermino: "2026-07-20", horaTermino: "16:30", criadoEm: "2026-07-20T17:00:00Z", status: "Em progresso", prioridade: "P1" },
+  { id: "3", obraId: "1", obraCodigo: "OBR-000023", obra: "Posto", projeto: "Elétrico", etapa: "Plotagem", trabalhos: "Texto deliberadamente repetido.", observacoes: "Projeto ainda incompleto por ausência da potência das bombas. Também solicitei um shaft no superior.", colaborador: "Hellen", dataInicio: "2026-07-21", horaInicio: "08:30", dataTermino: "2026-07-21", horaTermino: "11:00", criadoEm: "2026-07-21T12:00:00Z", status: "Finalizado", prioridade: "P2" }
+];
+const [atividade] = require("../atividades/atividade-agrupamento").consolidarAtividades(registros);
 
+assert.equal(_test.formatarCompetenciaRelatorio(periodo), "JULHO/2026");
+assert.equal(_test.formatarCompetenciaRelatorio({ ...periodo, dataInicio: "2026-07-27", dataFim: "2026-08-02" }), "JULHO/2026 — AGOSTO/2026");
+assert.equal(_test.formatarCompetenciaRelatorio({ ...periodo, dataInicio: "2026-12-28", dataFim: "2027-01-03" }), "DEZEMBRO/2026 — JANEIRO/2027");
+assert.equal(_test.formatarCompetenciaRelatorio({ tipo: "anual", dataInicio: "2026-01-01", dataFim: "2026-12-31" }), "2026");
 {
   const paragrafos = _test.MARCADORES_XML_BRUTO.map((marcador) => marcador === "KKKK"
     ? "<w:p><w:pPr><w:jc w:val=\"both\"/></w:pPr><w:r><w:t>[</w:t></w:r><w:r><w:t>KKKK</w:t></w:r><w:r><w:t>]</w:t></w:r></w:p>"
@@ -31,7 +41,9 @@ let xmlFinal;
   const zip = novoZip();
   _test.prepararTemplateParaGraficos(zip);
   assert.match(zip.file("word/document.xml").asText(), /\[@KKKK\]/, "o template real deve reconhecer KKKK como XML bruto");
-  const dados = _test.montarDadosRelatorio({ atividades: [atividade], atividadesSemanais: [], periodoRelatorio: periodo, graficos: {} }, zip);
+  const dados = _test.montarDadosRelatorio({ atividades: registros, atividadesSemanais: [], periodoRelatorio: periodo, graficos: {} }, zip);
+  assert.equal(dados.PERIODO_RELATORIO, "SEMANA 30");
+  assert.equal(dados.COMPETENCIA_RELATORIO, "JULHO/2026");
   assert.doesNotMatch(dados.JJJJ, /ANEXO A/);
   assert.match(dados.KKKK, /^<w:tbl>/);
   const documento = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true });
@@ -46,7 +58,7 @@ let xmlFinal;
   assert.ok(indiceTitulo >= 0, "o título do Anexo deve existir");
   assert.ok(indiceTabela > indiceTitulo, "uma tabela real deve existir depois do título do Anexo");
   const xmlAnexo = xmlFinal.slice(indiceTabela);
-  assert.equal((xmlAnexo.match(/<w:tr>/g) || []).length, 2, "o XML final do Anexo deve ter cabeçalho e uma linha consolidada");
+  assert.equal((xmlAnexo.match(/<w:tr>/g) || []).length, 8, "o Anexo deve ter quatro linhas de identificação, cabeçalho e três lançamentos");
   assert.match(xmlAnexo, /<w:tblHeader\/>/, "o cabeçalho deve repetir em páginas seguintes");
   assert.match(xmlAnexo, /<w:shd w:fill="1F4E78"\/>/, "o cabeçalho deve ser azul");
   assert.match(xmlAnexo, /OBR-000023/);
@@ -69,10 +81,24 @@ assert.doesNotMatch(tabela, /tcFitText/);
 assert.match(tabela, /<w:vAlign w:val="center"\/>/);
 assert.match(tabela, /<w:jc w:val="center"\/>/);
 
-const anexo = _test.gerarAnexo([atividade]);
-assert.equal((anexo.match(/<w:tr>/g) || []).length, 2);
-assert.equal((anexo.match(/Trabalho A/g) || []).length, 1);
+const grupos = _test.agruparLancamentosParaAnexo(registros, [atividade]);
+assert.equal(grupos.length, 1);
+assert.equal(grupos[0].registros.length, 3);
+const anexo = _test.gerarAnexoDetalhado(registros, [atividade]);
+assert.equal((anexo.match(/<w:tr>/g) || []).length, 8);
+assert.equal((anexo.match(/Texto deliberadamente repetido\./g) || []).length, 2);
+assert.match(anexo, new RegExp(textoLongo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+assert.doesNotMatch(anexo, /Descrição técnica integral[^<]*…/);
+assert.match(anexo, /Primeira observação/);
+assert.match(anexo, /<w:br\/>/);
+assert.match(anexo, />2 h</);
+assert.match(anexo, />3,5 h</);
+assert.match(anexo, />2,5 h</);
+assert.doesNotMatch(anexo, />8 h<\/w:t>[\s\S]*>8 h<\/w:t>/);
 assert.match(anexo, /<w:noWrap\/>/);
+assert.equal(_test.formatarIntervaloHorarioRelatorio(registros[0]), "08:00–10:00");
+assert.equal(_test.formatarIntervaloHorarioRelatorio({ horaInicio: "08:00:00" }), "08:00–—");
+assert.equal(_test.formatarIntervaloHorarioRelatorio({}), "—");
 
 const desempenho = _test.gerarDesempenhoColaboradores([atividade]);
 assert.match(desempenho, />1<\/w:t>/);

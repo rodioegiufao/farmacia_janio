@@ -1702,7 +1702,7 @@ function obterDetalheAtividadeFinalizada(atividade) {
   const partes = [(atividade.colaboradores || [atividade.colaborador]).filter(Boolean).join(" e "), formatarHoras(calcularHorasAtividade(atividade))].filter(Boolean);
   if (atividade.quantidadeRegistros > 1) partes.push(`${atividade.quantidadeRegistros} lançamentos consolidados`);
   const data = atividade.dataTerminoMaisRecente || atividade.dataTermino || atividade.dataInicio || atividade.criadoEm || atividade.criado_em;
-  if (data) partes.push(`Finalizada em ${formatarData(data)}`);
+  if (data) partes.push(`Finalizada em ${formatarDataHoraFinalizacao(data, atividade.horaTermino)}`);
   return partes.join(" • ") || "Sem detalhes adicionais";
 }
 
@@ -2145,6 +2145,22 @@ function formatarData(data) {
   if (!data) return "-";
   const [ano, mes, dia] = data.split("-");
   return `${dia}/${mes}/${ano}`;
+}
+
+function formatarDataHoraFinalizacao(data, hora = "") {
+  if (!data) return "-";
+
+  const correspondencia = String(data).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (!correspondencia) return "-";
+
+  const [, ano, mes, dia, horaData, minutoData, segundoData] = correspondencia;
+  const correspondenciaHora = String(hora).match(/^(\d{2}):(\d{2})(?::(\d{2}))?/);
+  const horas = horaData || correspondenciaHora?.[1];
+  const minutos = minutoData || correspondenciaHora?.[2];
+  const segundos = segundoData || correspondenciaHora?.[3] || "00";
+  const dataFormatada = `${dia}/${mes}/${ano}`;
+
+  return horas && minutos ? `${dataFormatada} às ${horas}:${minutos}:${segundos}` : dataFormatada;
 }
 
 function formatarDataHora(data, hora) {

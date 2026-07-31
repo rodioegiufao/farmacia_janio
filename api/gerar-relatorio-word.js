@@ -14,6 +14,10 @@ const MESES = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULH
 const STATUS = ["Atrasado", "Em progresso", "Pausado", "Finalizado"];
 const PRIORIDADES = ["P0", "P1", "P2", "P3"];
 const SEM_REGISTROS = "Não foram identificados registros para o período analisado.";
+const MARCADORES_XML_BRUTO = [
+  "BBBB", "CCCC", "DDDD", "EEEE", "FFFF",
+  "GGGG", "HHHH", "IIII", "JJJJ", "KKKK"
+];
 
 function normalizarTexto(texto) { return String(texto || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(); }
 function textoSeguro(texto) { return String(texto || "").replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c])); }
@@ -167,17 +171,50 @@ function normalizarImagemBase64(valor) { const texto=String(valor||""); const m=
 function paragrafoXml(texto, opcoes = {}) { const config = typeof opcoes === "boolean" ? { bold: opcoes } : opcoes; return `<w:p>${propriedadesParagrafo({ alignment: config.alignment || "left", firstLine: config.firstLine || 0, before: config.before || 0, after: config.after ?? 160, line: 276 })}${runXml(texto, config.bold)}</w:p>`; }
 function imagemXml(rId, idx) { const cx=5486400, cy=3086100; return `<w:p><w:pPr><w:keepNext/><w:jc w:val="center"/><w:spacing w:before="160" w:after="160"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${900+idx}" name="Grafico ${idx}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${idx}" name="grafico-${idx}.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`; }
 function prepararGraficos(zip, graficos={}, indicadores={}) { const defs=[ ["status","Atividades por status",gerarLeituraGraficoStatus(indicadores)], ["horasColaborador","Horas por colaborador",gerarLeituraGraficoHorasColaborador(indicadores)], ["atividadesColaborador","Atividades por colaborador",gerarLeituraGraficoAtividadesColaborador(indicadores)], ["horasProjeto","Top 10 frentes por horas","As frentes estão ordenadas pelo esforço técnico registrado."], ["atividadesProjeto","Top 10 frentes por atividades","As frentes estão ordenadas pelo volume de atividades consolidadas."], ["tipoProjeto","Atividades por disciplina","A distribuição evidencia as disciplinas mais demandadas no período."] ]; let xml=paragrafoXml("Seis gráficos gerenciais sintetizam o período selecionado."); const rels=zip.file("word/_rels/document.xml.rels").asText(); let relInsert=""; defs.forEach(([key,titulo,leitura],i)=>{ xml+=criarTituloGrafico(`Gráfico ${i+1} — ${titulo}.`); const buf=normalizarImagemBase64(graficos[key]); if(buf){ const rId=`rIdRelChart${i+1}`; zip.file(`word/media/relatorio-grafico-${i+1}.png`,buf); relInsert+=`<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/relatorio-grafico-${i+1}.png"/>`; xml+=imagemXml(rId,i+1); } else xml+=paragrafoXml("Gráfico não disponível no momento da geração do relatório."); xml+=criarLegendaGrafico(`Leitura gerencial: ${leitura}`); }); zip.file("word/_rels/document.xml.rels",rels.replace("</Relationships>",`${relInsert}</Relationships>`)); const ct=zip.file("[Content_Types].xml").asText(); if(!ct.includes('Extension="png"'))zip.file("[Content_Types].xml",ct.replace("</Types>",'<Default Extension="png" ContentType="image/png"/></Types>')); return xml; }
+function extrairTextoParagrafoXml(paragrafoXml) {
+  return [...paragrafoXml.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g)]
+    .map((resultado) => resultado[1])
+    .join("");
+}
+
+function converterMarcadorParagrafoParaXmlBruto(paragrafoXml, marcador) {
+  const texto = extrairTextoParagrafoXml(paragrafoXml).replace(/\s+/g, "").trim();
+  if (texto !== `[${marcador}]` && texto !== `[@${marcador}]`) return paragrafoXml;
+  const aberturaParagrafo = paragrafoXml.match(/^<w:p\b[^>]*>/)?.[0] || "<w:p>";
+  const propriedadesParagrafo = paragrafoXml.match(/<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/)?.[0] || "";
+  return `${aberturaParagrafo}${propriedadesParagrafo}<w:r><w:t>[@${marcador}]</w:t></w:r></w:p>`;
+}
+
 function prepararTemplateParaGraficos(zip) {
-  let doc = zip.file("word/document.xml").asText();
+  let documentXml = zip.file("word/document.xml").asText();
+  documentXml = documentXml.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g, (paragrafoXml) => {
+    for (const marcador of MARCADORES_XML_BRUTO) {
+      const convertido = converterMarcadorParagrafoParaXmlBruto(paragrafoXml, marcador);
+      if (convertido !== paragrafoXml) return convertido;
+    }
+    return paragrafoXml;
+  });
+  for (const marcador of MARCADORES_XML_BRUTO) {
+    if (!documentXml.includes(`[@${marcador}]`)) {
+      throw Object.assign(new Error(`O marcador [${marcador}] não foi preparado como XML bruto no modelo Word.`), { statusCode: 500 });
+    }
+  }
+  zip.file("word/document.xml", documentXml);
+}
 
-    // Corrige marcadores do modelo Word que podem ter sido salvos de forma quebrada␊
-  // entre runs XML pelo editor. O Docxtemplater já recompõe tags divididas entre
-  // runs (como [AAAA] no modelo atual); adicionar o colchete final nesse caso
-  // preservaria o colchete do run seguinte e produziria a tag inválida [AAAA]].
-  doc = doc.replace(/<w:t>\[<\/w:t><\/w:r><w:r[^>]*>(?:<w:rPr>[\s\S]*?<\/w:rPr>)?<w:t>IIII<\/w:t><\/w:r><w:r[^>]*>(?:<w:rPr>[\s\S]*?<\/w:rPr>)?<w:t>\]<\/w:t>/g, "<w:t>[IIII]</w:t>");
-  doc = doc.replace(/\[(BBBB|CCCC|DDDD|EEEE|FFFF|GGGG|HHHH|IIII|JJJJ|KKKK)\]/g, "[@$1]");
-
-  zip.file("word/document.xml", doc);
+function validarDocumentoFinal(doc) {
+  const documentXmlFinal = doc.getZip().file("word/document.xml").asText();
+  const indiceAnexo = documentXmlFinal.lastIndexOf("ANEXO A — DETALHAMENTO DAS FRENTES DE TRABALHO");
+  const xmlDepoisDoAnexo = indiceAnexo >= 0 ? documentXmlFinal.slice(indiceAnexo) : "";
+  if (indiceAnexo < 0) throw Object.assign(new Error("O título do Anexo A não foi encontrado no documento final."), { statusCode: 500 });
+  if (xmlDepoisDoAnexo.includes("&lt;w:tbl&gt;") || /<w:t\b[^>]*>[\s\S]*?&lt;w:[\s\S]*?<\/w:t>/.test(xmlDepoisDoAnexo)) {
+    throw Object.assign(new Error("O Anexo A foi inserido como texto escapado em vez de tabela OpenXML."), { statusCode: 500 });
+  }
+  if (!xmlDepoisDoAnexo.includes("<w:tbl>")) throw Object.assign(new Error("A tabela OpenXML do Anexo A não foi encontrada no documento final."), { statusCode: 500 });
+  if (xmlDepoisDoAnexo.includes("[KKKK]") || xmlDepoisDoAnexo.includes("[@KKKK]")) {
+    throw Object.assign(new Error("O marcador KKKK não foi substituído no documento final."), { statusCode: 500 });
+  }
+  return documentXmlFinal;
 }
 
 function gerarApresentacao() { return paragrafoXml("O presente relatório tem por finalidade apresentar o acompanhamento das atividades desenvolvidas pelo Setor de Engenharia Elétrica, com base nos registros cadastrados no sistema de controle de atividades. O documento consolida informações por projeto, colaborador, status, prioridade, horas trabalhadas e planejamento semanal, permitindo visualizar o andamento das demandas e subsidiar a tomada de decisão."); }
@@ -188,6 +225,6 @@ function formatarPeriodoEmFrase(periodo) { const tipo=normalizarTexto(periodo.ti
 function gerarAnexo(atividades) { const linhas=atividades.map((a)=>[a.obraCodigo||"—",a.obra||"Não informada",a.projeto||"Não informada",a.etapa||"Não informada",resumirTextoRelatorio((a.trabalhos||[]).join("; "),150),Number(a.quantidadeRegistros||1),`${formatarNumero(calcularHorasAtividade(a))} h`,juntarComE(a.colaboradores||[a.colaborador])||"Não informado",a.status||"Não informado",a.prioridade||"Não informada",formatarPercentual(a.percentualConclusao??(statusEh(a,"Finalizado")?100:0))]); const larguras=[900,1600,1400,1200,3000,650,750,1600,1100,650,950]; return criarTabelaXml(["Código","Obra","Disciplina","Etapa","Trabalhos","Lanç.","Horas","Colaboradores","Status","Prior.","Conclusão"],linhas,{colunas:larguras.map((largura,i)=>({largura,alinhamento:[5,6,8,9,10].includes(i)?"center":"left",noWrap:[0,5,6,8,9,10].includes(i)})),tamanhoFonte:7.5,tamanhoFonteCabecalho:8}); }
 function montarDadosRelatorio(body, zip) { const periodo=normalizarPeriodoRelatorio(body.periodoRelatorio); const atividades=consolidarAtividades(Array.isArray(body.atividades)?body.atividades:[]); const semanais=Array.isArray(body.atividadesSemanais)?body.atividadesSemanais:[]; const i=calcularIndicadoresGerenciais(atividades,semanais); const resumo=paragrafoXml(`${formatarPeriodoEmFrase(periodo)}, o setor consolidou ${i.totalAtividades} atividades em ${i.totalObras} obras, ${i.totalFrentes} frentes e ${i.totalDisciplinas} disciplinas, totalizando ${formatarNumero(i.horasTotais)} h.`,{alignment:"both",firstLine:709})+paragrafoXml(`A conclusão alcançou ${formatarPercentual(i.taxaConclusao)}, com ${i.atividadesAtrasadas} atividades atrasadas; a maior frente por esforço foi ${nomeProjeto(i.projetoMaiorCarga)}.`,{alignment:"both",firstLine:709})+gerarResumoGeral(atividades,i); const consistencia=verificarConsistencia(atividades,periodo); return { AAAA:String(body.tituloRelatorio||"").trim()||"Relatório executivo de atividades", PERIODO_RELATORIO:periodo.rotulo, DATA_INICIO_RELATORIO:formatarDataIso(periodo.dataInicio), DATA_FIM_RELATORIO:formatarDataIso(periodo.dataFim), MES_ATUAL:periodo.mes, ANO_ATUAL:periodo.ano, BBBB:gerarApresentacao()+paragrafoXml(`Período oficial: ${formatarDataIso(periodo.dataInicio)} a ${formatarDataIso(periodo.dataFim)}.`), CCCC:resumo, DDDD:gerarPrincipaisEntregas(atividades)+criarTituloGrafico("DESEMPENHO DA EQUIPE")+gerarDesempenhoColaboradores(atividades,i), EEEE:gerarDistribuicaoProjeto(atividades,i), FFFF:gerarRiscos(atividades,periodo), GGGG:gerarAtividadesSemana(semanais,i), HHHH:consistencia.length?consistencia.map((a)=>paragrafoXml(`• ${a}`)).join(""):paragrafoXml("Nenhuma inconsistência relevante foi identificada."), IIII:prepararGraficos(zip,body.graficos||{},i), JJJJ:gerarConclusao(atividades,semanais,i), KKKK:gerarAnexo(atividades,i) }; }
 
-module.exports = async function gerarRelatorioWordHandler(req, res) { try { if (req.method !== "POST") { sendJson(res, 405, { error: "Método não suportado." }); return; } const user = await requireUser(req); if (user.perfil !== "admin") { sendJson(res, 403, { error: "Apenas o administrador da conta pode gerar o relatório Word." }); return; } if (!fs.existsSync(TEMPLATE_PATH)) { sendJson(res, 404, { error: "Modelo Relatorio.docx não encontrado em /atividades/template." }); return; } const body = parseRequestBody(req); const zip = new PizZip(fs.readFileSync(TEMPLATE_PATH)); prepararTemplateParaGraficos(zip); const doc = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true }); doc.render(montarDadosRelatorio(body, zip)); const buffer = doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" }); const periodo = normalizarPeriodoRelatorio(body.periodoRelatorio); const slug = normalizarTexto(periodo.rotulo).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"); res.setHeader("Content-Disposition", `attachment; filename=\"relatorio-atividades-${slug}.docx\"`); res.status(200).send(buffer); } catch (error) { console.error("Erro ao gerar relatório Word:", error); sendJson(res, error.statusCode || 500, { error: error.message || "Erro interno ao gerar relatório Word." }); } };
+module.exports = async function gerarRelatorioWordHandler(req, res) { try { if (req.method !== "POST") { sendJson(res, 405, { error: "Método não suportado." }); return; } const user = await requireUser(req); if (user.perfil !== "admin") { sendJson(res, 403, { error: "Apenas o administrador da conta pode gerar o relatório Word." }); return; } if (!fs.existsSync(TEMPLATE_PATH)) { sendJson(res, 404, { error: "Modelo Relatorio.docx não encontrado em /atividades/template." }); return; } const body = parseRequestBody(req); const zip = new PizZip(fs.readFileSync(TEMPLATE_PATH)); prepararTemplateParaGraficos(zip); const doc = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true }); doc.render(montarDadosRelatorio(body, zip)); validarDocumentoFinal(doc); const buffer = doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" }); const periodo = normalizarPeriodoRelatorio(body.periodoRelatorio); const slug = normalizarTexto(periodo.rotulo).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"); res.setHeader("Content-Disposition", `attachment; filename=\"relatorio-atividades-${slug}.docx\"`); res.status(200).send(buffer); } catch (error) { console.error("Erro ao gerar relatório Word:", error); sendJson(res, error.statusCode || 500, { error: error.message || "Erro interno ao gerar relatório Word." }); } };
 
-module.exports._test = { contarObrasDistintas, contarFrentesTrabalho, contarDisciplinasDistintas, calcularIndicadoresGerenciais, pontoAtencaoProjeto, calcularDiasAtraso, obterPrazoAtividade, formatarDataHoraRelatorio, formatarPeriodoEmFrase, gerarAnexo, gerarDesempenhoColaboradores, criarTabelaXml, resumirTextoRelatorio, verificarConsistencia, gerarLeituraGraficoStatus, normalizarPeriodoRelatorio, montarDadosRelatorio, prepararTemplateParaGraficos };
+module.exports._test = { contarObrasDistintas, contarFrentesTrabalho, contarDisciplinasDistintas, calcularIndicadoresGerenciais, pontoAtencaoProjeto, calcularDiasAtraso, obterPrazoAtividade, formatarDataHoraRelatorio, formatarPeriodoEmFrase, gerarAnexo, gerarDesempenhoColaboradores, criarTabelaXml, resumirTextoRelatorio, verificarConsistencia, gerarLeituraGraficoStatus, normalizarPeriodoRelatorio, montarDadosRelatorio, extrairTextoParagrafoXml, converterMarcadorParagrafoParaXmlBruto, prepararTemplateParaGraficos, validarDocumentoFinal, MARCADORES_XML_BRUTO };

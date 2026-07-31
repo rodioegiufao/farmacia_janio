@@ -1563,14 +1563,14 @@ function renderizarGraficosDashboard(lista) {
   if (typeof Chart === "undefined") return;
 
   const porColaborador = agruparPorColaborador(lista);
-  const colaboradoresLabels = Object.keys(porColaborador);
+  const colaboradoresLabels = Object.keys(porColaborador).sort((a, b) => porColaborador[b].horas - porColaborador[a].horas).slice(0, 10);
 
-  criarOuAtualizarGrafico("chartAtividadesColaborador", "bar", colaboradoresLabels, colaboradoresLabels.map((nome) => porColaborador[nome].total), "Atividades");
-  criarOuAtualizarGrafico("chartHorasColaborador", "bar", colaboradoresLabels, colaboradoresLabels.map((nome) => Number(porColaborador[nome].horas.toFixed(2))), "Horas");
-  criarOuAtualizarGrafico("chartProjetosColaborador", "bar", colaboradoresLabels, colaboradoresLabels.map((nome) => porColaborador[nome].projetos), "Projetos/obras");
+  criarOuAtualizarGrafico("chartAtividadesColaborador", "bar", colaboradoresLabels, colaboradoresLabels.map((nome) => porColaborador[nome].total), "Atividades", true);
+  criarOuAtualizarGrafico("chartHorasColaborador", "bar", colaboradoresLabels, colaboradoresLabels.map((nome) => Number(porColaborador[nome].horas.toFixed(2))), "Horas", true);  criarOuAtualizarGrafico("chartProjetosColaborador", "bar", colaboradoresLabels, colaboradoresLabels.map((nome) => porColaborador[nome].projetos), "Projetos/obras");
   criarOuAtualizarGrafico("chartStatus", "doughnut", statusLista, statusLista.map((status) => lista.filter((a) => a.status === status).length), "Status");
   renderizarAtividadesFinalizadas(lista);
-  criarOuAtualizarGrafico("chartTipoProjeto", "bar", projetos, projetos.map((projeto) => lista.filter((a) => a.projeto === projeto).length), "Projetos");
+  const disciplinas = projetos.map((projeto) => ({ projeto, total: lista.filter((a) => a.projeto === projeto).length })).filter((item) => item.total).sort((a, b) => b.total - a.total).slice(0, 10);
+  criarOuAtualizarGrafico("chartTipoProjeto", "bar", disciplinas.map((item) => item.projeto), disciplinas.map((item) => item.total), "Projetos", true);
   criarOuAtualizarGrafico("chartPrioridade", "bar", prioridades, prioridades.map((prioridade) => lista.filter((a) => a.prioridade === prioridade).length), "Prioridades");
   const obrasPegando = obterObrasPegando(lista);
   criarOuAtualizarGrafico("chartObrasPegando", "bar", obrasPegando.labels, obrasPegando.valores, "Horas por obra");

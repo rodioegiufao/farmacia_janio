@@ -1821,32 +1821,33 @@ function criarOpcoesGraficoRelatorio(tipo, horizontal = false) {
     maintainAspectRatio: false,
     animation: false,
     devicePixelRatio: 2,
-    layout: { padding: 18 },
+    layout: { padding: horizontal ? { left: 48, right: 24, top: 24, bottom: 24 } : 24 },
+    font: { size: 16 },
     plugins: {
       legend: {
         display: tipo === "doughnut",
         position: "bottom",
-        labels: { color: "#000000", font: { size: 13, weight: "bold" }, padding: 18 }
+        labels: { color: "#222222", font: { size: 17, weight: "bold" }, padding: 18, boxWidth: 18 }
       },
-      title: { color: "#000000", font: { size: 15, weight: "bold" } }
+      title: { color: "#222222", font: { size: 17, weight: "bold" } }
     },
     indexAxis: horizontal ? "y" : "x",
     scales: tipo === "doughnut" ? {} : {
       x: {
         beginAtZero: horizontal,
-        ticks: { color: "#000000", precision: 0, font: { size: 12, weight: "bold" } },
+        ticks: { color: "#222222", precision: 0, font: { size: 16, weight: "bold" }, maxRotation: 0, minRotation: 0 },
         grid: { color: "#d1d5db" }
       },
       y: {
         beginAtZero: !horizontal,
-        ticks: { color: "#000000", precision: 0, font: { size: 12, weight: "bold" } },
+        ticks: { color: "#222222", precision: 0, font: { size: horizontal ? 15 : 16, weight: "bold" } },
         grid: { color: "#d1d5db" }
       }
     }
   };
 }
 
-function capturarGraficoTemporarioRelatorio(canvasId, largura = 1400, altura = 800) {
+async function capturarGraficoTemporarioRelatorio(canvasId, largura = 1800, altura = 1000) {
   const graficoOrigem = dashboardCharts[canvasId];
   if (!graficoOrigem || typeof Chart === "undefined") return capturarCanvasRelatorio(canvasId);
 
@@ -1855,24 +1856,26 @@ function capturarGraficoTemporarioRelatorio(canvasId, largura = 1400, altura = 8
   canvas.height = altura;
   canvas.style.cssText = "position:fixed;left:-99999px;top:-99999px;background:#fff;";
   document.body.appendChild(canvas);
-
+  
+  let graficoRelatorio;
   try {
     const tipo = graficoOrigem.config.type;
     const horizontal = graficoOrigem.options?.indexAxis === "y";
-    const graficoRelatorio = new Chart(canvas, {
+    graficoRelatorio = new Chart(canvas, {
       type: tipo,
       data: clonarDadosGraficoRelatorio(graficoOrigem.data),
       options: criarOpcoesGraficoRelatorio(tipo, horizontal),
       plugins: [fundoBrancoRelatorioPlugin]
     });
     graficoRelatorio.update("none");
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const imagem = canvas.toDataURL("image/png", 1);
-    graficoRelatorio.destroy();
     return imagem;
   } catch (erro) {
     console.warn(`Não foi possível preparar o gráfico ${canvasId} para relatório:`, erro);
     return capturarCanvasRelatorio(canvasId);
   } finally {
+    graficoRelatorio?.destroy();
     canvas.remove();
   }
 }
@@ -1882,14 +1885,14 @@ async function prepararGraficosParaRelatorio(lista) {
   renderizarGraficosDashboard(lista);
   await aguardarRenderizacaoGraficos();
   return {
-    atividadesProjeto: capturarGraficoTemporarioRelatorio("chartAtividadesProjetoRelatorio", 1500, 850),
-    horasProjeto: capturarGraficoTemporarioRelatorio("chartHorasProjetoRelatorio", 1500, 850),
-    atividadesColaborador: capturarGraficoTemporarioRelatorio("chartAtividadesColaborador", 1400, 800),
-    horasColaborador: capturarGraficoTemporarioRelatorio("chartHorasColaborador", 1400, 800),
-    status: capturarGraficoTemporarioRelatorio("chartStatus", 1200, 760),
-    tipoProjeto: capturarGraficoTemporarioRelatorio("chartTipoProjeto", 1400, 800),
-    prioridade: capturarGraficoTemporarioRelatorio("chartPrioridade", 1200, 760),
-    obrasPegando: capturarGraficoTemporarioRelatorio("chartObrasPegando", 1400, 800)
+    atividadesProjeto: await capturarGraficoTemporarioRelatorio("chartAtividadesProjetoRelatorio", 1800, 1000),
+    horasProjeto: await capturarGraficoTemporarioRelatorio("chartHorasProjetoRelatorio", 1800, 1000),
+    atividadesColaborador: await capturarGraficoTemporarioRelatorio("chartAtividadesColaborador", 1800, 1000),
+    horasColaborador: await capturarGraficoTemporarioRelatorio("chartHorasColaborador", 1800, 1000),
+    status: await capturarGraficoTemporarioRelatorio("chartStatus", 1800, 1000),
+    tipoProjeto: await capturarGraficoTemporarioRelatorio("chartTipoProjeto", 1800, 1000),
+    prioridade: await capturarGraficoTemporarioRelatorio("chartPrioridade", 1800, 1000),
+    obrasPegando: await capturarGraficoTemporarioRelatorio("chartObrasPegando", 1800, 1000)
   };
 }
 function aguardarRenderizacaoGraficos() {

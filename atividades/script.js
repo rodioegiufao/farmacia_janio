@@ -589,7 +589,12 @@ function preencherSelect(select, opcoes, placeholder = "Selecione") {
 }
 
 function atualizarRestricoesDatasAtividade() {
-  campos.dataTermino.min = campos.dataInicio.value || "1000-01-01";
+  const dataMinimaTermino = campos.dataInicio.value || "1000-01-01";
+  if (campos.dataTermino.min !== dataMinimaTermino) campos.dataTermino.min = dataMinimaTermino;
+  validarOrdemDatasAtividade();
+}
+
+function validarOrdemDatasAtividade() {
   campos.dataTermino.setCustomValidity(
     campos.dataInicio.value && campos.dataTermino.value && campos.dataTermino.value < campos.dataInicio.value
       ? "A data de término deve ser maior ou igual à data de início."
@@ -600,8 +605,8 @@ function atualizarRestricoesDatasAtividade() {
 function configurarValidacaoDatasAtividade() {
   campos.dataInicio.addEventListener("input", atualizarRestricoesDatasAtividade);
   campos.dataInicio.addEventListener("change", atualizarRestricoesDatasAtividade);
-  campos.dataTermino.addEventListener("input", atualizarRestricoesDatasAtividade);
-  campos.dataTermino.addEventListener("change", atualizarRestricoesDatasAtividade);
+  campos.dataTermino.addEventListener("input", validarOrdemDatasAtividade);
+  campos.dataTermino.addEventListener("change", validarOrdemDatasAtividade);
   atualizarRestricoesDatasAtividade();
 }
 function configurarCamposOutros() {

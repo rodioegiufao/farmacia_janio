@@ -1505,7 +1505,19 @@ function obterPeriodoRelatorioWord() {
   const ano = String(inicio.getFullYear());
   const numeroSemana = Math.ceil((((inicio - new Date(inicio.getFullYear(), 0, 1)) / 86400000) + new Date(inicio.getFullYear(), 0, 1).getDay() + 1) / 7);
   const rotulo = tipo === "semanal" ? `SEMANA ${numeroSemana}` : tipo === "mensal" ? `${mes} / ${ano}` : tipo === "anual" ? `ANO ${ano}` : `${formatarData(obterDataIsoLocal(inicio))} A ${formatarData(obterDataIsoLocal(fim))}`;
-  return { tipo, rotulo, dataInicio: obterDataIsoLocal(inicio), dataFim: obterDataIsoLocal(fim), mes, ano };
+  const competenciaRelatorio = tipo === "anual"
+    ? ano
+    : `${mes}/${ano}${inicio.getMonth() !== fim.getMonth() || inicio.getFullYear() !== fim.getFullYear()
+      ? ` — ${fim.toLocaleDateString("pt-BR", { month: "long" }).toUpperCase()}/${fim.getFullYear()}`
+      : ""}`;
+  return { tipo, rotulo, dataInicio: obterDataIsoLocal(inicio), dataFim: obterDataIsoLocal(fim), mes, ano, competenciaRelatorio };
+}
+
+function formatarIntervaloDatasRelatorio(inicio, fim) {
+  const dataInicio = new Date(`${obterDataIsoLocal(inicio)}T12:00:00`);
+  const dataFim = new Date(`${obterDataIsoLocal(fim)}T12:00:00`);
+  const diaMes = (data) => `${data.getDate()} de ${data.toLocaleDateString("pt-BR", { month: "long" })}`;
+  return `${diaMes(dataInicio)} a ${diaMes(dataFim)} de ${dataFim.getFullYear()}`;
 }
 
 function obterDataReferenciaAtividade(atividade) {
@@ -1737,7 +1749,7 @@ async function gerarRelatorioWord() {
       atividadesSemanais: atividadesSemanaisRelatorio,
       periodoRelatorio: obterPeriodoRelatorioWord(),
       historicoAtividades: [],
-      tituloRelatorio: obterTituloRelatorioWord(atividadesSemanaisRelatorio),
+      tituloRelatorio: obterTituloRelatorioWord(),
       filtros: obterFiltrosDashboardRelatorio(),
       graficos: await prepararGraficosParaRelatorio(atividadesRelatorio)
     };
@@ -1955,11 +1967,11 @@ function filtrarAtividadesSemanaisPorPeriodo(lista) {
   });
 }
 
-function obterTituloRelatorioWord(atividadesSemanaisRelatorio) {
+function obterTituloRelatorioWord() {
   if (["semana-atual", "semana-anterior"].includes(filtrosDashboard.periodo.value)) {
-    const semanas = [...new Set((atividadesSemanaisRelatorio || []).map((item) => item.semana).filter(Boolean))];
-    return semanas.length ? semanas.join("; ") : "Relatório semanal de acompanhamento das atividades do setor.";
-  }
+    const periodo = obterPeriodoRelatorioWord();
+    const intervalo = obterIntervaloDashboard();
+    return `${periodo.rotulo.replace(/^SEMANA/, "Semana")}: ${formatarIntervaloDatasRelatorio(intervalo.inicio, intervalo.fim)}`;  }
 
   if (filtrosDashboard.periodo.value === "ano-atual") {
     return "Relatório anual de acompanhamento das atividades do setor.";

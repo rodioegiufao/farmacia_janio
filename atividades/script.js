@@ -1593,7 +1593,7 @@ function renderizarGraficosDashboard(lista) {
   criarOuAtualizarGrafico("chartTipoProjeto", "bar", disciplinas.map((item) => item.projeto), disciplinas.map((item) => item.total), "Projetos", true);
   criarOuAtualizarGrafico("chartPrioridade", "bar", prioridades, prioridades.map((prioridade) => lista.filter((a) => a.prioridade === prioridade).length), "Prioridades");
   const obrasPegando = obterObrasPegando(lista);
-  criarOuAtualizarGrafico("chartObrasPegando", "bar", obrasPegando.labels, obrasPegando.valores, "Horas por obra");
+  criarOuAtualizarGrafico("chartObrasPegando", "bar", obrasPegando.labels, obrasPegando.valores, "Horas por obra", true);
   const porProjeto = agruparIndicadoresPorProjetoObra(lista);
   criarOuAtualizarGrafico("chartAtividadesProjetoRelatorio", "bar", porProjeto.labels, porProjeto.atividades, "Atividades", true);
   criarOuAtualizarGrafico("chartHorasProjetoRelatorio", "bar", porProjeto.labels, porProjeto.horas, "Horas", true);
@@ -1639,7 +1639,11 @@ function obterObrasPegando(lista) {
     atual.horas += calcularHorasAtividade(atividade);
     mapa.set(chave, atual);
   });
-  const chaves = [...mapa.keys()].sort((a, b) => mapa.get(b).horas - mapa.get(a).horas || mapa.get(a).nome.localeCompare(mapa.get(b).nome));
+  // O gráfico 7 destaca somente as obras que mais consumiram horas na competência,
+  // evitando que uma cauda longa de obras torne os nomes e os valores ilegíveis.
+  const chaves = [...mapa.keys()]
+    .sort((a, b) => mapa.get(b).horas - mapa.get(a).horas || mapa.get(a).nome.localeCompare(mapa.get(b).nome))
+    .slice(0, 10);
   return { labels: chaves.map((chave) => mapa.get(chave).nome), valores: chaves.map((chave) => Number(mapa.get(chave).horas.toFixed(2))) };
 }
 
@@ -1657,12 +1661,12 @@ function criarOuAtualizarGrafico(canvasId, tipo, labels, valores, label, horizon
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: tipo === "doughnut", labels: { color: corTexto } } },
+      plugins: { legend: { display: tipo === "doughnut", labels: { color: corTexto, font: { size: 15 } } } },
       indexAxis: horizontal ? "y" : "x",
       animation: false,
       scales: tipo === "doughnut" ? {} : {
-        x: { beginAtZero: horizontal, ticks: { color: corTexto, precision: 0 }, grid: { color: corGrade } },
-        y: { beginAtZero: !horizontal, ticks: { color: corTexto, precision: 0 }, grid: { color: corGrade } }
+        x: { beginAtZero: horizontal, ticks: { color: corTexto, precision: 0, font: { size: 14 } }, grid: { color: corGrade } },
+        y: { beginAtZero: !horizontal, ticks: { color: corTexto, precision: 0, font: { size: 14 } }, grid: { color: corGrade } }
       }
     }
   });
@@ -1825,25 +1829,25 @@ function criarOpcoesGraficoRelatorio(tipo, horizontal = false) {
     animation: false,
     devicePixelRatio: 2,
     layout: { padding: horizontal ? { left: 48, right: 24, top: 24, bottom: 24 } : 24 },
-    font: { size: 16 },
+    font: { size: 22 },
     plugins: {
       legend: {
         display: tipo === "doughnut",
         position: "bottom",
-        labels: { color: "#222222", font: { size: 17, weight: "bold" }, padding: 18, boxWidth: 18 }
+        labels: { color: "#222222", font: { size: 22, weight: "bold" }, padding: 20, boxWidth: 20 }
       },
-      title: { color: "#222222", font: { size: 17, weight: "bold" } }
+      title: { color: "#222222", font: { size: 22, weight: "bold" } }
     },
     indexAxis: horizontal ? "y" : "x",
     scales: tipo === "doughnut" ? {} : {
       x: {
         beginAtZero: horizontal,
-        ticks: { color: "#222222", precision: 0, font: { size: 16, weight: "bold" }, maxRotation: 0, minRotation: 0 },
+        ticks: { color: "#222222", precision: 0, font: { size: 22, weight: "bold" }, maxRotation: 0, minRotation: 0 },
         grid: { color: "#d1d5db" }
       },
       y: {
         beginAtZero: !horizontal,
-        ticks: { color: "#222222", precision: 0, font: { size: horizontal ? 15 : 16, weight: "bold" } },
+        ticks: { color: "#222222", precision: 0, font: { size: 22, weight: "bold" } },
         grid: { color: "#d1d5db" }
       }
     }

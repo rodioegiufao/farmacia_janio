@@ -692,8 +692,11 @@ async function salvarAtividade(event) {
     } else {
       atividades.unshift(atividadeSalva);
     }
-
+    const trabalhoFinalizado = atividade.status === "Finalizado" ? atividade.trabalhos : "";
     form.reset();
+     // Mantém a descrição visível para que o texto do trabalho concluído não se
+    // perca da tela após o registro ser finalizado.
+    if (trabalhoFinalizado) campos.trabalhos.value = trabalhoFinalizado;
     atualizarCamposOutros();
     atualizarRestricoesDatasAtividade();
     preencherColaboradoresPermitidos();

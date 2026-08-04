@@ -82,7 +82,7 @@ class ExcelGenerator {
     inserirImagemLogo(workbook, ws, logo, rowIndex, colIndex, imageCache) {
         const preparada = this.prepararImagemExcel(logo.imagem_base64);
         if (!preparada) return;
-        const key = logo.hash || preparada.base64.slice(0, 512);
+        const key = logo.hash || `${logo.referencia_id || 'logo'}-${logo.pagina_pdf || 0}-${logo.largura_original || 0}x${logo.altura_original || 0}`;
         let imageId = imageCache.get(key);
         if (!imageId) {
             imageId = workbook.addImage({ base64: preparada.base64, extension: preparada.extension });

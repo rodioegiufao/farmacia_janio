@@ -8,6 +8,8 @@ window.ENGENHEIROS_CREAS_FIXOS = {
 };
 
 window.MAPEAMENTO_PROJETOS = {
+    "ARQ": "ARQUITETÔNICO",
+    "ELE": "PROJETO ELÉTRICO DE BAIXA TENSÃO",
     "ECX": "PROJETO ELÉTRICO DE EXAUSTÃO E CLIMATIZAÇÃO",
     "ECLI": "PROJETO ELÉTRICO DE CLIMATIZAÇÃO",
     "ILUX": "PROJETO DE ILUMINAÇÃO EXTERNA",
@@ -45,6 +47,8 @@ window.MAPEAMENTO_PROJETOS = {
 
 // Termos de busca no PDF (permite exibição diferente sem afetar validação)
 window.MAPEAMENTO_BUSCA_PROJETOS = {
+    "ARQ": "ARQUITETÔNICO",
+    "ELE": "PROJETO ELÉTRICO DE BAIXA TENSÃO",
     "ECX": "PROJETO ELÉTRICO DE EXAUSTÃO E",
     "GLP": "GASES GLP",
     "PLU": "ÁGUAS PLUVIAIS",

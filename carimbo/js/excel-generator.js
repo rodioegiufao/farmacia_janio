@@ -51,6 +51,7 @@ class ExcelGenerator {
                 "Descrição Projeto": dados.descricao_projeto,
                 "Palavras-chave encontradas": dados.dados_carimbo.length > 0 ? 
                     dados.dados_carimbo.join(', ') : "Nenhuma",
+                "Área": dados.area_projeto || "",
                 "Nome do Arquivo": nomeArquivo,
                 "Número da Prancha": dados.numero_prancha || "Não identificado",
                 "Tamanho da Prancha": dados.tamanho_prancha || "Não identificado",

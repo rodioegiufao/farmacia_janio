@@ -164,3 +164,45 @@ window.ROBOFLOW_LUMINARIAS_CONFIG = {
     inferenceHeight: 1280,
     inferenceTimeoutMs: 30000
 };
+window.LOGOS_REFERENCIA_CONFIG = {
+    enabled: true,
+    debug: true,
+    maxLogosPorPdf: 10,
+    maxReferenciasCadastradas: 20,
+    maxReferenceFileSizeMB: 5,
+    minReferenceWidth: 32,
+    minReferenceHeight: 32,
+    similarityThreshold: 0.80,
+    hashThreshold: 0.72,
+    normalizedSize: 128,
+    rotations: [0, 90, 180, 270],
+    mirrorEnabled: false,
+    allowedMimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
+    filtros: {
+        minWidth: 32,
+        minHeight: 32,
+        minArea: 1500,
+        maxRelativeArea: 0.35,
+        maxAspectRatio: 8,
+        maxTransparentRatio: 0.98,
+        maxWhiteRatio: 0.985,
+        maxBlackRatio: 0.985,
+        minColorBuckets: 6
+    },
+    pesos: {
+        hash: 0.50,
+        edge: 0.20,
+        color: 0.20,
+        aspect: 0.10
+    },
+    fallback: {
+        enabled: true,
+        renderScale: 2.2,
+        stampRegion: { xMin: 0.45, yMin: 0.55, width: 0.55, height: 0.45 },
+        stampBonus: 0.05
+    },
+    referencias: [
+        { id: 'logo-referencia-1', src: 'carimbo/assets/logos/logo-referencia-1.png' },
+        { id: 'logo-referencia-2', src: 'carimbo/assets/logos/logo-referencia-2.png' }
+    ]
+};

@@ -4,6 +4,7 @@ class PDFAnalyzerApp {
         console.log('📄 Criando PDFAnalyzerApp...');
         this.pdfProcessor = new PDFProcessor();
         this.excelGenerator = new ExcelGenerator();
+        this.logoDetector = window.LogoDetector ? new LogoDetector() : null;
         this.uploadedFiles = [];
         this.resultados = {};
         this.init();
@@ -14,6 +15,7 @@ class PDFAnalyzerApp {
         this.setupEventListeners();
         this.loadDefaultKeywords();
         this.populateStaticData();
+        this.setupLogoReferences();
         // REMOVER: this.setupFileUpload() - não existe mais
         
         // Garantir que a aba correta esteja visível
@@ -312,7 +314,8 @@ class PDFAnalyzerApp {
             checkFilename: document.getElementById('checkFilename').checked,
             checkSheetNumber: document.getElementById('checkSheetNumber').checked,
             checkProjeto: document.getElementById('checkProjeto').checked,
-            checkComodos: document.getElementById('checkComodos').checked
+            checkComodos: document.getElementById('checkComodos').checked,
+            checkLogos: document.getElementById('checkLogos')?.checked ?? true
         };
         
         console.log('Opções:', opcoes);
@@ -390,7 +393,8 @@ class PDFAnalyzerApp {
                 <td>${dados.numero_prancha || 'Não identificado'}</td>
                 <td>${dados.codigo_projeto || 'Não identificado'}</td>
                 <td>${dados.descricao_projeto}</td>
-                <td>${dados.dados_carimbo.length > 0 ? dados.dados_carimbo.join(', ') : 'Nenhuma'}</td>
+                <td>${this.escapeHTML(dados.dados_carimbo.length > 0 ? dados.dados_carimbo.join(', ') : 'Nenhuma')}</td>
+                <td>${this.renderLogosCell(dados.logos_detectadas)}</td>
                 <td class="${dados.nome_arquivo_encontrado ? 'success' : 'error'}">
                     ${dados.nome_arquivo_encontrado ? 'Sim' : 'Não'}
                 </td>
@@ -409,6 +413,7 @@ class PDFAnalyzerApp {
             
             tbody.appendChild(row);
         }
+        this.setupLogoModalDelegation();
     }
 
     atualizarEstatisticas() {
@@ -492,18 +497,121 @@ class PDFAnalyzerApp {
         container.innerHTML = html;
     }
 
-    baixarExcel() {
+    async baixarExcel() {
         if (Object.keys(this.resultados).length === 0) {
             this.showError('Nenhum resultado disponível para download.');
             return;
         }
 
-        const success = this.excelGenerator.baixarExcel(this.resultados, "resultados_analise.xlsx");
-        if (success) {
-            console.log('✅ Excel baixado com sucesso');
-        } else {
-            this.showError('Erro ao gerar arquivo Excel.');
+        const button = document.getElementById('downloadButton');
+        const originalText = button ? button.textContent : '';
+        try {
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Gerando Excel...';
+            }
+            this.updateProgress(0, 1, 'Preparando imagens para o Excel');
+            const success = await this.excelGenerator.baixarExcel(this.resultados, "resultados_analise.xlsx");
+            if (success) {
+                console.log('✅ Excel baixado com sucesso');
+            } else {
+                this.showError('Erro ao gerar arquivo Excel.');
+            }
+        } catch (error) {
+            console.error('❌ Erro ao gerar Excel:', error);
+            this.showError('Erro ao gerar arquivo Excel: ' + error.message);
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = originalText || '📥 Baixar Resultados em Excel';
+            }
         }
+    }
+
+    async setupLogoReferences() {
+        const addButton = document.getElementById('addLogoReferenceButton');
+        const input = document.getElementById('logoReferenceInput');
+        const removeAllButton = document.getElementById('removeAllLogoReferencesButton');
+        if (!addButton || !input || !window.LogoDetector) return;
+        addButton.addEventListener('click', () => input.click());
+        input.addEventListener('change', async (event) => {
+            try {
+                const detector = this.logoDetector || new LogoDetector();
+                await detector.salvarArquivosReferencia(event.target.files);
+                input.value = '';
+                await this.renderLogoReferences();
+                this.showSuccess('Logos de referência cadastradas com sucesso.');
+            } catch (error) {
+                this.showError(error.message);
+            }
+        });
+        removeAllButton?.addEventListener('click', async () => {
+            await window.LogoReferenceStore?.removerTodasLogosReferencia?.();
+            await this.renderLogoReferences();
+        });
+        await this.renderLogoReferences();
+    }
+
+    async renderLogoReferences() {
+        const preview = document.getElementById('logoReferencePreview');
+        const status = document.getElementById('logoReferenceStatus');
+        if (!preview || !status || !window.LogoReferenceStore) return;
+        const items = await window.LogoReferenceStore.listarLogosReferencia();
+        status.textContent = `${items.length} referência(s) cadastrada(s) neste navegador.`;
+        preview.innerHTML = '';
+        items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'logo-reference-card';
+            const img = document.createElement('img');
+            img.src = item.imagem_base64;
+            img.alt = 'Logo de referência';
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = 'Excluir';
+            btn.addEventListener('click', async () => {
+                await window.LogoReferenceStore.removerLogoReferencia(item.id);
+                await this.renderLogoReferences();
+            });
+            card.append(img, btn);
+            preview.appendChild(card);
+        });
+    }
+
+    renderLogosCell(logos) {
+        if (!logos) return 'Nenhuma';
+        if (logos.status === 'desabilitado') return 'Desativado';
+        if (logos.status === 'sem_referencias') return 'Cadastre as referências';
+        if (!logos.itens?.length) return 'Nenhuma';
+        return `<div class="logos-thumbs">${logos.itens.map((logo, index) => {
+            const title = `Página ${logo.pagina_pdf || '-'} • ${Math.round((logo.confianca || 0) * 100)}%`;
+            return `<button type="button" class="logo-thumb-button" title="${this.escapeHTML(title)}" data-logo-index="${index}"><img src="${logo.imagem_base64}" alt="Logo detectada ${index + 1}"></button>`;
+        }).join('')}</div>`;
+    }
+
+    setupLogoModalDelegation() {
+        const tbody = document.getElementById('resultsBody');
+        if (!tbody || tbody.dataset.logoModalReady) return;
+        tbody.dataset.logoModalReady = '1';
+        tbody.addEventListener('click', (event) => {
+            const button = event.target.closest('.logo-thumb-button');
+            if (!button) return;
+            const rowIndex = Array.from(tbody.children).indexOf(button.closest('tr'));
+            const dados = Object.values(this.resultados)[rowIndex];
+            const logo = dados?.logos_detectadas?.itens?.[Number(button.dataset.logoIndex)];
+            if (logo?.imagem_base64) this.abrirLogoModal(logo);
+        });
+    }
+
+    abrirLogoModal(logo) {
+        const overlay = document.createElement('div');
+        overlay.className = 'logo-modal-overlay';
+        overlay.innerHTML = `<div class="logo-modal"><button type="button" class="logo-modal-close">×</button><img src="${logo.imagem_base64}" alt="Logo detectada ampliada"><p>Página ${logo.pagina_pdf || '-'} • Confiança ${Math.round((logo.confianca || 0) * 100)}%</p></div>`;
+        overlay.addEventListener('click', (event) => { if (event.target === overlay || event.target.classList.contains('logo-modal-close')) overlay.remove(); });
+        document.body.appendChild(overlay);
+    }
+
+    escapeHTML(value) {
+        return String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch]));
     }
 
     // Utilitários de interface

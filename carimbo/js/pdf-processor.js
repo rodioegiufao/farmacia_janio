@@ -971,7 +971,8 @@ class PDFProcessor {
                 checkFilename = true,
                 checkSheetNumber = true,
                 checkProjeto = true,
-                checkComodos = false
+                checkComodos = false,
+                checkLogos = true
             } = opcoes;
 
             // Extrair informações do nome do arquivo
@@ -1007,9 +1008,25 @@ class PDFProcessor {
                 paginas_com_erro: 0
             };
 
+            const logoDetector = window.LogoDetector ? new LogoDetector(window.LOGOS_REFERENCIA_CONFIG || {}) : null;
+            let logosDetectadas = logoDetector
+                ? logoDetector.criarResultadoVazio(checkLogos ? 'nenhuma_detectada' : 'desabilitado', checkLogos ? 'Análise de logos inicializada.' : 'Análise de logos desativada pelo usuário.')
+                : { status: 'erro', mensagem: 'Módulo de detecção de logos não carregado.', total_referencias: 0, total_candidatos: 0, total_detectadas: 0, itens: [] };
+
             // Carregar PDF usando pdf.js
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await this.pdfjsLib.getDocument(arrayBuffer).promise;
+
+            if (checkLogos && logoDetector) {
+                try {
+                    logosDetectadas = await logoDetector.detectarNoPDF(pdf, mensagem => {
+                        console.log(`🔎 ${mensagem}`);
+                    });
+                } catch (error) {
+                    console.warn(`⚠️ Falha na detecção de logos em ${file.name}:`, error);
+                    logosDetectadas = logoDetector.criarResultadoVazio('erro', `Erro ao detectar logos: ${error.message}`);
+                }
+            }
             
             // Processar cada página
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
@@ -1178,6 +1195,7 @@ class PDFProcessor {
                     deteccoes: deteccoesComodos,
                     resumo_por_classe: resumoComodos
                 },
+                logos_detectadas: logosDetectadas,
                 luminarias_ia: {
                     status: diagnosticoComodos.status,
                     mensagem: diagnosticoComodos.mensagem,
@@ -1239,6 +1257,14 @@ class PDFProcessor {
                     area_projeto: areaProjeto,
                     nome_arquivo: file.name.replace(/\.pdf$/i, ''),
                     analise_consistencia: null,
+                    logos_detectadas: {
+                        status: 'erro',
+                        mensagem: 'PDF não processado; análise de logos não executada.',
+                        total_referencias: 0,
+                        total_candidatos: 0,
+                        total_detectadas: 0,
+                        itens: []
+                    },
                     comodos_ia: {
                         status: 'erro_processamento_pdf',
                         mensagem: error.message,

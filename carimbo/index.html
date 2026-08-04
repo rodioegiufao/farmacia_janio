@@ -12,6 +12,7 @@
     <!-- Usar versão compatível do PDF.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="/js/auth-guard.js"></script>
 </head>
@@ -133,7 +134,15 @@
                         <label>Área do projeto</label>
                         <textarea id="projectAreaInput" rows="2" class="text-area" placeholder="Exemplo: 1.250,00 m²"></textarea>
                     </div>
-            
+                    <div class="form-group logos-reference-section">
+                        <h4>Logos de referência</h4>
+                        <p class="reference-help">Cadastre PNG, JPG, JPEG ou WebP. As imagens ficam salvas neste navegador.</p>
+                        <button type="button" id="addLogoReferenceButton" class="secondary-button">Adicionar logos de referência</button>
+                        <input type="file" id="logoReferenceInput" accept="image/png,image/jpeg,image/webp" multiple class="hidden">
+                        <div id="logoReferenceStatus" class="reference-status">Nenhuma referência cadastrada.</div>
+                        <div id="logoReferencePreview" class="logo-reference-preview"></div>
+                        <button type="button" id="removeAllLogoReferencesButton" class="secondary-button danger-button">Remover todas</button>
+                    </div>
                     <!-- Opções -->
                     <div class="form-group">
                         <h4>Opções</h4>
@@ -157,6 +166,11 @@
                                 <input type="checkbox" id="checkComodos">
                                 <span class="checkmark"></span>
                                 Verificar quantidade de cômodos (IA)
+                            </label>
+                            <label class="option-item">
+                                <input type="checkbox" id="checkLogos" checked>
+                                <span class="checkmark"></span>
+                                Identificar logos no carimbo
                             </label>
                         </div>
                     </div>
@@ -224,6 +238,7 @@
                                                 <th>Código Projeto</th>
                                                 <th>Descrição Projeto</th>
                                                 <th>Palavras-chave</th>
+                                                <th>Logos</th>
                                                 <th>Nome</th>
                                                 <th>Prancha</th>
                                                 <th>Assinado</th>
@@ -382,7 +397,8 @@
     <script src="carimbo/js/config.js"></script>
     <script src="carimbo/js/detect-plantas.js"></script>
     <script src="carimbo/js/detect-comodos.js"></script>
-    <script src="carimbo/js/detect-luminarias.js"></script>
+    <script src="carimbo/js/logo-reference-store.js"></script>
+    <script src="carimbo/js/detect-logos.js"></script>
     <script src="carimbo/js/pdf-processor.js"></script>
     <script src="carimbo/js/excel-generator.js"></script>
     <script src="carimbo/js/app.js"></script>

@@ -1053,6 +1053,141 @@ body {
     margin-bottom: 0.25rem;
 }
 
+/* Logos de referência e resultados */
+.reference-help, .reference-status {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    opacity: 0.85;
+    margin: 0.4rem 0;
+}
 
+.secondary-button {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--border-color);
+    color: var(--text-lighter);
+    padding: 0.65rem 0.9rem;
+    border-radius: 6px;
+    cursor: pointer;
+    margin: 0.35rem 0;
+}
 
+.secondary-button:hover { background: rgba(255,255,255,0.14); }
+.danger-button { border-color: var(--error); color: var(--error); }
 
+.logo-reference-preview {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+    gap: 0.65rem;
+    margin: 0.75rem 0;
+}
+
+.logo-reference-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.45rem;
+    text-align: center;
+}
+
+.logo-reference-card img {
+    max-width: 76px;
+    max-height: 56px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 4px;
+    padding: 3px;
+}
+
+.logo-reference-card button {
+    display: block;
+    width: 100%;
+    margin-top: 0.35rem;
+    font-size: 0.75rem;
+    border: 0;
+    border-radius: 4px;
+    padding: 0.25rem;
+    cursor: pointer;
+    background: rgba(245,101,101,0.18);
+    color: var(--error);
+}
+
+.logos-thumbs {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+.logo-thumb-button {
+    width: 76px;
+    height: 51px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: #fff;
+    padding: 3px;
+    cursor: zoom-in;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-thumb-button img {
+    max-width: 70px;
+    max-height: 45px;
+    object-fit: contain;
+}
+
+.logo-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0,0,0,0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.logo-modal {
+    position: relative;
+    max-width: min(90vw, 760px);
+    max-height: 90vh;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.45);
+}
+
+.logo-modal img {
+    max-width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 8px;
+    padding: 0.75rem;
+}
+
+.logo-modal-close {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.6rem;
+    border: 0;
+    background: transparent;
+    color: var(--text-lighter);
+    font-size: 2rem;
+    cursor: pointer;
+}
+
+.download-btn:disabled,
+.secondary-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+[data-theme="light"] .logo-reference-card,
+[data-theme="light"] .secondary-button {
+    background: rgba(0,0,0,0.04);
+}

@@ -302,8 +302,11 @@ class PDFAnalyzerApp {
         const palavrasChaveAdicionais = keywordsInput.value.split('\n')
             .map(line => line.trim())
             .filter(line => line.length > 0);
+        const projectAreaInput = document.getElementById('projectAreaInput');
+        const areaProjeto = projectAreaInput ? projectAreaInput.value.trim() : '';
         
         console.log('Palavras-chave adicionais:', palavrasChaveAdicionais);
+        console.log('Área do projeto:', areaProjeto);
         
         const opcoes = {
             checkFilename: document.getElementById('checkFilename').checked,
@@ -320,7 +323,8 @@ class PDFAnalyzerApp {
                 this.uploadedFiles,
                 palavrasChaveAdicionais,
                 opcoes,
-                (current, total, fileName) => this.updateProgress(current, total, fileName)
+                (current, total, fileName) => this.updateProgress(current, total, fileName),
+                areaProjeto
             );
             
             console.log('✅ Análise concluída. Resultados:', this.resultados);

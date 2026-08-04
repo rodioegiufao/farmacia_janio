@@ -965,7 +965,7 @@ class PDFProcessor {
     }
 
     // CORREÇÃO: Usar window.MAPEAMENTO_PROJETOS
-    async processarPDF(file, palavrasChave, opcoes) {
+    async processarPDF(file, palavrasChave, opcoes, areaProjeto = '') {
         try {
             const {
                 checkFilename = true,
@@ -1166,6 +1166,7 @@ class PDFProcessor {
                 descricao_projeto: descricaoProjeto,
                 numero_prancha: numeroPrancha,
                 tamanho_prancha: tamanhoPrancha,
+                area_projeto: areaProjeto,
                 nome_arquivo: nomeArquivo,
                 analise_consistencia: analiseConsistencia,
                 comodos_ia: {
@@ -1194,7 +1195,7 @@ class PDFProcessor {
         }
     }
 
-    async processarMultiplosPDFs(files, palavrasChaveAdicionais, opcoes, onProgress) {
+    async processarMultiplosPDFs(files, palavrasChaveAdicionais, opcoes, onProgress, areaProjeto = '') {
         const resultados = {};
         
         // Verificar se há arquivos
@@ -1217,7 +1218,7 @@ class PDFProcessor {
             }
 
             try {
-                resultados[file.name] = await this.processarPDF(file, todasPalavrasChave, opcoes);
+                resultados[file.name] = await this.processarPDF(file, todasPalavrasChave, opcoes, areaProjeto);
                 console.log(`✅ PDF processado: ${file.name}`);
             } catch (error) {
                 console.error(`❌ Erro no PDF ${file.name}:`, error);
@@ -1235,6 +1236,7 @@ class PDFProcessor {
                     descricao_projeto: 'Erro no processamento',
                     numero_prancha: null,
                     tamanho_prancha: null,
+                    area_projeto: areaProjeto,
                     nome_arquivo: file.name.replace(/\.pdf$/i, ''),
                     analise_consistencia: null,
                     comodos_ia: {

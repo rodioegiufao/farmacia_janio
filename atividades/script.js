@@ -685,12 +685,14 @@ async function salvarAtividade(event) {
     setFormDisabled(true);
     const atividadeSalva = await apiRequest(campos.id.value ? "PUT" : "POST", atividade);
     await carregarObras();
-    const indice = atividades.findIndex((item) => item.id === atividade.id);
-
-    if (indice >= 0) {
-      atividades[indice] = atividadeSalva;
+    if (atividade.status === "Finalizado") {
+      // O servidor também conclui os lançamentos da mesma frente; recarregar
+      // mantém tabela, calendário e dashboard sincronizados com essa alteração.
+      await carregarAtividades();
     } else {
-      atividades.unshift(atividadeSalva);
+      const indice = atividades.findIndex((item) => item.id === atividade.id);
+      if (indice >= 0) atividades[indice] = atividadeSalva;
+      else atividades.unshift(atividadeSalva);
     }
     const trabalhoFinalizado = atividade.status === "Finalizado" ? atividade.trabalhos : "";
     form.reset();

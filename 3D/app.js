@@ -3615,7 +3615,7 @@ const IPER_MODEL_TRANSFORMS = {
     IFC_INC: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },
     IFC_HID: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },
     IFC_PLU: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },
-    IFC_FOT: { position: [0, 0, 13.9], rotation: [0, 90, 0]},
+    //IFC_FOT: { position: [0, 0, 13.9], rotation: [0, 90, 0]},
     IFC_CLI: { position: [0.16, 0, -0.2], rotation: [0, 90, 0]  },
     IFC_ALI: { position: [-13.94, 0, -0.17] },
     IFC_EST_SQD: { position: [18.655, -0.658, -15.215] },

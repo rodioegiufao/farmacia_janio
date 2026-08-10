@@ -35,10 +35,14 @@ create table if not exists public.atividades_colaboradores (
 
 alter table public.atividades_colaboradores
   add column if not exists usuario_id uuid references public.usuarios_setor(id),
-  add column if not exists criado_por_nome text;
+  add column if not exists criado_por_nome text,
+  add column if not exists obra_id uuid;
 
 create index if not exists idx_atividades_usuario_id
 on public.atividades_colaboradores (usuario_id);
+
+create index if not exists idx_atividades_frente
+on public.atividades_colaboradores (colaborador, obra_id, projeto, etapa);
 
 create table if not exists public.planner_checklists (
   id uuid primary key default gen_random_uuid(),

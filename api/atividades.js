@@ -137,7 +137,28 @@ async function fromDatabaseRecordComObra(record) {
   const enriched = await enriquecerRegistroComObra(record);
   return { ...fromDatabaseRecord(enriched), obraId: enriched.obra_id || "", obraCodigo: enriched.obraCodigo || "", obra: enriched.obra || "" };
 }
+function filtroAtividadesRelacionadas(record) {
+  const campos = [
+    ["colaborador", record.colaborador],
+    [record.obra_id ? "obra_id" : "obra", record.obra_id || record.obra],
+    ["projeto", record.projeto],
+    ["etapa", record.etapa]
+  ];
 
+  if (campos.some(([, valor]) => !String(valor || "").trim())) return "";
+  return `?${campos.map(([campo, valor]) => `${campo}=eq.${encodeURIComponent(valor)}`).join("&")}`;
+}
+
+async function finalizarAtividadesRelacionadas(record) {
+  if (normalizeText(record.status) !== "finalizado") return [];
+  const filtro = filtroAtividadesRelacionadas(record);
+  if (!filtro) return [];
+
+  return supabaseRequest(SUPABASE_TABLE, `${filtro}&status=neq.Finalizado`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: "Finalizado" })
+  });
+}
 module.exports = async function atividadesHandler(req, res) {
   try {
     if (req.method === "GET") {
@@ -164,6 +185,7 @@ module.exports = async function atividadesHandler(req, res) {
         method: "POST",
         body: JSON.stringify(record)
       });
+      await finalizarAtividadesRelacionadas(record);
       sendJson(res, 201, { ...fromDatabaseRecord(data[0] || {}), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome });
       return;
     }
@@ -198,8 +220,8 @@ module.exports = async function atividadesHandler(req, res) {
       delete record.criado_por_nome;
       const data = await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(body.id)}`, {
         method: "PATCH",
-        body: JSON.stringify(record)
       });
+      await finalizarAtividadesRelacionadas(record);
       sendJson(res, 200, { ...fromDatabaseRecord(data[0] || {}), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome });
       return;
     }
@@ -244,3 +266,4 @@ module.exports = async function atividadesHandler(req, res) {
     sendJson(res, error.statusCode || 500, { error: error.message || "Erro interno ao processar atividades." });
   }
 };
+module.exports._test = { filtroAtividadesRelacionadas };

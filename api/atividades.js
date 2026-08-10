@@ -126,6 +126,13 @@ function toDatabaseRecord(activity) {
   }, {});
 }
 
+function activityUpdateOptions(record) {
+  return {
+    method: "PATCH",
+    body: JSON.stringify(record)
+  };
+}
+
 function fromDatabaseRecord(record) {
   return Object.entries(FIELD_TO_COLUMN).reduce((activity, [field, column]) => {
     activity[field] = record[column] ?? "";
@@ -218,9 +225,11 @@ module.exports = async function atividadesHandler(req, res) {
       enforceCollaboratorPermission(record, user);
       delete record.usuario_id;
       delete record.criado_por_nome;
-      const data = await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(body.id)}`, {
-        method: "PATCH",
-      });
+      const data = await supabaseRequest(
+        SUPABASE_TABLE,
+        `?id=eq.${encodeURIComponent(body.id)}`,
+        activityUpdateOptions(record)
+      );
       await finalizarAtividadesRelacionadas(record);
       sendJson(res, 200, { ...fromDatabaseRecord(data[0] || {}), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome });
       return;
@@ -266,4 +275,4 @@ module.exports = async function atividadesHandler(req, res) {
     sendJson(res, error.statusCode || 500, { error: error.message || "Erro interno ao processar atividades." });
   }
 };
-module.exports._test = { filtroAtividadesRelacionadas };
+module.exports._test = { activityUpdateOptions, filtroAtividadesRelacionadas };

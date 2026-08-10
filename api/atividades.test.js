@@ -14,4 +14,12 @@ assert.equal(
 
 assert.equal(_test.filtroAtividadesRelacionadas({ colaborador: "Hellen" }), "");
 
-console.log("Testes da cascata de finalização passaram.");
+assert.deepEqual(
+  _test.activityUpdateOptions({ id: "atividade-1", status: "Finalizado" }),
+  {
+    method: "PATCH",
+    body: JSON.stringify({ id: "atividade-1", status: "Finalizado" })
+  }
+);
+
+console.log("Testes de atualização e cascata de finalização passaram.");

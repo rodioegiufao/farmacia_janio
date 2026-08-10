@@ -3502,6 +3502,7 @@ const IPER_MODELS = [
     { id: "IFC_SDAI", src: "/3D/iper/modelo-23.xkt" },
     { id: "IFC_GLP", src: "/3D/iper/modelo-24.xkt" },
     { id: "IFC_IRRI", src: "/3D/iper/modelo-25.xkt" },
+    { id: "IFC_SOM", src: "/3D/iper/modelo-26.xkt" },
 ];
 
 const FARMACIA_MODELS = [
@@ -3630,6 +3631,7 @@ const IPER_MODEL_TRANSFORMS = {
     IFC_SDAI: { position: [0.16, 0, -0.19] },
     IFC_GLP: { position: [0.16, 0, -0.17], rotation: [0, 90, 0] },
     IFC_IRRI: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },
+    IFC_SOM: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
 };
 
 const FARMACIA_MODEL_TRANSFORMS = {

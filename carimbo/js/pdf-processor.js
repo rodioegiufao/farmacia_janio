@@ -441,22 +441,16 @@ class PDFProcessor {
     // Função para extrair o número da prancha do nome do arquivo
     extrairNumeroPrancha(nomeArquivo) {
         try {
-            // Remove a extensão e possíveis sufixos como "_assinado"
-            const nomeSemExt = nomeArquivo.replace(/\.pdf$/i, '').replace(/_assinado/i, '');
-            
-            // Procura por padrões como _01_07 ou -01-07 no nome
-            const padroes = [
-                /[_\-](\d{2})[_\-](\d{2})/,
-                /[_\-](\d{2})[_\-](\d{3})/,
-                /[_\-](\d{3})[_\-](\d{3})/
-            ];
-            
-            for (const padrao of padroes) {
-                const correspondencia = nomeSemExt.match(padrao);
-                if (correspondencia) {
-                    return `${correspondencia[1]}/${correspondencia[2]}`;
-                }
-            }
+            // A paginação é o sufixo da nomenclatura. Números anteriores podem
+            // pertencer à identificação do empreendimento (ex.: PAVILHÃO-47).
+            const nomeBase = `${nomeArquivo}`
+                .replace(/\.pdf$/i, '')
+                .replace(/(?:_|-)assinado$/i, '');
+            const correspondencia = nomeBase.match(/(?:-|_)(\d{1,3})(?:-|_)(\d{1,3})$/);
+
+            return correspondencia
+                ? `${correspondencia[1]}/${correspondencia[2]}`
+                : null;
         } catch (error) {
             console.error('Erro ao extrair número da prancha:', error);
         }
@@ -980,6 +974,7 @@ class PDFProcessor {
             const assinadoPeloNome = this.verificarAssinaturaNome(file.name);
             const nomeSemAssinado = nomeArquivo.replace(/_assinado/i, '');
             const numeroPrancha = this.extrairNumeroPrancha(file.name);
+            console.log('Número da prancha extraído do nome:', numeroPrancha);
             const regexNumeroPrancha = this.criarRegexNumeroFolhaExato(numeroPrancha);
             const codigoProjeto = this.extrairCodigoProjeto(file.name);
             

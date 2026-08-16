@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test": "node --check api/_auth.js && node --check api/_obras.js && node --check api/obras.js && node --check api/auth.js && node --check api/usuarios.js && node --check api/atividades.js && node --check api/atividades-semanais.js && node --check api/planner-checklist.js && node --check api/gerar-relatorio-word.js && node --check api/gerar-memorando-word.js && node --check api/ifc-to-xkt.js && node --check api/ifc-storage-upload-url.js && node --check api/supabase-public-config.js && node --check atividades/script.js && node --check admin/script.js && node --check memo/script.js && node --check Memorial/memorial-calculo-parser.js && node --check Memorial/docx-memorial-calculo.js && node --check Memorial/script.js && node api/atividades.test.js && node api/gerar-relatorio-word.test.js",
+    "test": "node --check api/_auth.js && node --check api/_obras.js && node --check api/obras.js && node --check api/auth.js && node --check api/usuarios.js && node --check api/atividades.js && node --check api/atividades-semanais.js && node --check api/planner-checklist.js && node --check api/gerar-relatorio-word.js && node --check api/gerar-memorando-word.js && node --check api/ifc-to-xkt.js && node --check api/ifc-storage-upload-url.js && node --check api/supabase-public-config.js && node --check atividades/script.js && node --check admin/script.js && node --check memo/script.js && node --check Memorial/memorial-calculo-parser.js && node --check Memorial/docx-memorial-calculo.js && node --check Memorial/script.js && node carimbo/js/pdf-processor.test.js && node api/atividades.test.js && node api/gerar-relatorio-word.test.js",
     "test:ifc-tools": "node ifc-tools/test.js"
   },
   "dependencies": {

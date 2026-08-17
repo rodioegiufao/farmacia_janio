@@ -215,7 +215,7 @@ button:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0, 0, 0,
   text-align: center;
   user-select: none;
 }
-table { width: 100%; min-width: 1300px; border-collapse: collapse; background: var(--bg-card); }
+table { width: 100%; min-width: 1480px; border-collapse: collapse; background: var(--bg-card); }
 th, td { padding: 13px; border-bottom: 1px solid var(--border-color); text-align: left; vertical-align: top; font-size: 0.88rem; }
 th { position: sticky; top: 0; z-index: 1; color: #fff; background: var(--primary-medium); }
 tr:hover td { background: rgba(99, 179, 237, 0.08); }

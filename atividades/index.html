@@ -126,7 +126,24 @@
           Trabalhos
           <textarea id="trabalhos" rows="3" placeholder="Descreva o serviço realizado ou a executar" required></textarea>
         </label>
+        
+        <label>
+          Fase
+          <select id="fase" required></select>
+          <span class="other-option-field" id="faseOutroField" hidden>
+            <span>Qual fase?</span>
+            <input type="text" id="faseOutro" placeholder="Informe a fase" maxlength="100" disabled />
+          </span>
+        </label>
 
+        <label>
+          Item
+          <select id="item" required disabled><option value="">Selecione primeiro a fase</option></select>
+          <span class="other-option-field" id="itemOutroField" hidden>
+            <span>Qual item?</span>
+            <input type="text" id="itemOutro" placeholder="Informe o item" maxlength="100" disabled />
+          </span>
+        </label>
         <label>
           Etapa
           <select id="etapa" required></select>
@@ -218,6 +235,8 @@
                 <th>Prioridade</th>
                 <th>Projeto</th>
                 <th>Trabalhos</th>
+                <th>Fase</th>
+                <th>Item</th>
                 <th>Etapa</th>
                 <th>Início</th>
                 <th>Término</th>
@@ -530,6 +549,7 @@
   </main>
   <script src="/atividades/planner-modelos.js"></script>
   <script src="/atividades/atividade-agrupamento.js"></script>
+  <script src="/atividades/fase-item.js"></script>
   <script src="/atividades/script.js"></script>
 </body>
 </html>

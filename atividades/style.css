@@ -1632,3 +1632,18 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 .obra-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; white-space: nowrap; color: #2457a6; }
 .obra-badge { background: #e8f0fe; color: #174ea6; }
 label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margin-top: .35rem; color: #64748b; font-weight: 500; }
+/* Integração Atividade ↔ Planner */
+.planner-sync-badge { padding: 2px 6px; border: 1px solid #63b3ed; border-radius: 999px; color: #90cdf4; font-size: .6rem; font-weight: 800; letter-spacing: .08em; }
+.planner-card-highlight { border-color: #63b3ed !important; box-shadow: 0 0 0 3px rgba(99,179,237,.24), 0 8px 24px rgba(0,0,0,.28) !important; transition: box-shadow .3s ease, border-color .3s ease; }
+.planner-activity-state { color: #ecc94b; font-weight: 700; }
+.planner-auto-content { display: grid; gap: 14px; max-height: min(68vh, 650px); overflow: auto; padding: 4px; }
+.planner-auto-content fieldset { display: grid; gap: 7px; padding: 10px; border: 1px solid rgba(148,163,184,.25); border-radius: 7px; }
+.planner-auto-content label { display: flex; align-items: center; gap: 8px; }
+.planner-auto-taxonomy { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.link-button { border: 0; background: none; color: #90cdf4; text-decoration: underline; cursor: pointer; }
+@media (max-width: 680px) { .planner-auto-taxonomy { grid-template-columns: 1fr; } .planner-auto-modal .planner-modal-card { width: calc(100vw - 20px); } }
+.planner-linked-activities { border-top: 1px solid rgba(148,163,184,.25); padding-top: 12px; }
+.planner-linked-activities h3 { margin-bottom: 8px; font-size: .82rem; text-transform: uppercase; }
+.planner-linked-table { display: grid; gap: 5px; max-height: 220px; overflow: auto; }
+.planner-linked-table > div { display: grid; grid-template-columns: 80px 90px minmax(140px,1fr) 55px 80px; gap: 7px; padding: 7px; border-radius: 5px; background: rgba(148,163,184,.08); font-size: .72rem; }
+@media (max-width: 680px) { .planner-linked-table > div { grid-template-columns: 1fr 1fr; } .planner-linked-table > div span:nth-child(3) { grid-column: 1 / -1; } }

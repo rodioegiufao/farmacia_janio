@@ -74,6 +74,8 @@ const FIELD_TO_COLUMN = {
   prioridade: "prioridade",
   projeto: "projeto",
   trabalhos: "trabalhos",
+  fase: "fase",
+  item: "item",
   etapa: "etapa",
   dataInicio: "data_inicio",
   horaInicio: "hora_inicio",
@@ -275,4 +277,4 @@ module.exports = async function atividadesHandler(req, res) {
     sendJson(res, error.statusCode || 500, { error: error.message || "Erro interno ao processar atividades." });
   }
 };
-module.exports._test = { activityUpdateOptions, filtroAtividadesRelacionadas };
+module.exports._test = { activityUpdateOptions, filtroAtividadesRelacionadas, toDatabaseRecord, fromDatabaseRecord };

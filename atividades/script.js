@@ -3,6 +3,7 @@ const {
   consolidarAtividadesPorColaborador,
   normalizarNomeObra: normalizarNomeObraAgrupamento
 } = globalThis.ATIVIDADE_AGRUPAMENTO;
+const { fases, itensPorFase, valorFinal, prepararEdicao } = globalThis.FASE_ITEM_ATIVIDADE;
 const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const prioridades = ["P0", "P1", "P2", "P3"];
 const plannerStatusLista = ["Não iniciado", "Em andamento", "Concluído", "Atrasado", "Pausado"];
@@ -143,6 +144,10 @@ const campos = {
   projeto: document.getElementById("projeto"),
   projetoOutro: document.getElementById("projetoOutro"),
   trabalhos: document.getElementById("trabalhos"),
+  fase: document.getElementById("fase"),
+  faseOutro: document.getElementById("faseOutro"),
+  item: document.getElementById("item"),
+  itemOutro: document.getElementById("itemOutro"),
   etapa: document.getElementById("etapa"),
   etapaOutro: document.getElementById("etapaOutro"),
   dataInicio: document.getElementById("dataInicio"),
@@ -270,6 +275,7 @@ async function inicializar() {
   preencherSelect(campos.prioridade, prioridades);
   preencherSelect(camposSemanais.prioridade, prioridades);
   preencherSelect(campos.projeto, projetos);
+  preencherSelect(campos.fase, fases);
   preencherSelect(campos.etapa, etapas);
   preencherSelect(campos.status, statusLista);
   configurarCamposOutros();
@@ -611,10 +617,19 @@ function configurarValidacaoDatasAtividade() {
 }
 function configurarCamposOutros() {
   campos.projeto.addEventListener("change", () => atualizarCampoOutro("projeto"));
+  campos.fase.addEventListener("change", atualizarItensDaFase);
+  campos.item.addEventListener("change", () => atualizarCampoOutro("item"));
   campos.etapa.addEventListener("change", () => atualizarCampoOutro("etapa"));
+  atualizarItensDaFase(false);
   atualizarCamposOutros();
 }
-
+function atualizarItensDaFase(focar = true) {
+  const faseSelecionada = campos.fase.value;
+  preencherSelect(campos.item, itensPorFase[faseSelecionada] || [], faseSelecionada ? "Selecione" : "Selecione primeiro a fase");
+  campos.item.disabled = !faseSelecionada;
+  atualizarCampoOutro("fase", focar);
+  atualizarCampoOutro("item", false);
+}
 function atualizarCampoOutro(tipo, focar = true) {
   const select = campos[tipo];
   const input = campos[`${tipo}Outro`];
@@ -630,6 +645,8 @@ function atualizarCampoOutro(tipo, focar = true) {
 
 function atualizarCamposOutros(focar = false) {
   atualizarCampoOutro("projeto", focar);
+  atualizarCampoOutro("fase", focar);
+  atualizarCampoOutro("item", focar);
   atualizarCampoOutro("etapa", focar);
 }
 
@@ -658,6 +675,8 @@ async function salvarAtividade(event) {
     prioridade: campos.prioridade.value,
     projeto: valorComOpcaoOutro("projeto"),
     trabalhos: campos.trabalhos.value.trim(),
+    fase: valorFinal(campos.fase.value, campos.faseOutro.value),
+    item: valorFinal(campos.item.value, campos.itemOutro.value),
     etapa: valorComOpcaoOutro("etapa"),
     dataInicio: campos.dataInicio.value,
     horaInicio: campos.horaInicio.value,
@@ -699,6 +718,7 @@ async function salvarAtividade(event) {
      // Mantém a descrição visível para que o texto do trabalho concluído não se
     // perca da tela após o registro ser finalizado.
     if (trabalhoFinalizado) campos.trabalhos.value = trabalhoFinalizado;
+    atualizarItensDaFase(false);
     atualizarCamposOutros();
     atualizarRestricoesDatasAtividade();
     preencherColaboradoresPermitidos();
@@ -749,7 +769,7 @@ function renderizarTabela() {
 
   const listaFiltrada = atividades.filter((atividade) => {
     const termo = filtros.busca.value.toLowerCase().trim();
-    const textoBusca = `${atividade.obraCodigo} ${atividade.obra} ${atividade.projeto} ${atividade.trabalhos} ${atividade.observacoes}`.toLowerCase();
+    const textoBusca = `${atividade.obraCodigo} ${atividade.obra} ${atividade.projeto} ${atividade.trabalhos} ${atividade.fase} ${atividade.item} ${atividade.observacoes}`.toLowerCase();
 
     const correspondeBusca = !termo || textoBusca.includes(termo);
     const correspondeData = atividadeCorrespondeAoDia(atividade, filtros.data.value);
@@ -765,13 +785,13 @@ function renderizarTabela() {
   if (atividadesPaginacao) atividadesPaginacao.innerHTML = "";
   
   if (carregando) {
-    tabela.innerHTML = `<tr><td colspan="13" class="empty">Carregando atividades do Supabase...</td></tr>`;
+    tabela.innerHTML = `<tr><td colspan="15" class="empty">Carregando atividades do Supabase...</td></tr>`;
     atualizarDashboard();
     return;
   }
 
   if (!listaFiltrada.length) {
-    tabela.innerHTML = `<tr><td colspan="13" class="empty">Nenhuma atividade encontrada.</td></tr>`;
+    tabela.innerHTML = `<tr><td colspan="15" class="empty">Nenhuma atividade encontrada.</td></tr>`;
     atualizarDashboard();
     return;
   }
@@ -797,6 +817,8 @@ function renderizarTabela() {
       <td><span class="badge ${classePrioridade(atividade.prioridade)}">${escapeHtml(atividade.prioridade)}</span></td>
       <td>${escapeHtml(atividade.projeto)}</td>
       <td>${escapeHtml(atividade.trabalhos)}</td>
+      <td>${escapeHtml(atividade.fase || "-")}</td>
+      <td>${escapeHtml(atividade.item || "-")}</td>
       <td>${escapeHtml(atividade.etapa)}</td>
       <td>${formatarDataHora(atividade.dataInicio, atividade.horaInicio)}</td>
       <td>${formatarDataHora(atividade.dataTermino, atividade.horaTermino)}</td>
@@ -883,12 +905,21 @@ function editarAtividade(id) {
   const atividade = atividades.find((item) => item.id === id);
   if (!atividade) return;
 
-  Object.keys(campos).filter((campo) => !["projeto", "projetoOutro", "etapa", "etapaOutro"].includes(campo)).forEach((campo) => {
+  Object.keys(campos).filter((campo) => !["projeto", "projetoOutro", "fase", "faseOutro", "item", "itemOutro", "etapa", "etapaOutro"].includes(campo)).forEach((campo) => {
     if (campo === "id") campos[campo].value = atividade.id;
     else campos[campo].value = atividade[campo] || "";
   });
 
   preencherOpcaoComOutro("projeto", atividade.projeto, projetos);
+  const classificacao = prepararEdicao(atividade.fase, atividade.item);
+  campos.fase.value = classificacao.faseSelecionada;
+  campos.faseOutro.value = classificacao.faseOutro;
+  preencherSelect(campos.item, classificacao.itensDisponiveis, classificacao.faseSelecionada ? "Selecione" : "Selecione primeiro a fase");
+  campos.item.disabled = !classificacao.faseSelecionada;
+  campos.item.value = classificacao.itemSelecionado;
+  campos.itemOutro.value = classificacao.itemOutro;
+  atualizarCampoOutro("fase", false);
+  atualizarCampoOutro("item", false);
   preencherOpcaoComOutro("etapa", atividade.etapa, etapas);
   atualizarRestricoesDatasAtividade();
 
@@ -917,6 +948,7 @@ async function excluirAtividade(id) {
 
 function cancelarEdicao() {
   form.reset();
+  atualizarItensDaFase(false);
   atualizarCamposOutros();
   atualizarRestricoesDatasAtividade();
   preencherColaboradoresPermitidos();
@@ -2020,6 +2052,8 @@ function exportarCSV() {
     "Colaborador",
     "Prioridade",
     "Trabalhos",
+    "Fase",
+    "Item",
     "Etapa",
     "Data de início",
     "Horário de início",
@@ -2036,6 +2070,8 @@ function exportarCSV() {
     a.colaborador,
     a.prioridade,
     a.trabalhos,
+    a.fase,
+    a.item,
     a.etapa,
     a.dataInicio,
     a.horaInicio,
@@ -2102,6 +2138,10 @@ function setFormDisabled(disabled) {
   form.querySelectorAll("button, input, select, textarea").forEach((elemento) => {
     elemento.disabled = disabled;
   });
+  if (!disabled) {
+    campos.item.disabled = !campos.fase.value;
+    atualizarCamposOutros(false);
+  }
 }
 
 function escapeHtml(valor) {

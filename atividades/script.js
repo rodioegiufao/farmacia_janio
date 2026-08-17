@@ -3,7 +3,7 @@ const {
   consolidarAtividadesPorColaborador,
   normalizarNomeObra: normalizarNomeObraAgrupamento
 } = globalThis.ATIVIDADE_AGRUPAMENTO;
-const { fases, itensPorFase, valorFinal, prepararEdicao } = globalThis.FASE_ITEM_ATIVIDADE;
+const { fases, itensPorFase, valorFinal, valorFinalMultiplos, prepararEdicao } = globalThis.FASE_ITEM_ATIVIDADE;
 const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const prioridades = ["P0", "P1", "P2", "P3"];
 const plannerStatusLista = ["Não iniciado", "Em andamento", "Concluído", "Atrasado", "Pausado"];
@@ -586,6 +586,7 @@ async function sair() {
 
 function preencherSelect(select, opcoes, placeholder = "Selecione") {
   select.innerHTML = `<option value="">${placeholder}</option>`;
+  if (select.multiple) select.options[0].disabled = true;
   opcoes.forEach((opcao) => {
     const option = document.createElement("option");
     option.value = opcao;
@@ -634,7 +635,9 @@ function atualizarCampoOutro(tipo, focar = true) {
   const select = campos[tipo];
   const input = campos[`${tipo}Outro`];
   const container = document.getElementById(`${tipo}OutroField`);
-  const exibir = select.value === "Outros";
+  const exibir = tipo === "item"
+    ? Array.from(select.selectedOptions).some((option) => option.value === "Outros")
+    : select.value === "Outros";
 
   container.hidden = !exibir;
   input.required = exibir;
@@ -676,7 +679,7 @@ async function salvarAtividade(event) {
     projeto: valorComOpcaoOutro("projeto"),
     trabalhos: campos.trabalhos.value.trim(),
     fase: valorFinal(campos.fase.value, campos.faseOutro.value),
-    item: valorFinal(campos.item.value, campos.itemOutro.value),
+    item: valorFinalMultiplos(Array.from(campos.item.selectedOptions, (option) => option.value), campos.itemOutro.value),
     etapa: valorComOpcaoOutro("etapa"),
     dataInicio: campos.dataInicio.value,
     horaInicio: campos.horaInicio.value,
@@ -916,7 +919,9 @@ function editarAtividade(id) {
   campos.faseOutro.value = classificacao.faseOutro;
   preencherSelect(campos.item, classificacao.itensDisponiveis, classificacao.faseSelecionada ? "Selecione" : "Selecione primeiro a fase");
   campos.item.disabled = !classificacao.faseSelecionada;
-  campos.item.value = classificacao.itemSelecionado;
+  Array.from(campos.item.options).forEach((option) => {
+    option.selected = classificacao.itensSelecionados.includes(option.value);
+  });
   campos.itemOutro.value = classificacao.itemOutro;
   atualizarCampoOutro("fase", false);
   atualizarCampoOutro("item", false);

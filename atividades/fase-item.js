@@ -40,5 +40,11 @@
       itensDisponiveis
     };
   }
-  return { fases, itensPorFase, valorFinal, valorFinalMultiplos, separarItens, prepararEdicao };
+  function taxonomiaPlannerCompleta() {
+    return fases.filter((fase) => fase !== "Outros").map((fase) => ({
+      etapa: fase,
+      estagios: (itensPorFase[fase] || []).filter((item) => item !== "Outros")
+    }));
+  }
+  return { fases, itensPorFase, valorFinal, valorFinalMultiplos, separarItens, prepararEdicao, taxonomiaPlannerCompleta };
 });

@@ -3,7 +3,7 @@ const {
   consolidarAtividadesPorColaborador,
   normalizarNomeObra: normalizarNomeObraAgrupamento
 } = globalThis.ATIVIDADE_AGRUPAMENTO;
-const { fases, itensPorFase, valorFinal, valorFinalMultiplos, prepararEdicao } = globalThis.FASE_ITEM_ATIVIDADE;
+const { fases, itensPorFase, valorFinal, valorFinalMultiplos, prepararEdicao, taxonomiaPlannerCompleta } = globalThis.FASE_ITEM_ATIVIDADE;
 const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const prioridades = ["P0", "P1", "P2", "P3"];
 const plannerStatusLista = ["Não iniciado", "Em andamento", "Concluído", "Atrasado", "Pausado"];
@@ -732,6 +732,7 @@ async function salvarAtividade(event) {
     atualizarOpcoesDashboard();
     renderizarTabela();
     renderizarCalendario();
+    await tratarResultadoPlanner(atividadeSalva);
   } catch (erro) {
     alert(`Não foi possível salvar no Supabase: ${erro.message}`);
   } finally {
@@ -2443,7 +2444,51 @@ async function salvarChecklistPlanner(event) {
   } catch (erro) { mostrarMensagemPlanner(`Não foi possível criar a tarefa: ${erro.message}`); }
   finally { plannerEls.btnSalvar.disabled = false; }
 }
-
+function criarModalPlannerAutomatico(titulo, conteudo, botoes) {
+  const focoAnterior = document.activeElement;
+  const modal = document.createElement("div"); modal.className = "planner-modal planner-auto-modal";
+  modal.innerHTML = `<div class="planner-modal-card" role="dialog" aria-modal="true" aria-labelledby="plannerAutoTitle"><button type="button" class="planner-modal-close" data-auto-close aria-label="Fechar">&times;</button><h2 id="plannerAutoTitle">${escapeHtml(titulo)}</h2><div class="planner-auto-content">${conteudo}</div><div class="form-actions">${botoes.map((b, i) => `<button type="button" class="${i ? "secondary" : "primary"}" data-auto-action="${escapeHtml(b.valor)}">${escapeHtml(b.texto)}</button>`).join("")}</div></div>`;
+  document.body.appendChild(modal);
+  return new Promise((resolve) => { const fechar = (valor) => { const dados = { acao: valor, tipo: modal.querySelector("#plannerAutoTipo")?.value || "", modo: modal.querySelector('[name="plannerAutoModo"]:checked')?.value || "dinamico", candidato: modal.querySelector('[name="plannerCandidato"]:checked')?.value || "", itemIds: [...modal.querySelectorAll("[data-concluir-item]:checked")].map((el) => el.value), selecao: [] }; modal.querySelectorAll("[data-auto-item]:checked").forEach((el) => { let grupo = dados.selecao.find((g) => g.etapa === el.dataset.fase); if (!grupo) { grupo = { etapa: el.dataset.fase, estagios: [] }; dados.selecao.push(grupo); } grupo.estagios.push(el.value); }); modal.remove(); document.removeEventListener("keydown", teclado); focoAnterior?.focus?.(); resolve(dados); }; const teclado = (e) => { if (e.key === "Escape") fechar(""); }; document.addEventListener("keydown", teclado); modal.addEventListener("click", (e) => { const acao = e.target.closest("[data-auto-action]"); if (acao) fechar(acao.dataset.autoAction); else if (e.target === modal || e.target.closest("[data-auto-close]")) fechar(""); }); modal.querySelector("button[data-auto-action]")?.focus(); });
+}
+async function configurarPlannerAutomatico(sync, atividade) {
+  const tipos = plannerTiposDisponiveis.map((tipo) => `<option value="${escapeHtml(tipo)}">${escapeHtml(tipo)}</option>`).join("");
+  const modo = await criarModalPlannerAutomatico("Configurar Planner do Projeto", `<p><strong>${escapeHtml(atividade.obra)}</strong><br>Projeto Elétrico Baixa Tensão</p><label for="plannerAutoTipo">Tipo da edificação</label><select id="plannerAutoTipo"><option value="">Tipo não definido</option>${tipos}</select><fieldset><legend>Configuração inicial</legend><label><input type="radio" name="plannerAutoModo" value="dinamico" checked> Continuar com Planner dinâmico</label><label><input type="radio" name="plannerAutoModo" value="completo"> Usar modelo completo de Baixa Tensão</label><label><input type="radio" name="plannerAutoModo" value="personalizado"> Personalizar itens</label></fieldset><div class="planner-auto-taxonomy">${taxonomiaPlannerCompleta().map((g, gi) => `<fieldset><legend>${escapeHtml(g.etapa)}</legend>${g.estagios.map((item, ii) => `<label><input type="checkbox" data-auto-item data-fase="${escapeHtml(g.etapa)}" value="${escapeHtml(item)}" id="auto-${gi}-${ii}"> ${escapeHtml(item)}</label>`).join("")}</fieldset>`).join("")}</div>`, [{ texto: "Salvar configuração", valor: "salvar" }, { texto: "Agora não", valor: "" }]);
+  if (modo.acao !== "salvar") return;
+  try {
+    await fetch(API_PLANNER_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "configurarAutomatico", checklistId: sync.checklistId, modo: modo.modo, tipo: modo.tipo, selecao: modo.selecao }) }).then(validarResposta);
+    await abrirPlannerPorId(sync.checklistId);
+  } catch (erro) { console.error("Falha ao configurar Planner:", erro); alert("Atividade salva, mas não foi possível concluir a configuração do Planner."); }
+}
+async function escolherPlannerAmbiguo(atividade, sync) {
+  const conteudo = `<p>Escolha o Planner desta atividade:</p>${sync.candidatos.map((c, i) => `<label><input type="radio" name="plannerCandidato" value="${escapeHtml(c.id)}" ${i === 0 ? "checked" : ""}> ${escapeHtml(c.nomeTarefa || "Projeto Elétrico BT")} — ${escapeHtml(c.tipo || "Tipo não definido")}</label>`).join("")}`;
+  const acao = await criarModalPlannerAutomatico("Escolha o Planner desta atividade", conteudo, sync.candidatos.map((c) => ({ texto: c.nomeTarefa || c.tipo || "Selecionar", valor: c.id })).concat({ texto: "Cancelar", valor: "" }));
+  if (acao.acao) await repetirSincronizacaoPlanner(atividade.id, acao.acao || acao.candidato);
+}
+async function repetirSincronizacaoPlanner(id, checklistId = "") {
+  try { const resposta = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "sincronizarPlanner", id, checklistId }) }).then(validarResposta); await tratarResultadoPlanner(resposta); }
+  catch (erro) { console.error("Falha ao sincronizar Planner:", erro); alert("Não foi possível atualizar o Planner."); }
+}
+async function confirmarConclusaoPlanner(atividade, sync) {
+  if (normalizarTexto(atividade.status) !== "finalizado" || !sync.itens?.length) return;
+  const selecionado = await criarModalPlannerAutomatico("A atividade foi finalizada", `<p>Deseja também concluir no Planner?</p>${sync.itens.map((item, i) => `<label><input type="checkbox" data-concluir-item value="${escapeHtml(item.id)}" ${i < 2 ? "checked" : ""}> ${escapeHtml(item.fase)} → ${escapeHtml(item.item)}</label>`).join("")}`, [{ texto: "Concluir selecionados", valor: "concluir" }, { texto: "Não alterar Planner", valor: "" }]);
+  if (selecionado.acao !== "concluir" || !selecionado.itemIds.length) return;
+  await fetch(API_PLANNER_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "alterarConclusaoItens", checklistId: sync.checklistId, itemIds: selecionado.itemIds, concluido: true }) }).then(validarResposta);
+}
+async function tratarResultadoPlanner(atividade) {
+  const sync = atividade?.plannerSync; if (!sync || sync.status === "ignorado") return;
+  if (sync.status === "erro") { console.error("Sincronização do Planner falhou."); if (confirm("Atividade salva. Não foi possível atualizar o Planner. Tentar novamente?")) await repetirSincronizacaoPlanner(atividade.id); return; }
+  if (sync.status === "ambigua") return escolherPlannerAmbiguo(atividade, sync);
+  if (sync.status !== "sincronizado") return;
+  if (sync.precisaConfigurar) await configurarPlannerAutomatico(sync, atividade);
+  else { plannerEls.status.innerHTML = `✓ Planner atualizado: ${escapeHtml(sync.itens?.map((i) => `${i.fase} → ${i.item}`).join(", ") || "atividade vinculada")}. <button type="button" class="link-button" onclick="abrirPlannerPorId('${escapeHtml(sync.checklistId)}')">Abrir Planner</button>`; }
+  await confirmarConclusaoPlanner(atividade, sync);
+}
+async function abrirPlannerPorId(checklistId) {
+  alternarAba("planner");
+  if (!plannerChecklists.some((item) => String(item.id) === String(checklistId))) await carregarPlanner();
+  requestAnimationFrame(() => { const card = document.querySelector(`[data-planner-id="${CSS.escape(String(checklistId))}"]`); if (!card) return; card.scrollIntoView({ behavior: "smooth", block: "center" }); card.classList.add("planner-card-highlight"); setTimeout(() => card.classList.remove("planner-card-highlight"), 2200); });
+}
 function calcularProgressoPlanner(checklist) { const itens = checklist.itens || []; const total = itens.length; const concluidos = itens.filter((item) => item.concluido).length; return { total, concluidos, percentual: total ? Math.round((concluidos / total) * 100) : 0 }; }
 function agruparItensPlannerPorEtapa(itens = []) { const groups = new Map(); itens.forEach((item) => { const etapa = item.etapa || "Outros"; if (!groups.has(etapa)) groups.set(etapa, []); groups.get(etapa).push(item); }); return [...groups.entries()].map(([etapa, items]) => ({ etapa, itens: items })); }
 function checklistsPlannerFiltrados() {
@@ -2480,7 +2525,7 @@ function criarCardPlanner(checklist) {
   const atrasada = checklist.dataConclusao && new Date(`${checklist.dataConclusao}T23:59:59`) < new Date() && p.percentual < 100;
   const responsaveis = nomesResponsaveisPlanner(checklist); const nomes = responsaveis.join(", ");
   const iniciais = responsaveis.length ? responsaveis.map((nome) => nome[0]).join("").slice(0, 3).toUpperCase() : "?";
-  return `<article class="planner-card" role="button" tabindex="0" draggable="${usuarioAtualEhAdmin()}" data-planner-id="${escapeHtml(checklist.id)}" aria-label="Abrir tarefa ${escapeHtml(titulo)}"><div class="planner-card-top"><span class="planner-code">${escapeHtml(checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto))}</span><span class="planner-code obra-code">${escapeHtml(checklist.obraCodigo || "—")}</span><span class="planner-avatar" title="${escapeHtml(nomes || "Sem responsável")}">${escapeHtml(iniciais)}</span></div><p class="planner-card-work">${escapeHtml(checklist.obra)}</p><h3>${escapeHtml(titulo)}</h3><p class="planner-card-project">${escapeHtml(checklist.projeto)}</p><p class="planner-card-type">${escapeHtml(checklist.tipo)}</p><div class="planner-card-badges"><span class="badge ${classeStatus(checklist.status || "Não iniciado")}">${escapeHtml(checklist.status || "Não iniciado")}</span><span class="badge ${classePrioridade(checklist.prioridade || "P1")}">${escapeHtml(checklist.prioridade || "P1")}</span></div><p class="planner-due ${atrasada ? "overdue" : ""}"><i class="far fa-calendar"></i> ${checklist.dataConclusao ? formatarData(checklist.dataConclusao) : "Sem conclusão"}</p><div class="planner-card-checklist">${grupos.map(criarGrupoCardPlanner).join("")}</div><footer class="planner-footer"><span><i class="far fa-square-check"></i> ${p.concluidos} / ${p.total}</span>${resumo.agendados ? `<span>📅 ${resumo.agendados}</span>` : ""}${resumo.hoje ? `<span>Hoje ${resumo.hoje}</span>` : ""}${resumo.atrasados ? `<span>⚠ ${resumo.atrasados}</span>` : ""}<strong>${p.percentual}%</strong></footer><div class="planner-progress-bar"><span style="width:${p.percentual}%"></span></div></article>`;
+  return `<article class="planner-card" role="button" tabindex="0" draggable="${usuarioAtualEhAdmin()}" data-planner-id="${escapeHtml(checklist.id)}" aria-label="Abrir tarefa ${escapeHtml(titulo)}"><div class="planner-card-top"><span class="planner-code">${escapeHtml(checklist.codigoProjeto || gerarCodigoProjeto(checklist.projeto))}</span>${checklist.origem === "atividade" ? `<span class="planner-sync-badge">AUTO</span>` : checklist.origem === "hibrido" ? `<span class="planner-sync-badge">SYNC</span>` : ""}<span class="planner-code obra-code">${escapeHtml(checklist.obraCodigo || "—")}</span><span class="planner-avatar" title="${escapeHtml(nomes || "Sem responsável")}">${escapeHtml(iniciais)}</span></div><p class="planner-card-work">${escapeHtml(checklist.obra)}</p><h3>${escapeHtml(titulo)}</h3><p class="planner-card-project">${escapeHtml(checklist.projeto)}</p><p class="planner-card-type">${escapeHtml(checklist.tipo)}</p><div class="planner-card-badges"><span class="badge ${classeStatus(checklist.status || "Não iniciado")}">${escapeHtml(checklist.status || "Não iniciado")}</span><span class="badge ${classePrioridade(checklist.prioridade || "P1")}">${escapeHtml(checklist.prioridade || "P1")}</span></div><p class="planner-due ${atrasada ? "overdue" : ""}"><i class="far fa-calendar"></i> ${checklist.dataConclusao ? formatarData(checklist.dataConclusao) : "Sem conclusão"}</p><div class="planner-card-checklist">${grupos.map(criarGrupoCardPlanner).join("")}</div><footer class="planner-footer"><span><i class="far fa-square-check"></i> ${p.concluidos} / ${p.total}</span>${resumo.agendados ? `<span>📅 ${resumo.agendados}</span>` : ""}${resumo.hoje ? `<span>Hoje ${resumo.hoje}</span>` : ""}${resumo.atrasados ? `<span>⚠ ${resumo.atrasados}</span>` : ""}<strong>${p.percentual}%</strong></footer><div class="planner-progress-bar"><span style="width:${p.percentual}%"></span></div></article>`;
 }
 function criarDataLocalPlanner(valor) { if (!valor) return null; const [ano, mes, dia] = valor.split("-").map(Number); return ano && mes && dia ? new Date(ano, mes - 1, dia) : null; }
 function criarDataHoraLocalPlanner(data, hora = "") { if (!data) return null; const [ano, mes, dia] = data.split("-").map(Number); const [horas = 23, minutos = 59] = hora ? hora.split(":").map(Number) : [23, 59]; return new Date(ano, mes - 1, dia, horas, minutos, 0, 0); }
@@ -2497,7 +2542,8 @@ function usuarioPodePlanejarItemPlanner(checklist) {
   const colaborador = normalizarTexto(colaboradorDoUsuario());
   return Boolean(colaborador) && nomesResponsaveisPlanner(checklist).some((nome) => normalizarTexto(nome) === colaborador);
 }
-function renderizarMetadadosItemPlanner(item, checklist) { const prazo = formatarPrazoItemPlanner(item), responsavel = obterResponsavelEfetivoItemPlanner(item, checklist), situacao = obterSituacaoPrazoItemPlanner(item); if (!prazo && !responsavel) return ""; return `<span class="planner-item-metadata ${situacao === "atrasado" ? "planner-item-overdue" : situacao === "hoje" ? "planner-item-due-today" : situacao === "proximo" ? "planner-item-due-soon" : ""}">${prazo ? `<span class="planner-item-date"><i class="far fa-calendar"></i> ${situacao === "atrasado" ? "Atrasado · " : ""}${escapeHtml(prazo)}</span>` : ""}${responsavel ? `<span class="planner-item-owner">${escapeHtml(responsavel)}</span>` : ""}</span>`; }
+function formatarMinutosPlanner(minutos) { const total = Number(minutos) || 0; return `${Math.floor(total / 60)}h${String(total % 60).padStart(2, "0")}`; }
+function renderizarMetadadosItemPlanner(item, checklist) { const prazo = formatarPrazoItemPlanner(item), responsavel = obterResponsavelEfetivoItemPlanner(item, checklist), situacao = obterSituacaoPrazoItemPlanner(item), count = Number(item.atividadeCount) || 0; if (!prazo && !responsavel && !count) return ""; return `<span class="planner-item-metadata ${situacao === "atrasado" ? "planner-item-overdue" : situacao === "hoje" ? "planner-item-due-today" : situacao === "proximo" ? "planner-item-due-soon" : ""}">${count ? `<span class="planner-activity-state">${item.concluido ? "✓ Concluído" : "● Em andamento"} · ${count} atividade${count === 1 ? "" : "s"} · ${formatarMinutosPlanner(item.minutosRegistrados)}</span><span>${escapeHtml((item.colaboradoresAtividade || []).join(" · "))}</span>` : ""}${prazo ? `<span class="planner-item-date"><i class="far fa-calendar"></i> ${situacao === "atrasado" ? "Atrasado · " : ""}${escapeHtml(prazo)}</span>` : ""}${responsavel ? `<span class="planner-item-owner">${escapeHtml(responsavel)}</span>` : ""}</span>`; }
 function calcularResumoPrazosPlanner(checklist) { const estados = (checklist.itens || []).map(obterSituacaoPrazoItemPlanner); return { agendados: estados.filter(e => e !== "sem-prazo").length, hoje: estados.filter(e => e === "hoje").length, atrasados: estados.filter(e => e === "atrasado").length }; }
 function localizarItemPlanner(checklistId, itemId) { const checklist = plannerChecklists.find(c => String(c.id) === String(checklistId)); const item = checklist?.itens?.find(i => String(i.id) === String(itemId)); return checklist && item ? { checklist, item } : null; }
 let plannerItemFocoAnterior = null;
@@ -2519,8 +2565,10 @@ function abrirDetalhesItemPlanner(checklistId, itemId, gatilho) {
   const responsaveis = nomesResponsaveisPlanner(checklist); document.getElementById("plannerItemResponsavelInfo").textContent = !item.responsavel ? `${responsaveis.join(" · ")} — responsáveis da tarefa` : "";
   const podeConcluir = usuarioPodeConcluirItemPlanner(item, checklist); const botaoConclusao = document.getElementById("btnPlannerItemConclusao"); botaoConclusao.textContent = item.concluido ? "Reabrir estágio" : "Concluir estágio"; botaoConclusao.disabled = !podeConcluir; botaoConclusao.title = podeConcluir ? "" : "Somente o responsável pode marcar este estágio";
   document.getElementById("plannerItemConclusaoInfo").textContent = item.concluido ? `Concluído por ${item.concluidoPorNome || "usuário"}${item.concluidoEm ? ` em ${new Date(item.concluidoEm).toLocaleString("pt-BR")}` : ""}` : "Estágio não concluído";
+  const listaAtividades = document.getElementById("plannerLinkedActivitiesList"); if (listaAtividades) listaAtividades.innerHTML = (item.atividadesVinculadas || []).length ? `<div class="planner-linked-table">${item.atividadesVinculadas.map((a) => `<div><time>${escapeHtml(formatarData(a.data_inicio || a.data_termino))}</time><strong>${escapeHtml(a.colaborador || "-")}</strong><span>${escapeHtml(a.trabalhos || "-")}</span><span>${formatarMinutosPlanner(calcularMinutosAtividadeBanco(a))}</span><span>${escapeHtml(a.status || "-")}</span></div>`).join("")}</div>` : `<p class="empty">Nenhuma atividade vinculada.</p>`;
   const admin = usuarioAtualEhAdmin(); const podePlanejar = usuarioPodePlanejarItemPlanner(checklist); ["plannerItemDataPrevista","plannerItemHoraPrevista","plannerItemObservacoes"].forEach(id => document.getElementById(id).disabled = !podePlanejar); document.getElementById("plannerItemResponsavel").disabled = !admin; document.getElementById("btnSalvarPlannerItem").hidden = !podePlanejar; document.getElementById("btnLimparPlannerItem").hidden = !podePlanejar; document.getElementById("plannerItemMessage").textContent = ""; plannerEls.itemModal.hidden = false; (podePlanejar ? document.getElementById("plannerItemDataPrevista") : botaoConclusao).focus();
 }
+function calcularMinutosAtividadeBanco(a) { if (!a?.data_inicio || !a?.hora_inicio || !a?.data_termino || !a?.hora_termino) return 0; const inicio = new Date(`${a.data_inicio}T${a.hora_inicio}`), fim = new Date(`${a.data_termino}T${a.hora_termino}`); const minutos = Math.round((fim - inicio) / 60000); return Number.isFinite(minutos) && minutos > 0 ? minutos : 0; }
 async function atualizarDetalhesItemPlanner(detalhes, mensagem) {
   const resposta = await fetch(API_PLANNER_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "atualizarDetalhesItem", ...detalhes }) }).then(validarResposta);
   const achado = localizarItemPlanner(detalhes.checklistId, detalhes.itemId);

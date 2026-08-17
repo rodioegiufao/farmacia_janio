@@ -1,17 +1,18 @@
 (function (root, factory) {
-  const api = factory();
+  const api = factory(typeof module === "object" && module.exports ? require("./fase-item") : root.FASE_ITEM_ATIVIDADE);
   if (typeof module === "object" && module.exports) module.exports = api;
   root.PLANNER_MODELOS = api.PLANNER_MODELOS;
   root.normalizarChavePlanner = api.normalizarChavePlanner;
   root.normalizarProjetoPlanner = api.normalizarProjetoPlanner;
   root.localizarModeloPlanner = api.localizarModeloPlanner;
   root.obterBucketModeloPlanner = api.obterBucketModeloPlanner;
-})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (faseItem) {
   "use strict";
 
   const PROJETO_BAIXA_TENSAO = {
     projeto: "Projetos Elétricos de Baixa Tensão",
     aliasesProjeto: ["Projetos Eléticos de Baixa Tensão"],
+    aliasesProjeto: ["Elétrico Baixa Tensão", "Projeto Elétrico Baixa Tensão", "Projetos Elétricos de Baixa Tensão", "Projetos Eléticos de Baixa Tensão", "PRJ-ELE"],
     codigoProjeto: "PRJ-ELE",
     bucket: "Projeto Elétrico Baixa Tensão"
   };
@@ -44,6 +45,8 @@
     codigoProjeto: "PRJ-ILUX",
     bucket: "Projeto de Iluminação Externa"
   };
+  const taxonomiaCanonica = faseItem?.taxonomiaPlannerCompleta?.() || [];
+  const baseCanonica = Object.fromEntries(taxonomiaCanonica.map((grupo) => [normalizarChavePlanner(grupo.etapa).replace(/\s/g, ""), grupo.estagios]));
   const base = {
     lancamento: ["Pontos e Iluminação", "Tomadas de Uso Geral", "Tomadas de Uso Específico", "Pontos de Emergência", "Pontos de Climatização", "Pontos de Exaustão"],
     distribuicao: ["Eletrocalhas", "Perfilados", "Cabos PP", "Eletrodutos", "Pontos de Conexão"],
@@ -52,11 +55,11 @@
     estudos: ["NBR-5413 e ABNT NBR 8995-1", "NBR-5410", "Livros Mamede", "Manual de Plotagem"]
   };
   const etapas = (alteracoes = {}) => [
-    { etapa: "Lançamento", estagios: alteracoes.lancamento || base.lancamento },
-    { etapa: "Distribuição", estagios: alteracoes.distribuicao || base.distribuicao },
-    { etapa: "Plotagem", estagios: alteracoes.plotagem || base.plotagem },
-    { etapa: "Compatibilização", estagios: base.compatibilizacao },
-    { etapa: "Estudos", estagios: alteracoes.estudos || base.estudos }
+    { etapa: "Lançamento", estagios: alteracoes.lancamento || baseCanonica.lancamento || base.lancamento },
+    { etapa: "Distribuição", estagios: alteracoes.distribuicao || baseCanonica.distribuicao || base.distribuicao },
+    { etapa: "Plotagem", estagios: alteracoes.plotagem || baseCanonica.plotagem || base.plotagem },
+    { etapa: "Compatibilização", estagios: baseCanonica.compatibilizacao || base.compatibilizacao },
+    { etapa: "Estudos", estagios: alteracoes.estudos || baseCanonica.estudos || base.estudos }
   ];
   const criarModeloBaixaTensao = (tipo, alteracoes) => ({
     ...PROJETO_BAIXA_TENSAO,

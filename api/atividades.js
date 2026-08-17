@@ -1,5 +1,6 @@
 const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
 const { enriquecerRegistroComObra, resolverOuCriarObra } = require("./_obras");
+const { limparItensOrfaos, removerVinculosAtividade, sincronizarAtividadeComPlanner } = require("./_planner-sync");
 
 const SUPABASE_TABLE = "atividades_colaboradores";
 
@@ -180,6 +181,13 @@ module.exports = async function atividadesHandler(req, res) {
     if (req.method === "POST") {
       const user = await requireUser(req);
       const body = parseRequestBody(req);
+      if (body.acao === "sincronizarPlanner") {
+        const rows = await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(body.id)}&select=*`);
+        const atividade = rows?.[0];
+        if (!atividade) return sendJson(res, 404, { error: "Atividade não encontrada." });
+        if (user.perfil !== "admin" && atividade.usuario_id !== user.id) return sendJson(res, 403, { error: "Você só pode sincronizar suas próprias atividades." });
+        return sendJson(res, 200, { ...fromDatabaseRecord(atividade), plannerSync: await sincronizarComResposta(atividade, user, body.checklistId) });
+      }
       validateActivityDates(body);
       const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id });
       body.obraId = obra.id;
@@ -195,7 +203,8 @@ module.exports = async function atividadesHandler(req, res) {
         body: JSON.stringify(record)
       });
       await finalizarAtividadesRelacionadas(record);
-      sendJson(res, 201, { ...fromDatabaseRecord(data[0] || {}), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome });
+      const salvo = data[0] || { ...record, id: body.id };
+      sendJson(res, 201, { ...fromDatabaseRecord(salvo), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome, plannerSync: await sincronizarComResposta(salvo, user) });
       return;
     }
 
@@ -233,7 +242,8 @@ module.exports = async function atividadesHandler(req, res) {
         activityUpdateOptions(record)
       );
       await finalizarAtividadesRelacionadas(record);
-      sendJson(res, 200, { ...fromDatabaseRecord(data[0] || {}), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome });
+      const salvo = data[0] || record;
+      sendJson(res, 200, { ...fromDatabaseRecord(salvo), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome, plannerSync: await sincronizarComResposta(salvo, user) });
       return;
     }
 
@@ -265,8 +275,10 @@ module.exports = async function atividadesHandler(req, res) {
         }
       }
 
+      const vinculos = all ? [] : await removerVinculosAtividade(id);
       const filter = all ? "?id=not.is.null" : `?id=eq.${encodeURIComponent(id)}`;
       await supabaseRequest(SUPABASE_TABLE, filter, { method: "DELETE" });
+      if (!all) await limparItensOrfaos(vinculos);
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -277,4 +289,8 @@ module.exports = async function atividadesHandler(req, res) {
     sendJson(res, error.statusCode || 500, { error: error.message || "Erro interno ao processar atividades." });
   }
 };
+async function sincronizarComResposta(record, user, checklistId) {
+  try { return await sincronizarAtividadeComPlanner(record, { user, checklistId }); }
+  catch (error) { console.error("Erro técnico na sincronização do Planner:", error); return { status: "erro", mensagem: "Não foi possível atualizar o Planner." }; }
+}
 module.exports._test = { activityUpdateOptions, filtroAtividadesRelacionadas, toDatabaseRecord, fromDatabaseRecord };

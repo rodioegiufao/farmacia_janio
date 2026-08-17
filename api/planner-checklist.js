@@ -5,6 +5,7 @@ const {
   normalizarChavePlanner,
   localizarModeloPlanner
 } = require("../atividades/planner-modelos");
+const { agregarAtividadesDosItens, configurarPlannerAutomatico } = require("./_planner-sync");
 
 const CHECKLISTS_TABLE = "planner_checklists";
 const ITEMS_TABLE = "planner_checklist_itens";
@@ -82,7 +83,13 @@ function mapItem(record, indices = {}) {
     horaPrevista: texto(record.hora_prevista).slice(0, 5),
     responsavel: texto(record.responsavel),
     observacoes: texto(record.observacoes),
-    atualizadoEm: record.atualizado_em || ""
+    atualizadoEm: record.atualizado_em || "",
+    origem: record.origem || "manual",
+    atividadeCount: record.atividadeCount || 0,
+    minutosRegistrados: record.minutosRegistrados || 0,
+    colaboradoresAtividade: record.colaboradores || [],
+    ultimaAtividade: record.ultimaAtividade || "",
+    atividadesVinculadas: record.atividades || []
   };
 }
 function mapItems(records, modelo) {
@@ -118,7 +125,10 @@ function fromDatabaseRecord(record) {
     criadoPor: record.criado_por || "",
     criadoPorNome: record.criado_por_nome || "",
     criadoEm: record.criado_em || "",
-    atualizadoEm: record.atualizado_em || ""
+    atualizadoEm: record.atualizado_em || "",
+    origem: record.origem || "manual",
+    chaveSincronizacao: record.chave_sincronizacao || "",
+    configuracaoAutomaticaConcluida: Boolean(record.configuracao_automatica_concluida)
   };
 }
 async function migrarChecklist(record) {
@@ -151,6 +161,8 @@ module.exports = async function plannerChecklistHandler(req, res) {
       const migrated = await Promise.all((Array.isArray(rows) ? rows : []).map(migrarChecklist));
       const visiveis = migrated.filter((record) => checklistVisivelParaUsuario(record, user));
       const enriched = await Promise.all(visiveis.map(enriquecerRegistroComObra));
+      const metadados = await agregarAtividadesDosItens(enriched.map((item) => item.id));
+      enriched.forEach((checklist) => (checklist.planner_checklist_itens || []).forEach((item) => Object.assign(item, metadados.get(item.id) || {})));
       return sendJson(res, 200, { modelos: PLANNER_MODELOS, checklists: enriched.map(fromDatabaseRecord) });
     }
 
@@ -180,6 +192,7 @@ module.exports = async function plannerChecklistHandler(req, res) {
 
     if (req.method === "PATCH" || req.method === "PUT") {
       const body = parseRequestBody(req);
+      if (body.acao === "configurarAutomatico") return sendJson(res, 200, await configurarPlannerAutomatico({ ...body, user }));
       const acaoItem = body.acao || (Object.prototype.hasOwnProperty.call(body, "concluido") ? "alterarConclusaoItens" : "");
       if (acaoItem === "atualizarDetalhesItem") {
         if (!body.checklistId || !body.itemId) return sendJson(res, 400, { mensagem: "Informe o checklist e o estágio." });

@@ -22,4 +22,13 @@ assert.deepEqual(
   }
 );
 
+assert.deepEqual(
+  _test.toDatabaseRecord({ id: "atividade-1", fase: "Distribuição", item: "Eletrocalha" }),
+  { id: "atividade-1", fase: "Distribuição", item: "Eletrocalha" }
+);
+assert.equal(_test.fromDatabaseRecord({ fase: "Estudos", item: "NBR-5410" }).fase, "Estudos");
+assert.equal(_test.fromDatabaseRecord({ fase: "Estudos", item: "NBR-5410" }).item, "NBR-5410");
+assert.equal(_test.fromDatabaseRecord({}).fase, "");
+assert.equal(_test.fromDatabaseRecord({}).item, "");
+
 console.log("Testes de atualização e cascata de finalização passaram.");

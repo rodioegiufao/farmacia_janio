@@ -20,6 +20,8 @@ create table if not exists public.atividades_colaboradores (
   prioridade text not null,
   projeto text not null,
   trabalhos text not null,
+  fase text,
+  item text,
   etapa text not null,
   data_inicio date,
   hora_inicio time,
@@ -36,7 +38,9 @@ create table if not exists public.atividades_colaboradores (
 alter table public.atividades_colaboradores
   add column if not exists usuario_id uuid references public.usuarios_setor(id),
   add column if not exists criado_por_nome text,
-  add column if not exists obra_id uuid;
+  add column if not exists obra_id uuid,
+  add column if not exists fase text,
+  add column if not exists item text;
 
 create index if not exists idx_atividades_usuario_id
 on public.atividades_colaboradores (usuario_id);

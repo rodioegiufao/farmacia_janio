@@ -15,20 +15,30 @@
   function valorFinal(valorSelecionado, valorOutro) {
     return valorSelecionado === "Outros" ? String(valorOutro || "").trim() : String(valorSelecionado || "");
   }
+  function separarItens(valor) {
+    return String(valor || "").split(" · ").map((item) => item.trim()).filter(Boolean);
+  }
+  function valorFinalMultiplos(valoresSelecionados, valorOutro) {
+    const itens = Array.from(valoresSelecionados || []).filter((item) => item && item !== "Outros");
+    const outro = String(valorOutro || "").trim();
+    if (outro) itens.push(outro);
+    return [...new Set(itens)].join(" · ");
+  }
   function prepararEdicao(faseSalva, itemSalvo) {
     const fase = String(faseSalva || "");
-    const item = String(itemSalvo || "");
+    const itens = separarItens(itemSalvo);
     const fasePadrao = fases.includes(fase) && fase !== "Outros";
     const faseSelecionada = fase ? (fasePadrao ? fase : "Outros") : "";
     const itensDisponiveis = itensPorFase[faseSelecionada] || [];
-    const itemPadrao = itensDisponiveis.includes(item) && item !== "Outros";
+    const itensPadrao = itens.filter((item) => itensDisponiveis.includes(item) && item !== "Outros");
+    const itensOutros = itens.filter((item) => !itensDisponiveis.includes(item) || item === "Outros");
     return {
       faseSelecionada,
       faseOutro: fase && !fasePadrao ? fase : "",
-      itemSelecionado: item ? (itemPadrao ? item : "Outros") : "",
-      itemOutro: item && !itemPadrao ? item : "",
+      itensSelecionados: [...itensPadrao, ...(itensOutros.length ? ["Outros"] : [])],
+      itemOutro: itensOutros.filter((item) => item !== "Outros").join(" · "),
       itensDisponiveis
     };
   }
-  return { fases, itensPorFase, valorFinal, prepararEdicao };
+  return { fases, itensPorFase, valorFinal, valorFinalMultiplos, separarItens, prepararEdicao };
 });

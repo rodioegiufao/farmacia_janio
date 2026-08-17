@@ -147,8 +147,6 @@ input, select, textarea {
     transition: all 0.3s ease;
 }
 textarea { resize: vertical; }
-.item-multiple-select { min-height: 210px; padding: 6px; }
-.item-multiple-select option { padding: 8px 10px; border-radius: 6px; }
 .item-multiple-select option:checked { color: #fff; background: var(--accent-blue); }
 .item-multiple-select + small { color: var(--text-muted); font-weight: 500; line-height: 1.35; }
 input:focus, select:focus, textarea:focus {

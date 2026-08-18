@@ -11,6 +11,7 @@ const plannerPrioridades = ["P0", "P1", "P2", "P3"];
 const plannerResponsaveis = ["Geovanna", "Bruno", "Rodrigo", "Hellen", "Rian"];
 const plannerBuckets = [...new Set([...(globalThis.PROJETOS_PLANNER || []).map((projeto) => projeto.bucket), "Outros"])];
 const plannerProjetosDisponiveis = obterProjetosComFaseItem();
+const plannerTiposDisponiveis = [...(globalThis.TIPOS_EDIFICACAO_PLANNER || [])];
 const coresPrioridade = {
   P0: "#48bb78",
   P1: "#ecc94b",

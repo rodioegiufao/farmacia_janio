@@ -6,6 +6,7 @@
   "use strict";
 
   const TIPOS_BT = ["Prédios Públicos Gerais", "Prédios Públicos de Saúde sem IT-Médico", "Prédios Públicos de Saúde com IT-Médico", "Prédios Privados Gerais", "Prédios Privados Pequenos (<200m²)"];
+  const TIPOS_EDIFICACAO_PLANNER = [...TIPOS_BT];
   const projetos = [
     ["CFTV", "PRJ-CFTV", "CFTV", []],
     ["Cabeamento", "PRJ-CAB", "Cabeamento", []],
@@ -46,5 +47,5 @@
     return obterProjetoPlanner(projeto)?.bucket || obterProjetoPlanner(codigoProjeto)?.bucket || "";
   }
   function obterCodigoProjetoPlanner(projeto) { return obterProjetoPlanner(projeto)?.codigoProjeto || ""; }
-  return { PLANNER_MODELOS, PROJETOS_PLANNER: projetos, normalizarChavePlanner, normalizarProjetoPlanner, obterProjetoPlanner, localizarModeloPlanner, obterBucketModeloPlanner, obterCodigoProjetoPlanner };
+  return { PLANNER_MODELOS, PROJETOS_PLANNER: projetos, TIPOS_EDIFICACAO_PLANNER, normalizarChavePlanner, normalizarProjetoPlanner, obterProjetoPlanner, localizarModeloPlanner, obterBucketModeloPlanner, obterCodigoProjetoPlanner };
 });

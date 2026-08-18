@@ -89,7 +89,12 @@
           <h2>Nova atividade</h2>
           <p>Preencha os campos abaixo para registrar um trabalho.</p>
         </div>
-        <button type="button" class="ghost" id="btnLimparTudo">Limpar registros</button>
+        <div class="panel-header-actions">
+          <button type="button" class="secondary" id="btnRepetirUltimaAtividade" title="Preencher com os dados do seu cadastro mais recente, exceto os horários">
+            <i class="fas fa-rotate-right" aria-hidden="true"></i> Repetir última atividade
+          </button>
+          <button type="button" class="ghost" id="btnLimparTudo">Limpar registros</button>
+        </div>
       </div>
 
       <form id="atividadeForm" class="form-grid">

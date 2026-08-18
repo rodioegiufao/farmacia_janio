@@ -62,6 +62,8 @@ const projetos = [
   "Sonorização",
   "Solar",
   "Automação",
+  "Lógica",
+  "Média Tensão",
   "Outros",
 ];
 const etapas = [
@@ -617,12 +619,22 @@ function configurarValidacaoDatasAtividade() {
   atualizarRestricoesDatasAtividade();
 }
 function configurarCamposOutros() {
-  campos.projeto.addEventListener("change", () => atualizarCampoOutro("projeto"));
+  campos.projeto.addEventListener("change", () => {
+    atualizarCampoOutro("projeto");
+    atualizarObrigatoriedadeFaseItem();
+  });
   campos.fase.addEventListener("change", atualizarItensDaFase);
   campos.item.addEventListener("change", () => atualizarCampoOutro("item"));
   campos.etapa.addEventListener("change", () => atualizarCampoOutro("etapa"));
   atualizarItensDaFase(false);
   atualizarCamposOutros();
+}
+function atualizarObrigatoriedadeFaseItem() {
+  const obrigatorios = Boolean(campos.projeto.value && campos.projeto.value !== "Outros");
+  campos.fase.required = obrigatorios;
+  campos.item.required = obrigatorios;
+  campos.fase.setAttribute("aria-required", String(obrigatorios));
+  campos.item.setAttribute("aria-required", String(obrigatorios));
 }
 function atualizarItensDaFase(focar = true) {
   const faseSelecionada = campos.fase.value;
@@ -651,6 +663,7 @@ function atualizarCamposOutros(focar = false) {
   atualizarCampoOutro("fase", focar);
   atualizarCampoOutro("item", focar);
   atualizarCampoOutro("etapa", focar);
+  atualizarObrigatoriedadeFaseItem();
 }
 
 function valorComOpcaoOutro(tipo) {
@@ -915,6 +928,7 @@ function editarAtividade(id) {
   });
 
   preencherOpcaoComOutro("projeto", atividade.projeto, projetos);
+  atualizarObrigatoriedadeFaseItem();
   const classificacao = prepararEdicao(atividade.fase, atividade.item);
   campos.fase.value = classificacao.faseSelecionada;
   campos.faseOutro.value = classificacao.faseOutro;

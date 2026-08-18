@@ -134,7 +134,7 @@ body {
 .panel-header p { margin-top: 6px; opacity: 0.85; }
 
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); gap: 18px; }
-label { display: flex; flex-direction: column; gap: 8px; color: var(--text-lighter); font-size: 0.92rem; font-weight: 600; }
+.form-field { display: flex; flex-direction: column; gap: 8px; }
 input, select, textarea {
     width: 100%;
     border: 2px solid var(--border-color);
@@ -147,8 +147,19 @@ input, select, textarea {
     transition: all 0.3s ease;
 }
 textarea { resize: vertical; }
-.item-multiple-select option:checked { color: #fff; background: var(--accent-blue); }
-.item-multiple-select + small { color: var(--text-muted); font-weight: 500; line-height: 1.35; }
+.item-picker { position: relative; }
+.item-picker-trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 52px; padding: 12px 14px; border: 2px solid var(--border-color); color: var(--text-light); background: var(--primary-medium); text-align: left; }
+.item-picker-trigger:hover { transform: none; box-shadow: none; border-color: var(--accent-blue); }
+.item-picker-trigger:focus-visible { border-color: var(--accent-blue); outline: none; box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.2); }
+.item-picker-trigger:disabled { cursor: not-allowed; opacity: .62; }
+.item-picker-trigger i { transition: transform .2s ease; }
+.item-picker-trigger[aria-expanded="true"] i { transform: rotate(180deg); }
+.item-picker-options { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; right: 0; max-height: 260px; padding: 8px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card); box-shadow: var(--shadow); }
+.item-picker-option { display: flex; flex-direction: row; align-items: center; gap: 11px; padding: 9px 10px; border-radius: 7px; color: var(--text-light); font-weight: 500; cursor: pointer; }
+.item-picker-option:hover { color: var(--text-lighter); background: rgba(49, 130, 206, .16); }
+.item-picker-option:has(input:checked) { color: var(--text-lighter); background: rgba(49, 130, 206, .24); }
+.item-picker-option input { width: 18px; height: 18px; margin: 0; padding: 0; accent-color: var(--accent-blue); box-shadow: none; }
+.item-picker + small { color: var(--text-muted); font-size: .8rem; font-weight: 500; line-height: 1.35; }
 input:focus, select:focus, textarea:focus {
     border-color: var(--accent-blue);
     box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.2);

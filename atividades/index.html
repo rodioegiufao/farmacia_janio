@@ -136,15 +136,22 @@
           </span>
         </label>
 
-        <label id="itemField" hidden>
-          Item
-          <select id="item" class="item-multiple-select" multiple size="1" disabled aria-describedby="itemAjuda"><option value="">Selecione primeiro a fase</option></select>
-          <small id="itemAjuda">Selecione um ou mais itens. No computador, use Ctrl (Windows) ou Command (Mac) para marcar opções separadas.</small>
+        <div id="itemField" class="form-field" hidden>
+          <label id="itemLabel">Item</label>
+          <select id="item" class="item-multiple-select" multiple disabled aria-describedby="itemAjuda" hidden><option value="">Selecione primeiro a fase</option></select>
+          <div class="item-picker" id="itemPicker">
+            <button type="button" class="item-picker-trigger" id="itemPickerTrigger" aria-expanded="false" aria-controls="itemPickerOptions" disabled>
+              <span id="itemPickerSummary">Selecione primeiro a fase</span>
+              <i class="fas fa-chevron-down" aria-hidden="true"></i>
+            </button>
+            <div class="item-picker-options" id="itemPickerOptions" hidden></div>
+          </div>
+          <small id="itemAjuda">Marque um ou mais itens na lista.</small>
           <span class="other-option-field" id="itemOutroField" hidden>
             <span>Qual item?</span>
             <input type="text" id="itemOutro" placeholder="Informe o item" maxlength="100" disabled />
           </span>
-        </label>
+        </div>
         <label>
           Etapa
           <select id="etapa" required></select>

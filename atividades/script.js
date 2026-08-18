@@ -595,7 +595,49 @@ function preencherSelect(select, opcoes, placeholder = "Selecione") {
     option.textContent = opcao;
     select.appendChild(option);
   });
+  if (select === campos.item) atualizarSeletorItens();
 }
+
+const itemPickerTrigger = document.getElementById("itemPickerTrigger");
+const itemPickerOptions = document.getElementById("itemPickerOptions");
+const itemPickerSummary = document.getElementById("itemPickerSummary");
+
+function atualizarSeletorItens() {
+  if (!itemPickerTrigger) return;
+  const opcoes = Array.from(campos.item.options).filter((option) => option.value);
+  const selecionadas = opcoes.filter((option) => option.selected);
+  itemPickerTrigger.disabled = campos.item.disabled || !opcoes.length;
+  itemPickerSummary.textContent = selecionadas.length
+    ? `${selecionadas.length} ${selecionadas.length === 1 ? "item selecionado" : "itens selecionados"}`
+    : (campos.item.disabled ? "Selecione primeiro a fase" : "Selecione os itens");
+  itemPickerOptions.innerHTML = opcoes.map((option, indice) => `
+    <label class="item-picker-option" for="itemPickerOption${indice}">
+      <input type="checkbox" id="itemPickerOption${indice}" value="${escapeHtml(option.value)}" ${option.selected ? "checked" : ""}>
+      <span>${escapeHtml(option.textContent)}</span>
+    </label>`).join("");
+  if (itemPickerTrigger.disabled) fecharSeletorItens();
+}
+
+function fecharSeletorItens() {
+  itemPickerOptions.hidden = true;
+  itemPickerTrigger?.setAttribute("aria-expanded", "false");
+}
+
+itemPickerTrigger?.addEventListener("click", () => {
+  const abrir = itemPickerOptions.hidden;
+  itemPickerOptions.hidden = !abrir;
+  itemPickerTrigger.setAttribute("aria-expanded", String(abrir));
+});
+itemPickerOptions?.addEventListener("change", (evento) => {
+  if (!evento.target.matches('input[type="checkbox"]')) return;
+  const option = Array.from(campos.item.options).find((item) => item.value === evento.target.value);
+  if (option) option.selected = evento.target.checked;
+  campos.item.dispatchEvent(new Event("change", { bubbles: true }));
+  atualizarSeletorItens();
+});
+document.addEventListener("click", (evento) => {
+  if (!document.getElementById("itemPicker")?.contains(evento.target)) fecharSeletorItens();
+});
 
 function atualizarRestricoesDatasAtividade() {
   const dataMinimaTermino = campos.dataInicio.value || "1000-01-01";
@@ -642,6 +684,7 @@ function atualizarObrigatoriedadeFaseItem() {
     campos.faseOutro.value = "";
     preencherSelect(campos.item, [], "Selecione primeiro a fase");
     campos.item.disabled = true;
+    atualizarSeletorItens();
     campos.itemOutro.value = "";
     atualizarCampoOutro("fase", false);
     atualizarCampoOutro("item", false);
@@ -651,6 +694,7 @@ function atualizarItensDaFase(focar = true) {
   const faseSelecionada = campos.fase.value;
   preencherSelect(campos.item, itensPorFase[faseSelecionada] || [], faseSelecionada ? "Selecione" : "Selecione primeiro a fase");
   campos.item.disabled = !faseSelecionada;
+  atualizarSeletorItens();
   atualizarCampoOutro("fase", focar);
   atualizarCampoOutro("item", false);
 }
@@ -947,6 +991,7 @@ function editarAtividade(id) {
   Array.from(campos.item.options).forEach((option) => {
     option.selected = classificacao.itensSelecionados.includes(option.value);
   });
+  atualizarSeletorItens();
   campos.itemOutro.value = classificacao.itemOutro;
   atualizarCampoOutro("fase", false);
   atualizarCampoOutro("item", false);

@@ -3,7 +3,7 @@ const {
   consolidarAtividadesPorColaborador,
   normalizarNomeObra: normalizarNomeObraAgrupamento
 } = globalThis.ATIVIDADE_AGRUPAMENTO;
-const { fases, itensPorFase, valorFinal, valorFinalMultiplos, prepararEdicao, taxonomiaPlannerCompleta } = globalThis.FASE_ITEM_ATIVIDADE;
+const { fases, itensPorFase, projetoExigeFaseItem, valorFinal, valorFinalMultiplos, prepararEdicao, taxonomiaPlannerCompleta } = globalThis.FASE_ITEM_ATIVIDADE;
 const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const prioridades = ["P0", "P1", "P2", "P3"];
 const plannerStatusLista = ["Não iniciado", "Em andamento", "Concluído", "Atrasado", "Pausado"];
@@ -630,11 +630,22 @@ function configurarCamposOutros() {
   atualizarCamposOutros();
 }
 function atualizarObrigatoriedadeFaseItem() {
-  const obrigatorios = Boolean(campos.projeto.value && campos.projeto.value !== "Outros");
-  campos.fase.required = obrigatorios;
-  campos.item.required = obrigatorios;
-  campos.fase.setAttribute("aria-required", String(obrigatorios));
-  campos.item.setAttribute("aria-required", String(obrigatorios));
+  const exibir = projetoExigeFaseItem(campos.projeto.value);
+  document.getElementById("faseField").hidden = !exibir;
+  document.getElementById("itemField").hidden = !exibir;
+  campos.fase.required = exibir;
+  campos.item.required = exibir;
+  campos.fase.setAttribute("aria-required", String(exibir));
+  campos.item.setAttribute("aria-required", String(exibir));
+  if (!exibir) {
+    campos.fase.value = "";
+    campos.faseOutro.value = "";
+    preencherSelect(campos.item, [], "Selecione primeiro a fase");
+    campos.item.disabled = true;
+    campos.itemOutro.value = "";
+    atualizarCampoOutro("fase", false);
+    atualizarCampoOutro("item", false);
+  }
 }
 function atualizarItensDaFase(focar = true) {
   const faseSelecionada = campos.fase.value;
@@ -928,7 +939,6 @@ function editarAtividade(id) {
   });
 
   preencherOpcaoComOutro("projeto", atividade.projeto, projetos);
-  atualizarObrigatoriedadeFaseItem();
   const classificacao = prepararEdicao(atividade.fase, atividade.item);
   campos.fase.value = classificacao.faseSelecionada;
   campos.faseOutro.value = classificacao.faseOutro;
@@ -940,6 +950,7 @@ function editarAtividade(id) {
   campos.itemOutro.value = classificacao.itemOutro;
   atualizarCampoOutro("fase", false);
   atualizarCampoOutro("item", false);
+  atualizarObrigatoriedadeFaseItem();
   preencherOpcaoComOutro("etapa", atividade.etapa, etapas);
   atualizarRestricoesDatasAtividade();
 

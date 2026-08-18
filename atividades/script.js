@@ -90,6 +90,10 @@ let carregandoPlanner = false;
 let plannerDetalheAtualId = null;
 let plannerFocoAnterior = null;
 let plannerArrastandoId = null;
+let plannerViewMode = "quadro";
+let plannerGanttEscala = "mes";
+let plannerGanttOcultarVazios = true;
+const plannerGanttRecolhidos = new Set();
 
 const campos = {
   id: document.getElementById("atividadeId"),
@@ -141,6 +145,9 @@ const filtrosSemanais = {
 
 const plannerEls = {
   board: document.getElementById("plannerBoard"),
+  gantt: document.getElementById("plannerGantt"),
+  viewQuadro: document.getElementById("plannerViewQuadro"),
+  viewGantt: document.getElementById("plannerViewGantt"),
   status: document.getElementById("plannerModelosStatus"),
   modal: document.getElementById("plannerModal"),
   form: document.getElementById("plannerForm"),
@@ -1019,6 +1026,7 @@ async function excluirAtividade(id) {
   try {
     await fetch(`${API_URL}?id=${encodeURIComponent(id)}`, { method: "DELETE" }).then(validarResposta);
     atividades = atividades.filter((item) => item.id !== id);
+    await carregarPlanner();
     atualizarOpcoesDashboard();
     renderizarTabela();
     renderizarCalendario();
@@ -2378,6 +2386,8 @@ function inicializarPlanner() {
   preencherFiltroPlanner(plannerEls.filtroStatus, plannerStatusLista, "Todos");
   preencherFiltroPlanner(plannerEls.filtroPrioridade, plannerPrioridades, "Todas");
   plannerEls.btnNovo?.addEventListener("click", (event) => abrirPlannerModal("", event.currentTarget));
+  plannerEls.viewQuadro?.addEventListener("click", () => alterarVisualizacaoPlanner("quadro"));
+  plannerEls.viewGantt?.addEventListener("click", () => alterarVisualizacaoPlanner("gantt"));
   plannerEls.btnFechar?.addEventListener("click", fecharPlannerModal);
   plannerEls.btnCancelar?.addEventListener("click", fecharPlannerModal);
   plannerEls.btnFecharDetalhes?.addEventListener("click", fecharDetalhesPlanner);
@@ -2410,6 +2420,15 @@ function inicializarPlanner() {
     else if (!plannerEls.detalheModal?.hidden) fecharDetalhesPlanner();
     else if (!plannerEls.modal?.hidden) fecharPlannerModal();
   });
+}
+function alterarVisualizacaoPlanner(modo) {
+  plannerViewMode = modo === "gantt" ? "gantt" : "quadro";
+  plannerEls.viewQuadro?.classList.toggle("active", plannerViewMode === "quadro");
+  plannerEls.viewGantt?.classList.toggle("active", plannerViewMode === "gantt");
+  plannerEls.viewQuadro?.setAttribute("aria-pressed", String(plannerViewMode === "quadro"));
+  plannerEls.viewGantt?.setAttribute("aria-pressed", String(plannerViewMode === "gantt"));
+  if (plannerEls.agrupar) { plannerEls.agrupar.disabled = plannerViewMode === "gantt"; plannerEls.agrupar.closest("label")?.classList.toggle("planner-control-disabled", plannerViewMode === "gantt"); }
+  renderizarPlanner();
 }
 function habilitarMovimentoPlannerItem() {
   const card = plannerEls.itemModal?.querySelector(".planner-item-card");
@@ -2567,6 +2586,7 @@ async function tratarResultadoPlanner(atividade) {
   if (sync.status !== "sincronizado") return;
   if (sync.precisaConfigurar) await configurarPlannerAutomatico(sync, atividade);
   else { plannerEls.status.innerHTML = `✓ Planner atualizado: ${escapeHtml(sync.itens?.map((i) => `${i.fase} → ${i.item}`).join(", ") || "atividade vinculada")}. <button type="button" class="link-button" onclick="abrirPlannerPorId('${escapeHtml(sync.checklistId)}')">Abrir Planner</button>`; }
+  await carregarPlanner();
   await confirmarConclusaoPlanner(atividade, sync);
 }
 async function abrirPlannerPorId(checklistId) {
@@ -2578,10 +2598,16 @@ function calcularProgressoPlanner(checklist) { const itens = checklist.itens || 
 function agruparItensPlannerPorEtapa(itens = []) { const groups = new Map(); itens.forEach((item) => { const etapa = item.etapa || "Outros"; if (!groups.has(etapa)) groups.set(etapa, []); groups.get(etapa).push(item); }); return [...groups.entries()].map(([etapa, items]) => ({ etapa, itens: items })); }
 function checklistsPlannerFiltrados() {
   const busca = normalizarOpcaoPlanner(plannerEls.busca?.value);
-  return plannerChecklists.filter((checklist) => {
-    const texto = [checklist.obraCodigo, checklist.obra, checklist.nomeTarefa, checklist.projeto, checklist.tipo, checklist.responsavel, checklist.codigoProjeto, ...(checklist.itens || []).flatMap((item) => [item.etapa, item.estagio, item.atividade, item.texto, item.responsavel, item.observacoes, formatarPrazoItemPlanner(item)])].join(" ");
-    return (!busca || normalizarOpcaoPlanner(texto).includes(busca)) && (!plannerEls.filtroStatus?.value || checklist.status === plannerEls.filtroStatus.value) && (!plannerEls.filtroPrioridade?.value || checklist.prioridade === plannerEls.filtroPrioridade.value) && (!plannerEls.filtroResponsavel?.value || nomesResponsaveisPlanner(checklist).includes(plannerEls.filtroResponsavel.value)) && (!plannerEls.filtroPrazo?.value || (checklist.itens || []).some((item) => { const estado = obterSituacaoPrazoItemPlanner(item); return plannerEls.filtroPrazo.value === "agendados" ? estado !== "sem-prazo" : estado === plannerEls.filtroPrazo.value; }));
-  });
+  return plannerChecklists.reduce((resultado, checklist) => {
+    const itens = checklist.itens || [];
+    const textoChecklist = [checklist.obraCodigo, checklist.obra, checklist.nomeTarefa, checklist.projeto, checklist.tipo, checklist.responsavel, checklist.codigoProjeto].join(" ");
+    const correspondeChecklist = !busca || normalizarOpcaoPlanner(textoChecklist).includes(busca);
+    const itensCorrespondentes = correspondeChecklist ? itens : itens.filter((item) => normalizarOpcaoPlanner([item.etapa, item.estagio, item.atividade, item.texto, item.responsavel, item.observacoes].join(" ")).includes(busca));
+    const filtrosChecklist = (!plannerEls.filtroStatus?.value || checklist.status === plannerEls.filtroStatus.value) && (!plannerEls.filtroPrioridade?.value || checklist.prioridade === plannerEls.filtroPrioridade.value) && (!plannerEls.filtroResponsavel?.value || nomesResponsaveisPlanner(checklist).includes(plannerEls.filtroResponsavel.value));
+    const prazo = !plannerEls.filtroPrazo?.value || itensCorrespondentes.some((item) => { const estado = obterSituacaoPrazoItemPlanner(item); return plannerEls.filtroPrazo.value === "agendados" ? estado !== "sem-prazo" : estado === plannerEls.filtroPrazo.value; });
+    if (filtrosChecklist && prazo && (correspondeChecklist || itensCorrespondentes.length)) resultado.push(itensCorrespondentes === itens ? checklist : { ...checklist, itens: itensCorrespondentes });
+    return resultado;
+  }, []);
 }
 function gruposPlanner(checklists) {
   const agrupamento = plannerEls.agrupar?.value || "bucket";
@@ -2593,12 +2619,61 @@ function gruposPlanner(checklists) {
 }
 function renderizarPlanner() {
   if (!plannerEls.board) return;
-  if (carregandoPlanner) { plannerEls.status.textContent = "Carregando modelos e tarefas salvas..."; plannerEls.board.innerHTML = ""; return; }
+  plannerEls.board.hidden = plannerViewMode !== "quadro";
+  if (plannerEls.gantt) plannerEls.gantt.hidden = plannerViewMode !== "gantt";
+  if (carregandoPlanner) { plannerEls.status.textContent = "Carregando modelos e tarefas salvas..."; plannerEls.board.innerHTML = ""; if (plannerEls.gantt) plannerEls.gantt.innerHTML = ""; return; }
   plannerEls.status.textContent = plannerModelos.length ? `${plannerModelos.length} combinação(ões) Projeto + Tipo disponíveis.` : "Nenhum modelo foi retornado pela API.";
   const filtrados = checklistsPlannerFiltrados();
+  if (plannerViewMode === "gantt") { renderizarPlannerGantt(filtrados); return; }
   if (!filtrados.length && plannerChecklists.length) { plannerEls.board.innerHTML = '<div class="planner-empty">Nenhuma tarefa corresponde à busca e aos filtros.</div>'; return; }
   plannerEls.board.innerHTML = gruposPlanner(filtrados).map(criarBucketPlanner).join("");
 }
+function intervaloVisivelPlannerGantt(global) {
+  const referencia = new Date(`${global.fim}T12:00:00`), inicio = new Date(referencia), fim = new Date(referencia);
+  if (plannerGanttEscala === "tudo") return global;
+  if (plannerGanttEscala === "semana") { inicio.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7)); fim.setTime(inicio.getTime()); fim.setDate(fim.getDate() + 6); }
+  else { inicio.setDate(1); fim.setMonth(fim.getMonth() + 1, 0); }
+  return { inicio: PLANNER_GANTT.dataCivilIso(inicio), fim: PLANNER_GANTT.dataCivilIso(fim) };
+}
+function rotuloDataGantt(iso) { return new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }); }
+function cabecalhoPlannerGantt(dias) {
+  return dias.map((iso) => { const d = new Date(`${iso}T12:00:00`), fimSemana = d.getDay() === 0 || d.getDay() === 6; return `<div class="planner-gantt-day ${fimSemana ? "weekend" : ""}" title="${rotuloDataGantt(iso)}"><strong>${String(d.getDate()).padStart(2, "0")}</strong><small>${d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "")}</small></div>`; }).join("");
+}
+function linhaPlannerGantt(tipo, id, nome, resumo, dias, conteudo = "", recolhivel = false) {
+  const recolhido = plannerGanttRecolhidos.has(id);
+  const partesItem = tipo === "item" ? id.split(":") : [];
+  const rotulo = tipo === "item" ? `<button type="button" class="planner-gantt-item-name" data-gantt-item="${escapeHtml(partesItem.slice(2).join(":"))}" data-gantt-checklist="${escapeHtml(partesItem[1])}">${escapeHtml(nome)}</button>` : `<span>${escapeHtml(nome)}</span>`;
+  return `<div class="planner-gantt-row planner-gantt-${tipo}" data-gantt-parent="${escapeHtml(id)}"><div class="planner-gantt-label">${recolhivel ? `<button type="button" data-gantt-toggle="${escapeHtml(id)}" aria-expanded="${!recolhido}" aria-label="${recolhido ? "Expandir" : "Recolher"} ${escapeHtml(nome)}">${recolhido ? "▸" : "▾"}</button>` : ""}${rotulo}${resumo ? `<small>${escapeHtml(resumo)}</small>` : ""}</div><div class="planner-gantt-timeline" style="--gantt-days:${dias.length}">${conteudo}</div></div>`;
+}
+function tooltipSegmentoGantt(item, segmento) {
+  const partes = [`${item.estagio || item.atividade || item.texto}`, rotuloDataGantt(segmento.data), `${formatarMinutosPlanner(segmento.minutos)} registradas`, `${segmento.quantidade} atividade${segmento.quantidade === 1 ? "" : "s"}`, segmento.colaboradores.join(" · ")];
+  if (segmento.quantidade === 1) { const a = segmento.atividades[0]; if (a.trabalhos) partes.push(`Trabalho: ${a.trabalhos}`); if (a.status) partes.push(`Status: ${a.status}`); }
+  return partes.filter(Boolean).join("\n");
+}
+function renderizarPlannerGantt(checklists) {
+  if (!plannerEls.gantt) return;
+  const global = PLANNER_GANTT.obterIntervaloGlobalGantt(checklists);
+  if (!global) { plannerEls.gantt.innerHTML = '<div class="planner-gantt-empty"><strong>Nenhuma atividade realizada encontrada para exibir no Gantt.</strong><span>O Gantt é construído a partir das atividades vinculadas aos itens do Planner com data e hora válidas.</span></div>'; return; }
+  const intervalo = intervaloVisivelPlannerGantt(global), dias = PLANNER_GANTT.listarDias(intervalo.inicio, intervalo.fim), hoje = obterDataIsoLocal(new Date()), hojeVisivel = dias.includes(hoje);
+  const estrutura = PLANNER_GANTT.construirEstruturaGantt(checklists, { ocultarSemAtividade: plannerGanttOcultarVazios });
+  let linhas = "";
+  estrutura.forEach((obra) => { const obraId = `obra:${obra.id}`; linhas += linhaPlannerGantt("obra", obraId, obra.nome, `${obra.projetos.length} projeto(s)`, dias, "", true); if (plannerGanttRecolhidos.has(obraId)) return;
+    obra.projetos.forEach((projeto) => { const projetoId = `projeto:${projeto.id}`; const trabalhados = projeto.fases.reduce((s, f) => s + f.itens.filter((i) => i.segmentosGantt.length).length, 0); linhas += linhaPlannerGantt("project", projetoId, projeto.nome, `${formatarMinutosPlanner(projeto.minutos)} · ${trabalhados} itens trabalhados`, dias, "", true); if (plannerGanttRecolhidos.has(projetoId)) return;
+      projeto.fases.forEach((fase) => { const faseId = `fase:${fase.id}`; linhas += linhaPlannerGantt("phase", faseId, fase.nome, `${fase.itens.filter((i) => i.segmentosGantt.length).length}/${fase.itens.length} itens · ${formatarMinutosPlanner(fase.minutos)}`, dias, "", true); if (plannerGanttRecolhidos.has(faseId)) return;
+        fase.itens.forEach((item) => { const nome = item.estagio || item.atividade || item.texto || "Item"; const segmentos = item.segmentosGantt.map((s) => { const inicioReal = PLANNER_GANTT.diferencaDias(intervalo.inicio, s.data) + 1, fimReal = PLANNER_GANTT.diferencaDias(intervalo.inicio, s.dataFim) + 1, inicio = Math.max(1, inicioReal), fim = Math.min(dias.length, fimReal), tooltip = tooltipSegmentoGantt(item, s); if (fim < 1 || inicio > dias.length || fim < inicio) return ""; return `<button type="button" class="planner-gantt-segment" style="grid-column:${inicio} / span ${fim - inicio + 1}" data-gantt-item="${escapeHtml(item.id)}" data-gantt-checklist="${escapeHtml(item.checklistId)}" title="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}"></button>`; }).join(""); const vazio = item.segmentosGantt.length ? "" : '<span class="planner-gantt-no-activity">Sem atividade registrada</span>'; linhas += linhaPlannerGantt("item", `item:${item.checklistId}:${item.id}`, `${item.concluido ? "✓ " : ""}${nome}`, `${formatarMinutosPlanner(item.minutosRegistrados)}${!item.concluido && item.atividadeCount ? " · Em andamento" : ""}`, dias, segmentos + vazio); });
+      });
+    });
+  });
+  const titulo = plannerGanttEscala === "semana" ? `SEMANA ${obterNumeroSemanaAno(new Date(`${intervalo.inicio}T12:00:00`))}` : plannerGanttEscala === "mes" ? new Date(`${intervalo.inicio}T12:00:00`).toLocaleDateString("pt-BR", { month: "short", year: "numeric" }).toUpperCase() : `${rotuloDataGantt(intervalo.inicio)} — ${rotuloDataGantt(intervalo.fim)}`;
+  plannerEls.gantt.innerHTML = `<div class="planner-gantt-toolbar"><span>Escala:</span>${["semana","mes","tudo"].map((e) => `<button type="button" data-gantt-scale="${e}" aria-pressed="${plannerGanttEscala === e}" class="${plannerGanttEscala === e ? "active" : ""}">${e[0].toUpperCase()+e.slice(1)}</button>`).join("")}<label><input type="checkbox" data-gantt-hide-empty ${plannerGanttOcultarVazios ? "checked" : ""}> Ocultar itens sem atividade</label><button type="button" data-gantt-today ${hojeVisivel ? "" : "disabled"}>Hoje</button></div><div class="planner-gantt-scroll"><div class="planner-gantt-grid" style="--gantt-days:${dias.length}"><div class="planner-gantt-header"><div class="planner-gantt-label"><strong>${escapeHtml(titulo)}</strong></div><div class="planner-gantt-days">${cabecalhoPlannerGantt(dias)}</div></div>${linhas}${hojeVisivel ? `<div class="planner-gantt-today" style="--today-column:${dias.indexOf(hoje) + 1}" aria-hidden="true"><span>Hoje</span></div>` : ""}</div></div>`;
+  plannerEls.gantt.querySelectorAll("[data-gantt-scale]").forEach((b) => b.addEventListener("click", () => { plannerGanttEscala = b.dataset.ganttScale; renderizarPlanner(); }));
+  plannerEls.gantt.querySelector("[data-gantt-hide-empty]")?.addEventListener("change", (e) => { plannerGanttOcultarVazios = e.target.checked; renderizarPlanner(); });
+  plannerEls.gantt.querySelectorAll("[data-gantt-toggle]").forEach((b) => b.addEventListener("click", () => { plannerGanttRecolhidos.has(b.dataset.ganttToggle) ? plannerGanttRecolhidos.delete(b.dataset.ganttToggle) : plannerGanttRecolhidos.add(b.dataset.ganttToggle); renderizarPlanner(); }));
+  plannerEls.gantt.querySelectorAll("[data-gantt-item]").forEach((b) => b.addEventListener("click", () => abrirDetalhesItemPlanner(b.dataset.ganttChecklist, b.dataset.ganttItem, b)));
+  plannerEls.gantt.querySelector("[data-gantt-today]")?.addEventListener("click", () => centralizarDiaPlannerGantt(hoje));
+  requestAnimationFrame(() => { if (plannerGanttEscala !== "tudo") centralizarDiaPlannerGantt(global.fim); });
+}
+function centralizarDiaPlannerGantt(iso) { const scroll = plannerEls.gantt?.querySelector(".planner-gantt-scroll"), grid = plannerEls.gantt?.querySelector(".planner-gantt-grid"); if (!scroll || !grid) return; const inicio = grid.querySelector(".planner-gantt-day")?.title?.split("/").reverse().join("-"); const indice = PLANNER_GANTT.diferencaDias(inicio, iso); scroll.scrollLeft = Math.max(0, 290 + indice * 42 - scroll.clientWidth / 2); }
 function criarBucketPlanner(grupo) {
   const podeAdicionar = (plannerEls.agrupar?.value || "bucket") === "bucket" && usuarioAtualEhAdmin();
   return `<section class="planner-bucket-column" data-drop-bucket="${escapeHtml(grupo.nome)}"><header class="planner-bucket-header"><h3>${escapeHtml(grupo.nome)}</h3><span>${grupo.itens.length}</span></header>${podeAdicionar ? `<button type="button" class="planner-add-task" data-add-bucket="${escapeHtml(grupo.nome)}"><i class="fas fa-plus" aria-hidden="true"></i> Adicionar tarefa</button>` : ""}<div class="planner-bucket-cards">${grupo.itens.map(criarCardPlanner).join("")}</div></section>`;

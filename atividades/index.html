@@ -382,7 +382,7 @@
         <div>
           <span class="planner-breadcrumb">Projetos / Plano elétrico</span>
           <h2>Projetos Modelos – Elétrica</h2>
-          <span class="planner-view-active"><i class="fas fa-table-columns" aria-hidden="true"></i> Quadro</span>
+          <div class="planner-view-switch" role="group" aria-label="Visualização do Planner"><button type="button" class="active" id="plannerViewQuadro" aria-pressed="true"><i class="fas fa-table-columns" aria-hidden="true"></i> Quadro</button><button type="button" id="plannerViewGantt" aria-pressed="false"><i class="fas fa-chart-gantt" aria-hidden="true"></i> Gantt</button></div>
         </div>
         <button type="button" class="primary" id="btnNovoChecklistPlanner"><i class="fas fa-plus" aria-hidden="true"></i> Adicionar tarefa</button>
       </div>
@@ -396,6 +396,7 @@
       </div>
       <div id="plannerModelosStatus" class="planner-status" aria-live="polite"></div>
       <div id="plannerBoard" class="planner-board" aria-live="polite"></div>
+      <div id="plannerGantt" class="planner-gantt" aria-live="polite" hidden></div>
     </section>
 
     <div class="planner-modal" id="plannerModal" hidden>
@@ -563,6 +564,7 @@
   </main>
   <script src="/atividades/fase-item.js"></script>
   <script src="/atividades/planner-modelos.js"></script>
+  <script src="/atividades/planner-gantt.js"></script>
   <script src="/atividades/atividade-agrupamento.js"></script>
   <script src="/atividades/script.js"></script>
 </body>

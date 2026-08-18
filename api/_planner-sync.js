@@ -1,21 +1,21 @@
 const { supabaseRequest } = require("./_auth");
-const { normalizarChavePlanner, normalizarProjetoPlanner } = require("../atividades/planner-modelos");
-const { separarItens, taxonomiaPlannerCompleta } = require("../atividades/fase-item");
+const { normalizarChavePlanner, normalizarProjetoPlanner, obterProjetoPlanner, obterCodigoProjetoPlanner, obterBucketModeloPlanner } = require("../atividades/planner-modelos");
+const { separarItens, taxonomiaPlannerCompleta, projetoExigeFaseItem } = require("../atividades/fase-item");
 
 const CHECKLISTS_TABLE = "planner_checklists";
 const ITEMS_TABLE = "planner_checklist_itens";
 const LINKS_TABLE = "atividade_planner_itens";
-const CODIGO_BAIXA_TENSAO = "PRJ-ELE";
 const ITEM_ALIASES = new Map([
   ["eletrocalhas", "eletrocalha"], ["perfilados", "perfilado"], ["cabos pp", "cabo pp"],
   ["tomadas de uso especifico", "tomada de uso especifico"], ["pontos de it-medico", "it-medico"]
 ]);
 
 function obterCodigoProjetoDaAtividade(projeto) {
-  const normalizado = normalizarProjetoPlanner(projeto);
-  return normalizado === normalizarProjetoPlanner(CODIGO_BAIXA_TENSAO) ? CODIGO_BAIXA_TENSAO : "";
+  const meta = obterProjetoPlanner(projeto);
+  if (!meta || !projetoExigeFaseItem(meta.projeto)) return "";
+  return obterCodigoProjetoPlanner(meta.projeto) || `PRJ-${meta.projeto.replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase() || "GER"}`;
 }
-function ehProjetoBaixaTensao(projeto) { return obterCodigoProjetoDaAtividade(projeto) === CODIGO_BAIXA_TENSAO; }
+function ehProjetoBaixaTensao(projeto) { return normalizarProjetoPlanner(projeto) === normalizarProjetoPlanner("Elétrico Baixa Tensão"); }
 function gerarChavePlanner(obraId, codigoProjeto) { return `${String(obraId || "").trim()}::${String(codigoProjeto || "").trim().toUpperCase()}`; }
 function normalizarItemPlanner(valor) {
   const chave = normalizarChavePlanner(valor).replace(/\s+/g, " ");
@@ -49,9 +49,11 @@ async function localizarOuCriarPlanner(atividade, user, checklistEscolhidoId) {
     const rows = await supabaseRequest(CHECKLISTS_TABLE, `?id=eq.${encodeURIComponent(escolhido.id)}`, { method: "PATCH", body: JSON.stringify({ chave_sincronizacao: chave, origem: escolhido.origem === "atividade" ? "atividade" : "hibrido", responsavel: JSON.stringify([...responsaveis].filter(Boolean)) }) });
     return { checklist: rows[0] || escolhido, criado: false };
   }
-  const novo = { obra_id: atividade.obra_id, obra: atividade.obra, projeto: "Projetos Elétricos de Baixa Tensão", codigo_projeto: codigo, tipo: null,
-    nome_tarefa: "Projeto Elétrico Baixa Tensão", status: "Em andamento", prioridade: atividade.prioridade || "P1", data_inicio: atividade.data_inicio || null,
-    data_conclusao: atividade.data_prevista || null, bucket: "Projeto Elétrico Baixa Tensão", responsavel: JSON.stringify([atividade.colaborador].filter(Boolean)),
+  const meta = obterProjetoPlanner(atividade.projeto);
+  const projetoCanonico = meta?.projeto || atividade.projeto;
+  const novo = { obra_id: atividade.obra_id, obra: atividade.obra, projeto: projetoCanonico, codigo_projeto: codigo, tipo: null,
+    nome_tarefa: projetoCanonico, status: "Em andamento", prioridade: atividade.prioridade || "P1", data_inicio: atividade.data_inicio || null,
+    data_conclusao: atividade.data_prevista || null, bucket: obterBucketModeloPlanner(projetoCanonico, codigo) || "Outros", responsavel: JSON.stringify([atividade.colaborador].filter(Boolean)),
     origem: "atividade", chave_sincronizacao: chave, configuracao_automatica_concluida: false, criado_por: user?.id || null, criado_por_nome: user?.nome || atividade.colaborador };
   try {
     const rows = await supabaseRequest(CHECKLISTS_TABLE, "", { method: "POST", body: JSON.stringify(novo) });
@@ -100,7 +102,7 @@ async function limparItensOrfaos(vinculos) {
   }
 }
 async function sincronizarAtividadeComPlanner(atividade, { user, checklistId } = {}) {
-  if (!ehProjetoBaixaTensao(atividade.projeto)) { const antigos = await removerVinculosAtividade(atividade.id); await limparItensOrfaos(antigos); return { status: "ignorado" }; }
+  if (!projetoExigeFaseItem(obterProjetoPlanner(atividade.projeto)?.projeto || atividade.projeto)) { const antigos = await removerVinculosAtividade(atividade.id); await limparItensOrfaos(antigos); return { status: "ignorado" }; }
   if (!atividade.obra_id || !atividade.id || !atividade.fase || !itensDaAtividade(atividade).length) return { status: "ignorado" };
   const localizado = await localizarOuCriarPlanner(atividade, user, checklistId);
   if (localizado.ambigua) return { status: "ambigua", candidatos: localizado.candidatos };
@@ -128,10 +130,10 @@ async function configurarPlannerAutomatico({ checklistId, modo, tipo, selecao, u
   const rows = await supabaseRequest(CHECKLISTS_TABLE, `?id=eq.${encodeURIComponent(checklistId)}&select=*`); const checklist = rows?.[0];
   if (!checklist) throw Object.assign(new Error("Planner não encontrado."), { statusCode: 404 });
   if (user?.perfil !== "admin" && !listarResponsaveis(checklist.responsavel).some((n) => normalizarChavePlanner(user.nome).includes(normalizarChavePlanner(n)))) throw Object.assign(new Error("Sem permissão para configurar este Planner."), { statusCode: 403 });
-  const grupos = modo === "completo" ? taxonomiaPlannerCompleta() : modo === "personalizado" ? (selecao || []) : [];
+  const grupos = modo === "completo" ? taxonomiaPlannerCompleta(obterProjetoPlanner(checklist.projeto)?.projeto || checklist.projeto) : modo === "personalizado" ? (selecao || []) : [];
   let ordem = 1000; for (const grupo of grupos) for (const item of grupo.estagios || grupo.itens || []) { await localizarOuCriarItemPlanner(checklist.id, grupo.etapa || grupo.fase, item, ordem++); }
   await supabaseRequest(CHECKLISTS_TABLE, `?id=eq.${encodeURIComponent(checklist.id)}`, { method: "PATCH", body: JSON.stringify({ tipo: tipo || null, configuracao_automatica_concluida: true }) });
   return { status: "sincronizado", checklistId: checklist.id };
 }
 
-module.exports = { agregarAtividadesDosItens, configurarPlannerAutomatico, ehProjetoBaixaTensao, gerarChaveItemPlanner, gerarChavePlanner, itensDaAtividade, limparItensOrfaos, minutosDaAtividade, normalizarItemPlanner, obterCodigoProjetoDaAtividade, removerVinculosAtividade, sincronizarAtividadeComPlanner };
+module.exports = { agregarAtividadesDosItens, configurarPlannerAutomatico, ehProjetoBaixaTensao, projetoExigeFaseItem, gerarChaveItemPlanner, gerarChavePlanner, itensDaAtividade, limparItensOrfaos, minutosDaAtividade, normalizarItemPlanner, obterCodigoProjetoDaAtividade, removerVinculosAtividade, sincronizarAtividadeComPlanner };

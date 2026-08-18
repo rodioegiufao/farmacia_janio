@@ -3,69 +3,21 @@ const {
   consolidarAtividadesPorColaborador,
   normalizarNomeObra: normalizarNomeObraAgrupamento
 } = globalThis.ATIVIDADE_AGRUPAMENTO;
-const { fases, itensPorFase, projetoExigeFaseItem, valorFinal, valorFinalMultiplos, prepararEdicao, taxonomiaPlannerCompleta } = globalThis.FASE_ITEM_ATIVIDADE;
+const { obterProjetosComFaseItem, obterFasesDoProjeto, obterItensDoProjetoFase, projetoExigeFaseItem, valorFinal, valorFinalMultiplos, prepararEdicao, taxonomiaPlannerCompleta } = globalThis.FASE_ITEM_ATIVIDADE;
 const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const prioridades = ["P0", "P1", "P2", "P3"];
 const plannerStatusLista = ["Não iniciado", "Em andamento", "Concluído", "Atrasado", "Pausado"];
 const plannerPrioridades = ["P0", "P1", "P2", "P3"];
 const plannerResponsaveis = ["Geovanna", "Bruno", "Rodrigo", "Hellen", "Rian"];
-const plannerBuckets = ["Projeto Elétrico Baixa Tensão", "Projeto Elétrico de Alimentadores", "Projeto de Iluminação Externa", "Projeto de Subestação", "Projeto de Lógica Estruturada", "Projeto de SPDA", "Cabeamento", "CFTV", "Outros"];
-const plannerProjetosDisponiveis = ["Projetos Elétricos de Baixa Tensão"];
-const plannerTiposDisponiveis = [
-  "Prédios Públicos Gerais",
-  "Prédios Públicos de Saúde sem IT-Médico",
-  "Prédios Públicos de Saúde com IT-Médico",
-  "Prédios Privados Gerais",
-  "Prédios Privados Pequenos (<200m²)"
-];
-const plannerEtapasBase = [
-  { etapa: "Lançamento", estagios: ["Pontos e iluminação", "Tomadas de uso geral", "Tomadas de uso específico", "Pontos de emergência", "Pontos de climatização", "Pontos de exaustão"] },
-  { etapa: "Distribuição", estagios: ["Eletrocalhas", "Perfilados", "Cabos PP", "Eletrodutos", "Pontos de conexão"] },
-  { etapa: "Plotagem", estagios: ["Iluminação", "Tomadas de uso geral", "Tomadas de uso específico", "Emergência", "Climatização", "Exaustão"] },
-  { etapa: "Compatibilização", estagios: ["Elétrico com outras disciplinas"] },
-  { etapa: "Estudos", estagios: ["NBR 5413 e ABNT NBR ISO/CIE 8995-1", "NBR 5410", "Livros Mamede", "Manual de Plotagem"] }
-];
-function criarModelosFallbackPlanner() {
-  return plannerTiposDisponiveis.map((tipo) => {
-    const etapas = plannerEtapasBase.map((grupo) => ({ etapa: grupo.etapa, estagios: [...grupo.estagios] }));
-    if (tipo.includes("Saúde")) etapas.find((grupo) => grupo.etapa === "Estudos").estagios.push("RDC/SOMASUS");
-    if (tipo.includes("com IT-Médico")) {
-      etapas.find((grupo) => grupo.etapa === "Lançamento").estagios.push("Pontos de IT-médico");
-      etapas.find((grupo) => grupo.etapa === "Plotagem").estagios.push("IT-médico");
-    }
-    if (tipo === "Prédios Privados Gerais") etapas.find((grupo) => grupo.etapa === "Distribuição").estagios = ["Eletrocalhas, perfilados, cabos PP e eletrodutos", "Pontos de conexão"];
-    if (tipo.includes("Pequenos")) {
-      etapas.find((grupo) => grupo.etapa === "Distribuição").estagios = ["Eletrodutos", "Pontos de conexão"];
-      etapas.find((grupo) => grupo.etapa === "Plotagem").estagios = ["Iluminação", "Tomadas de uso geral, específico, emergência e climatização"];
-    }
-    return { projeto: plannerProjetosDisponiveis[0], tipo, codigoProjeto: "PRJ-ELE", etapas };
-  });
-}
+const plannerBuckets = [...new Set([...(globalThis.PROJETOS_PLANNER || []).map((projeto) => projeto.bucket), "Outros"])];
+const plannerProjetosDisponiveis = obterProjetosComFaseItem();
 const coresPrioridade = {
   P0: "#48bb78",
   P1: "#ecc94b",
   P2: "#ed8936",
   P3: "#f56565"
 };
-const projetos = [
-  "Site",
-  "Todos",
-  "CFTV",
-  "Cabeamento",
-  "Telefonia",
-  "Elétrico Baixa Tensão",
-  "Iluminação Externa",
-  "SPDA",
-  "Subestação",
-  "Alimentador",
-  "Mapa Chave/Situação",
-  "Sonorização",
-  "Solar",
-  "Automação",
-  "Lógica",
-  "Média Tensão",
-  "Outros",
-];
+const projetos = ["Site", "Todos", ...obterProjetosComFaseItem(), "Outros"];
 const etapas = [
   "Orçamento",
   "QI Builder",
@@ -277,7 +229,8 @@ async function inicializar() {
   preencherSelect(campos.prioridade, prioridades);
   preencherSelect(camposSemanais.prioridade, prioridades);
   preencherSelect(campos.projeto, projetos);
-  preencherSelect(campos.fase, fases);
+  preencherSelect(campos.fase, [], "Selecione primeiro o projeto");
+  campos.fase.disabled = true;
   preencherSelect(campos.etapa, etapas);
   preencherSelect(campos.status, statusLista);
   configurarCamposOutros();
@@ -663,13 +616,24 @@ function configurarValidacaoDatasAtividade() {
 function configurarCamposOutros() {
   campos.projeto.addEventListener("change", () => {
     atualizarCampoOutro("projeto");
-    atualizarObrigatoriedadeFaseItem();
+    atualizarFasesDoProjeto();
   });
   campos.fase.addEventListener("change", atualizarItensDaFase);
   campos.item.addEventListener("change", () => atualizarCampoOutro("item"));
   campos.etapa.addEventListener("change", () => atualizarCampoOutro("etapa"));
   atualizarItensDaFase(false);
   atualizarCamposOutros();
+}
+function atualizarFasesDoProjeto(focar = false) {
+  const projeto = campos.projeto.value;
+  preencherSelect(campos.fase, obterFasesDoProjeto(projeto), projeto ? "Selecione" : "Selecione primeiro o projeto");
+  campos.fase.disabled = !projetoExigeFaseItem(projeto);
+  campos.fase.value = "";
+  campos.faseOutro.value = "";
+  campos.itemOutro.value = "";
+  atualizarItensDaFase(false);
+  atualizarObrigatoriedadeFaseItem();
+  if (focar && !campos.fase.disabled) campos.fase.focus();
 }
 function atualizarObrigatoriedadeFaseItem() {
   const exibir = projetoExigeFaseItem(campos.projeto.value);
@@ -681,6 +645,7 @@ function atualizarObrigatoriedadeFaseItem() {
   campos.item.setAttribute("aria-required", String(exibir));
   if (!exibir) {
     campos.fase.value = "";
+    campos.fase.disabled = true;
     campos.faseOutro.value = "";
     preencherSelect(campos.item, [], "Selecione primeiro a fase");
     campos.item.disabled = true;
@@ -692,7 +657,7 @@ function atualizarObrigatoriedadeFaseItem() {
 }
 function atualizarItensDaFase(focar = true) {
   const faseSelecionada = campos.fase.value;
-  preencherSelect(campos.item, itensPorFase[faseSelecionada] || [], faseSelecionada ? "Selecione" : "Selecione primeiro a fase");
+  preencherSelect(campos.item, obterItensDoProjetoFase(campos.projeto.value, faseSelecionada), faseSelecionada ? "Selecione" : "Selecione primeiro a fase");
   campos.item.disabled = !faseSelecionada;
   atualizarSeletorItens();
   atualizarCampoOutro("fase", focar);
@@ -789,7 +754,7 @@ async function salvarAtividade(event) {
      // Mantém a descrição visível para que o texto do trabalho concluído não se
     // perca da tela após o registro ser finalizado.
     if (trabalhoFinalizado) campos.trabalhos.value = trabalhoFinalizado;
-    atualizarItensDaFase(false);
+    atualizarFasesDoProjeto(false);
     atualizarCamposOutros();
     atualizarRestricoesDatasAtividade();
     preencherColaboradoresPermitidos();
@@ -983,7 +948,9 @@ function editarAtividade(id) {
   });
 
   preencherOpcaoComOutro("projeto", atividade.projeto, projetos);
-  const classificacao = prepararEdicao(atividade.fase, atividade.item);
+  const classificacao = prepararEdicao(atividade.projeto, atividade.fase, atividade.item);
+  preencherSelect(campos.fase, classificacao.fasesDisponiveis, "Selecione");
+  campos.fase.disabled = !classificacao.projetoSuportado;
   campos.fase.value = classificacao.faseSelecionada;
   campos.faseOutro.value = classificacao.faseOutro;
   preencherSelect(campos.item, classificacao.itensDisponiveis, classificacao.faseSelecionada ? "Selecione" : "Selecione primeiro a fase");
@@ -2328,6 +2295,8 @@ function opcoesUnicasPlanner(values) {
   return values.filter((value) => { const key = normalizarOpcaoPlanner(value); if (!key || seen.has(key)) return false; seen.add(key); return true; });
 }
 function obterBucketDoProjeto(projeto, codigoProjeto = "") {
+  const bucketModelo = globalThis.obterBucketModeloPlanner?.(projeto, codigoProjeto);
+  if (bucketModelo) return bucketModelo;
   const texto = `${normalizarOpcaoPlanner(projeto)} ${normalizarOpcaoPlanner(codigoProjeto)}`;
   if (texto.includes("baixa tensao")) return "Projeto Elétrico Baixa Tensão";
   if (texto.includes("alimentador") || texto.includes("prj-ali")) return "Projeto Elétrico de Alimentadores";
@@ -2523,7 +2492,8 @@ function criarModalPlannerAutomatico(titulo, conteudo, botoes) {
 }
 async function configurarPlannerAutomatico(sync, atividade) {
   const tipos = plannerTiposDisponiveis.map((tipo) => `<option value="${escapeHtml(tipo)}">${escapeHtml(tipo)}</option>`).join("");
-  const modo = await criarModalPlannerAutomatico("Configurar Planner do Projeto", `<p><strong>${escapeHtml(atividade.obra)}</strong><br>Projeto Elétrico Baixa Tensão</p><label for="plannerAutoTipo">Tipo da edificação</label><select id="plannerAutoTipo"><option value="">Tipo não definido</option>${tipos}</select><fieldset><legend>Configuração inicial</legend><label><input type="radio" name="plannerAutoModo" value="dinamico" checked> Continuar com Planner dinâmico</label><label><input type="radio" name="plannerAutoModo" value="completo"> Usar modelo completo de Baixa Tensão</label><label><input type="radio" name="plannerAutoModo" value="personalizado"> Personalizar itens</label></fieldset><div class="planner-auto-taxonomy">${taxonomiaPlannerCompleta().map((g, gi) => `<fieldset><legend>${escapeHtml(g.etapa)}</legend>${g.estagios.map((item, ii) => `<label><input type="checkbox" data-auto-item data-fase="${escapeHtml(g.etapa)}" value="${escapeHtml(item)}" id="auto-${gi}-${ii}"> ${escapeHtml(item)}</label>`).join("")}</fieldset>`).join("")}</div>`, [{ texto: "Salvar configuração", valor: "salvar" }, { texto: "Agora não", valor: "" }]);
+  const taxonomiaProjeto = taxonomiaPlannerCompleta(atividade.projeto);
+  const modo = await criarModalPlannerAutomatico("Configurar Planner do Projeto", `<p><strong>${escapeHtml(atividade.obra)}</strong><br>${escapeHtml(atividade.projeto)}</p><label for="plannerAutoTipo">Tipo da edificação</label><select id="plannerAutoTipo"><option value="">Tipo não definido</option>${tipos}</select><fieldset><legend>Configuração inicial</legend><label><input type="radio" name="plannerAutoModo" value="dinamico" checked> Continuar com Planner dinâmico</label><label><input type="radio" name="plannerAutoModo" value="completo"> Usar modelo completo deste Projeto</label><label><input type="radio" name="plannerAutoModo" value="personalizado"> Personalizar itens</label></fieldset><div class="planner-auto-taxonomy">${taxonomiaProjeto.map((g, gi) => `<fieldset><legend>${escapeHtml(g.etapa)}</legend>${g.estagios.map((item, ii) => `<label><input type="checkbox" data-auto-item data-fase="${escapeHtml(g.etapa)}" value="${escapeHtml(item)}" id="auto-${gi}-${ii}"> ${escapeHtml(item)}</label>`).join("")}</fieldset>`).join("")}</div>`, [{ texto: "Salvar configuração", valor: "salvar" }, { texto: "Agora não", valor: "" }]);
   if (modo.acao !== "salvar") return;
   try {
     await fetch(API_PLANNER_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "configurarAutomatico", checklistId: sync.checklistId, modo: modo.modo, tipo: modo.tipo, selecao: modo.selecao }) }).then(validarResposta);

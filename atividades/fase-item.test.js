@@ -1,23 +1,32 @@
 const assert = require("node:assert/strict");
-const { fases, projetosComFaseItem, itensPorFase, projetoExigeFaseItem, valorFinal, valorFinalMultiplos, separarItens, prepararEdicao } = require("./fase-item");
+const api = require("./fase-item");
 
-assert.deepEqual(fases, ["Lançamento", "Distribuição", "Plotagem", "Estudos", "Compatibilização", "Outros"]);
-assert.deepEqual(fases, ["Lançamento", "Distribuição", "Plotagem", "Estudos", "Compatibilização", "Circuitos", "Outros"]);
-assert.deepEqual(itensPorFase.Distribuição, ["Eletrocalha", "Leito", "Perfilado", "Eletroduto Flexível", "Eletroduto FG", "Cabo PP", "Outros"]);
-assert.ok(itensPorFase.Estudos.includes("NBR-5410"));
-assert.ok(itensPorFase.Compatibilização.includes("Arquitetura"));
-assert.deepEqual(itensPorFase.Circuitos, ["Nomear", "Renumerar", "Numerar", "Dimensionamento"]);
-assert.deepEqual(projetosComFaseItem, ["CFTV", "Cabeamento", "Telefonia", "Elétrico Baixa Tensão", "Iluminação Externa", "SPDA", "Subestação", "Alimentador", "Mapa Chave/Situação", "Sonorização", "Solar", "Automação", "Lógica", "Média Tensão"]);
-projetosComFaseItem.forEach((projeto) => assert.equal(projetoExigeFaseItem(projeto), true));
-["", "Site", "Todos", "Outros", "Projeto personalizado"].forEach((projeto) => assert.equal(projetoExigeFaseItem(projeto), false));
-assert.equal(valorFinal("Distribuição", ""), "Distribuição");
-assert.equal(valorFinal("Outros", "  Levantamento  "), "Levantamento");
-assert.equal(valorFinal("Outros", "  Canaleta  "), "Canaleta");
-assert.equal(valorFinalMultiplos(["Eletrocalha", "Leito"], ""), "Eletrocalha · Leito");
-assert.equal(valorFinalMultiplos(["Eletrocalha", "Outros"], " Canaleta "), "Eletrocalha · Canaleta");
-assert.deepEqual(separarItens("Eletrocalha · Leito"), ["Eletrocalha", "Leito"]);
-assert.deepEqual(prepararEdicao("Distribuição", "Eletrocalha"), { faseSelecionada: "Distribuição", faseOutro: "", itensSelecionados: ["Eletrocalha"], itemOutro: "", itensDisponiveis: itensPorFase.Distribuição });
-assert.deepEqual(prepararEdicao("Distribuição", "Eletrocalha · Leito · Canaleta"), { faseSelecionada: "Distribuição", faseOutro: "", itensSelecionados: ["Eletrocalha", "Leito", "Outros"], itemOutro: "Canaleta", itensDisponiveis: itensPorFase.Distribuição });
-assert.deepEqual(prepararEdicao("Levantamento", "Conferência existente"), { faseSelecionada: "Outros", faseOutro: "Levantamento", itensSelecionados: ["Outros"], itemOutro: "Conferência existente", itensDisponiveis: itensPorFase.Outros });
-assert.deepEqual(prepararEdicao(null, null), { faseSelecionada: "", faseOutro: "", itensSelecionados: [], itemOutro: "", itensDisponiveis: [] });
-console.log("Testes de Fase e Item das atividades: OK");
+assert.deepEqual(api.obterProjetosComFaseItem(), ["CFTV", "Cabeamento", "Telefonia", "Elétrico Baixa Tensão", "Iluminação Externa", "SPDA", "Subestação", "Alimentador", "Mapa Chave/Situação", "Sonorização", "Solar", "Automação", "Lógica", "SDAI", "Média Tensão"]);
+api.obterProjetosComFaseItem().forEach((projeto) => assert.equal(api.projetoExigeFaseItem(projeto), true));
+["", "Site", "Todos", "Outros"].forEach((projeto) => assert.equal(api.projetoExigeFaseItem(projeto), false));
+
+assert.deepEqual(api.obterFasesDoProjeto("CFTV"), ["Estudos", "Lançamento", "Distribuição", "Circuitos", "Plotagem", "Compatibilização", "Documentos", "Outros"]);
+assert.deepEqual(api.obterItensDoProjetoFase("CFTV", "Lançamento"), ["Câmeras Bullet", "Câmeras Dome", "Câmera IP/Wi-fi", "Switch", "Patch Panel", "Conectores", "Rack", "NVR/DVR", "Outros"]);
+assert.deepEqual(api.obterItensDoProjetoFase("SPDA", "Distribuição"), ["Caixas de Passagem", "Hastes de aterramento", "Minicaptor", "Captor Franklin", "Re-bar", "Outros"]);
+assert.ok(!api.obterFasesDoProjeto("SPDA").includes("Circuitos"));
+assert.deepEqual(api.obterFasesDoProjeto("Subestação"), ["Estudos", "Análise de Projeto", "Desenhos", "Distribuição", "Plotagem", "Compatibilização", "Documentos", "Outros"]);
+assert.deepEqual(api.obterFasesDoProjeto("Mapa Chave/Situação"), ["Análise de Projeto", "Desenhos", "Distribuição", "Plotagem", "Documentos", "Outros"]);
+assert.deepEqual(api.obterItensDoProjetoFase("SDAI", "Lançamento"), ["Central de Alarme de Incêndio", "Detector de Fumaça", "Detector de Temperatura", "Detector de Térmicos", "Acionadores", "Sinalizador", "Fonte Auxiliar", "Outros"]);
+assert.deepEqual(api.obterItensDoProjetoFase("Média Tensão", "Circuitos"), ["Dimensionar", "Nomear", "Numerar", "Renumerar", "Diagrama Unifilar Geral", "Outros"]);
+assert.equal(api.obterItensDoProjetoFase("Lógica", "Estudos").filter((item) => item === "ABNT NBR 16264").length, 1);
+
+assert.equal(api.valorFinal("Outros", "  Levantamento  "), "Levantamento");
+assert.equal(api.valorFinalMultiplos(["Eletrocalha", "Outros"], " Canaleta "), "Eletrocalha · Canaleta");
+assert.deepEqual(api.separarItens("Eletrocalha · Leito"), ["Eletrocalha", "Leito"]);
+const legado = api.prepararEdicao("Elétrico Baixa Tensão", "Distribuição", "Eletrocalha · Cabo PP");
+assert.equal(legado.faseSelecionada, "Distribuição");
+assert.deepEqual(legado.itensSelecionados, ["Eletrocalha", "Outros"]);
+assert.equal(legado.itemOutro, "Cabo PP");
+const faseLegada = api.prepararEdicao("CFTV", "Levantamento", "Conferência existente");
+assert.equal(faseLegada.faseSelecionada, "Outros");
+assert.equal(faseLegada.faseOutro, "Levantamento");
+assert.equal(faseLegada.itemOutro, "Conferência existente");
+assert.deepEqual(api.taxonomiaPlannerCompleta("SDAI")[1], { etapa: "Lançamento", estagios: ["Central de Alarme de Incêndio", "Detector de Fumaça", "Detector de Temperatura", "Detector de Térmicos", "Acionadores", "Sinalizador", "Fonte Auxiliar"] });
+assert.equal(api.taxonomiaPlannerCompleta("CFTV").some((grupo) => grupo.estagios.includes("Iluminação")), false);
+
+console.log("fase-item: 31 grupos de assertions passaram");

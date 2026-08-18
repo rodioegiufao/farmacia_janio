@@ -4,6 +4,11 @@
   if (root) root.FASE_ITEM_ATIVIDADE = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   const fases = ["Lançamento", "Distribuição", "Plotagem", "Estudos", "Compatibilização", "Outros"];
+  const projetosComFaseItem = [
+    "CFTV", "Cabeamento", "Telefonia", "Elétrico Baixa Tensão", "Iluminação Externa",
+    "SPDA", "Subestação", "Alimentador", "Mapa Chave/Situação", "Sonorização", "Solar",
+    "Automação", "Lógica", "Média Tensão"
+  ];
   const itensPorFase = {
     "Lançamento": ["Iluminação", "Tomadas de Uso Geral", "Tomada de Uso Específico", "Climatização", "Exaustão", "IT-médico", "roteador", "rack", "quadro", "Access Point", "Tomada RJ45", "Tomada RJ11", "Outros"],
     "Distribuição": ["Eletrocalha", "Leito", "Perfilado", "Eletroduto Flexível", "Eletroduto FG", "Cabo PP", "Outros"],
@@ -14,6 +19,9 @@
   };
   function valorFinal(valorSelecionado, valorOutro) {
     return valorSelecionado === "Outros" ? String(valorOutro || "").trim() : String(valorSelecionado || "");
+  }
+  function projetoExigeFaseItem(projeto) {
+    return projetosComFaseItem.includes(String(projeto || ""));
   }
   function separarItens(valor) {
     return String(valor || "").split(" · ").map((item) => item.trim()).filter(Boolean);
@@ -46,5 +54,5 @@
       estagios: (itensPorFase[fase] || []).filter((item) => item !== "Outros")
     }));
   }
-  return { fases, itensPorFase, valorFinal, valorFinalMultiplos, separarItens, prepararEdicao, taxonomiaPlannerCompleta };
+  return { fases, projetosComFaseItem, itensPorFase, projetoExigeFaseItem, valorFinal, valorFinalMultiplos, separarItens, prepararEdicao, taxonomiaPlannerCompleta };
 });

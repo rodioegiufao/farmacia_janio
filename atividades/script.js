@@ -61,6 +61,7 @@ const atividadesLimiteInfo = document.getElementById("atividadesLimiteInfo");
 const atividadesPaginacao = document.getElementById("atividadesPaginacao");
 const btnCancelarEdicao = document.getElementById("btnCancelarEdicao");
 const btnLimparTudo = document.getElementById("btnLimparTudo");
+const btnRepetirUltimaAtividade = document.getElementById("btnRepetirUltimaAtividade");
 const btnExportarCSV = document.getElementById("btnExportarCSV");
 
 const formSemanal = document.getElementById("atividadeSemanalForm");
@@ -252,6 +253,7 @@ async function inicializar() {
 
   form.addEventListener("submit", salvarAtividade);
   btnCancelarEdicao.addEventListener("click", cancelarEdicao);
+  btnRepetirUltimaAtividade?.addEventListener("click", repetirUltimaAtividade);
   btnLimparTudo.addEventListener("click", limparTodosRegistros);
   btnExportarCSV.addEventListener("click", exportarCSV);
   formSemanal.addEventListener("submit", salvarAtividadeSemanal);
@@ -943,9 +945,19 @@ function editarAtividade(id) {
   const atividade = atividades.find((item) => item.id === id);
   if (!atividade) return;
 
-  Object.keys(campos).filter((campo) => !["projeto", "projetoOutro", "fase", "faseOutro", "item", "itemOutro", "etapa", "etapaOutro"].includes(campo)).forEach((campo) => {
-    if (campo === "id") campos[campo].value = atividade.id;
-    else campos[campo].value = atividade[campo] || "";
+  preencherFormularioComAtividade(atividade);
+
+  campos.id.value = atividade.id;
+  btnCancelarEdicao.style.display = "inline-block";
+  document.getElementById("btnSalvar").textContent = "Atualizar atividade";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function preencherFormularioComAtividade(atividade, { limparHorarios = false } = {}) {
+  const camposIgnorados = ["id", "projeto", "projetoOutro", "fase", "faseOutro", "item", "itemOutro", "etapa", "etapaOutro"];
+
+  Object.keys(campos).filter((campo) => !camposIgnorados.includes(campo)).forEach((campo) => {
+    campos[campo].value = atividade[campo] || "";
   });
 
   preencherOpcaoComOutro("projeto", atividade.projeto, projetos);
@@ -965,13 +977,38 @@ function editarAtividade(id) {
   atualizarCampoOutro("item", false);
   atualizarObrigatoriedadeFaseItem();
   preencherOpcaoComOutro("etapa", atividade.etapa, etapas);
+  campos.id.value = "";
+  if (limparHorarios) {
+    campos.horaInicio.value = "";
+    campos.horaTermino.value = "";
+  }
   atualizarRestricoesDatasAtividade();
-
-  btnCancelarEdicao.style.display = "inline-block";
-  document.getElementById("btnSalvar").textContent = "Atualizar atividade";
   if (usuarioAtual?.perfil !== "admin") {
     campos.colaborador.value = colaboradorDoUsuario();
   }
+}
+
+function repetirUltimaAtividade() {
+  const colaboradorAtual = colaboradorDoUsuario();
+  const atividadesDoUsuario = atividades.filter((atividade) => atividade.usuarioId
+    ? atividade.usuarioId === usuarioAtual?.id
+    : normalizarTexto(atividade.colaborador) === normalizarTexto(colaboradorAtual));
+  const ultimaAtividade = atividadesDoUsuario.reduce((maisRecente, atividade) => {
+    if (!maisRecente) return atividade;
+    const cadastroAtual = Date.parse(atividade.criadoEm || atividade.criado_em || "") || 0;
+    const cadastroMaisRecente = Date.parse(maisRecente.criadoEm || maisRecente.criado_em || "") || 0;
+    return cadastroAtual > cadastroMaisRecente ? atividade : maisRecente;
+  }, null);
+
+  if (!ultimaAtividade) {
+    alert("Nenhuma atividade anterior cadastrada por você foi encontrada.");
+    return;
+  }
+
+  preencherFormularioComAtividade(ultimaAtividade, { limparHorarios: true });
+  btnCancelarEdicao.style.display = "none";
+  document.getElementById("btnSalvar").textContent = "Salvar atividade";
+  campos.horaInicio.focus();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 

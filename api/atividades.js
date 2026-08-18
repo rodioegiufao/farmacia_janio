@@ -1,6 +1,8 @@
 const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
 const { enriquecerRegistroComObra, resolverOuCriarObra } = require("./_obras");
-const { limparItensOrfaos, removerVinculosAtividade, sincronizarAtividadeComPlanner } = require("./_planner-sync");
+const { limparItensOrfaos, normalizarItemPlanner, removerVinculosAtividade, sincronizarAtividadeComPlanner } = require("./_planner-sync");
+const { separarItens } = require("../atividades/fase-item");
+const { normalizarChavePlanner } = require("../atividades/planner-modelos");
 
 const SUPABASE_TABLE = "atividades_colaboradores";
 
@@ -159,12 +161,86 @@ function filtroAtividadesRelacionadas(record) {
   return `?${campos.map(([campo, valor]) => `${campo}=eq.${encodeURIComponent(valor)}`).join("&")}`;
 }
 
-async function finalizarAtividadesRelacionadas(record) {
+function possuiValor(value) {
+  return value !== null && value !== undefined && String(value).trim() !== "";
+}
+
+function classificarAtividadeParaFinalizacao(record) {
+  const possuiFase = possuiValor(record?.fase);
+  const possuiItem = possuiValor(record?.item);
+  if (possuiFase && possuiItem) return "estruturada";
+  if (!possuiFase && !possuiItem) return "legada";
+  return "incompleta";
+}
+
+function conjuntoItensNormalizado(value) {
+  return [...new Set(separarItens(value).map(normalizarItemPlanner).filter(Boolean))].sort();
+}
+
+function conjuntosIguais(left, right) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function atividadeEstruturadaEquivalente(record, candidate) {
+  return classificarAtividadeParaFinalizacao(candidate) === "estruturada"
+    && normalizarChavePlanner(record.fase) === normalizarChavePlanner(candidate.fase)
+    && conjuntosIguais(conjuntoItensNormalizado(record.item), conjuntoItensNormalizado(candidate.item));
+}
+
+function idsPlannerPorAtividade(links) {
+  const result = new Map();
+  for (const link of links || []) {
+    if (!possuiValor(link.atividade_id) || !possuiValor(link.item_id)) continue;
+    const ids = result.get(link.atividade_id) || new Set();
+    ids.add(String(link.item_id));
+    result.set(link.atividade_id, ids);
+  }
+  return result;
+}
+
+function setsIguais(left, right) {
+  return left.size === right.size && [...left].every((value) => right.has(value));
+}
+
+async function finalizarAtividadesRelacionadas(record, request = supabaseRequest) {
   if (normalizeText(record.status) !== "finalizado") return [];
   const filtro = filtroAtividadesRelacionadas(record);
   if (!filtro) return [];
 
-  return supabaseRequest(SUPABASE_TABLE, `${filtro}&status=neq.Finalizado`, {
+  const classificacao = classificarAtividadeParaFinalizacao(record);
+  if (classificacao === "incompleta") {
+    console.warn("Atividade com classificação parcial; finalização automática relacionada ignorada.");
+    return [];
+  }
+
+  const candidates = await request(SUPABASE_TABLE, `${filtro}&status=neq.Finalizado&select=id,fase,item`);
+  let related = (Array.isArray(candidates) ? candidates : []).filter((candidate) => candidate.id !== record.id);
+  if (classificacao === "legada") {
+    related = related.filter((candidate) => classificarAtividadeParaFinalizacao(candidate) === "legada");
+  } else {
+    const sourceLinks = record.id
+      ? await request("atividade_planner_itens", `?atividade_id=eq.${encodeURIComponent(record.id)}&select=atividade_id,item_id`)
+      : [];
+    const sourceItemIds = new Set((sourceLinks || []).map((link) => String(link.item_id)).filter(Boolean));
+    if (sourceItemIds.size) {
+      const candidateIds = [...new Set(related.map((candidate) => candidate.id).filter(Boolean))];
+      const links = candidateIds.length
+        ? await request("atividade_planner_itens", `?atividade_id=in.(${candidateIds.map(encodeURIComponent).join(",")})&select=atividade_id,item_id`)
+        : [];
+      const plannerIds = idsPlannerPorAtividade(links);
+      related = related.filter((candidate) => {
+        const candidateItemIds = plannerIds.get(candidate.id);
+        return classificarAtividadeParaFinalizacao(candidate) === "estruturada"
+          && candidateItemIds && setsIguais(sourceItemIds, candidateItemIds);
+      });
+    } else {
+      related = related.filter((candidate) => atividadeEstruturadaEquivalente(record, candidate));
+    }
+  }
+
+  const relatedIds = [...new Set(related.map((candidate) => candidate.id).filter(Boolean))];
+  if (!relatedIds.length) return [];
+  return request(SUPABASE_TABLE, `?id=in.(${relatedIds.map(encodeURIComponent).join(",")})`, {
     method: "PATCH",
     body: JSON.stringify({ status: "Finalizado" })
   });
@@ -293,4 +369,16 @@ async function sincronizarComResposta(record, user, checklistId) {
   try { return await sincronizarAtividadeComPlanner(record, { user, checklistId }); }
   catch (error) { console.error("Erro técnico na sincronização do Planner:", error); return { status: "erro", mensagem: "Não foi possível atualizar o Planner." }; }
 }
-module.exports._test = { activityUpdateOptions, filtroAtividadesRelacionadas, toDatabaseRecord, fromDatabaseRecord };
+module.exports._test = {
+  activityUpdateOptions,
+  atividadeEstruturadaEquivalente,
+  classificarAtividadeParaFinalizacao,
+  conjuntoItensNormalizado,
+  finalizarAtividadesRelacionadas,
+  filtroAtividadesRelacionadas,
+  fromDatabaseRecord,
+  idsPlannerPorAtividade,
+  possuiValor,
+  setsIguais,
+  toDatabaseRecord
+};

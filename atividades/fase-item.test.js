@@ -1,10 +1,13 @@
 const assert = require("node:assert/strict");
-const { fases, itensPorFase, valorFinal, valorFinalMultiplos, separarItens, prepararEdicao } = require("./fase-item");
+const { fases, projetosComFaseItem, itensPorFase, projetoExigeFaseItem, valorFinal, valorFinalMultiplos, separarItens, prepararEdicao } = require("./fase-item");
 
 assert.deepEqual(fases, ["Lançamento", "Distribuição", "Plotagem", "Estudos", "Compatibilização", "Outros"]);
 assert.deepEqual(itensPorFase.Distribuição, ["Eletrocalha", "Leito", "Perfilado", "Eletroduto Flexível", "Eletroduto FG", "Cabo PP", "Outros"]);
 assert.ok(itensPorFase.Estudos.includes("NBR-5410"));
 assert.ok(itensPorFase.Compatibilização.includes("Arquitetura"));
+assert.deepEqual(projetosComFaseItem, ["CFTV", "Cabeamento", "Telefonia", "Elétrico Baixa Tensão", "Iluminação Externa", "SPDA", "Subestação", "Alimentador", "Mapa Chave/Situação", "Sonorização", "Solar", "Automação", "Lógica", "Média Tensão"]);
+projetosComFaseItem.forEach((projeto) => assert.equal(projetoExigeFaseItem(projeto), true));
+["", "Site", "Todos", "Outros", "Projeto personalizado"].forEach((projeto) => assert.equal(projetoExigeFaseItem(projeto), false));
 assert.equal(valorFinal("Distribuição", ""), "Distribuição");
 assert.equal(valorFinal("Outros", "  Levantamento  "), "Levantamento");
 assert.equal(valorFinal("Outros", "  Canaleta  "), "Canaleta");

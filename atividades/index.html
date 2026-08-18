@@ -127,7 +127,7 @@
           <textarea id="trabalhos" rows="3" placeholder="Descreva o serviço realizado ou a executar" required></textarea>
         </label>
         
-        <label>
+        <label id="faseField" hidden>
           Fase
           <select id="fase"></select>
           <span class="other-option-field" id="faseOutroField" hidden>
@@ -136,7 +136,7 @@
           </span>
         </label>
 
-        <label>
+        <label id="itemField" hidden>
           Item
           <select id="item" class="item-multiple-select" multiple size="1" disabled aria-describedby="itemAjuda"><option value="">Selecione primeiro a fase</option></select>
           <small id="itemAjuda">Selecione um ou mais itens. No computador, use Ctrl (Windows) ou Command (Mac) para marcar opções separadas.</small>

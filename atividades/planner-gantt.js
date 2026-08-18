@@ -1,0 +1,15 @@
+const assert = require("node:assert/strict");
+const gantt = require("./planner-gantt");
+const atividade = (dia, inicio, fim, colaborador = "Rodrigo", termino = dia) => ({ data_inicio: dia, hora_inicio: inicio, data_termino: termino, hora_termino: fim, colaborador });
+assert.equal(gantt.obterIntervaloRealAtividade(atividade("2026-08-18", "08:00", "12:00")).minutos, 240);
+assert.equal(gantt.obterIntervaloRealAtividade(atividade("2026-08-20", "08:00", "12:00", "Rodrigo", "2026-08-18")), null);
+assert.equal(gantt.obterIntervaloRealAtividade({ data_inicio: "2026-08-18" }), null);
+let grupos = gantt.agruparAtividadesGanttPorDia([atividade("2026-08-18", "08:00", "10:00"), atividade("2026-08-18", "14:00", "18:00", "Bruno")]);
+assert.equal(grupos.length, 1); assert.equal(grupos[0].minutos, 360); assert.equal(grupos[0].quantidade, 2); assert.deepEqual(grupos[0].colaboradores, ["Rodrigo", "Bruno"]);
+grupos = gantt.agruparAtividadesGanttPorDia([atividade("2026-08-18", "08:00", "10:00"), atividade("2026-08-20", "08:00", "10:00")]); assert.deepEqual(grupos.map((g) => g.data), ["2026-08-18", "2026-08-20"]);
+const checklists = [{ id: "p1", obra: "FIOCRUZ", projeto: "SPDA", itens: [{ id: "i1", etapa: "Lançamento", minutosRegistrados: 240, atividadesVinculadas: [atividade("2026-08-18", "08:00", "12:00")] }, { id: "i2", etapa: "Lançamento", atividadesVinculadas: [] }] }];
+assert.deepEqual(gantt.obterIntervaloGlobalGantt(checklists), { inicio: "2026-08-18", fim: "2026-08-18" });
+assert.equal(gantt.construirEstruturaGantt(checklists)[0].projetos[0].fases[0].itens.length, 1);
+assert.equal(gantt.construirEstruturaGantt(checklists, { ocultarSemAtividade: false })[0].projetos[0].fases[0].itens.length, 2);
+assert.equal(gantt.agruparAtividadesGanttPorDia([atividade("2026-08-18", "22:00", "02:00", "Rodrigo", "2026-08-19")])[0].dataFim, "2026-08-19");
+console.log("planner-gantt: transformação do histórico real validada");

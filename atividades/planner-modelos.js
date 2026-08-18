@@ -16,14 +16,14 @@
     ["SPDA", "PRJ-SPDA", "Projeto de SPDA", []],
     ["Subestação", "PRJ-SUB", "Projeto de Subestação", []],
     ["Alimentador", "PRJ-ALI", "Projeto Elétrico de Alimentadores", ["Alimentadores", "Projeto de Alimentadores", "Projetos Elétricos de Alimentadores", "ALI"]],
-    ["Mapa Chave/Situação", "", "Mapa Chave/Situação", []],
+    ["Mapa Chave/Situação", "PRJ-SIT", "Mapa Chave/Situação", []],
     ["Sonorização", "PRJ-SOM", "Sonorização", []],
     ["Solar", "PRJ-FOT", "Solar", ["Fotovoltaico"]],
     ["Automação", "PRJ-ATM", "Automação", []],
-    ["Lógica", "PRJ-LOG", "Projeto de Lógica Estruturada", []],
+    ["Lógica", "PRJ-LOG", "Projeto de Lógica Estruturada", [], ["PRJ-CFTV", "PRJ-CAB"]],
     ["SDAI", "PRJ-SDAI", "SDAI", []],
-    ["Média Tensão", "", "Média Tensão", []]
-  ].map(([projeto, codigoProjeto, bucket, aliases]) => ({ projeto, codigoProjeto, bucket, aliasesProjeto: [...aliases, codigoProjeto].filter(Boolean) }));
+    ["Média Tensão", "PRJ-ELET", "Média Tensão", []]
+  ].map(([projeto, codigoProjeto, bucket, aliases, codigosProjeto]) => ({ projeto, codigoProjeto, codigosProjeto: codigosProjeto || [codigoProjeto], bucket, aliasesProjeto: [...aliases, codigoProjeto].filter(Boolean) }));
 
   function normalizarChavePlanner(valor) {
     return String(valor ?? "").trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[–—−]/g, "-").replace(/\s+/g, " ").toLowerCase();
@@ -47,5 +47,9 @@
     return obterProjetoPlanner(projeto)?.bucket || obterProjetoPlanner(codigoProjeto)?.bucket || "";
   }
   function obterCodigoProjetoPlanner(projeto) { return obterProjetoPlanner(projeto)?.codigoProjeto || ""; }
-  return { PLANNER_MODELOS, PROJETOS_PLANNER: projetos, TIPOS_EDIFICACAO_PLANNER, normalizarChavePlanner, normalizarProjetoPlanner, obterProjetoPlanner, localizarModeloPlanner, obterBucketModeloPlanner, obterCodigoProjetoPlanner };
+  function obterCodigosProjetoPlanner(projeto, codigoProjeto = "") {
+    const meta = obterProjetoPlanner(projeto) || obterProjetoPlanner(codigoProjeto);
+    return meta?.codigosProjeto.filter(Boolean) || [codigoProjeto].filter(Boolean);
+  }
+  return { PLANNER_MODELOS, PROJETOS_PLANNER: projetos, TIPOS_EDIFICACAO_PLANNER, normalizarChavePlanner, normalizarProjetoPlanner, obterProjetoPlanner, localizarModeloPlanner, obterBucketModeloPlanner, obterCodigoProjetoPlanner, obterCodigosProjetoPlanner };
 });

@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) root.FASE_ITEM_ATIVIDADE = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
-  const fases = ["Lançamento", "Distribuição", "Plotagem", "Estudos", "Compatibilização", "Outros"];
+  const fases = ["Lançamento", "Distribuição", "Plotagem", "Estudos", "Compatibilização", "Circuitos", "Outros"];
   const projetosComFaseItem = [
     "CFTV", "Cabeamento", "Telefonia", "Elétrico Baixa Tensão", "Iluminação Externa",
     "SPDA", "Subestação", "Alimentador", "Mapa Chave/Situação", "Sonorização", "Solar",
@@ -15,6 +15,7 @@
     "Plotagem": ["Iluminação", "Tomadas", "Emergência", "Climatização", "Exaustão", "IT-médico", "Cabeamento Estruturado", "CFTV", "Lógica", "Solar", "Telefonia", "SPDA", "Subestação", "Alimentador", "Iluminação externa", "Sonorização", "Automação", "Média Tensão", "Outros"],
     "Estudos": ["NBR-5410", "NBR-5413", "NBR ISO-8995-1", "Outros"],
     "Compatibilização": ["Estrutural", "Arquitetura", "Hidráulico", "Sanitário", "Outros"],
+    "Circuitos": ["Nomear", "Renumerar", "Numerar", "Dimensionamento"],
     "Outros": ["Outros"]
   };
   function valorFinal(valorSelecionado, valorOutro) {

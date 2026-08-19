@@ -2047,14 +2047,16 @@ async function gerarRelatorioWord() {
     const atividadesRelatorio = aplicarFiltrosConsolidadosDashboard(consolidarAtividades(registrosAtividadesRelatorio));
     
     const atividadesSemanaisRelatorio = filtrarAtividadesSemanaisPorPeriodo(obterAtividadesSemanaisFiltradas());
+    const periodoRelatorio = obterPeriodoRelatorioWord();
     const payload = {
       atividades: atividadesRelatorio.flatMap((atividade) => atividade.registros || []),
       atividadesSemanais: atividadesSemanaisRelatorio,
-      periodoRelatorio: obterPeriodoRelatorioWord(),
+      periodoRelatorio,
       historicoAtividades: [],
       tituloRelatorio: obterTituloRelatorioWord(),
       filtros: obterFiltrosDashboardRelatorio(),
-      graficos: await prepararGraficosParaRelatorio(atividadesRelatorio)
+      graficos: await prepararGraficosParaRelatorio(atividadesRelatorio),
+      gantt: await prepararGanttParaRelatorio(registrosAtividadesRelatorio, periodoRelatorio)
     };
 
     const response = await fetch(API_RELATORIO_WORD_URL, {
@@ -2086,6 +2088,18 @@ async function gerarRelatorioWord() {
       btnGerarRelatorioWord.innerHTML = textoOriginal;
     }
   }
+}
+async function obterPlannerParaRelatorio() {
+  if (plannerChecklists.length) return plannerChecklists;
+  const data = await fetch(API_PLANNER_URL).then(validarResposta);
+  return Array.isArray(data.checklists) ? data.checklists : [];
+}
+
+async function prepararGanttParaRelatorio(atividadesPermitidas, periodoRelatorio) {
+  if (typeof PLANNER_GANTT_RELATORIO === "undefined") return { possuiDados: false, imagens: [] };
+  const checklists = await obterPlannerParaRelatorio();
+  return PLANNER_GANTT_RELATORIO.gerarImagem({ checklists, atividadesPermitidas,
+    periodo: { inicio: periodoRelatorio.dataInicio, fim: periodoRelatorio.dataFim } });
 }
 const fundoBrancoRelatorioPlugin = {
   id: "fundoBrancoRelatorio",

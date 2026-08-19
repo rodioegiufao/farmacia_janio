@@ -41,6 +41,7 @@ let xmlFinal;
   const zip = novoZip();
   _test.prepararTemplateParaGraficos(zip);
   assert.match(zip.file("word/document.xml").asText(), /\[@KKKK\]/, "o template real deve reconhecer KKKK como XML bruto");
+  assert.match(zip.file("word/document.xml").asText(), /\[@LLLL\]/, "o template real deve reconhecer LLLL como XML bruto");
   const dados = _test.montarDadosRelatorio({ atividades: registros, atividadesSemanais: [], periodoRelatorio: periodo, graficos: {} }, zip);
   assert.equal(dados.PERIODO_RELATORIO, "JULHO/2026");
   assert.equal(dados.COMPETENCIA_RELATORIO, "JULHO/2026");
@@ -64,15 +65,36 @@ let xmlFinal;
   const indiceTabela = xmlFinal.indexOf("<w:tbl>", indiceTitulo);
   assert.ok(indiceTitulo >= 0, "o título do Anexo deve existir");
   assert.ok(indiceTabela > indiceTitulo, "uma tabela real deve existir depois do título do Anexo");
-  const xmlAnexo = xmlFinal.slice(indiceTabela);
+  const xmlAnexo = dados.KKKK;
   assert.equal((xmlAnexo.match(/<w:tr>/g) || []).length, 8, "o Anexo deve ter quatro linhas de identificação, cabeçalho e três lançamentos");
   assert.match(xmlAnexo, /<w:tblHeader\/>/, "o cabeçalho deve repetir em páginas seguintes");
   assert.match(xmlAnexo, /<w:shd w:fill="1F4E78"\/>/, "o cabeçalho deve ser azul");
   assert.match(xmlAnexo, /OBR-000023/);
-  assert.match(xmlFinal, /<w:pgSz w:w="16838" w:h="11906" w:orient="landscape"\/>/, "a seção do Anexo deve ser A4 paisagem");
+  assert.match(xmlFinal, /<w:pgSz w:w="11906" w:h="16838"[^>]*\/>/, "o novo template deve preservar a página A4 retrato do Anexo B");
   const outputPath = path.join(os.tmpdir(), "relatorio-semana-30.docx");
   fs.writeFileSync(outputPath, documento.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" }));
   console.log("Relatório de regressão gerado:", outputPath);
+}
+
+{
+  const zip = novoZip();
+  _test.prepararTemplateParaGraficos(zip);
+  const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3mG7WQAAAABJRU5ErkJggg==";
+  const dados = _test.montarDadosRelatorio({ atividades: registros, atividadesSemanais: [], periodoRelatorio: periodo, graficos: { status: png }, gantt: { imagens: [{ imagem: png, largura: 1800, altura: 900 }] } }, zip);
+  const documento = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true });
+  documento.render(dados); const xml = _test.validarDocumentoFinal(documento);
+  assert.ok(documento.getZip().file("word/media/relatorio-gantt.png"));
+  assert.ok(documento.getZip().file("word/media/relatorio-grafico-1.png"), "os gráficos gerenciais devem ser preservados");
+  assert.match(documento.getZip().file("word/_rels/document.xml.rels").asText(), /rIdRelGantt1/);
+  assert.doesNotMatch(xml, /\[@?LLLL\]/);
+}
+
+{
+  const zip = novoZip(); _test.prepararTemplateParaGraficos(zip);
+  const dados = _test.montarDadosRelatorio({ atividades: registros, atividadesSemanais: [], periodoRelatorio: periodo }, zip);
+  assert.match(dados.LLLL, /Não foram identificadas atividades com intervalo válido/);
+  const documento = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true });
+  documento.render(dados); assert.doesNotMatch(_test.validarDocumentoFinal(documento), /\[@?LLLL\]/);
 }
 
 {

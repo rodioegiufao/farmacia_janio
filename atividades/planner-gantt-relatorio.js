@@ -54,8 +54,11 @@
   }
   function prepararEstruturaTabular(opcoes) {
     const dados = prepararEstrutura(opcoes);
+    const horasTotaisRelatorio = Number(opcoes.horasTotais || 0);
+    const horasRepresentadasGantt = Number(dados.obras.reduce((soma, obra) => soma + Number(obra.horas || 0), 0).toFixed(2));
     return { possuiDados: Boolean(dados.obras.length && dados.dias.length), periodo: dados.periodo,
-      totalHoras: Number(opcoes.horasTotais || 0), obras: dados.obras };
+      totalHoras: horasTotaisRelatorio, horasTotaisRelatorio, horasRepresentadasGantt,
+      coberturaGantt: horasTotaisRelatorio ? Number((horasRepresentadasGantt / horasTotaisRelatorio * 100).toFixed(1)) : 0, obras: dados.obras };
   }
   return { filtrarChecklistsParaRelatorio, prepararEstrutura, prepararEstruturaTabular, formatarHoras };
 });

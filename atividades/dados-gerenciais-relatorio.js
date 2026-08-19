@@ -15,6 +15,7 @@
     return Number(a.horas) || 0;
   };
   const ordenar = (itens) => [...itens].sort((a, b) => b.valor - a.valor || a.label.localeCompare(b.label, "pt-BR"));
+  const arredondar = (valor) => Number(Number(valor || 0).toFixed(2));
   function agregar(lista, obterLabel, obterValor = () => 1) {
     const mapa = new Map();
     lista.forEach((item) => { const label = limpar(obterLabel(item), "Não informado"); mapa.set(label, (mapa.get(label) || 0) + obterValor(item)); });
@@ -36,15 +37,23 @@
     const atividadesPorFrente = agregar(consolidadas, frente);
     const status = STATUS.map((label) => ({ label, valor: consolidadas.filter((a) => limpar(a.status).toLowerCase() === label.toLowerCase()).length }));
     const total = consolidadas.length, finalizadas = status.find((x) => x.label === "Finalizado").valor;
+    const colaboradores = horasPorColaborador.map(({ label: nome, valor: horas }) => {
+      const itens = porColaborador.filter((a) => limpar(a.colaborador) === nome);
+      const concluidas = itens.filter((a) => limpar(a.status).toLowerCase() === "finalizado").length;
+      return { nome, atividades: itens.length, lancamentos: itens.reduce((s, a) => s + Number(a.quantidadeRegistros || 1), 0), horas,
+        frentes: new Set(itens.map(frente)).size, finalizadas: concluidas,
+        atrasadas: itens.filter((a) => limpar(a.status).toLowerCase() === "atrasado").length,
+        conclusao: itens.length ? Math.round(concluidas * 100 / itens.length) : 0 };
+    });
     return {
       totalAtividades: total,
-      horasTotais: Number(registros.reduce((s, a) => s + horasRegistro(a), 0).toFixed(2)),
+      horasTotais: arredondar(registros.reduce((s, a) => s + horasRegistro(a), 0)), colaboradores,
       horasPorColaborador, atividadesPorColaborador,
       horasPorFrente, atividadesPorFrente,
       topHorasPorFrente: horasPorFrente.slice(0, 10).map((x) => ({ ...x, labelVisual: formatarLabelFrenteRelatorio(x.label) })),
       topAtividadesPorFrente: atividadesPorFrente.slice(0, 10).map((x) => ({ ...x, labelVisual: formatarLabelFrenteRelatorio(x.label) })),
       atividadesPorDisciplina: agregar(consolidadas, (a) => a.projeto || "Não informada"),
-      status, statusLegenda: status.filter((x) => x.valor > 0), percentualFinalizadas: total ? Math.round(finalizadas * 100 / total) : 0
+      status, quantidadeStatus: Object.fromEntries(status.map((x) => [x.label, x.valor])), statusLegenda: status.filter((x) => x.valor > 0), percentualFinalizadas: total ? Math.round(finalizadas * 100 / total) : 0
     };
   }
   return { construirDadosGerenciaisRelatorio, formatarLabelFrenteRelatorio, horasRegistro };

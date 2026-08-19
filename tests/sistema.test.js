@@ -507,6 +507,10 @@ const canvas = graficos.canvasRelatorio(1200, 600);
 assert.equal(canvas.width, 2400);
 assert.equal(canvas.height, 1200);
 assert.equal(graficos.CONFIG_GRAFICO_RELATORIO.fundo, "#ffffff");
+assert.ok(graficos.CONFIG_GRAFICO_RELATORIO.fontLabel >= 32);
+assert.ok(graficos.CONFIG_GRAFICO_RELATORIO.fontValue >= 36);
+assert.ok(graficos.CONFIG_GRAFICO_RELATORIO.paddingDireita >= 150);
+assert.ok(graficos.calcularAlturaGrafico(12) > graficos.calcularAlturaGrafico(4));
 assert.equal(graficos.formatarHoras(25.85), "25,85 h");
 }
 
@@ -632,7 +636,9 @@ let xmlFinal;
   assert.doesNotMatch(xml, /\[@?LLLL\]/);
 }
 {
-  const { gerarGanttTabelaXml, periodosTemporais, aplicarPaisagemUltimaSecao } = require("../api/_relatorio-gantt");
+  const { gerarGanttTabelaXml, periodosTemporais, aplicarPaisagemUltimaSecao, calcularCoberturaGantt, formatarTituloObraAnexoGantt } = require("../api/_relatorio-gantt");
+  assert.equal(calcularCoberturaGantt(100, 40), 40);
+  assert.equal(formatarTituloObraAnexoGantt(1, "— OBR-000026 —", "Posto de gasolina"), "B.1 — OBR-000026 — Posto de gasolina");
   const obra = { nome: "OBRA TESTE", horas: 5.5, dias: ["2026-08-18", "2026-08-20"], linha: { nivel: "obra", nome: "OBRA TESTE", horas: 5.5, dias: ["2026-08-18", "2026-08-20"] }, projetos: [{ linha: { nivel: "projeto", nome: "Projeto", horas: 5.5, dias: ["2026-08-18", "2026-08-20"] }, fases: [{ nivel: "fase", nome: "Fase", horas: 4, dias: ["2026-08-18"] }] }] };
   const semanal = gerarGanttTabelaXml({ periodo: { inicio: "2026-08-16", fim: "2026-08-22" }, totalHoras: 5.5, obras: [obra] });
   assert.equal(semanal.paisagem, false); assert.equal((semanal.xml.match(/<w:gridCol w:w=/g) || []).length, 12);
@@ -709,6 +715,15 @@ assert.equal(_test.formatarDataHoraRelatorio("2026-07-22T11:48:00.000Z", { inclu
 assert.equal(_test.calcularDiasAtraso(atividade, "2026-07-25"), 0);
 assert.equal(_test.calcularDiasAtraso({ ...atividade, prazo: "2026-07-24" }, "2026-07-25"), 1);
 assert.equal(_test.formatarPeriodoEmFrase(periodo), "Durante a Semana 30");
+assert.equal(_test.formatarHorasRelatorio(5.5), "5,50 h");
+assert.equal(_test.sanitizarTextoGerencial("Todos os projetos entregues!."), "Todos os projetos entregues.");
+const invalida = _test.verificarConsistencia([{ obra:"SOW", projeto:"ART", colaborador:"Rodrigo", dataInicio:"2026-08-17", horaInicio:"15:19", dataTermino:"2026-08-17", horaTermino:"10:25", horas:0 }], periodo, { horasTotais:0, horasPorColaborador:[], horasPorFrente:[] });
+assert.equal(invalida.contagens.intervalosInvalidos, 1);
+assert.equal(invalida.contagens.duracoesSuspeitas, 1);
+assert.match(_test.gerarAtividadesSemana([{ semana:"Semana 30", atividade:"Teste!.", prioridade:"P1", entregas:"Hoje" }], {}, periodo), /<w:t[^>]*>Atividade<\/w:t>/);
+assert.doesNotMatch(_test.gerarAtividadesSemana([{ semana:"Semana 30", atividade:"Teste", prioridade:"P1", entregas:"Hoje" }], {}, periodo), />Semana<\/w:t>/);
+const settings = novoZip().file("word/settings.xml").asText(); assert.match(settings, /<w:updateFields w:val="true"\/>/);
+const templateXml = novoZip().file("word/document.xml").asText(); assert.match(templateXml, /TOC \\o &quot;1-3&quot;|TOC \\o "1-3"/);
 }
 
 // ========================================================

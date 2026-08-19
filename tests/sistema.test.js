@@ -1,0 +1,728 @@
+"use strict";
+
+// ========================================================
+// IMPORTS E HELPERS DE TESTE
+// ========================================================
+
+const assert = require("node:assert/strict");
+
+const ESTADO_GLOBAL = ["fetch", "window", "document", "Date"];
+
+async function executarGrupo(nome, teste) {
+  const globais = new Map(ESTADO_GLOBAL.map((chave) => [chave, {
+    existe: Object.prototype.hasOwnProperty.call(global, chave),
+    valor: global[chave]
+  }]));
+  const ambiente = { ...process.env };
+  const consoleOriginal = { log: console.log, warn: console.warn, error: console.error };
+
+  try {
+    await teste();
+    console.log(`✓ ${nome}`);
+  } catch (erro) {
+    console.error(`✗ ${nome}`);
+    throw erro;
+  } finally {
+    for (const [chave, estado] of globais) {
+      if (estado.existe) global[chave] = estado.valor;
+      else delete global[chave];
+    }
+    for (const chave of Object.keys(process.env)) {
+      if (!(chave in ambiente)) delete process.env[chave];
+    }
+    Object.assign(process.env, ambiente);
+    Object.assign(console, consoleOriginal);
+  }
+}
+
+// ========================================================
+// TESTES — ATIVIDADES API
+// Origem: api/atividades.test.js
+// ========================================================
+
+async function testarAtividadesApi() {
+const { _test } = require("../api/atividades");
+
+assert.equal(
+  _test.filtroAtividadesRelacionadas({
+    colaborador: "Hellen",
+    obra_id: "obra-1",
+    obra: "Nome antigo",
+    projeto: "Elétrico & SPDA",
+    etapa: "Projeto executivo"
+  }),
+  "?colaborador=eq.Hellen&obra_id=eq.obra-1&projeto=eq.El%C3%A9trico%20%26%20SPDA&etapa=eq.Projeto%20executivo"
+);
+
+assert.equal(_test.filtroAtividadesRelacionadas({ colaborador: "Hellen" }), "");
+
+assert.deepEqual(
+  _test.activityUpdateOptions({ id: "atividade-1", status: "Finalizado" }),
+  {
+    method: "PATCH",
+    body: JSON.stringify({ id: "atividade-1", status: "Finalizado" })
+  }
+);
+
+assert.deepEqual(
+  _test.toDatabaseRecord({ id: "atividade-1", fase: "Distribuição", item: "Eletrocalha" }),
+  { id: "atividade-1", fase: "Distribuição", item: "Eletrocalha" }
+);
+assert.equal(_test.fromDatabaseRecord({ fase: "Estudos", item: "NBR-5410" }).fase, "Estudos");
+assert.equal(_test.fromDatabaseRecord({ fase: "Estudos", item: "NBR-5410" }).item, "NBR-5410");
+assert.equal(_test.fromDatabaseRecord({}).fase, "");
+assert.equal(_test.fromDatabaseRecord({}).item, "");
+
+const base = {
+  id: "00000000-0000-0000-0000-000000000001",
+  colaborador: "Bruno",
+  obra_id: "10000000-0000-0000-0000-000000000001",
+  obra: "FIOCRUZ",
+  projeto: "Elétrico Baixa Tensão",
+  etapa: "QI Builder",
+  fase: "Distribuição",
+  item: "Eletrocalha",
+  status: "Finalizado"
+};
+
+assert.equal(_test.possuiValor("   "), false);
+assert.equal(_test.classificarAtividadeParaFinalizacao(base), "estruturada");
+assert.equal(_test.classificarAtividadeParaFinalizacao({ fase: null, item: "" }), "legada");
+assert.equal(_test.classificarAtividadeParaFinalizacao({ fase: "Distribuição", item: null }), "incompleta");
+assert.equal(_test.classificarAtividadeParaFinalizacao({ fase: null, item: "Eletrocalha" }), "incompleta");
+
+assert.equal(_test.atividadeEstruturadaEquivalente(base, { fase: "Distribuicao", item: "Eletrocalha" }), true);
+assert.equal(_test.atividadeEstruturadaEquivalente(base, { fase: "Lançamento", item: "Eletrocalha" }), false);
+assert.equal(_test.atividadeEstruturadaEquivalente(base, { fase: "Distribuição", item: "Leito" }), false);
+assert.equal(_test.atividadeEstruturadaEquivalente(
+  { ...base, item: "Eletrocalha · Leito" },
+  { fase: "Distribuição", item: "Leito · Eletrocalha" }
+), true);
+assert.equal(_test.atividadeEstruturadaEquivalente(
+  { ...base, item: "Eletrocalha · Leito" },
+  { fase: "Distribuição", item: "Eletrocalha" }
+), false);
+
+async function executarFinalizacao(record, candidates, links = []) {
+  const calls = [];
+  const request = async (table, query, options) => {
+    calls.push({ table, query, options });
+    if (options?.method === "PATCH") return [{ ok: true }];
+    if (table === "atividades_colaboradores") return candidates;
+    if (query.includes(`atividade_id=eq.${record.id}`)) {
+      return links.filter((link) => link.atividade_id === record.id);
+    }
+    return links.filter((link) => candidates.some((candidate) => candidate.id === link.atividade_id));
+  };
+  const result = await _test.finalizarAtividadesRelacionadas(record, request);
+  return { calls, result };
+}
+
+await (async () => {
+  const same = { id: "00000000-0000-0000-0000-000000000002", fase: "Distribuição", item: "Eletrocalha" };
+  let execution = await executarFinalizacao(base, [same]);
+  assert.equal(execution.calls.filter((call) => call.options?.method === "PATCH").length, 1);
+  assert.match(execution.calls.at(-1).query, new RegExp(same.id));
+
+  execution = await executarFinalizacao(base, [
+    { id: "phase", fase: "Lançamento", item: "Eletrocalha" },
+    { id: "item", fase: "Distribuição", item: "Leito" },
+    { id: "legacy", fase: null, item: null }
+  ]);
+  assert.equal(execution.calls.some((call) => call.options?.method === "PATCH"), false);
+
+  const legacy = { ...base, id: "legacy-source", fase: " ", item: null };
+  execution = await executarFinalizacao(legacy, [
+    { id: "legacy-related", fase: null, item: "" },
+    { id: "structured-related", fase: "Distribuição", item: "Eletrocalha" }
+  ]);
+  assert.match(execution.calls.at(-1).query, /legacy-related/);
+  assert.doesNotMatch(execution.calls.at(-1).query, /structured-related/);
+
+  const originalWarn = console.warn;
+  console.warn = () => {};
+  execution = await executarFinalizacao({ ...base, fase: "Distribuição", item: null }, [same]);
+  assert.equal(execution.calls.length, 0);
+  execution = await executarFinalizacao({ ...base, fase: null, item: "Eletrocalha" }, [same]);
+  assert.equal(execution.calls.length, 0);
+  console.warn = originalWarn;
+
+  const plannerSource = { ...base, id: "00000000-0000-0000-0000-000000000010", item: "Texto antigo" };
+  const plannerSame = { id: "00000000-0000-0000-0000-000000000011", fase: "Outra fase textual", item: "Outro texto" };
+  const plannerSubset = { id: "00000000-0000-0000-0000-000000000012", fase: "Distribuição", item: "Eletrocalha" };
+  const plannerLinks = [
+    { atividade_id: plannerSource.id, item_id: "item-a" },
+    { atividade_id: plannerSource.id, item_id: "item-b" },
+    { atividade_id: plannerSame.id, item_id: "item-b" },
+    { atividade_id: plannerSame.id, item_id: "item-a" },
+    { atividade_id: plannerSame.id, item_id: "item-a" },
+    { atividade_id: plannerSubset.id, item_id: "item-a" }
+  ];
+  execution = await executarFinalizacao(plannerSource, [plannerSame, plannerSubset, plannerSame], plannerLinks);
+  const patchCalls = execution.calls.filter((call) => call.options?.method === "PATCH");
+  assert.equal(patchCalls.length, 1, "a atualização em lote não deve duplicar nem causar recursão");
+  assert.match(patchCalls[0].query, new RegExp(plannerSame.id));
+  assert.doesNotMatch(patchCalls[0].query, new RegExp(plannerSubset.id));
+  assert.equal(execution.calls.filter((call) => call.table === "atividade_planner_itens").length, 2, "os vínculos dos candidatos devem ser carregados em lote");
+
+  execution = await executarFinalizacao(base, []);
+  assert.match(execution.calls[0].query, /colaborador=eq.Bruno/);
+  assert.match(execution.calls[0].query, /obra_id=eq.10000000-/);
+  assert.match(execution.calls[0].query, /projeto=eq.El%C3%A9trico/);
+  assert.match(execution.calls[0].query, /etapa=eq.QI%20Builder/);
+
+})();
+}
+
+// ========================================================
+// TESTES — AGRUPAMENTO DE ATIVIDADES
+// Origem: atividades/atividade-agrupamento.test.js
+// ========================================================
+
+async function testarAgrupamentoAtividades() {
+const {
+  normalizarCampoAgrupamento,
+  consolidarAtividades,
+  consolidarAtividadesPorColaborador
+} = require("../atividades/atividade-agrupamento");
+
+function registro(sobrescritas = {}) {
+  return {
+    id: Math.random().toString(36),
+    obraId: "obra-1",
+    obraCodigo: "OBR-000001",
+    obra: "IPER",
+    projeto: "Elétrico",
+    etapa: "Lançamento",
+    trabalhos: "Pontos de iluminação",
+    colaborador: "Rodrigo",
+    status: "Finalizado",
+    prioridade: "P1",
+    dataInicio: "2026-07-01",
+    horaInicio: "08:00",
+    dataTermino: "2026-07-01",
+    horaTermino: "10:00",
+    ...sobrescritas
+  };
+}
+
+assert.equal(normalizarCampoAgrupamento(" LANÇAMENTO "), "lancamento");
+
+const mesmaAtividade = consolidarAtividades([
+  registro({ id: "1" }),
+  registro({ id: "2", obra: "iper", trabalhos: "Tomadas", horaInicio: "14:00", horaTermino: "17:00" }),
+  registro({ id: "3", obra: "Íper", trabalhos: "Climatização", horaInicio: "17:00", horaTermino: "18:00" })
+]);
+assert.equal(mesmaAtividade.length, 1);
+assert.equal(mesmaAtividade[0].horasConsolidadas, 6);
+assert.equal(mesmaAtividade[0].quantidadeRegistros, 3);
+assert.equal(mesmaAtividade[0].trabalhos.length, 3);
+
+assert.equal(consolidarAtividades([registro(), registro({ etapa: "Distribuição" })]).length, 2);
+assert.equal(consolidarAtividades([registro(), registro({ projeto: "CFTV" })]).length, 2);
+assert.equal(consolidarAtividades([registro(), registro({ obraId: "obra-2", obra: "HGR" })]).length, 2);
+assert.equal(consolidarAtividades([registro({ etapa: "", trabalhos: "Tomadas" }), registro({ etapa: "", trabalhos: "Iluminação" })]).length, 2);
+
+assert.equal(consolidarAtividades([registro(), registro({ status: "Em progresso" })])[0].status, "Em progresso");
+assert.equal(consolidarAtividades([registro(), registro({ status: "Atrasado" })])[0].status, "Atrasado");
+assert.equal(consolidarAtividades([registro(), registro()])[0].status, "Finalizado");
+assert.equal(consolidarAtividades([registro({ prioridade: "P1" }), registro({ prioridade: "P3" }), registro({ prioridade: "P2" })])[0].prioridade, "P3");
+
+const porColaborador = consolidarAtividadesPorColaborador([
+  registro({ id: "r1", horaInicio: "08:00", horaTermino: "10:00" }),
+  registro({ id: "r2", horaInicio: "10:00", horaTermino: "13:00" }),
+  registro({ id: "b1", colaborador: "Bruno", horaInicio: "13:00", horaTermino: "16:00" })
+]);
+assert.equal(porColaborador.length, 2);
+assert.equal(porColaborador.find((item) => item.colaborador === "Rodrigo").horasConsolidadas, 5);
+assert.equal(porColaborador.find((item) => item.colaborador === "Bruno").horasConsolidadas, 3);
+}
+
+// ========================================================
+// TESTES — FASE E ITEM
+// Origem: atividades/fase-item.test.js
+// ========================================================
+
+async function testarFaseItem() {
+const api = require("../atividades/fase-item");
+
+assert.deepEqual(api.obterProjetosComFaseItem(), ["CFTV", "Cabeamento", "Telefonia", "Elétrico Baixa Tensão", "Iluminação Externa", "SPDA", "Subestação", "Alimentador", "Mapa Chave/Situação", "Sonorização", "Solar", "Automação", "Lógica", "SDAI", "Média Tensão"]);
+api.obterProjetosComFaseItem().forEach((projeto) => assert.equal(api.projetoExigeFaseItem(projeto), true));
+["", "Site", "Todos", "Outros"].forEach((projeto) => assert.equal(api.projetoExigeFaseItem(projeto), false));
+
+assert.deepEqual(api.obterFasesDoProjeto("CFTV"), ["Estudos", "Lançamento", "Distribuição", "Circuitos", "Plotagem", "Compatibilização", "Documentos", "Outros"]);
+assert.deepEqual(api.obterItensDoProjetoFase("CFTV", "Lançamento"), ["Câmeras Bullet", "Câmeras Dome", "Câmera IP/Wi-fi", "Switch", "Patch Panel", "Conectores", "Rack", "NVR/DVR", "Outros"]);
+assert.deepEqual(api.obterItensDoProjetoFase("SPDA", "Distribuição"), ["Caixas de Passagem", "Hastes de aterramento", "Minicaptor", "Captor Franklin", "Re-bar", "Outros"]);
+assert.ok(!api.obterFasesDoProjeto("SPDA").includes("Circuitos"));
+assert.deepEqual(api.obterFasesDoProjeto("Subestação"), ["Estudos", "Análise de Projeto", "Desenhos", "Distribuição", "Plotagem", "Compatibilização", "Documentos", "Outros"]);
+assert.deepEqual(api.obterFasesDoProjeto("Mapa Chave/Situação"), ["Análise de Projeto", "Desenhos", "Distribuição", "Plotagem", "Documentos", "Outros"]);
+assert.deepEqual(api.obterItensDoProjetoFase("SDAI", "Lançamento"), ["Central de Alarme de Incêndio", "Detector de Fumaça", "Detector de Temperatura", "Detector de Térmicos", "Acionadores", "Sinalizador", "Fonte Auxiliar", "Outros"]);
+assert.deepEqual(api.obterItensDoProjetoFase("Média Tensão", "Circuitos"), ["Dimensionar", "Nomear", "Numerar", "Renumerar", "Diagrama Unifilar Geral", "Outros"]);
+assert.equal(api.obterItensDoProjetoFase("Lógica", "Estudos").filter((item) => item === "ABNT NBR 16264").length, 1);
+
+assert.equal(api.valorFinal("Outros", "  Levantamento  "), "Levantamento");
+assert.equal(api.valorFinalMultiplos(["Eletrocalha", "Outros"], " Canaleta "), "Eletrocalha · Canaleta");
+assert.deepEqual(api.separarItens("Eletrocalha · Leito"), ["Eletrocalha", "Leito"]);
+const legado = api.prepararEdicao("Elétrico Baixa Tensão", "Distribuição", "Eletrocalha · Cabo PP");
+assert.equal(legado.faseSelecionada, "Distribuição");
+assert.deepEqual(legado.itensSelecionados, ["Eletrocalha", "Outros"]);
+assert.equal(legado.itemOutro, "Cabo PP");
+const faseLegada = api.prepararEdicao("CFTV", "Levantamento", "Conferência existente");
+assert.equal(faseLegada.faseSelecionada, "Outros");
+assert.equal(faseLegada.faseOutro, "Levantamento");
+assert.equal(faseLegada.itemOutro, "Conferência existente");
+assert.deepEqual(api.taxonomiaPlannerCompleta("SDAI")[1], { etapa: "Lançamento", estagios: ["Central de Alarme de Incêndio", "Detector de Fumaça", "Detector de Temperatura", "Detector de Térmicos", "Acionadores", "Sinalizador", "Fonte Auxiliar"] });
+assert.equal(api.taxonomiaPlannerCompleta("CFTV").some((grupo) => grupo.estagios.includes("Iluminação")), false);
+}
+
+// ========================================================
+// TESTES — PLANNER MODELOS
+// Origem: atividades/planner-modelos.test.js
+// ========================================================
+
+async function testarPlannerModelos() {
+const planner = require("../atividades/planner-modelos");
+
+assert.deepEqual(planner.TIPOS_EDIFICACAO_PLANNER, [
+  "Prédios Públicos Gerais",
+  "Prédios Públicos de Saúde sem IT-Médico",
+  "Prédios Públicos de Saúde com IT-Médico",
+  "Prédios Privados Gerais",
+  "Prédios Privados Pequenos (<200m²)"
+]);
+
+planner.TIPOS_EDIFICACAO_PLANNER.forEach((tipo) => {
+  assert.ok(planner.localizarModeloPlanner("Elétrico Baixa Tensão", tipo));
+});
+
+assert.equal(planner.obterCodigoProjetoPlanner("Mapa Chave/Situação"), "PRJ-SIT");
+assert.equal(planner.obterCodigoProjetoPlanner("Média Tensão"), "PRJ-ELET");
+assert.deepEqual(planner.obterCodigosProjetoPlanner("Lógica"), ["PRJ-CFTV", "PRJ-CAB"]);
+}
+
+// ========================================================
+// TESTES — PLANNER SYNC
+// Origem: api/planner-sync.test.js
+// ========================================================
+
+async function testarPlannerSync() {
+const sync = require("../api/_planner-sync");
+
+assert.equal(sync.ehProjetoBaixaTensao("PRJ-ELE"), true);
+assert.equal(sync.obterCodigoProjetoDaAtividade("Elétrico Baixa Tensão"), "PRJ-ELE");
+[["CFTV", "PRJ-CFTV"], ["SDAI", "PRJ-SDAI"], ["SPDA", "PRJ-SPDA"], ["Telefonia", "PRJ-TEF"]].forEach(([projeto, codigo]) => {
+  assert.equal(sync.projetoExigeFaseItem(projeto), true);
+  assert.equal(sync.obterCodigoProjetoDaAtividade(projeto), codigo);
+});
+assert.equal(sync.obterCodigoProjetoDaAtividade("Site"), "");
+assert.equal(sync.gerarChavePlanner("obra-1", "PRJ-SDAI"), "obra-1::PRJ-SDAI");
+assert.equal(sync.gerarChaveItemPlanner("Distribuição", "Eletrocalhas"), "distribuicao::eletrocalha");
+assert.equal(sync.gerarChaveItemPlanner("Distribuição", "Eletrocalha"), "distribuicao::eletrocalha");
+assert.equal(sync.normalizarItemPlanner("Tomadas de Uso Específico"), "tomada de uso especifico");
+assert.deepEqual(sync.itensDaAtividade({ item: "Eletrocalha · Leito · Perfilado" }), ["Eletrocalha", "Leito", "Perfilado"]);
+assert.equal(sync.minutosDaAtividade({ data_inicio: "2026-08-14", hora_inicio: "08:00", data_termino: "2026-08-14", hora_termino: "11:57" }), 237);
+assert.equal(sync.minutosDaAtividade({ data_inicio: "2026-08-14", hora_inicio: "12:00", data_termino: "2026-08-14", hora_termino: "11:00" }), 0);
+}
+
+// ========================================================
+// TESTES — PLANNER CHECKLIST
+// Origem: api/planner-checklist.test.js
+// ========================================================
+
+async function testarPlannerChecklist() {
+const { _test } = require("../api/planner-checklist");
+assert.doesNotThrow(() => _test.requireAdmin({ perfil: "admin" }));
+assert.throws(() => _test.requireAdmin({ perfil: "colaborador" }), (erro) => erro.statusCode === 403);
+}
+
+// ========================================================
+// TESTES — GANTT
+// Origem: atividades/planner-gantt.test.js
+// ========================================================
+
+async function testarGantt() {
+const gantt = require("../atividades/planner-gantt");
+let sequencia = 0;
+const atividade = (dia, inicio="08:00", fim="10:00", colaborador="Rodrigo", termino=dia, id=`a${++sequencia}`) => ({ id, data_inicio:dia, hora_inicio:inicio, data_termino:termino, hora_termino:fim, colaborador });
+const item = (id, etapa, atividadesVinculadas) => ({ id, etapa, estagio:id, atividadesVinculadas });
+
+assert.equal(gantt.obterIntervaloRealAtividade(atividade("2026-08-18","08:00","12:00")).minutos,240);
+assert.equal(gantt.obterIntervaloRealAtividade(atividade("2026-08-20","08:00","12:00","R","2026-08-18")),null);
+const compartilhada=atividade("2026-08-03","08:00","10:00","Bruno");
+const checklists=[
+ {id:"p1",obraId:"o1",obra:"FIOCRUZ",projeto:"Elétrico",itens:[item("A","Fase A",[compartilhada,atividade("2026-08-08")]),item("B","Fase A",[atividade("2026-08-04")])]},
+ {id:"p2",obraId:"o1",obra:"FIOCRUZ",projeto:"SPDA",itens:[item("C","Fase B",[atividade("2026-08-10")]),item("D","Fase B",[compartilhada])]}
+];
+const estrutura=gantt.construirEstruturaGantt(checklists,{periodo:{inicio:"2026-08-01",fim:"2026-08-31"}}), obra=estrutura[0], projeto=obra.projetos[0], fase=projeto.fases[0];
+assert.deepEqual(fase.segmentosGantt.map(s=>s.data),["2026-08-03","2026-08-04","2026-08-08"],"a fase não inventa continuidade");
+assert.deepEqual(projeto.segmentosGantt.map(s=>s.data),["2026-08-03","2026-08-04","2026-08-08"]);
+assert.deepEqual(obra.segmentosGantt.map(s=>s.data),["2026-08-03","2026-08-04","2026-08-08","2026-08-10"]);
+assert.equal(obra.metricas.minutosNoPeriodo,480,"atividade vinculada em dois projetos é deduplicada na obra");
+
+const historico=[atividade("2026-07-01","08:00","04:00","A","2026-07-02"),atividade("2026-08-01","08:00","18:00")];
+const metricas=gantt.calcularMetricasTemporais(historico,{inicio:"2026-08-01",fim:"2026-08-31"});
+assert.equal(metricas.minutosNoPeriodo,600);assert.equal(metricas.minutosAcumulados,1800);
+const dias=gantt.calcularMetricasTemporais([atividade("2026-08-01","08:00","10:00"),atividade("2026-08-01","14:00","18:00"),atividade("2026-08-03","08:00","12:00")]);
+assert.equal(dias.diasAtivos,2);assert.equal(dias.diasJanela,3,"janela usa dias civis e contagem inclusiva");
+const lacuna=gantt.calcularMetricasTemporais([atividade("2026-08-01"),atividade("2026-08-02"),atividade("2026-08-08")]);
+assert.deepEqual(lacuna.maiorLacuna,{dias:5,inicio:"2026-08-02",fim:"2026-08-08"});
+const cadencia=gantt.calcularMetricasTemporais([1,2,3,4,10].map(d=>atividade(`2026-08-${String(d).padStart(2,"0")}`)));
+assert.equal(cadencia.diasJanela,10);assert.equal(cadencia.cadencia,.5);assert.equal(cadencia.colaboradores.length,1);
+const faseParalela=fase.segmentosGantt.find(s=>s.data==="2026-08-03");assert.equal(faseParalela.itens.length,1);
+const recolhidos=new Set([`fase:${fase.id}`]);
+assert.ok(gantt.filtrarLinhasHierarquia(estrutura,{modo:"analitico",recolhidos}).includes(fase));
+assert.ok(!gantt.filtrarLinhasHierarquia(estrutura,{modo:"analitico",recolhidos}).includes(fase.itens[0]));
+assert.ok(!gantt.filtrarLinhasHierarquia(estrutura,{modo:"sintetico"}).some(n=>n.tipo==="item"));
+assert.ok(gantt.filtrarLinhasHierarquia(estrutura,{modo:"analitico"}).some(n=>n.tipo==="item"));
+}
+
+// ========================================================
+// TESTES — GANTT DO RELATÓRIO
+// Origem: atividades/planner-gantt-relatorio.test.js
+// ========================================================
+
+async function testarGanttRelatorio() {
+const relatorio = require("../atividades/planner-gantt-relatorio");
+const engine = require("../atividades/planner-gantt");
+const atividade = (id, dia, obra = "FIOCRUZ") => ({ id, obra, projeto: "Elétrico", etapa: "Lançamento", data_inicio: dia, hora_inicio: "08:00", data_termino: dia, hora_termino: "10:00" });
+const todas = [atividade("15", "2026-08-15"), atividade("18", "2026-08-18"), atividade("20", "2026-08-20"), atividade("25", "2026-08-25"), atividade("tce", "2026-08-20", "TCE")];
+const checklists = [
+  { id: "p1", obraId: "o1", obra: "FIOCRUZ", projeto: "Elétrico", itens: [{ id: "i1", etapa: "Lançamento", atividadesVinculadas: todas.slice(0, 4) }] },
+  { id: "p2", obraId: "o2", obra: "TCE", projeto: "CFTV", itens: [{ id: "i2", etapa: "Plotagem", atividadesVinculadas: [todas[4]] }] }
+];
+const original = JSON.stringify(checklists), periodo = { inicio: "2026-08-17", fim: "2026-08-22" };
+const dados = relatorio.prepararEstrutura({ checklists, atividadesPermitidas: [todas[1], todas[2]], periodo });
+assert.equal(JSON.stringify(checklists), original, "o Planner visível deve permanecer imutável");
+assert.equal(dados.estrutura.length, 1, "deve respeitar a população filtrada do relatório");
+assert.deepEqual(dados.dias, ["2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22"]);
+const linhas = engine.filtrarLinhasHierarquia(dados.estrutura, { modo: "sintetico" });
+assert.ok(!linhas.some((linha) => linha.tipo === "item"), "a visão executiva não mostra itens");
+assert.deepEqual(linhas.find((linha) => linha.tipo === "fase").segmentosPeriodo.map((s) => s.data), ["2026-08-18", "2026-08-20"], "dias sem execução não viram barra contínua");
+assert.equal(linhas.find((linha) => linha.tipo === "obra").metricas.minutosNoPeriodo, 240);
+assert.equal(linhas.find((linha) => linha.tipo === "projeto").metricas.minutosNoPeriodo, 240);
+assert.equal(linhas.find((linha) => linha.tipo === "fase").metricas.minutosNoPeriodo, 240);
+assert.equal(relatorio.formatarHoras(330), "5,50 h");
+const duplicada = relatorio.prepararEstrutura({ checklists: [{ ...checklists[0], itens: [{ ...checklists[0].itens[0], atividadesVinculadas: [todas[1], todas[1]] }] }], atividadesPermitidas: [todas[1]], periodo });
+assert.equal(engine.filtrarLinhasHierarquia(duplicada.estrutura, { modo: "sintetico" }).find((x) => x.tipo === "fase").metricas.minutosNoPeriodo, 120, "a atividade não pode duplicar horas no mesmo nível");
+assert.equal(relatorio.prepararEstrutura({ checklists, atividadesPermitidas: [], periodo }).estrutura.length, 0);
+}
+
+// ========================================================
+// TESTES — DASHBOARD
+// Origem: atividades/dashboard-classificacao.test.js
+// ========================================================
+
+async function testarDashboard() {
+const api = require("../atividades/dashboard-classificacao");
+const registro = (obra, projeto, fase, item, horas) => ({ obra, projeto, fase, item, horas });
+const calcular = (atividade) => atividade.horas;
+const soma = (categorias) => categorias.reduce((total, categoria) => total + categoria.horas, 0);
+
+const fases = api.agruparHorasPorFaseDashboard([
+  registro("FIOCRUZ", "Elétrico Baixa Tensão", "Distribuição", "", 4),
+  registro("IPER", "Elétrico Baixa Tensão", "Distribuição", "", 6),
+  registro("FIOCRUZ", "Elétrico Baixa Tensão", "Lançamento", "", 3),
+  registro("FIOCRUZ", "Elétrico Baixa Tensão", "", "", 5)
+], calcular);
+assert.equal(fases.categorias.find((item) => item.fase === "Distribuição").horas, 10, "a mesma fase e projeto deve somar entre obras");
+assert.equal(fases.categorias.find((item) => item.fase === "Lançamento").horas, 3);
+assert.equal(fases.horasSemFase, 5);
+assert.equal(soma(fases.categorias) + fases.horasSemFase, fases.totalHoras);
+assert.equal(api.obterLabelFaseDashboard(fases.categorias[0], false), "Distribuição");
+
+const projetos = api.agruparHorasPorFaseDashboard([
+  registro("FIOCRUZ", "Elétrico Baixa Tensão", "Distribuição", "", 10),
+  registro("FIOCRUZ", "CFTV", "Distribuição", "", 5)
+], calcular);
+assert.equal(projetos.categorias.length, 2, "a mesma fase em projetos diferentes não deve ser misturada");
+assert.equal(api.obterLabelFaseDashboard(projetos.categorias[0], true), "Elétrico Baixa Tensão → Distribuição");
+
+const itens = api.agruparHorasPorItemDashboard([
+  registro("FIOCRUZ", "Elétrico Baixa Tensão", "Distribuição", "Eletrocalha", 6),
+  registro("FIOCRUZ", "Elétrico Baixa Tensão", "Distribuição", "Eletrocalha · Leito", 8),
+  registro("FIOCRUZ", "Elétrico Baixa Tensão", "Distribuição", "A · B · C", 9),
+  registro("FIOCRUZ", "Elétrico Baixa Tensão", "Lançamento", "Iluminação", 4),
+  registro("FIOCRUZ", "Elétrico Baixa Tensão", "Plotagem", "Iluminação", 6),
+  registro("FIOCRUZ", "Elétrico Baixa Tensão", "Distribuição", "", 7)
+], calcular);
+assert.equal(itens.categorias.find((item) => item.item === "Eletrocalha").horas, 10);
+assert.equal(itens.categorias.find((item) => item.item === "Leito").horas, 4);
+["A", "B", "C"].forEach((nome) => assert.equal(itens.categorias.find((item) => item.item === nome).horas, 3));
+assert.equal(itens.categorias.filter((item) => item.item === "Iluminação").length, 2, "o mesmo item em fases diferentes deve gerar categorias diferentes");
+assert.equal(itens.categorias.find((item) => item.fase === "Lançamento" && item.item === "Iluminação").horas, 4);
+assert.equal(itens.categorias.find((item) => item.fase === "Plotagem" && item.item === "Iluminação").horas, 6);
+assert.equal(api.obterLabelItemDashboard(itens.categorias.find((item) => item.fase === "Lançamento" && item.item === "Iluminação"), false), "Lançamento → Iluminação");
+assert.equal(itens.horasSemItem, 7);
+assert.ok(Math.abs(soma(itens.categorias) + itens.horasSemItem - itens.totalHoras) < 1e-10, "o rateio deve conservar todas as horas");
+const rateio = api.agruparHorasPorItemDashboard([registro("FIOCRUZ", "Elétrico Baixa Tensão", "Distribuição", "Eletrocalha · Leito · Perfilado", 9)], calcular);
+assert.deepEqual(rateio.categorias.map((item) => item.horas), [3, 3, 3]);
+
+const mesmoItem = api.agruparHorasPorItemDashboard([
+  registro("FIOCRUZ", "Elétrico Baixa Tensão", "Distribuição", "Eletrocalha", 2),
+  registro("FIOCRUZ", "Elétrico Baixa Tensão", "Lançamento", "Eletrocalha", 3)
+], calcular);
+assert.equal(mesmoItem.categorias.length, 2);
+assert.equal(api.obterLabelItemDashboard(mesmoItem.categorias[0], true), "Elétrico Baixa Tensão → Distribuição → Eletrocalha");
+const quinze = Array.from({ length: 15 }, (_, indice) => ({ chave: `Categoria ${indice}`, horas: indice + 1 }));
+const top = api.ordenarTopHorasDashboard(quinze, 10);
+assert.equal(top.categorias.length, 10);
+assert.equal(top.totalCategorias, 15);
+assert.deepEqual(top.categorias.map((item) => item.horas), [15, 14, 13, 12, 11, 10, 9, 8, 7, 6]);
+assert.deepEqual(api.ordenarTopHorasDashboard([{ chave: "B", horas: 2 }, { chave: "A", horas: 2 }]).categorias.map((item) => item.chave), ["A", "B"]);
+assert.deepEqual(api.obterRegistrosDetalhadosDashboard([{ registros: [{ id: 1 }, { id: 2 }] }, { id: 3 }]).map((item) => item.id), [1, 2, 3]);
+}
+
+// ========================================================
+// TESTES — DADOS GERENCIAIS
+// Origem: atividades/dados-gerenciais-relatorio.test.js
+// ========================================================
+
+async function testarDadosGerenciais() {
+const api = require("../atividades/dados-gerenciais-relatorio");
+const registro = (id, colaborador, horas, obra = "FIOCRUZ", projeto = "Elétrico Baixa Tensão", status = "Finalizado") => ({ id, colaborador, horas, obraCodigo: "OBR-000015", obra, projeto, etapa: id, status });
+const dados = api.construirDadosGerenciaisRelatorio([registro("a", "Bruno", 25.85), registro("b", "Geovanna", 24.83), registro("c", "Hellen", 24.38), registro("d", "Rodrigo", 14.28, "MATERNIDADE", "SPDA", "Em progresso")]);
+assert.deepEqual(dados.horasPorColaborador.map((x) => x.label), ["Bruno", "Geovanna", "Hellen", "Rodrigo"]);
+assert.deepEqual(dados.horasPorColaborador.map((x) => x.valor), [25.85, 24.83, 24.38, 14.28]);
+assert.deepEqual(dados.atividadesPorColaborador.map((x) => x.valor), [1, 1, 1, 1]);
+assert.equal(api.formatarLabelFrenteRelatorio("OBR-000015 — FIOCRUZ — Elétrico Baixa Tensão"), "FIOCRUZ · Elétrico BT");
+assert.equal(dados.percentualFinalizadas, 75);
+assert.deepEqual(dados.statusLegenda.map((x) => x.label), ["Em progresso", "Finalizado"]);
+assert.equal(dados.status.length, 4);
+const dezenove = api.construirDadosGerenciaisRelatorio(Array.from({ length: 19 }, (_, i) => registro(`s${i}`, "Equipe", 1, "Obra", "SPDA", i === 18 ? "Em progresso" : "Finalizado")));
+assert.equal(dezenove.percentualFinalizadas, 95);
+const treze = Array.from({ length: 13 }, (_, i) => registro(`top${i}`, "Pessoa", i + 17, `Obra ${i}`, "SPDA"));
+const top = api.construirDadosGerenciaisRelatorio(treze).topHorasPorFrente;
+assert.equal(top.length, 10); assert.ok(top.every((x, i) => !i || top[i - 1].valor >= x.valor));
+}
+
+// ========================================================
+// TESTES — GRÁFICOS DO RELATÓRIO
+// Origem: atividades/graficos-relatorio.test.js
+// ========================================================
+
+async function testarGraficosRelatorio() {
+global.document = { createElement: () => ({ style: {} }) };
+const graficos = require("../atividades/graficos-relatorio");
+const canvas = graficos.canvasRelatorio(1200, 600);
+assert.equal(canvas.width, 2400);
+assert.equal(canvas.height, 1200);
+assert.equal(graficos.CONFIG_GRAFICO_RELATORIO.fundo, "#ffffff");
+assert.equal(graficos.formatarHoras(25.85), "25,85 h");
+}
+
+// ========================================================
+// TESTES — FICHA DE OBRA
+// Origem: api/obra-ficha.test.js
+// ========================================================
+
+async function testarFichaObra() {
+const { chaveProjeto, completudeFicha, exigirAdmin, numeroOpcional, statusFicha, validarFicha } = require("../api/_obra-ficha");
+assert.throws(() => exigirAdmin({ perfil: "colaborador" }), (error) => error.statusCode === 403);
+assert.doesNotThrow(() => exigirAdmin({ perfil: "admin" }));
+assert.equal(statusFicha(null), "cadastro_minimo");
+assert.equal(statusFicha({ caracterizacao_nao_aplicavel: true }), "nao_aplicavel");
+const caracteristica = { categoria_registro: "empreendimento", natureza: "publico", benchmark_status: "incluir" };
+const tipologias = [{ segmento: "Saúde", tipologia: "Hospital", principal: true }];
+assert.equal(statusFicha(caracteristica, tipologias, [{ intervencao: "Reforma" }]), "caracterizada");
+assert.equal(statusFicha(caracteristica, tipologias, []), "parcial");
+assert.equal(numeroOpcional(""), null); assert.equal(numeroOpcional("0"), 0);
+assert.throws(() => numeroOpcional(-1), /não negativos/); assert.throws(() => numeroOpcional(1.5, true), /inteiros/);
+assert.equal(chaveProjeto("Elétrico Baixa Tensão"), "eletrico-baixa-tensao");
+const ficha = validarFicha({ categoriaRegistro: "empreendimento", natureza: "publico", areaIntervencao: "8700", areaExternaIntervencao: "", pavimentosAcima: "5", benchmarkStatus: "incluir", tipologias, intervencoes: ["Reforma", "Ampliação"], projetos: [{ projeto: "SPDA" }, { projeto: "SPDA" }] });
+assert.equal(ficha.caracteristica.area_intervencao, 8700); assert.equal(ficha.caracteristica.area_externa_intervencao, null); assert.equal(ficha.projetos.length, 1); assert.equal(ficha.intervencoes.length, 2);
+assert.throws(() => validarFicha({ benchmarkStatus: "excluir" }), /motivo/); assert.throws(() => validarFicha({ benchmarkStatus: "incluir", caracterizacaoNaoAplicavel: true }), /não pode integrar/);
+assert.equal(completudeFicha(caracteristica, tipologias, [{ intervencao: "Reforma" }], [{ projeto: "SPDA" }]) > 0, true);
+}
+
+// ========================================================
+// TESTES — RELATÓRIO WORD
+// Origem: api/gerar-relatorio-word.test.js
+// ========================================================
+
+async function testarRelatorioWord() {
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const Docxtemplater = require("docxtemplater");
+const PizZip = require("pizzip");
+const { _test } = require("../api/gerar-relatorio-word");
+
+const templatePath = path.resolve(__dirname, "..", "atividades", "template", "Relatorio.docx");
+const productionTemplatePath = path.resolve(process.cwd(), "atividades", "template", "Relatorio.docx");
+assert.equal(templatePath, productionTemplatePath, "o teste deve usar exatamente o template do endpoint");
+const novoZip = () => new PizZip(fs.readFileSync(templatePath));
+const periodo = { tipo: "semanal", rotulo: "Semana 30", dataInicio: "2026-07-19", dataFim: "2026-07-25", ano: "2026" };
+const textoLongo = `Descrição técnica integral ${"sem qualquer corte no conteúdo registrado ".repeat(15)}fim do lançamento.`;
+const registros = [
+  { id: "1", obraId: "1", obraCodigo: "OBR-000023", obra: "Posto", projeto: "Elétrico", etapa: "Plotagem", trabalhos: textoLongo, observacoes: "Primeira observação\ncom nova linha.", colaborador: "Hellen", dataInicio: "2026-07-19", horaInicio: "08:00:00", dataTermino: "2026-07-19", horaTermino: "10:00:00", criadoEm: "2026-07-19T12:00:00Z", status: "Atrasado", prioridade: "P2" },
+  { id: "2", obraId: "1", obraCodigo: "OBR-000023", obra: "Posto", projeto: "Elétrico", etapa: "Plotagem", trabalhos: "Texto deliberadamente repetido.", observacoes: "Segunda observação.", colaborador: "Bruno", dataInicio: "2026-07-20", horaInicio: "13:00", dataTermino: "2026-07-20", horaTermino: "16:30", criadoEm: "2026-07-20T17:00:00Z", status: "Em progresso", prioridade: "P1" },
+  { id: "3", obraId: "1", obraCodigo: "OBR-000023", obra: "Posto", projeto: "Elétrico", etapa: "Plotagem", trabalhos: "Texto deliberadamente repetido.", observacoes: "Projeto ainda incompleto por ausência da potência das bombas. Também solicitei um shaft no superior.", colaborador: "Hellen", dataInicio: "2026-07-21", horaInicio: "08:30", dataTermino: "2026-07-21", horaTermino: "11:00", criadoEm: "2026-07-21T12:00:00Z", status: "Finalizado", prioridade: "P2" }
+];
+const [atividade] = require("../atividades/atividade-agrupamento").consolidarAtividades(registros);
+
+assert.equal(_test.formatarCompetenciaRelatorio(periodo), "JULHO/2026");
+assert.equal(_test.formatarCompetenciaRelatorio({ ...periodo, dataInicio: "2026-07-27", dataFim: "2026-08-02" }), "JULHO/2026 — AGOSTO/2026");
+assert.equal(_test.formatarCompetenciaRelatorio({ ...periodo, dataInicio: "2026-12-28", dataFim: "2027-01-03" }), "DEZEMBRO/2026 — JANEIRO/2027");
+assert.equal(_test.formatarCompetenciaRelatorio({ tipo: "anual", dataInicio: "2026-01-01", dataFim: "2026-12-31" }), "2026");
+{
+  const paragrafos = _test.MARCADORES_XML_BRUTO.map((marcador) => marcador === "KKKK"
+    ? "<w:p><w:pPr><w:jc w:val=\"both\"/></w:pPr><w:r><w:t>[</w:t></w:r><w:r><w:t>KKKK</w:t></w:r><w:r><w:t>]</w:t></w:r></w:p>"
+    : `<w:p><w:r><w:t>[${marcador}]</w:t></w:r></w:p>`).join("");
+  const zip = new PizZip();
+  zip.file("word/document.xml", `<w:document><w:body>${paragrafos}</w:body></w:document>`);
+  _test.prepararTemplateParaGraficos(zip);
+  const xml = zip.file("word/document.xml").asText();
+  assert.match(xml, /<w:p><w:pPr><w:jc w:val="both"\/><\/w:pPr><w:r><w:t>\[@KKKK\]<\/w:t><\/w:r><\/w:p>/);
+  assert.doesNotMatch(xml, /<w:t>\[<\/w:t>|<w:t>KKKK<\/w:t>|<w:t>\]<\/w:t>/);
+}
+
+let xmlFinal;
+{
+  const zip = novoZip();
+  _test.prepararTemplateParaGraficos(zip);
+  assert.match(zip.file("word/document.xml").asText(), /\[@KKKK\]/, "o template real deve reconhecer KKKK como XML bruto");
+  assert.match(zip.file("word/document.xml").asText(), /\[@LLLL\]/, "o template real deve reconhecer LLLL como XML bruto");
+  const dados = _test.montarDadosRelatorio({ atividades: registros, atividadesSemanais: [], periodoRelatorio: periodo, graficos: {} }, zip);
+  assert.equal(dados.PERIODO_RELATORIO, "JULHO/2026");
+  assert.equal(dados.COMPETENCIA_RELATORIO, "JULHO/2026");
+  assert.equal(dados.ROTULO_PERIODO_RELATORIO, "SEMANA 30");
+  assert.match(dados.BBBB, /<w:jc w:val="both"\/>/);
+  assert.match(dados.BBBB, /<w:ind w:firstLine="567"\/>/);
+  assert.match(dados.BBBB, /<w:widowControl\/>/);
+  assert.match(dados.JJJJ, /<w:jc w:val="both"\/>/);
+  assert.match(dados.JJJJ, /Pontos de atenção:/);
+  assert.doesNotMatch(dados.BBBB + dados.CCCC + dados.JJJJ, /w:firstLine="709"/);
+  assert.doesNotMatch(dados.JJJJ, /ANEXO A/);
+  assert.match(dados.KKKK, /^<w:tbl>/);
+  const documento = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true });
+  documento.render(dados);
+  xmlFinal = _test.validarDocumentoFinal(documento);
+  assert.doesNotMatch(xmlFinal, /&lt;w:tbl&gt;/);
+  assert.doesNotMatch(xmlFinal, /\[KKKK\]/);
+  assert.doesNotMatch(xmlFinal, /\[@KKKK\]/);
+  assert.doesNotMatch(xmlFinal, /<w:t\b[^>]*>[\s\S]*?&lt;w:/, "não deve existir OpenXML como texto");
+  const indiceTitulo = xmlFinal.lastIndexOf("ANEXO A — DETALHAMENTO DAS FRENTES DE TRABALHO");
+  const indiceTabela = xmlFinal.indexOf("<w:tbl>", indiceTitulo);
+  assert.ok(indiceTitulo >= 0, "o título do Anexo deve existir");
+  assert.ok(indiceTabela > indiceTitulo, "uma tabela real deve existir depois do título do Anexo");
+  const xmlAnexo = dados.KKKK;
+  assert.equal((xmlAnexo.match(/<w:tr>/g) || []).length, 8, "o Anexo deve ter quatro linhas de identificação, cabeçalho e três lançamentos");
+  assert.match(xmlAnexo, /<w:tblHeader\/>/, "o cabeçalho deve repetir em páginas seguintes");
+  assert.match(xmlAnexo, /<w:shd w:fill="1F4E78"\/>/, "o cabeçalho deve ser azul");
+  assert.match(xmlAnexo, /OBR-000023/);
+  assert.match(xmlFinal, /<w:pgSz w:w="11906" w:h="16838"[^>]*\/>/, "o novo template deve preservar a página A4 retrato do Anexo B");
+  const outputPath = path.join(os.tmpdir(), "relatorio-semana-30.docx");
+  fs.writeFileSync(outputPath, documento.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" }));
+}
+
+{
+  const zip = novoZip();
+  _test.prepararTemplateParaGraficos(zip);
+  const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3mG7WQAAAABJRU5ErkJggg==";
+  const dados = _test.montarDadosRelatorio({ atividades: registros, atividadesSemanais: [], periodoRelatorio: periodo, graficos: { status: png }, gantt: { imagens: [{ imagem: png, largura: 1800, altura: 900 }] } }, zip);
+  const documento = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true });
+  documento.render(dados); const xml = _test.validarDocumentoFinal(documento);
+  assert.ok(documento.getZip().file("word/media/relatorio-gantt.png"));
+  assert.ok(documento.getZip().file("word/media/relatorio-grafico-1.png"), "os gráficos gerenciais devem ser preservados");
+  assert.match(documento.getZip().file("word/_rels/document.xml.rels").asText(), /rIdRelGantt1/);
+  assert.doesNotMatch(xml, /\[@?LLLL\]/);
+}
+
+{
+  const zip = novoZip(); _test.prepararTemplateParaGraficos(zip);
+  const dados = _test.montarDadosRelatorio({ atividades: registros, atividadesSemanais: [], periodoRelatorio: periodo }, zip);
+  assert.match(dados.LLLL, /Não foram identificadas atividades com intervalo válido/);
+  const documento = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true });
+  documento.render(dados); assert.doesNotMatch(_test.validarDocumentoFinal(documento), /\[@?LLLL\]/);
+}
+
+{
+  const documentoQuebrado = {
+    getZip: () => ({ file: () => ({ asText: () => "ANEXO A — DETALHAMENTO DAS FRENTES DE TRABALHO<w:t>&lt;w:tbl&gt;</w:t>" }) })
+  };
+  assert.throws(() => _test.validarDocumentoFinal(documentoQuebrado), /texto escapado/, "a publicação deve falhar quando a tabela estiver escapada");
+}
+
+const tabela = _test.criarTabelaXml(["Indicador", "Resultado"], [["Atividades", 1]], { colunas: [{ largura: 2800 }, { largura: 1500, alinhamento: "center", noWrap: true }] });
+assert.doesNotMatch(tabela, /tcFitText/);
+assert.match(tabela, /<w:vAlign w:val="center"\/>/);
+assert.match(tabela, /<w:jc w:val="center"\/>/);
+assert.match(tabela, /<w:tcBorders>/);
+assert.match(tabela, /<w:top w:val="single"/);
+assert.match(tabela, /<w:left w:val="single"/);
+assert.match(tabela, /<w:bottom w:val="single"/);
+assert.match(tabela, /<w:right w:val="single"/);
+assert.match(tabela, /<w:tblCellSpacing w:w="0" w:type="dxa"\/>/);
+
+const grupos = _test.agruparLancamentosParaAnexo(registros, [atividade]);
+assert.equal(grupos.length, 1);
+assert.equal(grupos[0].registros.length, 3);
+const anexo = _test.gerarAnexoDetalhado(registros, [atividade]);
+assert.equal((anexo.match(/<w:tr>/g) || []).length, 8);
+assert.equal((anexo.match(/Texto deliberadamente repetido\./g) || []).length, 2);
+assert.match(anexo, new RegExp(textoLongo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+assert.doesNotMatch(anexo, /Descrição técnica integral[^<]*…/);
+assert.match(anexo, /Primeira observação/);
+assert.match(anexo, /<w:br\/>/);
+assert.match(anexo, />2 h</);
+assert.match(anexo, />3,5 h</);
+assert.match(anexo, />2,5 h</);
+assert.doesNotMatch(anexo, />8 h<\/w:t>[\s\S]*>8 h<\/w:t>/);
+assert.match(anexo, /<w:noWrap\/>/);
+assert.equal((anexo.match(/<w:tblW w:w="13750" w:type="dxa"\/>/g) || []).length, 2);
+assert.ok(anexo.includes('<w:gridCol w:w="4800"/>'));
+assert.ok(anexo.includes('<w:gridCol w:w="4600"/>'));
+assert.ok(anexo.includes('<w:shd w:fill="1F4E78"/>'));
+assert.ok(anexo.includes('<w:shd w:fill="EAF2F8"/>'));
+assert.ok(anexo.includes('<w:color w:val="FFFFFF"/>'));
+assert.ok(anexo.includes("<w:keepNext/>"));
+assert.match(anexo, /w:line="200" w:lineRule="exact"/);
+assert.equal(_test.formatarIntervaloHorarioRelatorio(registros[0]), "08:00–10:00");
+assert.equal(_test.formatarIntervaloHorarioRelatorio({ horaInicio: "08:00:00" }), "08:00–—");
+assert.equal(_test.formatarIntervaloHorarioRelatorio({}), "—");
+
+const desempenho = _test.gerarDesempenhoColaboradores([atividade]);
+assert.match(desempenho, />1<\/w:t>/);
+assert.match(desempenho, />3<\/w:t>/);
+assert.equal(_test.formatarDataHoraRelatorio("2026-07-22T11:48:00.000Z"), "22/07/2026");
+assert.equal(_test.formatarDataHoraRelatorio("2026-07-22T11:48:00.000Z", { incluirHora: true }), "22/07/2026 às 07:48");
+assert.equal(_test.calcularDiasAtraso(atividade, "2026-07-25"), 0);
+assert.equal(_test.calcularDiasAtraso({ ...atividade, prazo: "2026-07-24" }, "2026-07-25"), 1);
+assert.equal(_test.formatarPeriodoEmFrase(periodo), "Durante a Semana 30");
+}
+
+// ========================================================
+// EXECUÇÃO
+// ========================================================
+
+async function main() {
+  const grupos = [
+    ["Atividades API", testarAtividadesApi],
+    ["Agrupamento de atividades", testarAgrupamentoAtividades],
+    ["Fase e Item", testarFaseItem],
+    ["Planner Modelos", testarPlannerModelos],
+    ["Planner Sync", testarPlannerSync],
+    ["Planner Checklist", testarPlannerChecklist],
+    ["Gantt", testarGantt],
+    ["Gantt do relatório", testarGanttRelatorio],
+    ["Dashboard", testarDashboard],
+    ["Dados gerenciais", testarDadosGerenciais],
+    ["Gráficos do relatório", testarGraficosRelatorio],
+    ["Ficha de obra", testarFichaObra],
+    ["Relatório Word", testarRelatorioWord],
+  ];
+
+  for (const [nome, teste] of grupos) {
+    await executarGrupo(nome, teste);
+  }
+
+  console.log("\n-----------------------------------");
+  console.log(`${grupos.length} conjuntos de testes concluídos.`);
+  console.log("Todos os testes passaram.");
+  console.log("-----------------------------------");
+}
+
+main().catch((erro) => {
+  console.error(erro);
+  process.exitCode = 1;
+});

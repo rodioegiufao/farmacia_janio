@@ -4,6 +4,9 @@ const OBRAS_ADMIN_URL = "/api/obras-admin";
 const OBRAS_URL = "/api/obras";
 let obrasAdmin = [];
 let obraAberta = null;
+let usuariosAdmin = [];
+let ultimoFocoModal = null;
+let observadorSecoes = null;
 
 const adminPanel = document.getElementById("adminPanel");
 const accessDeniedPanel = document.getElementById("accessDeniedPanel");
@@ -26,6 +29,11 @@ inicializarAdmin();
 
 async function inicializarAdmin() {
   cadastroForm.addEventListener("submit", cadastrarUsuario);
+  document.getElementById("novoUsuario").addEventListener("click", () => abrirModal("cadastroModal", "cadastroNome"));
+  document.getElementById("usuariosBusca").addEventListener("input", renderizarUsuarios);
+  document.getElementById("usuariosPerfil").addEventListener("change", renderizarUsuarios);
+  document.querySelectorAll("[data-close-modal]").forEach((button) => button.addEventListener("click", () => fecharModal(button.dataset.closeModal)));
+  document.querySelectorAll(".admin-modal").forEach((modal) => modal.addEventListener("click", (event) => { if (event.target === modal) fecharModal(modal.id); }));
   btnLogout.addEventListener("click", sair);
   btnPerfil?.addEventListener("click", abrirPerfil);
   userMenuTrigger.addEventListener("click", alternarMenuUsuario);
@@ -106,6 +114,7 @@ function fecharMenuUsuarioComTeclado(event) {
     fecharMenuUsuario();
     fecharModalPerfil();
     fecharModalSenha();
+    ["cadastroModal", "obraModal", "confirmarObraModal"].forEach(fecharModal);
   }
 }
 
@@ -203,9 +212,9 @@ async function salvarPerfil(event) {
     }).then(validarResposta);
     aplicarUsuarioNoMenu(data.user);
     fecharModalPerfil();
-    alert("Perfil atualizado com sucesso.");
+    mostrarToast("Perfil atualizado com sucesso.");
   } catch (erro) {
-    alert(`Não foi possível atualizar o perfil: ${erro.message}`);
+    mostrarToast(`Não foi possível atualizar o perfil: ${erro.message}`, true);
   }
 }
 
@@ -224,36 +233,38 @@ async function cadastrarUsuario(event) {
     }).then(validarResposta);
 
     cadastroForm.reset();
-    alert(`Usuário ${data.nome} cadastrado com sucesso.`);
+    fecharModal("cadastroModal");
+    mostrarToast(`Usuário ${data.nome} cadastrado com sucesso.`);
     await carregarUsuarios();
   } catch (erro) {
-    alert(`Não foi possível cadastrar: ${erro.message}`);
+    mostrarToast(`Não foi possível cadastrar: ${erro.message}`, true);
   }
 }
 
 async function carregarUsuarios() {
   try {
-    const usuarios = await fetch(USUARIOS_URL).then(validarResposta);
-    usuariosLista.innerHTML = usuarios.map((user) => `
-      <article class="user-card">
-        <strong>${escapeHtml(user.nome)}</strong>
-        <span>Usuário: ${escapeHtml(user.usuario)}</span>
-        <span>Perfil: ${escapeHtml(user.perfil)}</span>
-        <span>Status: ${user.ativo ? "Ativo" : "Inativo"}</span>
-        <button type="button" class="user-password-button" data-user-id="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.nome)}">
-          <i class="fa-solid fa-key" aria-hidden="true"></i>
-          Alterar senha
-        </button>
-      </article>
-    `).join("");
+    usuariosAdmin = await fetch(USUARIOS_URL).then(validarResposta);
+    document.getElementById("usuariosTabCount").textContent = usuariosAdmin.length;
+    renderizarUsuarios();
   } catch (erro) {
-    usuariosLista.innerHTML = `<p class="help-text">${escapeHtml(erro.message)}</p>`;
+    usuariosLista.innerHTML = `<p class="admin-empty">${escapeHtml(erro.message)}</p>`;
   }
+}
+function renderizarUsuarios() {
+  const busca = document.getElementById("usuariosBusca").value.trim().toLowerCase();
+  const perfil = document.getElementById("usuariosPerfil").value;
+  const lista = usuariosAdmin.filter((user) => (!busca || `${user.nome} ${user.usuario}`.toLowerCase().includes(busca)) && (!perfil || user.perfil === perfil));
+  const ativos = usuariosAdmin.filter((user) => user.ativo).length;
+  const admins = usuariosAdmin.filter((user) => user.perfil === "admin").length;
+  document.getElementById("usuariosMetricas").innerHTML = [[usuariosAdmin.length, "Usuários", ""], [ativos, "Ativos", "success"], [admins, "Administradores", "blue"]].map(([numero, rotulo, classe]) => `<article class="admin-metric-card ${classe}"><strong>${numero}</strong><span>${rotulo}</span></article>`).join("");
+  if (!lista.length) { usuariosLista.innerHTML = '<p class="admin-empty">Nenhum usuário encontrado.</p>'; return; }
+  usuariosLista.innerHTML = `<table><thead><tr><th>Usuário</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead><tbody>${lista.map((user) => `<tr><td><div class="admin-user-identity"><span class="admin-user-avatar">${obterIniciais(user.nome)}</span><span><strong>${escapeHtml(user.nome)}</strong><small>${escapeHtml(user.usuario)}</small></span></div></td><td><span class="admin-badge ${user.perfil === "admin" ? "admin" : ""}">${user.perfil === "admin" ? "Administrador" : "Colaborador"}</span></td><td><span class="admin-badge admin-status-dot ${user.ativo ? "success" : "danger"}">${user.ativo ? "Ativo" : "Inativo"}</span></td><td><button type="button" class="admin-row-action user-password-button" data-user-id="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.nome)}"><i class="fa-solid fa-key"></i> Alterar senha</button></td></tr>`).join("")}</tbody></table>`;
 }
 function tratarAcaoUsuario(event) {
   const button = event.target.closest(".user-password-button");
   if (!button) return;
 
+  ultimoFocoModal = button;
   passwordForm.reset();
   document.getElementById("passwordUserId").value = button.dataset.userId;
   document.getElementById("passwordUserName").textContent = button.dataset.userName;
@@ -262,8 +273,10 @@ function tratarAcaoUsuario(event) {
 }
 
 function fecharModalSenha() {
+  const estavaAberto = !passwordModal.hidden;
   passwordModal.hidden = true;
   passwordForm.reset();
+  if (estavaAberto) ultimoFocoModal?.focus?.();
 }
 
 async function salvarNovaSenha(event) {
@@ -272,7 +285,7 @@ async function salvarNovaSenha(event) {
   const confirmacao = document.getElementById("passwordConfirm").value;
 
   if (senha !== confirmacao) {
-    alert("As senhas informadas não coincidem.");
+    mostrarToast("As senhas informadas não coincidem.", true);
     return;
   }
 
@@ -287,10 +300,29 @@ async function salvarNovaSenha(event) {
     }).then(validarResposta);
 
     fecharModalSenha();
-    alert(`Senha de ${data.nome} alterada com sucesso.`);
+    mostrarToast(`Senha de ${data.nome} alterada com sucesso.`);
   } catch (erro) {
-    alert(`Não foi possível alterar a senha: ${erro.message}`);
+    mostrarToast(`Não foi possível alterar a senha: ${erro.message}`, true);
   }
+}
+function abrirModal(id, focoId) {
+  const modal = document.getElementById(id);
+  ultimoFocoModal = document.activeElement;
+  modal.hidden = false;
+  requestAnimationFrame(() => document.getElementById(focoId)?.focus());
+}
+function fecharModal(id) {
+  const modal = document.getElementById(id);
+  if (!modal || modal.hidden) return;
+  modal.hidden = true;
+  ultimoFocoModal?.focus?.();
+}
+function mostrarToast(mensagem, erro = false) {
+  const toast = document.createElement("div");
+  toast.className = `admin-toast ${erro ? "error" : ""}`;
+  toast.textContent = `${erro ? "⚠" : "✓"} ${mensagem}`;
+  document.getElementById("adminToasts").appendChild(toast);
+  setTimeout(() => toast.remove(), 4500);
 }
 async function sair() {
   await fetch(AUTH_URL, { method: "DELETE" }).catch(() => null);
@@ -338,85 +370,88 @@ const TIPOLOGIAS_SEGMENTO = {
   "Esportivo": ["Ginásio", "Estádio", "Quadra", "Centro Esportivo", "Outro"], "Laboratorial": ["Laboratório de Pesquisa", "Laboratório Clínico", "Biotério", "Planta Piloto", "Outro"], "Infraestrutura": ["Subestação", "Rede Externa", "Urbanização", "Via", "Loteamento", "Outro"], "Outro": ["Outro"]
 };
 const INTERVENCOES_ADMIN = ["Obra nova", "Reforma", "Ampliação", "Retrofit", "Adequação", "Regularização", "As built", "Outro"];
-const rotuloStatus = { cadastro_minimo: "⚪ Cadastro mínimo", parcial: "🟡 Parcial", caracterizada: "🟢 Caracterizada", nao_aplicavel: "⚫ Não aplicável" };
+const rotuloStatus = { cadastro_minimo: "Cadastro mínimo", parcial: "Parcial", caracterizada: "Caracterizada", nao_aplicavel: "Não aplicável" };
 const rotuloCategoria = { empreendimento: "Empreendimento físico", interno: "Atividade interna", estudo: "Estudo / oportunidade", outro: "Outro" };
+const statusClasse = { cadastro_minimo: "neutral", parcial: "warning", caracterizada: "success", nao_aplicavel: "neutral" };
 
 function inicializarModuloObras() {
   document.querySelectorAll("[data-admin-tab]").forEach((button) => button.addEventListener("click", () => ativarAba(button.dataset.adminTab)));
   ["obrasBusca", "obrasFiltroFicha", "obrasFiltroCategoria", "obrasFiltroNatureza", "obrasFiltroBenchmark", "obrasFiltroAtivo"].forEach((id) => document.getElementById(id)?.addEventListener("input", renderizarObras));
-  document.getElementById("novaObra")?.addEventListener("click", criarObraAdmin);
+  document.getElementById("novaObra")?.addEventListener("click", () => abrirModal("obraModal", "novaObraNome"));
+  document.getElementById("obraForm")?.addEventListener("submit", criarObraAdmin);
+  document.getElementById("confirmarAlternarObra")?.addEventListener("click", alternarObra);
+  document.getElementById("limparFiltros")?.addEventListener("click", limparFiltrosObras);
   document.getElementById("obrasTabela")?.addEventListener("click", (event) => { const id = event.target.closest("[data-obra-id]")?.dataset.obraId; if (id) abrirFicha(id); });
 }
 async function ativarAba(aba) {
-  document.querySelectorAll("[data-admin-tab]").forEach((item) => item.classList.toggle("active", item.dataset.adminTab === aba));
-  document.getElementById("adminUsuarios").hidden = aba !== "usuarios"; document.getElementById("adminObras").hidden = aba !== "obras";
+  document.querySelectorAll("[data-admin-tab]").forEach((item) => { const ativa = item.dataset.adminTab === aba; item.classList.toggle("active", ativa); item.setAttribute("aria-selected", String(ativa)); });
+  document.getElementById("adminUsuarios").hidden = aba !== "usuarios";
+  document.getElementById("adminObras").hidden = aba !== "obras";
   if (aba === "obras" && !obrasAdmin.length) await carregarObras();
 }
 async function carregarObras() {
-  document.getElementById("obrasTabela").innerHTML = "<p>Carregando obras...</p>";
-  try { obrasAdmin = await fetch(OBRAS_ADMIN_URL).then(validarResposta); renderizarIndicadores(); renderizarObras(); const direta = new URLSearchParams(location.search).get("obra"); if (direta) await abrirFicha(direta); }
-  catch (erro) { document.getElementById("obrasTabela").innerHTML = `<p class="admin-message error">${escapeHtml(erro.message)}</p>`; }
+  document.getElementById("obrasTabela").innerHTML = '<p class="admin-empty">Carregando obras...</p>';
+  try {
+    obrasAdmin = await fetch(OBRAS_ADMIN_URL).then(validarResposta);
+    document.getElementById("obrasTabCount").textContent = obrasAdmin.length;
+    renderizarIndicadores(); renderizarObras();
+    const direta = new URLSearchParams(location.search).get("obra");
+    if (direta && (!obraAberta || obraAberta.id !== direta)) await abrirFicha(direta);
+  } catch (erro) { document.getElementById("obrasTabela").innerHTML = `<p class="admin-message error">${escapeHtml(erro.message)}</p>`; }
 }
 function renderizarIndicadores() {
   const contagem = (status) => obrasAdmin.filter((obra) => obra.statusFicha === status).length;
-  const dados = [[obrasAdmin.length, "Total de obras"], [contagem("cadastro_minimo"), "Cadastros mínimos"], [contagem("parcial"), "Parciais"], [contagem("caracterizada"), "Caracterizadas"], [contagem("nao_aplicavel"), "Não aplicáveis"], [obrasAdmin.filter((o) => o.caracteristica?.benchmark_status === "incluir").length, "Benchmark"]];
-  document.getElementById("obrasIndicadores").innerHTML = dados.map(([n, r]) => `<div><strong>${n}</strong><span>${r}</span></div>`).join("");
+  const dados = [[obrasAdmin.length, "Total", ""], [contagem("cadastro_minimo"), "Cadastro mínimo", "neutral"], [contagem("parcial"), "Parciais", "warning"], [contagem("caracterizada"), "Caracterizadas", "success"], [contagem("nao_aplicavel"), "Não aplicáveis", "neutral"], [obrasAdmin.filter((o) => o.caracteristica?.benchmark_status === "incluir").length, "Benchmark", "blue"]];
+  document.getElementById("obrasIndicadores").innerHTML = dados.map(([n, r, classe]) => `<article class="admin-metric-card ${classe}"><strong>${n}</strong><span>${r}</span></article>`).join("");
 }
+function badge(texto, classe = "") { return `<span class="admin-badge ${classe}">${escapeHtml(texto)}</span>`; }
 function renderizarObras() {
-  const busca = document.getElementById("obrasBusca").value.trim().toLowerCase(); const ficha = document.getElementById("obrasFiltroFicha").value; const categoria = document.getElementById("obrasFiltroCategoria").value; const natureza = document.getElementById("obrasFiltroNatureza").value; const benchmark = document.getElementById("obrasFiltroBenchmark").value; const ativo = document.getElementById("obrasFiltroAtivo").value;
+  const busca = valor("obrasBusca").trim().toLowerCase(), ficha = valor("obrasFiltroFicha"), categoria = valor("obrasFiltroCategoria"), natureza = valor("obrasFiltroNatureza"), benchmark = valor("obrasFiltroBenchmark"), ativo = valor("obrasFiltroAtivo");
   const lista = obrasAdmin.filter((o) => (!busca || `${o.codigo} ${o.nome}`.toLowerCase().includes(busca)) && (!ficha || o.statusFicha === ficha) && (!categoria || o.caracteristica?.categoria_registro === categoria) && (!natureza || o.caracteristica?.natureza === natureza) && (!benchmark || (o.caracteristica?.benchmark_status || "nao_avaliado") === benchmark) && (ativo === "" || String(o.ativo) === ativo));
-  if (!lista.length) return void (document.getElementById("obrasTabela").innerHTML = "<p>Nenhuma obra encontrada.</p>");
-  document.getElementById("obrasTabela").innerHTML = `<table><thead><tr><th>Código</th><th>Obra</th><th>Categoria</th><th>Caracterização</th><th>Benchmark</th><th>Projetos</th><th>Status</th><th>Ações</th></tr></thead><tbody>${lista.map((o) => `<tr><td><strong>${escapeHtml(o.codigo)}</strong></td><td>${escapeHtml(o.nome)}</td><td>${escapeHtml(rotuloCategoria[o.caracteristica?.categoria_registro] || "—")}</td><td>${rotuloStatus[o.statusFicha]}</td><td>${o.caracteristica?.benchmark_status === "incluir" ? "✓ Incluir" : o.caracteristica?.benchmark_status === "excluir" ? "Excluir" : "Não avaliado"}</td><td>${o.quantidadeProjetos || "—"}</td><td>${o.ativo ? "Ativa" : "Inativa"}</td><td><button data-obra-id="${o.id}">${o.statusFicha === "cadastro_minimo" ? "Caracterizar" : "Abrir"}</button></td></tr>`).join("")}</tbody></table>`;
+  if (!lista.length) { document.getElementById("obrasTabela").innerHTML = '<p class="admin-empty">Nenhuma obra encontrada.</p>'; return; }
+  const benchmarkTexto = { nao_avaliado: "Não avaliado", incluir: "Incluído", excluir: "Excluído" };
+  document.getElementById("obrasTabela").innerHTML = `<table><thead><tr><th>Obra</th><th>Categoria</th><th>Caracterização</th><th>Benchmark</th><th>Projetos</th><th>Status</th><th>Ação</th></tr></thead><tbody>${lista.map((o) => `<tr><td><span class="admin-work-code">${escapeHtml(o.codigo)}</span><strong class="admin-work-name">${escapeHtml(o.nome)}</strong></td><td>${badge(rotuloCategoria[o.caracteristica?.categoria_registro] || "Não informado")}</td><td>${badge(rotuloStatus[o.statusFicha], statusClasse[o.statusFicha])}</td><td>${badge(benchmarkTexto[o.caracteristica?.benchmark_status || "nao_avaliado"], o.caracteristica?.benchmark_status === "incluir" ? "blue" : "")}</td><td>${badge(`${o.quantidadeProjetos || 0} projetos`)}</td><td>${badge(o.ativo ? "Ativa" : "Inativa", o.ativo ? "success admin-status-dot" : "danger admin-status-dot")}</td><td><button class="admin-row-action" data-obra-id="${o.id}">${o.statusFicha === "cadastro_minimo" ? "Caracterizar" : "Abrir ficha"} <i class="fa-solid fa-arrow-right"></i></button></td></tr>`).join("")}</tbody></table>`;
 }
-async function criarObraAdmin() {
-  const nome = prompt("Nome da obra:"); if (!nome?.trim()) return;
-  try { const obra = await fetch(OBRAS_ADMIN_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "criar", nome }) }).then(validarResposta); await carregarObras(); await abrirFicha(obra.id); }
-  catch (erro) { mostrarMensagemObra(erro.message, true); }
+function limparFiltrosObras() { ["obrasBusca", "obrasFiltroFicha", "obrasFiltroCategoria", "obrasFiltroNatureza", "obrasFiltroBenchmark"].forEach((id) => { document.getElementById(id).value = ""; }); document.getElementById("obrasFiltroAtivo").value = "true"; renderizarObras(); }
+async function criarObraAdmin(event) {
+  event.preventDefault(); const nome = valor("novaObraNome").trim(); if (!nome) return;
+  const botao = event.submitter; botao.disabled = true; botao.textContent = "Criando...";
+  try { const obra = await fetch(OBRAS_ADMIN_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "criar", nome }) }).then(validarResposta); fecharModal("obraModal"); event.target.reset(); await carregarObras(); await abrirFicha(obra.id); mostrarToast("Obra criada com sucesso."); }
+  catch (erro) { mostrarToast(erro.message, true); } finally { botao.disabled = false; botao.textContent = "Criar obra"; }
 }
 async function abrirFicha(id) {
   try { obraAberta = await fetch(`${OBRAS_ADMIN_URL}?id=${encodeURIComponent(id)}`).then(validarResposta); history.replaceState(null, "", `?obra=${encodeURIComponent(id)}`); renderizarFicha(); }
-  catch (erro) { mostrarMensagemObra(erro.message, true); }
+  catch (erro) { mostrarToast(erro.message, true); }
 }
 function opcoes(valores, atual = "") { return `<option value="">Selecione</option>${valores.map((v) => `<option ${v === atual ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}`; }
-function renderizarFicha() {
-  const o = obraAberta, c = o.caracteristica || {}, principal = o.tipologias.find((t) => t.principal) || {}, complementares = o.tipologias.filter((t) => !t.principal).map((t) => t.tipologia).join(", ");
-  const projetosCanonicos = (globalThis.PROJETOS_PLANNER || []).map((p) => `<option value="${escapeHtml(p.projeto)}" data-codigo="${escapeHtml(p.codigoProjeto)}"></option>`).join("");
-  document.getElementById("adminObrasLista").hidden = true; const painel = document.getElementById("adminObraFicha"); painel.hidden = false;
-  painel.innerHTML = `<button type="button" id="voltarObras" class="admin-back">← Voltar para Obras</button><form id="obraFichaForm" class="admin-obra-ficha-form">
-  <header class="admin-obra-ficha-header"><div><span>${escapeHtml(o.codigo)}</span><h2>${escapeHtml(o.nome)}</h2><p>${rotuloStatus[o.statusFicha]} · Ficha técnica: ${o.completude}%</p></div><div><button type="button" id="alternarObra">${o.ativo ? "Desativar obra" : "Reativar obra"}</button><button class="primary" id="salvarFicha">Salvar alterações</button></div></header><div id="obraMensagem"></div>
-  <section><h3>1. Identificação</h3><div class="admin-obra-ficha-grid"><label>Código<input value="${escapeHtml(o.codigo)}" readonly></label><label>Nome da obra<input id="fNome" value="${escapeHtml(o.nome)}" required></label><label>Status<input value="${o.ativo ? "Ativa" : "Inativa"}" readonly></label></div></section>
-  <section><h3>2. Classificação e tipologias</h3><div class="admin-obra-ficha-grid"><label>Este registro representa<select id="fCategoria">${[["","Selecione"],["empreendimento","Empreendimento físico"],["interno","Atividade interna / administrativa"],["estudo","Estudo / oportunidade"],["outro","Outro"]].map(([v,r])=>`<option value="${v}" ${c.categoria_registro===v?"selected":""}>${r}</option>`).join("")}</select></label><label>Natureza<select id="fNatureza"><option value="">Selecione</option>${[["publico","Público"],["privado","Privado"],["misto","Misto"],["nao_informado","Não informado"]].map(([v,r])=>`<option value="${v}" ${c.natureza===v?"selected":""}>${r}</option>`).join("")}</select></label><label>Segmento principal<select id="fSegmento">${opcoes(Object.keys(TIPOLOGIAS_SEGMENTO), principal.segmento)}</select></label><label>Tipologia principal<select id="fTipologia"></select></label><label>Tipologias complementares<input id="fComplementares" value="${escapeHtml(complementares)}" placeholder="Separadas por vírgula"></label></div><label class="admin-check"><input type="checkbox" id="fNaoAplicavel" ${c.caracterizacao_nao_aplicavel?"checked":""}> Caracterização física não aplicável</label></section>
-  <section id="camposFisicos"><h3>3. Características físicas</h3><div class="admin-obra-ficha-grid">${[["fAreaTotal","Área total construída (m²)",c.area_total_construida],["fAreaIntervencao","Área de intervenção (m²)",c.area_intervencao],["fAreaExterna","Área externa de intervenção (m²)",c.area_externa_intervencao],["fAreaCobertura","Área de cobertura (m²)",c.area_cobertura],["fPavimentos","Pavimentos acima do solo",c.pavimentos_acima],["fSubsolos","Subsolos",c.subsolos],["fBlocos","Blocos / edificações",c.numero_blocos]].map(([id,r,v],i)=>`<label>${r}<input id="${id}" type="number" min="0" ${i>3?'step="1"':'step="any"'} value="${v??""}"></label>`).join("")}</div></section>
-  <section><h3>4. Intervenções</h3><div class="admin-checkboxes">${INTERVENCOES_ADMIN.map((v)=>`<label><input type="checkbox" name="intervencao" value="${v}" ${o.intervencoes.includes(v)?"checked":""}> ${v}</label>`).join("")}</div></section>
-  <section><h3>5. Projetos da Obra</h3><datalist id="projetosCanonicos">${projetosCanonicos}</datalist><div id="projetosFicha">${o.projetos.map(linhaProjeto).join("")}</div><button type="button" id="adicionarProjeto">+ Adicionar projeto</button>${o.projetosDetectados.length?`<div class="admin-detectados"><strong>Projetos detectados no histórico:</strong><p>${o.projetosDetectados.map(p=>`✓ ${escapeHtml(p.projeto)}`).join(" · ")}</p><button type="button" id="sincronizarProjetos">Sincronizar projetos detectados</button></div>`:""}</section>
-  <section><h3>6. Elegibilidade para análises históricas</h3><div class="admin-obra-ficha-grid"><label>Benchmark<select id="fBenchmark"><option value="nao_avaliado" ${(!c.benchmark_status||c.benchmark_status==='nao_avaliado')?'selected':''}>Não avaliado</option><option value="incluir" ${c.benchmark_status==='incluir'?'selected':''}>Incluir no Benchmark</option><option value="excluir" ${c.benchmark_status==='excluir'?'selected':''}>Excluir do Benchmark</option></select></label><label id="motivoWrap">Motivo<select id="fMotivo">${[["","Selecione"],["atividade_interna","Atividade interna"],["dados_incompletos","Dados históricos incompletos"],["projeto_excepcional","Projeto excepcional"],["escopo_nao_comparavel","Escopo não comparável"],["projeto_cancelado","Projeto cancelado"],["outro","Outro"]].map(([v,r])=>`<option value="${v}" ${c.benchmark_motivo===v?'selected':''}>${r}</option>`).join("")}</select></label><label id="motivoOutroWrap">Outro motivo<input id="fMotivoOutro" value="${escapeHtml(c.benchmark_motivo_outro||"")}"></label></div></section>
-  <section><h3>7. Observações e auditoria</h3><label>Observações da ficha<textarea id="fObservacoes" rows="4">${escapeHtml(c.observacoes||"")}</textarea></label><p class="admin-auditoria">Origem: ${escapeHtml(o.origemCriacao||"sistema")} · Criada em ${escapeHtml(o.criadoEm||"não informado")} · Última alteração ${escapeHtml(c.atualizado_em||"ainda não realizada")}</p></section></form>`;
-  configurarFicha(principal.tipologia);
-}
-function linhaProjeto(p={}) { return `<div class="admin-projeto-row"><input class="pNome" list="projetosCanonicos" placeholder="Projeto" value="${escapeHtml(p.projeto||"")}"><input class="pCodigo" placeholder="Código" value="${escapeHtml(p.codigo_projeto||"")}"><input class="pArea" type="number" min="0" step="any" placeholder="Área intervenção" value="${p.area_intervencao??""}"><input class="pExterna" type="number" min="0" step="any" placeholder="Área externa" value="${p.area_externa??""}"><input class="pCobertura" type="number" min="0" step="any" placeholder="Área cobertura" value="${p.area_cobertura??""}"><input class="pPavimentos" type="number" min="0" step="1" placeholder="Pavimentos" value="${p.pavimentos_atendidos??""}"><input class="pObs" placeholder="Observações" value="${escapeHtml(p.observacoes||"")}"><input class="pOrigem" type="hidden" value="${escapeHtml(p.origem||"manual")}"><button type="button" class="removerProjeto" aria-label="Remover">×</button></div>`; }
+function cabecalhoSecao(numero, titulo, descricao, icone, acao = "") { return `<div class="admin-section-title"><div><h3><i class="fa-solid ${icone}"></i> ${numero}. ${titulo}</h3><p>${descricao}</p></div>${acao}</div>`; }
+function renderizarCabecalhoFicha(o) { return `<header class="admin-obra-header"><div class="admin-obra-title"><button type="button" id="voltarObras" class="admin-back"><i class="fa-solid fa-arrow-left"></i> Obras</button><span class="admin-work-code">${escapeHtml(o.codigo)}</span><h2>${escapeHtml(o.nome)}</h2>${badge(rotuloStatus[o.statusFicha], statusClasse[o.statusFicha])}</div><div class="admin-obra-progress"><div class="admin-obra-progress-label"><span>Ficha técnica</span><strong>${o.completude}%</strong></div><div class="admin-obra-progress-track"><div class="admin-obra-progress-bar" style="width:${Math.max(0, Math.min(100, o.completude))}%"></div></div><span id="saveState" class="admin-save-state">Tudo salvo</span></div><div class="admin-obra-actions"><button type="button" id="alternarObra" class="admin-danger">${o.ativo ? "Desativar obra" : "Reativar obra"}</button><button class="primary" id="salvarFicha"><i class="fa-solid fa-floppy-disk"></i> Salvar alterações</button></div></header><div id="obraMensagem"></div>`; }
+function renderizarIdentificacao(o) { return `<section id="sec-identificacao" class="admin-obra-section">${cabecalhoSecao(1,"Identificação","Dados básicos do cadastro da obra.","fa-circle-info")}<div class="admin-readonly-grid"><div class="admin-readonly-block"><span>Código</span><div class="admin-readonly-value admin-work-code">${escapeHtml(o.codigo)}</div></div><div class="admin-readonly-block"><span>Status</span><div class="admin-readonly-value">${o.ativo ? "● Ativa" : "● Inativa"}</div></div></div><label for="fNome">Nome da obra<input id="fNome" value="${escapeHtml(o.nome)}" required></label></section>`; }
+function renderizarClassificacao(o, c, principal, complementares) { return `<section id="sec-classificacao" class="admin-obra-section">${cabecalhoSecao(2,"Classificação","Tipologia e contexto principal do registro.","fa-tags")}<div class="admin-obra-ficha-grid"><label>Este registro representa<select id="fCategoria">${[["","Selecione"],["empreendimento","Empreendimento físico"],["interno","Atividade interna / administrativa"],["estudo","Estudo / oportunidade"],["outro","Outro"]].map(([v,r])=>`<option value="${v}" ${c.categoria_registro===v?"selected":""}>${r}</option>`).join("")}</select></label><label>Natureza<select id="fNatureza"><option value="">Selecione</option>${[["publico","Público"],["privado","Privado"],["misto","Misto"],["nao_informado","Não informado"]].map(([v,r])=>`<option value="${v}" ${c.natureza===v?"selected":""}>${r}</option>`).join("")}</select></label><label>Segmento principal<select id="fSegmento">${opcoes(Object.keys(TIPOLOGIAS_SEGMENTO), principal.segmento)}</select></label><label>Tipologia principal<select id="fTipologia"></select></label><label class="admin-span-full">Tipologias complementares<input id="fComplementares" value="${escapeHtml(complementares)}" placeholder="Ex.: Clínica, Laboratório"><small class="admin-helper">Separe múltiplas tipologias por vírgulas.</small></label></div><label class="admin-check-callout"><input type="checkbox" id="fNaoAplicavel" ${c.caracterizacao_nao_aplicavel?"checked":""}><span><strong>Caracterização física não aplicável</strong><small class="admin-helper">Marque quando áreas e estrutura não se aplicarem ao registro.</small></span></label></section>`; }
+function campoArea(id, rotulo, valorCampo) { return `<label class="admin-input-suffix">${rotulo}<input id="${id}" type="number" min="0" step="any" value="${valorCampo ?? ""}"><span>m²</span></label>`; }
+function renderizarCaracteristicasFisicas(c) { return `<section id="sec-caracteristicas" class="admin-obra-section">${cabecalhoSecao(3,"Características físicas","Áreas e estrutura da edificação.","fa-ruler-combined")}<h4 class="admin-subsection">Áreas</h4><div class="admin-obra-ficha-grid">${campoArea("fAreaTotal","Área total construída",c.area_total_construida)}${campoArea("fAreaIntervencao","Área de intervenção",c.area_intervencao)}${campoArea("fAreaExterna","Área externa",c.area_externa_intervencao)}${campoArea("fAreaCobertura","Área de cobertura",c.area_cobertura)}</div><h4 class="admin-subsection">Estrutura da edificação</h4><div class="admin-obra-ficha-grid"><label>Pavimentos acima do solo<input id="fPavimentos" type="number" min="0" step="1" value="${c.pavimentos_acima??""}"></label><label>Subsolos<input id="fSubsolos" type="number" min="0" step="1" value="${c.subsolos??""}"></label><label>Blocos / edificações<input id="fBlocos" type="number" min="0" step="1" value="${c.numero_blocos??""}"></label></div></section>`; }
+function renderizarIntervencoesFicha(o) { return `<section id="sec-intervencoes" class="admin-obra-section">${cabecalhoSecao(4,"Intervenções","Selecione todas as intervenções realizadas.","fa-hammer")}<div class="admin-intervention-grid">${INTERVENCOES_ADMIN.map((v)=>`<label class="admin-intervention-option"><input type="checkbox" name="intervencao" value="${v}" ${o.intervencoes.includes(v)?"checked":""}><span>${v}</span></label>`).join("")}</div></section>`; }
+function resumoProjeto(p) { const partes = [p.codigo_projeto, p.area_intervencao ? `${p.area_intervencao} m²` : "", p.pavimentos_atendidos ? `${p.pavimentos_atendidos} pavimentos` : ""].filter(Boolean); return partes.join(" · ") || "Dados do projeto"; }
+function linhaProjeto(p = {}) { return `<article class="admin-projeto-row"><div class="admin-project-card-header"><button type="button" class="admin-project-toggle" aria-expanded="true"><strong>${escapeHtml(p.projeto || "Novo projeto")}</strong><small>${escapeHtml(resumoProjeto(p))}</small></button><button type="button" class="admin-project-remove removerProjeto" aria-label="Remover projeto"><i class="fa-solid fa-trash"></i></button></div><div class="admin-project-fields"><label>Projeto<input class="pNome" list="projetosCanonicos" placeholder="Nome do projeto" value="${escapeHtml(p.projeto||"")}"></label><label>Código<input class="pCodigo" placeholder="PRJ-..." value="${escapeHtml(p.codigo_projeto||"")}"></label><label>Área de intervenção<input class="pArea" type="number" min="0" step="any" value="${p.area_intervencao??""}"></label><label>Área externa<input class="pExterna" type="number" min="0" step="any" value="${p.area_externa??""}"></label><label>Área de cobertura<input class="pCobertura" type="number" min="0" step="any" value="${p.area_cobertura??""}"></label><label>Pavimentos<input class="pPavimentos" type="number" min="0" step="1" value="${p.pavimentos_atendidos??""}"></label><label class="admin-span-full">Observações<input class="pObs" value="${escapeHtml(p.observacoes||"")}"></label><input class="pOrigem" type="hidden" value="${escapeHtml(p.origem||"manual")}"></div></article>`; }
+function renderizarProjetosFicha(o) { const canonicos=(globalThis.PROJETOS_PLANNER||[]).map((p)=>`<option value="${escapeHtml(p.projeto)}" data-codigo="${escapeHtml(p.codigoProjeto)}"></option>`).join(""); const acao='<button type="button" id="adicionarProjeto" class="admin-row-action"><i class="fa-solid fa-plus"></i> Adicionar projeto</button>'; const detectados=o.projetosDetectados.length?`<aside class="admin-detected-projects"><div class="admin-detected-head"><div><strong>Projetos detectados automaticamente</strong><p class="admin-helper">${o.projetosDetectados.length} projetos encontrados nas atividades e no Planner.</p></div>${badge(String(o.projetosDetectados.length),"blue")}</div><div class="admin-project-chips">${o.projetosDetectados.map((p)=>`<span class="admin-project-chip">${escapeHtml(p.projeto)}</span>`).join("")}</div><button type="button" id="sincronizarProjetos" class="admin-row-action"><i class="fa-solid fa-rotate"></i> Sincronizar projetos detectados</button></aside>`:""; return `<section id="sec-projetos" class="admin-obra-section">${cabecalhoSecao(5,"Projetos da obra","Escopos associados e projetos encontrados no histórico.","fa-diagram-project",acao)}<datalist id="projetosCanonicos">${canonicos}</datalist>${detectados}<div id="projetosFicha" class="admin-projects-list">${o.projetos.map(linhaProjeto).join("")}</div></section>`; }
+function renderizarBenchmarkFicha(c) { return `<section id="sec-benchmark" class="admin-obra-section">${cabecalhoSecao(6,"Elegibilidade para análises históricas","Defina se este cadastro poderá construir referências de prazo e esforço.","fa-chart-line")}<div class="admin-benchmark-card"><div class="admin-obra-ficha-grid"><label>Benchmark<select id="fBenchmark"><option value="nao_avaliado" ${(!c.benchmark_status||c.benchmark_status==='nao_avaliado')?'selected':''}>Não avaliado</option><option value="incluir" ${c.benchmark_status==='incluir'?'selected':''}>Incluir no Benchmark</option><option value="excluir" ${c.benchmark_status==='excluir'?'selected':''}>Excluir do Benchmark</option></select></label><label id="motivoWrap">Motivo<select id="fMotivo">${[["","Selecione"],["atividade_interna","Atividade interna"],["dados_incompletos","Dados históricos incompletos"],["projeto_excepcional","Projeto excepcional"],["escopo_nao_comparavel","Escopo não comparável"],["projeto_cancelado","Projeto cancelado"],["outro","Outro"]].map(([v,r])=>`<option value="${v}" ${c.benchmark_motivo===v?'selected':''}>${r}</option>`).join("")}</select></label><label id="motivoOutroWrap" class="admin-span-full">Outro motivo<input id="fMotivoOutro" value="${escapeHtml(c.benchmark_motivo_outro||"")}"></label></div></div></section>`; }
+function renderizarAuditoriaFicha(o,c) { return `<section id="sec-observacoes" class="admin-obra-section">${cabecalhoSecao(7,"Observações","Contexto complementar e histórico da ficha.","fa-note-sticky")}<label>Observações da ficha<textarea id="fObservacoes" rows="4">${escapeHtml(c.observacoes||"")}</textarea></label><footer class="admin-audit-card"><div><strong>Criada através de</strong>${escapeHtml(o.origemCriacao||"Sistema")}</div><div><strong>Criada em</strong>${escapeHtml(o.criadoEm||"Não informado")}</div><div><strong>Última alteração</strong>${escapeHtml(c.atualizado_em||"—")}</div></footer></section>`; }
+function renderizarFicha() { const o=obraAberta,c=o.caracteristica||{},principal=o.tipologias.find((t)=>t.principal)||{},complementares=o.tipologias.filter((t)=>!t.principal).map((t)=>t.tipologia).join(", "); const painel=document.getElementById("adminObraFicha"); document.getElementById("adminObrasLista").hidden=true; painel.hidden=false; painel.innerHTML=`<form id="obraFichaForm" class="admin-obra-ficha-form">${renderizarCabecalhoFicha(o)}<div class="admin-obra-layout"><nav class="admin-obra-nav" aria-label="Seções da ficha"><strong>Ficha da obra</strong>${[["identificacao","1. Identificação"],["classificacao","2. Classificação"],["caracteristicas","3. Características"],["intervencoes","4. Intervenções"],["projetos","5. Projetos"],["benchmark","6. Benchmark"],["observacoes","7. Observações"]].map(([id,r],i)=>`<a href="#sec-${id}" ${i===0?'aria-current="true"':''}>${r}</a>`).join("")}</nav><div class="admin-obra-content">${renderizarIdentificacao(o)}${renderizarClassificacao(o,c,principal,complementares)}<div id="camposFisicos">${renderizarCaracteristicasFisicas(c)}</div>${renderizarIntervencoesFicha(o)}${renderizarProjetosFicha(o)}${renderizarBenchmarkFicha(c)}${renderizarAuditoriaFicha(o,c)}</div></div></form>`; configurarFicha(principal.tipologia); }
 function configurarFicha(tipologiaAtual) {
-  const segmento = document.getElementById("fSegmento"), tipologia = document.getElementById("fTipologia");
-  const atualizarTipologias = () => { const atual = tipologia.value || tipologiaAtual; tipologia.innerHTML = opcoes(TIPOLOGIAS_SEGMENTO[segmento.value] || [], atual); tipologiaAtual = ""; };
-  const atualizarCondicionais = () => { const nao = document.getElementById("fNaoAplicavel").checked; document.getElementById("camposFisicos").hidden = nao; if (nao && document.getElementById("fBenchmark").value === "incluir") document.getElementById("fBenchmark").value = "nao_avaliado"; const excluir = document.getElementById("fBenchmark").value === "excluir"; document.getElementById("motivoWrap").hidden = !excluir; document.getElementById("motivoOutroWrap").hidden = !excluir || document.getElementById("fMotivo").value !== "outro"; };
-  atualizarTipologias(); atualizarCondicionais(); segmento.addEventListener("change", atualizarTipologias); document.getElementById("fNaoAplicavel").addEventListener("change", atualizarCondicionais); document.getElementById("fBenchmark").addEventListener("change", atualizarCondicionais); document.getElementById("fMotivo").addEventListener("change", atualizarCondicionais);
-  document.getElementById("voltarObras").addEventListener("click", voltarObras); document.getElementById("obraFichaForm").addEventListener("submit", salvarFicha);
-  document.getElementById("alternarObra").addEventListener("click", alternarObra); document.getElementById("adicionarProjeto").addEventListener("click", () => document.getElementById("projetosFicha").insertAdjacentHTML("beforeend", linhaProjeto()));
-  document.getElementById("projetosFicha").addEventListener("click", (e) => e.target.closest(".removerProjeto")?.closest(".admin-projeto-row")?.remove());
-  document.getElementById("sincronizarProjetos")?.addEventListener("click", sincronizarProjetos);
+  const form=document.getElementById("obraFichaForm"),segmento=document.getElementById("fSegmento"),tipologia=document.getElementById("fTipologia");
+  const atualizarTipologias=()=>{const atual=tipologia.value||tipologiaAtual;tipologia.innerHTML=opcoes(TIPOLOGIAS_SEGMENTO[segmento.value]||[],atual);tipologiaAtual="";};
+  const atualizarCondicionais=()=>{const nao=document.getElementById("fNaoAplicavel").checked;document.getElementById("camposFisicos").hidden=nao;if(nao&&valor("fBenchmark")==="incluir")document.getElementById("fBenchmark").value="nao_avaliado";const excluir=valor("fBenchmark")==="excluir";document.getElementById("motivoWrap").hidden=!excluir;document.getElementById("motivoOutroWrap").hidden=!excluir||valor("fMotivo")!=="outro";};
+  atualizarTipologias(); atualizarCondicionais(); segmento.addEventListener("change",atualizarTipologias); ["fNaoAplicavel","fBenchmark","fMotivo"].forEach((id)=>document.getElementById(id).addEventListener("change",atualizarCondicionais));
+  document.getElementById("voltarObras").addEventListener("click",voltarObras); form.addEventListener("submit",salvarFicha); form.addEventListener("input",()=>{document.getElementById("saveState").textContent="Alterações não salvas";});
+  document.getElementById("alternarObra").addEventListener("click",solicitarAlternarObra); document.getElementById("adicionarProjeto").addEventListener("click",()=>document.getElementById("projetosFicha").insertAdjacentHTML("beforeend",linhaProjeto()));
+  document.getElementById("projetosFicha").addEventListener("click",(e)=>{const remover=e.target.closest(".removerProjeto");if(remover){remover.closest(".admin-projeto-row").remove();return;}const toggle=e.target.closest(".admin-project-toggle");if(toggle){const campos=toggle.closest(".admin-projeto-row").querySelector(".admin-project-fields");campos.hidden=!campos.hidden;toggle.setAttribute("aria-expanded",String(!campos.hidden));}}); document.getElementById("sincronizarProjetos")?.addEventListener("click",sincronizarProjetos); configurarNavegacaoFicha();
 }
-function voltarObras() { history.replaceState(null, "", location.pathname); document.getElementById("adminObraFicha").hidden = true; document.getElementById("adminObrasLista").hidden = false; obraAberta = null; }
-function valor(id) { return document.getElementById(id).value; }
-function projetosFormulario() { return [...document.querySelectorAll(".admin-projeto-row")].map((r) => ({ projeto: r.querySelector(".pNome").value, codigoProjeto: r.querySelector(".pCodigo").value, areaIntervencao: r.querySelector(".pArea").value, areaExterna: r.querySelector(".pExterna").value, areaCobertura: r.querySelector(".pCobertura").value, pavimentosAtendidos: r.querySelector(".pPavimentos").value, observacoes: r.querySelector(".pObs").value, origem: r.querySelector(".pOrigem").value })).filter((p) => p.projeto.trim()); }
-async function salvarFicha(event) {
-  event.preventDefault(); const botao = document.getElementById("salvarFicha"); botao.disabled = true; botao.textContent = "Salvando...";
-  try {
-    if (valor("fNome").trim() !== obraAberta.nome) await fetch(OBRAS_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: obraAberta.id, nome: valor("fNome"), ativo: obraAberta.ativo }) }).then(validarResposta);
-    const principal = valor("fTipologia") ? [{ segmento: valor("fSegmento"), tipologia: valor("fTipologia"), principal: true }] : [];
-    const complementares = valor("fComplementares").split(",").map((v) => v.trim()).filter(Boolean).map((tipologia) => ({ segmento: valor("fSegmento") || "Outro", tipologia, principal: false }));
-    const body = { obraId: obraAberta.id, categoriaRegistro: valor("fCategoria"), natureza: valor("fNatureza"), caracterizacaoNaoAplicavel: document.getElementById("fNaoAplicavel").checked, areaTotalConstruida: valor("fAreaTotal"), areaIntervencao: valor("fAreaIntervencao"), areaExternaIntervencao: valor("fAreaExterna"), areaCobertura: valor("fAreaCobertura"), pavimentosAcima: valor("fPavimentos"), subsolos: valor("fSubsolos"), numeroBlocos: valor("fBlocos"), tipologias: [...principal, ...complementares], intervencoes: [...document.querySelectorAll('[name="intervencao"]:checked')].map((i) => i.value), projetos: projetosFormulario(), benchmarkStatus: valor("fBenchmark"), benchmarkMotivo: valor("fMotivo"), benchmarkMotivoOutro: valor("fMotivoOutro"), observacoes: valor("fObservacoes") };
-    await fetch(OBRAS_ADMIN_URL, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(validarResposta); mostrarMensagemObra("✓ Ficha técnica atualizada."); await carregarObras(); await abrirFicha(obraAberta.id);
-  } catch (erro) { mostrarMensagemObra(`⚠ ${erro.message}`, true); } finally { botao.disabled = false; botao.textContent = "Salvar alterações"; }
-}
-async function alternarObra() { try { await fetch(OBRAS_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: obraAberta.id, nome: valor("fNome"), ativo: !obraAberta.ativo }) }).then(validarResposta); await carregarObras(); await abrirFicha(obraAberta.id); } catch (erro) { mostrarMensagemObra(erro.message, true); } }
-async function sincronizarProjetos() { try { await fetch(OBRAS_ADMIN_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "sincronizarProjetos", obraId: obraAberta.id }) }).then(validarResposta); await abrirFicha(obraAberta.id); } catch (erro) { mostrarMensagemObra(erro.message, true); } }
-function mostrarMensagemObra(mensagem, erro = false) { const alvo = document.getElementById("obraMensagem") || document.getElementById("obrasTabela"); if (alvo) alvo.innerHTML = `<p class="admin-message ${erro ? "error" : "success"}">${escapeHtml(mensagem)}</p>`; }
+function configurarNavegacaoFicha(){document.querySelectorAll(".admin-obra-nav a").forEach((link)=>link.addEventListener("click",(e)=>{e.preventDefault();document.querySelector(link.getAttribute("href"))?.scrollIntoView({behavior:"smooth",block:"start"});}));observadorSecoes?.disconnect();observadorSecoes=new IntersectionObserver((entries)=>{entries.filter((e)=>e.isIntersecting).forEach((e)=>document.querySelectorAll(".admin-obra-nav a").forEach((a)=>a.setAttribute("aria-current",String(a.getAttribute("href")===`#${e.target.id}`))));},{rootMargin:"-25% 0px -60%",threshold:0});document.querySelectorAll(".admin-obra-section").forEach((s)=>observadorSecoes.observe(s));}
+function voltarObras(){history.replaceState(null,"",location.pathname);observadorSecoes?.disconnect();document.getElementById("adminObraFicha").hidden=true;document.getElementById("adminObrasLista").hidden=false;obraAberta=null;}
+function valor(id){return document.getElementById(id).value;}
+function projetosFormulario(){return [...document.querySelectorAll(".admin-projeto-row")].map((r)=>({projeto:r.querySelector(".pNome").value,codigoProjeto:r.querySelector(".pCodigo").value,areaIntervencao:r.querySelector(".pArea").value,areaExterna:r.querySelector(".pExterna").value,areaCobertura:r.querySelector(".pCobertura").value,pavimentosAtendidos:r.querySelector(".pPavimentos").value,observacoes:r.querySelector(".pObs").value,origem:r.querySelector(".pOrigem").value})).filter((p)=>p.projeto.trim());}
+async function salvarFicha(event){event.preventDefault();const botao=document.getElementById("salvarFicha"),id=obraAberta.id;botao.disabled=true;botao.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';try{if(valor("fNome").trim()!==obraAberta.nome)await fetch(OBRAS_URL,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:obraAberta.id,nome:valor("fNome"),ativo:obraAberta.ativo})}).then(validarResposta);const principal=valor("fTipologia")?[{segmento:valor("fSegmento"),tipologia:valor("fTipologia"),principal:true}]:[];const complementares=valor("fComplementares").split(",").map((v)=>v.trim()).filter(Boolean).map((tipologia)=>({segmento:valor("fSegmento")||"Outro",tipologia,principal:false}));const body={obraId:obraAberta.id,categoriaRegistro:valor("fCategoria"),natureza:valor("fNatureza"),caracterizacaoNaoAplicavel:document.getElementById("fNaoAplicavel").checked,areaTotalConstruida:valor("fAreaTotal"),areaIntervencao:valor("fAreaIntervencao"),areaExternaIntervencao:valor("fAreaExterna"),areaCobertura:valor("fAreaCobertura"),pavimentosAcima:valor("fPavimentos"),subsolos:valor("fSubsolos"),numeroBlocos:valor("fBlocos"),tipologias:[...principal,...complementares],intervencoes:[...document.querySelectorAll('[name="intervencao"]:checked')].map((i)=>i.value),projetos:projetosFormulario(),benchmarkStatus:valor("fBenchmark"),benchmarkMotivo:valor("fMotivo"),benchmarkMotivoOutro:valor("fMotivoOutro"),observacoes:valor("fObservacoes")};await fetch(OBRAS_ADMIN_URL,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(validarResposta);await carregarObras();await abrirFicha(id);mostrarToast("Ficha técnica salva.");}catch(erro){mostrarToast(erro.message,true);}finally{if(document.getElementById("salvarFicha")){document.getElementById("salvarFicha").disabled=false;document.getElementById("salvarFicha").innerHTML='<i class="fa-solid fa-floppy-disk"></i> Salvar alterações';}}}
+function solicitarAlternarObra(){if(!obraAberta.ativo){alternarObra();return;}document.getElementById("confirmarObraTitle").textContent=`Desativar ${obraAberta.nome}?`;document.getElementById("confirmarObraTexto").textContent="A obra permanecerá no histórico, mas deixará de aparecer normalmente em novos cadastros.";abrirModal("confirmarObraModal","confirmarAlternarObra");}
+async function alternarObra(){const id=obraAberta.id;try{await fetch(OBRAS_URL,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,nome:valor("fNome"),ativo:!obraAberta.ativo})}).then(validarResposta);fecharModal("confirmarObraModal");await carregarObras();await abrirFicha(id);mostrarToast(obraAberta.ativo?"Obra reativada.":"Obra desativada.");}catch(erro){mostrarToast(erro.message,true);}}
+async function sincronizarProjetos(){const id=obraAberta.id;try{const data=await fetch(OBRAS_ADMIN_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({acao:"sincronizarProjetos",obraId:id})}).then(validarResposta);await abrirFicha(id);mostrarToast(`${data.adicionados||0} projetos sincronizados.`);}catch(erro){mostrarToast(erro.message,true);}}
+function mostrarMensagemObra(mensagem,erro=false){mostrarToast(mensagem,erro);}

@@ -336,6 +336,22 @@
         <article class="chart-card"><h3>Distribuição por status</h3><canvas id="chartStatus"></canvas></article>
         <article class="chart-card completed-activities-card"><h3>Atividades finalizadas</h3><div id="listaAtividadesFinalizadas" class="completed-activities-list" aria-live="polite"></div></article>
         <article class="chart-card"><h3>Atividades por tipo de projeto</h3><canvas id="chartTipoProjeto"></canvas></article>
+        <article class="chart-card classification-chart-card">
+          <h3>Horas por Fase</h3>
+          <p class="chart-subtitle">Distribuição do esforço pelas fases dos projetos</p>
+          <p class="chart-filter-context" id="chartHorasFaseContexto" hidden></p>
+          <canvas id="chartHorasFase"></canvas>
+          <p class="chart-empty-state" id="chartHorasFaseSemDados" hidden>Nenhuma atividade com Fase classificada para os filtros selecionados.</p>
+          <small class="chart-data-note" id="chartHorasFaseNota" hidden></small>
+        </article>
+        <article class="chart-card classification-chart-card">
+          <h3>Horas por Item</h3>
+          <p class="chart-subtitle">Itens que mais consumiram horas no período selecionado</p>
+          <p class="chart-filter-context" id="chartHorasItemContexto" hidden></p>
+          <canvas id="chartHorasItem"></canvas>
+          <p class="chart-empty-state" id="chartHorasItemSemDados" hidden>Nenhuma atividade com Item classificado para os filtros selecionados.</p>
+          <small class="chart-data-note" id="chartHorasItemNota" hidden></small>
+        </article>
         <article class="chart-card"><h3>Atividades por prioridade</h3><canvas id="chartPrioridade"></canvas></article>
         <article class="chart-card"><h3>Obras que estamos pegando</h3><canvas id="chartObrasPegando"></canvas></article>
       </div>
@@ -566,6 +582,7 @@
   <script src="/atividades/planner-modelos.js"></script>
   <script src="/atividades/planner-gantt.js"></script>
   <script src="/atividades/atividade-agrupamento.js"></script>
+  <script src="/atividades/dashboard-classificacao.js"></script>
   <script src="/atividades/script.js"></script>
 </body>
 </html>

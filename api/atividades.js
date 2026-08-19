@@ -265,7 +265,7 @@ module.exports = async function atividadesHandler(req, res) {
         return sendJson(res, 200, { ...fromDatabaseRecord(atividade), plannerSync: await sincronizarComResposta(atividade, user, body.checklistId) });
       }
       validateActivityDates(body);
-      const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id });
+      const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id, origemCriacao: "nova_atividade" });
       body.obraId = obra.id;
       body.obra = obra.nome;
       const record = toDatabaseRecord(body);

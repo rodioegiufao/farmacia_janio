@@ -65,7 +65,7 @@ module.exports = async function atividadesSemanaisHandler(req, res) {
       requireAdmin(user);
       const body = parseRequestBody(req);
       if (body.obraId || String(body.obra || "").trim()) {
-        const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id });
+        const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id, origemCriacao: "atividade_semanal" });
         body.obraId = obra.id; body.obra = obra.nome; body.obraCodigo = obra.codigo;
       } else { body.obraId = null; body.obra = ""; }
       const record = toDatabaseRecord(body);

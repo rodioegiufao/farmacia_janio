@@ -21,13 +21,13 @@ function normalizarNomeObra(valor) {
 
 function mapearObra(row) {
   if (!row) return null;
-  return { id: row.id, codigo: row.codigo, nome: row.nome, nomeNormalizado: row.nome_normalizado, ativo: Boolean(row.ativo) };
+  return { id: row.id, codigo: row.codigo, nome: row.nome, nomeNormalizado: row.nome_normalizado, ativo: Boolean(row.ativo), origemCriacao: row.origem_criacao || "sistema", criadoPor: row.criado_por || null, criadoEm: row.criado_em || null };
 }
 
 async function localizarObraPorId(id, { incluirInativa = true } = {}) {
   if (!UUID_RE.test(String(id || ""))) throw erroObra("O ID da obra informado é inválido.", 400);
   const filtroAtivo = incluirInativa ? "" : "&ativo=eq.true";
-  const rows = await supabaseRequest(OBRAS_TABLE, `?id=eq.${encodeURIComponent(id)}${filtroAtivo}&select=id,codigo,nome,nome_normalizado,ativo`);
+  const rows = await supabaseRequest(OBRAS_TABLE, `?id=eq.${encodeURIComponent(id)}${filtroAtivo}&select=id,codigo,nome,nome_normalizado,ativo,origem_criacao,criado_por,criado_em`);
   return mapearObra(rows?.[0]);
 }
 
@@ -35,11 +35,11 @@ async function localizarObraPorNome(nome, { incluirInativa = true } = {}) {
   const chave = normalizarNomeObra(nome);
   if (!chave) return null;
   const filtroAtivo = incluirInativa ? "" : "&ativo=eq.true";
-  const rows = await supabaseRequest(OBRAS_TABLE, `?nome_normalizado=eq.${encodeURIComponent(chave)}${filtroAtivo}&select=id,codigo,nome,nome_normalizado,ativo`);
+  const rows = await supabaseRequest(OBRAS_TABLE, `?nome_normalizado=eq.${encodeURIComponent(chave)}${filtroAtivo}&select=id,codigo,nome,nome_normalizado,ativo,origem_criacao,criado_por,criado_em`);
   return mapearObra(rows?.[0]);
 }
 
-async function resolverOuCriarObra({ obraId, nomeObra, usuarioId } = {}) {
+async function resolverOuCriarObra({ obraId, nomeObra, usuarioId, origemCriacao = "sistema" } = {}) {
   if (obraId) {
     const obra = await localizarObraPorId(obraId);
     if (!obra) throw erroObra("A obra informada não foi encontrada.", 404);
@@ -57,7 +57,7 @@ async function resolverOuCriarObra({ obraId, nomeObra, usuarioId } = {}) {
   try {
     const rows = await supabaseRequest(OBRAS_TABLE, "", {
       method: "POST",
-      body: JSON.stringify({ nome, nome_normalizado: nomeNormalizado, criado_por: usuarioId || null })
+      body: JSON.stringify({ nome, nome_normalizado: nomeNormalizado, criado_por: usuarioId || null, origem_criacao: origemCriacao })
     });
     return mapearObra(rows?.[0]);
   } catch (error) {
@@ -72,7 +72,7 @@ async function resolverOuCriarObra({ obraId, nomeObra, usuarioId } = {}) {
 
 async function listarObras({ somenteAtivas = true } = {}) {
   const filtro = somenteAtivas ? "?ativo=eq.true&" : "?";
-  const rows = await supabaseRequest(OBRAS_TABLE, `${filtro}select=id,codigo,nome,nome_normalizado,ativo&order=nome.asc`);
+  const rows = await supabaseRequest(OBRAS_TABLE, `${filtro}select=id,codigo,nome,nome_normalizado,ativo,origem_criacao,criado_por,criado_em&order=nome.asc`);
   return (rows || []).map(mapearObra);
 }
 

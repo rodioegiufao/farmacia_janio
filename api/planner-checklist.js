@@ -175,7 +175,7 @@ module.exports = async function plannerChecklistHandler(req, res) {
       const responsaveis = serializarResponsaveis(body.responsaveis ?? body.responsavel);
       if (!responsaveis) return sendJson(res, 422, { mensagem: "Selecione pelo menos um responsável válido." });
       const agora = new Date().toISOString();
-      const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id });
+      const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id, origemCriacao: "planner" });
       const checklistRows = await supabaseRequest(CHECKLISTS_TABLE, "", { method: "POST", body: JSON.stringify({
         obra_id: obra.id, obra: obra.nome, nome_tarefa: texto(body.nomeTarefa) || `${modelo.projeto} — ${modelo.tipo}`,
         projeto: modelo.projeto, tipo: modelo.tipo, codigo_projeto: modelo.codigoProjeto,

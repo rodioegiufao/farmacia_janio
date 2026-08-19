@@ -7,7 +7,7 @@ module.exports = async function obrasHandler(req, res) {
     if (req.method === "GET") return sendJson(res, 200, await listarObras());
     if (req.method === "POST") {
       const body = parseRequestBody(req);
-      const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.nome, usuarioId: user.id });
+      const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.nome, usuarioId: user.id, origemCriacao: body.origemCriacao });
       return sendJson(res, 201, obra);
     }
     if (req.method === "PATCH") {

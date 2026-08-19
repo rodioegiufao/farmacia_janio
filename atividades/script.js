@@ -534,7 +534,7 @@ function configurarAutocompleteObra(input, hidden, identificacao, { opcional = f
     const obra = localizarObraCadastrada(input.value);
     hidden.value = obra?.id || "";
     if (obra && canonizar) input.value = obra.nome;
-    if (identificacao) identificacao.textContent = obra ? `${obra.codigo} — ${obra.nome}` : (!input.value.trim() && opcional ? "Sem obra vinculada." : "Uma nova obra será cadastrada ao salvar.");
+    if (identificacao) identificacao.textContent = obra ? `${obra.codigo} — ${obra.nome}` : (!input.value.trim() && opcional ? "Sem obra vinculada." : "Nova obra. Será criado um cadastro mínimo ao salvar; a ficha técnica poderá ser concluída posteriormente pela Administração.");
   };
   input.addEventListener("input", () => atualizar(false));
   input.addEventListener("change", () => atualizar(true));

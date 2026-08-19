@@ -1787,6 +1787,14 @@ label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margi
 .planner-gantt-phase .planner-gantt-label { padding-left: 38px; color: var(--accent-light); font-weight: 700; }
 .planner-gantt-item .planner-gantt-label { padding-left: 66px; font-size: .78rem; }
 .planner-gantt-segment { z-index: 2; height: 18px; margin: 0 4px; padding: 0; border: 1px solid color-mix(in srgb, var(--accent-light), #fff 20%); border-radius: 5px; background: color-mix(in srgb, var(--accent-light), transparent 18%); box-shadow: 0 2px 6px rgba(0,0,0,.22); }
+.planner-gantt-segment.aggregate { height: 14px; border-radius: 3px; box-shadow: none; }
+.planner-gantt-segment.intensity-1 { opacity: .42; }
+.planner-gantt-segment.intensity-2 { opacity: .58; }
+.planner-gantt-segment.intensity-3 { opacity: .76; }
+.planner-gantt-segment.intensity-4 { opacity: .94; }
+.planner-gantt-window { z-index: 1; height: 0; border-top: 2px dashed color-mix(in srgb, var(--accent-light), transparent 62%); pointer-events: none; }
+.planner-gantt-obra .planner-gantt-timeline { background-color: color-mix(in srgb, var(--accent-light), transparent 95%); }
+.planner-gantt-project .planner-gantt-timeline { background-color: color-mix(in srgb, var(--accent-light), transparent 97%); }
 .planner-gantt-segment:hover, .planner-gantt-segment:focus-visible { transform: none; filter: brightness(1.15); box-shadow: 0 0 0 2px rgba(120,185,255,.35); }
 .planner-gantt-no-activity { grid-column: 1 / -1; padding-left: 10px; color: var(--text-muted); font-size: .68rem; font-style: italic; }
 .planner-gantt-today { position: absolute; z-index: 5; top: 58px; bottom: 0; left: calc(var(--label-width) + (var(--today-column) - .5) * var(--day-width)); width: 1px; pointer-events: none; background: rgba(245,101,101,.72); }

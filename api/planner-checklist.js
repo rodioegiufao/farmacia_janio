@@ -157,7 +157,12 @@ module.exports = async function plannerChecklistHandler(req, res) {
     const user = await requireUser(req);
 
     if (req.method === "GET") {
-      const rows = await supabaseRequest(CHECKLISTS_TABLE, "?select=*,planner_checklist_itens(*)&order=criado_em.desc");
+      const url = new URL(req.url, "http://localhost");
+      const analiseTemporal = url.searchParams.get("analiseTemporal") === "1";
+      const obraId = texto(url.searchParams.get("obraId"));
+      if (analiseTemporal) requireAdmin(user);
+      const filtroObra = obraId ? `obra_id=eq.${encodeURIComponent(obraId)}&` : "";
+      const rows = await supabaseRequest(CHECKLISTS_TABLE, `?${filtroObra}select=*,planner_checklist_itens(*)&order=criado_em.desc`);
       const migrated = await Promise.all((Array.isArray(rows) ? rows : []).map(migrarChecklist));
       const visiveis = migrated.filter((record) => checklistVisivelParaUsuario(record, user));
       const enriched = await Promise.all(visiveis.map(enriquecerRegistroComObra));
@@ -268,3 +273,4 @@ module.exports = async function plannerChecklistHandler(req, res) {
     sendJson(res, error.statusCode || 500, { mensagem: error.message || "Erro interno ao processar o Planner." });
   }
 };
+module.exports._test = { requireAdmin };

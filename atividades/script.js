@@ -101,6 +101,9 @@ let plannerArrastandoId = null;
 let plannerViewMode = "quadro";
 let plannerGanttEscala = "mes";
 let plannerGanttOcultarVazios = true;
+let plannerGanttModo = "sintetico";
+let plannerGanttReferencia = null;
+let plannerGanttMostrarJanela = true;
 const plannerGanttRecolhidos = new Set();
 
 const campos = {
@@ -2819,52 +2822,43 @@ function renderizarPlanner() {
   plannerEls.board.innerHTML = gruposPlanner(filtrados).map(criarBucketPlanner).join("");
 }
 function intervaloVisivelPlannerGantt(global) {
-  const referencia = new Date(`${global.fim}T12:00:00`), inicio = new Date(referencia), fim = new Date(referencia);
   if (plannerGanttEscala === "tudo") return global;
+  const referencia = new Date(`${plannerGanttReferencia || global.fim}T12:00:00`), inicio = new Date(referencia), fim = new Date(referencia);
   if (plannerGanttEscala === "semana") { inicio.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7)); fim.setTime(inicio.getTime()); fim.setDate(fim.getDate() + 6); }
   else { inicio.setDate(1); fim.setMonth(fim.getMonth() + 1, 0); }
   return { inicio: PLANNER_GANTT.dataCivilIso(inicio), fim: PLANNER_GANTT.dataCivilIso(fim) };
 }
 function rotuloDataGantt(iso) { return new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }); }
-function cabecalhoPlannerGantt(dias) {
-  return dias.map((iso) => { const d = new Date(`${iso}T12:00:00`), fimSemana = d.getDay() === 0 || d.getDay() === 6; return `<div class="planner-gantt-day ${fimSemana ? "weekend" : ""}" title="${rotuloDataGantt(iso)}"><strong>${String(d.getDate()).padStart(2, "0")}</strong><small>${d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "")}</small></div>`; }).join("");
+function cabecalhoPlannerGantt(dias) { return dias.map((iso) => { const d = new Date(`${iso}T12:00:00`), fimSemana = d.getDay() === 0 || d.getDay() === 6; return `<div class="planner-gantt-day ${fimSemana ? "weekend" : ""}" title="${rotuloDataGantt(iso)}"><strong>${String(d.getDate()).padStart(2, "0")}</strong><small>${d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "")}</small></div>`; }).join(""); }
+function resumoNoGantt(no) { const m = no.metricas; return `${formatarMinutosPlanner(m.minutosNoPeriodo)} no período · ${formatarMinutosPlanner(m.minutosAcumulados)} acumuladas`; }
+function tooltipOperacionalGantt(no, segmento) { return [no.nome, rotuloDataGantt(segmento.data), `${formatarMinutosPlanner(segmento.minutos)} registradas`, `${segmento.itens?.length || (no.tipo === "item" ? 1 : 0)} itens movimentados`, `${segmento.colaboradores.length} colaboradores`, segmento.itens?.length ? `Itens: ${segmento.itens.map((i) => i.nome).join(" · ")}` : ""].filter(Boolean).join("\n"); }
+function conteudoNoGantt(no, intervalo, dias) {
+  const janela = plannerGanttMostrarJanela && no.tipo !== "item" && no.metricas.primeiraMovimentacao ? (() => { const ini=Math.max(1,PLANNER_GANTT.diferencaDias(intervalo.inicio,no.metricas.primeiraMovimentacao)+1), fim=Math.min(dias.length,PLANNER_GANTT.diferencaDias(intervalo.inicio,no.metricas.ultimaMovimentacao)+1); return fim>=ini?`<span class="planner-gantt-window" style="grid-column:${ini} / span ${fim-ini+1}"></span>`:""; })() : "";
+  return janela + no.segmentosPeriodo.map((segmento) => { const ini=Math.max(1,PLANNER_GANTT.diferencaDias(intervalo.inicio,segmento.data)+1), fim=Math.min(dias.length,PLANNER_GANTT.diferencaDias(intervalo.inicio,segmento.dataFim)+1); if(fim<ini||fim<1||ini>dias.length)return ""; const nivel=segmento.minutos<=240?1:segmento.minutos<=480?2:segmento.minutos<=960?3:4, tooltip=tooltipOperacionalGantt(no,segmento); return `<button type="button" class="planner-gantt-segment intensity-${nivel} ${no.tipo!=="item"?"aggregate":""}" style="grid-column:${ini} / span ${fim-ini+1}" ${no.tipo==="item"?`data-gantt-item="${escapeHtml(no.id)}" data-gantt-checklist="${escapeHtml(no.checklistId)}"`:""} title="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}"></button>`; }).join("");
 }
-function linhaPlannerGantt(tipo, id, nome, resumo, dias, conteudo = "", recolhivel = false) {
-  const recolhido = plannerGanttRecolhidos.has(id);
-  const partesItem = tipo === "item" ? id.split(":") : [];
-  const rotulo = tipo === "item" ? `<button type="button" class="planner-gantt-item-name" data-gantt-item="${escapeHtml(partesItem.slice(2).join(":"))}" data-gantt-checklist="${escapeHtml(partesItem[1])}">${escapeHtml(nome)}</button>` : `<span>${escapeHtml(nome)}</span>`;
-  return `<div class="planner-gantt-row planner-gantt-${tipo}" data-gantt-parent="${escapeHtml(id)}"><div class="planner-gantt-label">${recolhivel ? `<button type="button" data-gantt-toggle="${escapeHtml(id)}" aria-expanded="${!recolhido}" aria-label="${recolhido ? "Expandir" : "Recolher"} ${escapeHtml(nome)}">${recolhido ? "▸" : "▾"}</button>` : ""}${rotulo}${resumo ? `<small>${escapeHtml(resumo)}</small>` : ""}</div><div class="planner-gantt-timeline" style="--gantt-days:${dias.length}">${conteudo}</div></div>`;
-}
-function tooltipSegmentoGantt(item, segmento) {
-  const partes = [`${item.estagio || item.atividade || item.texto}`, rotuloDataGantt(segmento.data), `${formatarMinutosPlanner(segmento.minutos)} registradas`, `${segmento.quantidade} atividade${segmento.quantidade === 1 ? "" : "s"}`, segmento.colaboradores.join(" · ")];
-  if (segmento.quantidade === 1) { const a = segmento.atividades[0]; if (a.trabalhos) partes.push(`Trabalho: ${a.trabalhos}`); if (a.status) partes.push(`Status: ${a.status}`); }
-  return partes.filter(Boolean).join("\n");
+function linhaPlannerGantt(no, intervalo, dias) {
+  const id=`${no.tipo}:${no.id}`, recolhivel=no.tipo!=="item", recolhido=plannerGanttRecolhidos.has(id), tipoCss=no.tipo==="projeto"?"project":no.tipo==="fase"?"phase":no.tipo;
+  const nome=no.tipo==="item"?`<button type="button" class="planner-gantt-item-name" data-gantt-item="${escapeHtml(no.id)}" data-gantt-checklist="${escapeHtml(no.checklistId)}">${escapeHtml(`${no.concluido?"✓ ":""}${no.nome}`)}</button>`:`<span>${escapeHtml(no.nome)}</span>`;
+  return `<div class="planner-gantt-row planner-gantt-${tipoCss}"><div class="planner-gantt-label">${recolhivel?`<button type="button" data-gantt-toggle="${escapeHtml(id)}" aria-expanded="${!recolhido}">${recolhido?"▸":"▾"}</button>`:""}${nome}<small>${escapeHtml(resumoNoGantt(no))}</small></div><div class="planner-gantt-timeline" style="--gantt-days:${dias.length}">${conteudoNoGantt(no,intervalo,dias)}</div></div>`;
 }
 function renderizarPlannerGantt(checklists) {
-  if (!plannerEls.gantt) return;
-  const global = PLANNER_GANTT.obterIntervaloGlobalGantt(checklists);
-  if (!global) { plannerEls.gantt.innerHTML = '<div class="planner-gantt-empty"><strong>Nenhuma atividade realizada encontrada para exibir no Gantt.</strong><span>O Gantt é construído a partir das atividades vinculadas aos itens do Planner com data e hora válidas.</span></div>'; return; }
-  const intervalo = intervaloVisivelPlannerGantt(global), dias = PLANNER_GANTT.listarDias(intervalo.inicio, intervalo.fim), hoje = obterDataIsoLocal(new Date()), hojeVisivel = dias.includes(hoje);
-  const estrutura = PLANNER_GANTT.construirEstruturaGantt(checklists, { ocultarSemAtividade: plannerGanttOcultarVazios });
-  let linhas = "";
-  estrutura.forEach((obra) => { const obraId = `obra:${obra.id}`; linhas += linhaPlannerGantt("obra", obraId, obra.nome, `${obra.projetos.length} projeto(s)`, dias, "", true); if (plannerGanttRecolhidos.has(obraId)) return;
-    obra.projetos.forEach((projeto) => { const projetoId = `projeto:${projeto.id}`; const trabalhados = projeto.fases.reduce((s, f) => s + f.itens.filter((i) => i.segmentosGantt.length).length, 0); linhas += linhaPlannerGantt("project", projetoId, projeto.nome, `${formatarMinutosPlanner(projeto.minutos)} · ${trabalhados} itens trabalhados`, dias, "", true); if (plannerGanttRecolhidos.has(projetoId)) return;
-      projeto.fases.forEach((fase) => { const faseId = `fase:${fase.id}`; linhas += linhaPlannerGantt("phase", faseId, fase.nome, `${fase.itens.filter((i) => i.segmentosGantt.length).length}/${fase.itens.length} itens · ${formatarMinutosPlanner(fase.minutos)}`, dias, "", true); if (plannerGanttRecolhidos.has(faseId)) return;
-        fase.itens.forEach((item) => { const nome = item.estagio || item.atividade || item.texto || "Item"; const segmentos = item.segmentosGantt.map((s) => { const inicioReal = PLANNER_GANTT.diferencaDias(intervalo.inicio, s.data) + 1, fimReal = PLANNER_GANTT.diferencaDias(intervalo.inicio, s.dataFim) + 1, inicio = Math.max(1, inicioReal), fim = Math.min(dias.length, fimReal), tooltip = tooltipSegmentoGantt(item, s); if (fim < 1 || inicio > dias.length || fim < inicio) return ""; return `<button type="button" class="planner-gantt-segment" style="grid-column:${inicio} / span ${fim - inicio + 1}" data-gantt-item="${escapeHtml(item.id)}" data-gantt-checklist="${escapeHtml(item.checklistId)}" title="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}"></button>`; }).join(""); const vazio = item.segmentosGantt.length ? "" : '<span class="planner-gantt-no-activity">Sem atividade registrada</span>'; linhas += linhaPlannerGantt("item", `item:${item.checklistId}:${item.id}`, `${item.concluido ? "✓ " : ""}${nome}`, `${formatarMinutosPlanner(item.minutosRegistrados)}${!item.concluido && item.atividadeCount ? " · Em andamento" : ""}`, dias, segmentos + vazio); });
-      });
-    });
-  });
-  const titulo = plannerGanttEscala === "semana" ? `SEMANA ${obterNumeroSemanaAno(new Date(`${intervalo.inicio}T12:00:00`))}` : plannerGanttEscala === "mes" ? new Date(`${intervalo.inicio}T12:00:00`).toLocaleDateString("pt-BR", { month: "short", year: "numeric" }).toUpperCase() : `${rotuloDataGantt(intervalo.inicio)} — ${rotuloDataGantt(intervalo.fim)}`;
-  plannerEls.gantt.innerHTML = `<div class="planner-gantt-toolbar"><span>Escala:</span>${["semana","mes","tudo"].map((e) => `<button type="button" data-gantt-scale="${e}" aria-pressed="${plannerGanttEscala === e}" class="${plannerGanttEscala === e ? "active" : ""}">${e[0].toUpperCase()+e.slice(1)}</button>`).join("")}<label><input type="checkbox" data-gantt-hide-empty ${plannerGanttOcultarVazios ? "checked" : ""}> Ocultar itens sem atividade</label><button type="button" data-gantt-today ${hojeVisivel ? "" : "disabled"}>Hoje</button></div><div class="planner-gantt-scroll"><div class="planner-gantt-grid" style="--gantt-days:${dias.length}"><div class="planner-gantt-header"><div class="planner-gantt-label"><strong>${escapeHtml(titulo)}</strong></div><div class="planner-gantt-days">${cabecalhoPlannerGantt(dias)}</div></div>${linhas}${hojeVisivel ? `<div class="planner-gantt-today" style="--today-column:${dias.indexOf(hoje) + 1}" aria-hidden="true"><span>Hoje</span></div>` : ""}</div></div>`;
-  plannerEls.gantt.querySelectorAll("[data-gantt-scale]").forEach((b) => b.addEventListener("click", () => { plannerGanttEscala = b.dataset.ganttScale; renderizarPlanner(); }));
-  plannerEls.gantt.querySelector("[data-gantt-hide-empty]")?.addEventListener("change", (e) => { plannerGanttOcultarVazios = e.target.checked; renderizarPlanner(); });
-  plannerEls.gantt.querySelectorAll("[data-gantt-toggle]").forEach((b) => b.addEventListener("click", () => { plannerGanttRecolhidos.has(b.dataset.ganttToggle) ? plannerGanttRecolhidos.delete(b.dataset.ganttToggle) : plannerGanttRecolhidos.add(b.dataset.ganttToggle); renderizarPlanner(); }));
-  plannerEls.gantt.querySelectorAll("[data-gantt-item]").forEach((b) => b.addEventListener("click", () => abrirDetalhesItemPlanner(b.dataset.ganttChecklist, b.dataset.ganttItem, b)));
-  plannerEls.gantt.querySelector("[data-gantt-today]")?.addEventListener("click", () => centralizarDiaPlannerGantt(hoje));
-  requestAnimationFrame(() => { if (plannerGanttEscala !== "tudo") centralizarDiaPlannerGantt(global.fim); });
+  if (!plannerEls.gantt) return; const global=PLANNER_GANTT.obterIntervaloGlobalGantt(checklists);
+  if(!global){plannerEls.gantt.innerHTML='<div class="planner-gantt-empty"><strong>Nenhuma atividade realizada encontrada para exibir no Gantt.</strong><span>O Gantt é construído exclusivamente das atividades reais vinculadas.</span></div>';return;}
+  const intervalo=intervaloVisivelPlannerGantt(global), dias=PLANNER_GANTT.listarDias(intervalo.inicio,intervalo.fim), hoje=obterDataIsoLocal(new Date()), hojeVisivel=dias.includes(hoje);
+  const estrutura=PLANNER_GANTT.construirEstruturaGantt(checklists,{ocultarSemAtividade:plannerGanttOcultarVazios,periodo:intervalo});
+  const linhas=PLANNER_GANTT.filtrarLinhasHierarquia(estrutura,{modo:plannerGanttModo,recolhidos:plannerGanttRecolhidos}).map((no)=>linhaPlannerGantt(no,intervalo,dias)).join("");
+  const titulo=plannerGanttEscala==="semana"?`SEMANA ${obterNumeroSemanaAno(new Date(`${intervalo.inicio}T12:00:00`))}`:plannerGanttEscala==="mes"?new Date(`${intervalo.inicio}T12:00:00`).toLocaleDateString("pt-BR",{month:"long",year:"numeric"}).toUpperCase():`${rotuloDataGantt(intervalo.inicio)} — ${rotuloDataGantt(intervalo.fim)}`;
+  plannerEls.gantt.innerHTML=`<div class="planner-gantt-toolbar"><span>Escala:</span>${["semana","mes","tudo"].map((e)=>`<button data-gantt-scale="${e}" class="${plannerGanttEscala===e?"active":""}">${e[0].toUpperCase()+e.slice(1)}</button>`).join("")}<span>Detalhe:</span>${["sintetico","analitico"].map((m)=>`<button data-gantt-mode="${m}" class="${plannerGanttModo===m?"active":""}">${m==="sintetico"?"Sintético":"Analítico"}</button>`).join("")}<button data-gantt-nav="-1" ${plannerGanttEscala==="tudo"?"disabled":""}>◀</button><strong>${escapeHtml(titulo)}</strong><button data-gantt-nav="1" ${plannerGanttEscala==="tudo"?"disabled":""}>▶</button><button data-gantt-today>Hoje</button><label><input type="checkbox" data-gantt-window ${plannerGanttMostrarJanela?"checked":""}> Mostrar janela de execução</label><label><input type="checkbox" data-gantt-hide-empty ${plannerGanttOcultarVazios?"checked":""}> Com movimentação no período</label></div><div class="planner-gantt-scroll"><div class="planner-gantt-grid" style="--gantt-days:${dias.length}"><div class="planner-gantt-header"><div class="planner-gantt-label"><strong>${escapeHtml(titulo)}</strong></div><div class="planner-gantt-days">${cabecalhoPlannerGantt(dias)}</div></div>${linhas}${hojeVisivel?`<div class="planner-gantt-today" style="--today-column:${dias.indexOf(hoje)+1}"><span>Hoje</span></div>`:""}</div></div>`;
+  plannerEls.gantt.querySelectorAll("[data-gantt-scale]").forEach((b)=>b.addEventListener("click",()=>{plannerGanttEscala=b.dataset.ganttScale;plannerGanttReferencia=null;renderizarPlanner();}));
+  plannerEls.gantt.querySelectorAll("[data-gantt-mode]").forEach((b)=>b.addEventListener("click",()=>{plannerGanttModo=b.dataset.ganttMode;plannerGanttMostrarJanela=plannerGanttModo==="sintetico";renderizarPlanner();}));
+  plannerEls.gantt.querySelectorAll("[data-gantt-nav]").forEach((b)=>b.addEventListener("click",()=>{const d=new Date(`${intervalo.inicio}T12:00:00`);plannerGanttEscala==="semana"?d.setDate(d.getDate()+7*Number(b.dataset.ganttNav)):d.setMonth(d.getMonth()+Number(b.dataset.ganttNav));plannerGanttReferencia=PLANNER_GANTT.dataCivilIso(d);renderizarPlanner();}));
+  plannerEls.gantt.querySelector("[data-gantt-today]")?.addEventListener("click",()=>{plannerGanttReferencia=hoje;renderizarPlanner();});
+  plannerEls.gantt.querySelector("[data-gantt-window]")?.addEventListener("change",(e)=>{plannerGanttMostrarJanela=e.target.checked;renderizarPlanner();});
+  plannerEls.gantt.querySelector("[data-gantt-hide-empty]")?.addEventListener("change",(e)=>{plannerGanttOcultarVazios=e.target.checked;renderizarPlanner();});
+  plannerEls.gantt.querySelectorAll("[data-gantt-toggle]").forEach((b)=>b.addEventListener("click",()=>{plannerGanttRecolhidos.has(b.dataset.ganttToggle)?plannerGanttRecolhidos.delete(b.dataset.ganttToggle):plannerGanttRecolhidos.add(b.dataset.ganttToggle);renderizarPlanner();}));
+  plannerEls.gantt.querySelectorAll("[data-gantt-item]").forEach((b)=>b.addEventListener("click",()=>abrirDetalhesItemPlanner(b.dataset.ganttChecklist,b.dataset.ganttItem,b)));
 }
-function centralizarDiaPlannerGantt(iso) { const scroll = plannerEls.gantt?.querySelector(".planner-gantt-scroll"), grid = plannerEls.gantt?.querySelector(".planner-gantt-grid"); if (!scroll || !grid) return; const inicio = grid.querySelector(".planner-gantt-day")?.title?.split("/").reverse().join("-"); const indice = PLANNER_GANTT.diferencaDias(inicio, iso); scroll.scrollLeft = Math.max(0, 290 + indice * 42 - scroll.clientWidth / 2); }
-function criarBucketPlanner(grupo) {
+function centralizarDiaPlannerGantt(iso) { const scroll=plannerEls.gantt?.querySelector(".planner-gantt-scroll"),grid=plannerEls.gantt?.querySelector(".planner-gantt-grid");if(!scroll||!grid)return;const inicio=grid.querySelector(".planner-gantt-day")?.title?.split("/").reverse().join("-");scroll.scrollLeft=Math.max(0,290+PLANNER_GANTT.diferencaDias(inicio,iso)*42-scroll.clientWidth/2); }function criarBucketPlanner(grupo) {
   const podeAdicionar = (plannerEls.agrupar?.value || "bucket") === "bucket" && usuarioAtualEhAdmin();
   return `<section class="planner-bucket-column" data-drop-bucket="${escapeHtml(grupo.nome)}"><header class="planner-bucket-header"><h3>${escapeHtml(grupo.nome)}</h3><span>${grupo.itens.length}</span></header>${podeAdicionar ? `<button type="button" class="planner-add-task" data-add-bucket="${escapeHtml(grupo.nome)}"><i class="fas fa-plus" aria-hidden="true"></i> Adicionar tarefa</button>` : ""}<div class="planner-bucket-cards">${grupo.itens.map(criarCardPlanner).join("")}</div></section>`;
 }

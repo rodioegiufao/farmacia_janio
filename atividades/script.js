@@ -1792,8 +1792,8 @@ function renderizarGraficoClassificacaoDashboard(tipo, resultado, obterLabel) {
 }
 
 function renderizarGraficosFaseItemDashboard(registros) {
-  const projetosFiltrados = new Set(registros.map((registro) => String(registro.projeto || "").trim()).filter(Boolean));
-  const multiplosProjetos = projetosFiltrados.size > 1;
+  const obrasFiltradas = new Set(registros.map((registro) => String(registro.obra || "Obra não informada").trim()));
+  const multiplasObras = obrasFiltradas.size > 1;
   const contexto = obterContextoGraficosFaseItemDashboard();
   ["Fase", "Item"].forEach((tipo) => {
     const elemento = document.getElementById(`chartHoras${tipo}Contexto`);
@@ -1807,8 +1807,8 @@ function renderizarGraficosFaseItemDashboard(registros) {
       typeof obterLabelItemDashboard !== "function") return;
   const fases = agruparHorasPorFaseDashboard(registros, calcularHorasAtividade);
   const itens = agruparHorasPorItemDashboard(registros, calcularHorasAtividade);
-  renderizarGraficoClassificacaoDashboard("Fase", fases, (categoria) => obterLabelFaseDashboard(categoria, multiplosProjetos));
-  renderizarGraficoClassificacaoDashboard("Item", itens, (categoria) => obterLabelItemDashboard(categoria, multiplosProjetos));
+  renderizarGraficoClassificacaoDashboard("Fase", fases, (categoria) => obterLabelFaseDashboard(categoria, multiplasObras));
+  renderizarGraficoClassificacaoDashboard("Item", itens, (categoria) => obterLabelItemDashboard(categoria, multiplasObras));
 }
 function obterChaveProjetoObra(atividade) {
   return chaveProjetoAtividade(atividade);

@@ -4,6 +4,14 @@ const {
   normalizarNomeObra: normalizarNomeObraAgrupamento
 } = globalThis.ATIVIDADE_AGRUPAMENTO;
 const { obterProjetosComFaseItem, obterFasesDoProjeto, obterItensDoProjetoFase, projetoExigeFaseItem, valorFinal, valorFinalMultiplos, prepararEdicao, taxonomiaPlannerCompleta } = globalThis.FASE_ITEM_ATIVIDADE;
+const {
+  obterRegistrosDetalhadosDashboard,
+  agruparHorasPorFaseDashboard,
+  agruparHorasPorItemDashboard,
+  obterLabelFaseDashboard,
+  obterLabelItemDashboard,
+  ordenarTopHorasDashboard
+} = globalThis.DASHBOARD_CLASSIFICACAO;
 const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const prioridades = ["P0", "P1", "P2", "P3"];
 const plannerStatusLista = ["Não iniciado", "Em andamento", "Concluído", "Atrasado", "Pausado"];
@@ -1721,7 +1729,73 @@ function renderizarGraficosDashboard(lista) {
   criarOuAtualizarGrafico("chartAtividadesProjetoRelatorio", "bar", porProjeto.labels, porProjeto.atividades, "Atividades", true);
   criarOuAtualizarGrafico("chartHorasProjetoRelatorio", "bar", porProjeto.labels, porProjeto.horas, "Horas", true);
 }
+function obterContextoGraficosFaseItemDashboard() {
+  const partes = [];
+  if (filtrosDashboard.obra.value) partes.push(filtrosDashboard.obra.selectedOptions[0]?.textContent?.trim());
+  if (filtrosDashboard.projeto.value) partes.push(filtrosDashboard.projeto.selectedOptions[0]?.textContent?.trim());
+  return partes.filter(Boolean).join(" · ");
+}
 
+function atualizarTextoAuxiliarGraficoClassificacao(tipo, resultado, totalCategorias) {
+  const capitalizado = tipo === "Fase" ? "Fase" : "Item";
+  const sufixo = tipo === "Fase" ? "horasSemFase" : "horasSemItem";
+  const nota = document.getElementById(`chartHoras${capitalizado}Nota`);
+  const mensagens = [];
+  if (resultado[sufixo] > 0) mensagens.push(`Dados históricos: ${formatarHoras(resultado[sufixo])} sem classificação de ${capitalizado}.`);
+  if (totalCategorias > 10) mensagens.push(`Exibindo as 10 categorias com maior consumo de horas entre ${totalCategorias} categorias.`);
+  nota.textContent = mensagens.join(" ");
+  nota.hidden = !mensagens.length;
+}
+
+function renderizarGraficoClassificacaoDashboard(tipo, resultado, obterLabel) {
+  const canvasId = `chartHoras${tipo}`;
+  const canvas = document.getElementById(canvasId);
+  const semDados = document.getElementById(`${canvasId}SemDados`);
+  const top = ordenarTopHorasDashboard(resultado.categorias, 10, obterLabel);
+  atualizarTextoAuxiliarGraficoClassificacao(tipo, resultado, top.totalCategorias);
+  if (!top.categorias.length) {
+    if (dashboardCharts[canvasId]) dashboardCharts[canvasId].destroy();
+    delete dashboardCharts[canvasId];
+    canvas.hidden = true;
+    semDados.hidden = false;
+    return;
+  }
+  canvas.hidden = false;
+  semDados.hidden = true;
+  const labels = top.categorias.map(obterLabel);
+  const valores = top.categorias.map((categoria) => Number(categoria.horas.toFixed(2)));
+  const totalClassificado = resultado.totalHorasClassificadas;
+  criarOuAtualizarGrafico(canvasId, "bar", labels, valores, "Horas", true, {
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          title: (itens) => itens[0]?.label || "",
+          label: (contexto) => {
+            const horas = top.categorias[contexto.dataIndex]?.horas || 0;
+            const percentual = totalClassificado ? (horas / totalClassificado) * 100 : 0;
+            return [formatarHoras(horas), `${percentual.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% das horas classificadas`];
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderizarGraficosFaseItemDashboard(registros) {
+  const projetosFiltrados = new Set(registros.map((registro) => String(registro.projeto || "").trim()).filter(Boolean));
+  const multiplosProjetos = projetosFiltrados.size > 1;
+  const contexto = obterContextoGraficosFaseItemDashboard();
+  ["Fase", "Item"].forEach((tipo) => {
+    const elemento = document.getElementById(`chartHoras${tipo}Contexto`);
+    elemento.textContent = contexto;
+    elemento.hidden = !contexto;
+  });
+  const fases = agruparHorasPorFaseDashboard(registros, calcularHorasAtividade);
+  const itens = agruparHorasPorItemDashboard(registros, calcularHorasAtividade);
+  renderizarGraficoClassificacaoDashboard("Fase", fases, (categoria) => obterLabelFaseDashboard(categoria, multiplosProjetos));
+  renderizarGraficoClassificacaoDashboard("Item", itens, (categoria) => obterLabelItemDashboard(categoria, multiplosProjetos));
+}
 function obterChaveProjetoObra(atividade) {
   return chaveProjetoAtividade(atividade);
 }
@@ -1770,7 +1844,7 @@ function obterObrasPegando(lista) {
   return { labels: chaves.map((chave) => mapa.get(chave).nome), valores: chaves.map((chave) => Number(mapa.get(chave).horas.toFixed(2))) };
 }
 
-function criarOuAtualizarGrafico(canvasId, tipo, labels, valores, label, horizontal = false) {
+function criarOuAtualizarGrafico(canvasId, tipo, labels, valores, label, horizontal = false, opcoesExtras = {}) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
   if (dashboardCharts[canvasId]) dashboardCharts[canvasId].destroy();
@@ -1782,9 +1856,13 @@ function criarOuAtualizarGrafico(canvasId, tipo, labels, valores, label, horizon
     type: tipo,
     data: { labels, datasets: [{ label, data: valores, backgroundColor: obterCoresGrafico(labels), borderColor: "#63b3ed", tension: 0.3 }] },
     options: {
+      ...opcoesExtras,
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: tipo === "doughnut", labels: { color: corTexto, font: { size: 15 } } } },
+      plugins: {
+        legend: { display: tipo === "doughnut", labels: { color: corTexto, font: { size: 15 } } },
+        ...(opcoesExtras.plugins || {})
+      },
       indexAxis: horizontal ? "y" : "x",
       animation: false,
       scales: tipo === "doughnut" ? {} : {

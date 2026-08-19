@@ -1712,6 +1712,10 @@ function agruparPorColaborador(lista) {
 
 function renderizarGraficosDashboard(lista) {
   if (typeof Chart === "undefined") return;
+  // As classificações pertencem aos registros individuais, não à atividade
+  // consolidada. Expanda-os antes de montar os gráficos para preservar a fase,
+  // o item e as horas lançadas em cada registro do planner.
+  renderizarGraficosFaseItemDashboard(obterRegistrosDetalhadosDashboard(lista));
 
   const porColaborador = agruparPorColaborador(lista);
   const colaboradoresLabels = Object.keys(porColaborador).sort((a, b) => porColaborador[b].horas - porColaborador[a].horas).slice(0, 10);

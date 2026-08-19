@@ -6,7 +6,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (PLANNER_GANTT) {
   "use strict";
 
-  const MAX_LINHAS_CONSOLIDADO = 28;
+  const formatarHoras = (minutos) => `${(Number(minutos || 0) / 60).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h`;
   const normalizar = (valor) => String(valor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
   const valor = (atividade, camel, snake) => atividade?.[camel] ?? atividade?.[snake] ?? "";
   function chaveLegada(atividade) {
@@ -35,48 +35,27 @@
   function prepararEstrutura({ checklists, atividadesPermitidas, periodo }) {
     const filtrados = filtrarChecklistsParaRelatorio(checklists, atividadesPermitidas, periodo);
     const estrutura = PLANNER_GANTT.construirEstruturaGantt(filtrados, { ocultarSemAtividade: true, periodo });
-    return { checklists: filtrados, estrutura, dias: PLANNER_GANTT.listarDias(periodo?.inicio, periodo?.fim) };
+    const dias = PLANNER_GANTT.listarDias(periodo?.inicio, periodo?.fim);
+    const diasDoNo = (no) => [...new Set((no.segmentosPeriodo || []).flatMap((segmento) => {
+      const inicio = segmento.data < periodo.inicio ? periodo.inicio : segmento.data;
+      const fim = segmento.dataFim > periodo.fim ? periodo.fim : segmento.dataFim;
+      return PLANNER_GANTT.listarDias(inicio, fim);
+    }))].sort();
+    const linha = (no) => ({ nivel: no.tipo, id: no.id, nome: no.nome, horas: Number(no.metricas?.minutosNoPeriodo || 0) / 60, dias: diasDoNo(no) });
+    const obras = estrutura.map((obra) => ({
+      id: obra.id, codigo: obra.codigo || filtrados.find((c) => String(c.obraId || c.obra) === String(obra.id))?.obraCodigo || "",
+      nome: obra.nome, horas: Number(obra.metricas?.minutosNoPeriodo || 0) / 60, diasAtivos: diasDoNo(obra).length,
+      dias: diasDoNo(obra), linha: linha(obra), projetos: obra.projetos.filter((p) => p.metricas?.diasAtivos).map((projeto) => ({
+        id: projeto.id, nome: projeto.nome, linha: linha(projeto),
+        fases: (projeto.fases || projeto.filhos || []).filter((f) => f.metricas?.diasAtivos).map((fase) => linha(fase))
+      }))
+    }));
+    return { checklists: filtrados, estrutura, dias, periodo: { inicio: periodo?.inicio, fim: periodo?.fim }, obras };
   }
-  const meses = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
-  const semanas = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
-  const formatarHoras = (minutos) => `${(Number(minutos || 0) / 60).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h`;
-  function desenhar(estrutura, dias, periodo, horasTotais) {
-    const linhas = PLANNER_GANTT.filtrarLinhasHierarquia(estrutura, { modo: "sintetico", recolhidos: new Set() });
-    const label = 390, horas = 112, timeline = label + horas, coluna = Math.max(36, Math.min(52, Math.floor(1320 / Math.max(1, dias.length))));
-    const largura = timeline + coluna * dias.length, cabecalho = 124, alturaLinha = 36, altura = cabecalho + linhas.length * alturaLinha + 12, escala = 2;
-    const canvas = document.createElement("canvas"); canvas.width = largura * escala; canvas.height = altura * escala;
-    const ctx = canvas.getContext("2d"); ctx.scale(escala, escala); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, largura, altura);
-    ctx.textBaseline = "middle"; ctx.strokeStyle = "#d8dee8"; ctx.lineWidth = 1;
-    ctx.fillStyle = "#526174"; ctx.textAlign = "left"; ctx.font = "12px Arial";
-    const dataBr = (iso) => String(iso || "").split("-").reverse().join("/");
-    ctx.fillText(`Período: ${dataBr(periodo?.inicio)} a ${dataBr(periodo?.fim)} · ${Number(horasTotais || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h registradas`, 8, 18);
-    ctx.fillStyle = "#172033"; ctx.font = "bold 11px Arial"; ctx.fillText("PROCESSO", 8, 52); ctx.textAlign = "right"; ctx.fillText("HORAS", timeline - 10, 52);
-    dias.forEach((iso, i) => { const d = new Date(`${iso}T12:00:00`), x = timeline + i * coluna;
-      if ([0, 6].includes(d.getDay())) { ctx.fillStyle = "#f7f8fa"; ctx.fillRect(x, 0, coluna, altura); }
-      ctx.beginPath(); ctx.moveTo(x, 34); ctx.lineTo(x, altura); ctx.stroke(); ctx.fillStyle = "#202938"; ctx.textAlign = "center";
-      ctx.font = "600 12px Arial"; ctx.fillText(String(d.getDate()), x + coluna / 2, 57); ctx.font = "10px Arial"; ctx.fillText(semanas[d.getDay()], x + coluna / 2, 77);
-      const anterior = i && new Date(`${dias[i - 1]}T12:00:00`); if (!anterior || anterior.getMonth() !== d.getMonth()) { ctx.textAlign = "left"; ctx.font = "bold 12px Arial"; ctx.fillText(`${meses[d.getMonth()]}/${d.getFullYear()}`, x + 5, 18); }
-    });
-    ctx.beginPath(); ctx.moveTo(label, 38); ctx.lineTo(label, altura); ctx.moveTo(timeline, 38); ctx.lineTo(timeline, altura); ctx.stroke();
-    linhas.forEach((linha, indice) => { const y = cabecalho + indice * alturaLinha;
-      if (linha.tipo === "obra") { ctx.fillStyle = "#f1f6fa"; ctx.fillRect(0, y, largura, alturaLinha); }
-      ctx.strokeStyle = "#e7eaf0"; ctx.beginPath(); ctx.moveTo(0, y + alturaLinha); ctx.lineTo(largura, y + alturaLinha); ctx.stroke();
-      const recuo = linha.tipo === "obra" ? 8 : linha.tipo === "projeto" ? 26 : 48; ctx.textAlign = "left"; ctx.fillStyle = "#172033";
-      ctx.font = linha.tipo === "obra" ? "bold 13px Arial" : linha.tipo === "projeto" ? "600 12px Arial" : "12px Arial";
-      const nome = String(linha.nome || ""); ctx.fillText(nome.length > 49 ? `${nome.slice(0, 47)}…` : nome, recuo, y + alturaLinha / 2);
-      ctx.textAlign = "right"; ctx.font = linha.tipo === "obra" ? "bold 12px Arial" : linha.tipo === "projeto" ? "600 12px Arial" : "12px Arial"; ctx.fillText(formatarHoras(linha.metricas?.minutosNoPeriodo), timeline - 10, y + alturaLinha / 2);
-      (linha.segmentosPeriodo || []).forEach((segmento) => { let inicio = Math.max(0, PLANNER_GANTT.diferencaDias(dias[0], segmento.data)); let fim = Math.min(dias.length - 1, PLANNER_GANTT.diferencaDias(dias[0], segmento.dataFim));
-        if (fim < 0 || inicio >= dias.length) return; ctx.fillStyle = linha.tipo === "obra" ? "#174b7a" : linha.tipo === "projeto" ? "#2e6e9e" : "#4b8fbd";
-        ctx.fillRect(timeline + inicio * coluna + 3, y + 9, (fim - inicio + 1) * coluna - 6, alturaLinha - 18);
-      });
-    });
-    const imagem = canvas.toDataURL("image/png", 1); canvas.remove?.(); return { imagem, largura: canvas.width, altura: canvas.height, linhas: linhas.length };
+  function prepararEstruturaTabular(opcoes) {
+    const dados = prepararEstrutura(opcoes);
+    return { possuiDados: Boolean(dados.obras.length && dados.dias.length), periodo: dados.periodo,
+      totalHoras: Number(opcoes.horasTotais || 0), obras: dados.obras };
   }
-  function gerarImagem(opcoes) {
-    const dados = prepararEstrutura(opcoes); if (!dados.estrutura.length || !dados.dias.length) return { possuiDados: false, imagens: [] };
-    const total = PLANNER_GANTT.filtrarLinhasHierarquia(dados.estrutura, { modo: "sintetico", recolhidos: new Set() }).length;
-    const grupos = total > MAX_LINHAS_CONSOLIDADO && dados.estrutura.length > 1 ? dados.estrutura.map((obra) => [obra]) : [dados.estrutura];
-    return { possuiDados: true, imagens: grupos.map((grupo) => ({ obra: grupos.length > 1 ? grupo[0].nome : "", ...desenhar(grupo, dados.dias, opcoes.periodo, opcoes.horasTotais) })) };
-  }
-  return { filtrarChecklistsParaRelatorio, prepararEstrutura, gerarImagem, formatarHoras };
+  return { filtrarChecklistsParaRelatorio, prepararEstrutura, prepararEstruturaTabular, formatarHoras };
 });

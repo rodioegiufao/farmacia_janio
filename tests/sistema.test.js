@@ -619,15 +619,35 @@ let xmlFinal;
   const zip = novoZip();
   _test.prepararTemplateParaGraficos(zip);
   const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3mG7WQAAAABJRU5ErkJggg==";
-  const dados = _test.montarDadosRelatorio({ atividades: registros, atividadesSemanais: [], periodoRelatorio: periodo, graficos: { status: png }, gantt: { imagens: [{ imagem: png, largura: 1800, altura: 900 }] } }, zip);
+  const ganttTabular = { periodo: { inicio: "2026-07-20", fim: "2026-07-26" }, totalHoras: 8,
+    obras: [{ id: "o1", codigo: "OBR-000023", nome: "FIOCRUZ", horas: 8, diasAtivos: 2, dias: ["2026-07-20", "2026-07-22"], linha: { nivel: "obra", nome: "FIOCRUZ", horas: 8, dias: ["2026-07-20", "2026-07-22"] }, projetos: [{ linha: { nivel: "projeto", nome: "Elétrico", horas: 8, dias: ["2026-07-20", "2026-07-22"] }, fases: [{ nivel: "fase", nome: "Lançamento", horas: 8, dias: ["2026-07-20", "2026-07-22"] }] }] }] };
+  const dados = _test.montarDadosRelatorio({ atividades: registros, atividadesSemanais: [], periodoRelatorio: periodo, graficos: { status: png }, gantt: ganttTabular }, zip);
   const documento = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true });
   documento.render(dados); const xml = _test.validarDocumentoFinal(documento);
-  assert.ok(documento.getZip().file("word/media/relatorio-gantt.png"));
+  assert.equal(documento.getZip().file("word/media/relatorio-gantt.png"), null, "o Gantt não deve criar PNG");
   assert.ok(documento.getZip().file("word/media/relatorio-grafico-1.png"), "os gráficos gerenciais devem ser preservados");
-  assert.match(documento.getZip().file("word/_rels/document.xml.rels").asText(), /rIdRelGantt1/);
+  assert.doesNotMatch(documento.getZip().file("word/_rels/document.xml.rels").asText(), /rIdRelGantt/);
+  assert.match(xml, /SÍNTESE TEMPORAL/); assert.match(xml, /<w:tblHeader\/>/); assert.match(xml, /<w:cantSplit\/>/);
+  assert.match(xml, /<w:tblLayout w:type="fixed"\/>/); assert.match(xml, /w:fill="286D9F"/);
   assert.doesNotMatch(xml, /\[@?LLLL\]/);
 }
-
+{
+  const { gerarGanttTabelaXml, periodosTemporais, aplicarPaisagemUltimaSecao } = require("../api/_relatorio-gantt");
+  const obra = { nome: "OBRA TESTE", horas: 5.5, dias: ["2026-08-18", "2026-08-20"], linha: { nivel: "obra", nome: "OBRA TESTE", horas: 5.5, dias: ["2026-08-18", "2026-08-20"] }, projetos: [{ linha: { nivel: "projeto", nome: "Projeto", horas: 5.5, dias: ["2026-08-18", "2026-08-20"] }, fases: [{ nivel: "fase", nome: "Fase", horas: 4, dias: ["2026-08-18"] }] }] };
+  const semanal = gerarGanttTabelaXml({ periodo: { inicio: "2026-08-16", fim: "2026-08-22" }, totalHoras: 5.5, obras: [obra] });
+  assert.equal(semanal.paisagem, false); assert.equal((semanal.xml.match(/<w:gridCol w:w=/g) || []).length, 12);
+  assert.match(semanal.xml, /5,50 h/); assert.match(semanal.xml, /4,00 h/); assert.match(semanal.xml, /w:fill="F3F5F7"/);
+  assert.equal((semanal.xml.match(/w:fill="286D9F"/g) || []).length, 5, "18 e 20 ficam ativos sem preencher o dia 19");
+  const quatorze = gerarGanttTabelaXml({ periodo: { inicio: "2026-08-01", fim: "2026-08-14" }, obras: [obra] }); assert.equal(quatorze.paisagem, false);
+  const quinze = gerarGanttTabelaXml({ periodo: { inicio: "2026-08-01", fim: "2026-08-15" }, obras: [obra] }); assert.equal(quinze.paisagem, true);
+  const mensal = gerarGanttTabelaXml({ periodo: { inicio: "2026-08-01", fim: "2026-08-31" }, obras: [obra] }); assert.equal(mensal.paisagem, true); assert.equal((mensal.xml.match(/<w:gridCol w:w=/g) || []).length, 36);
+  assert.equal(periodosTemporais({ inicio: "2026-02-01", fim: "2026-02-28" })[0].dias.length, 28);
+  const longo = periodosTemporais({ inicio: "2026-08-20", fim: "2026-09-10" }); assert.deepEqual(longo.map((x) => [x.dias[0], x.dias.at(-1)]), [["2026-08-20", "2026-08-31"], ["2026-09-01", "2026-09-10"]]);
+  const orientado = aplicarPaisagemUltimaSecao('<w:document><w:body><w:sectPr><w:pgSz w:w="11906" w:h="16838"/></w:sectPr></w:body></w:document>');
+  assert.match(orientado, /w:orient="landscape"/); assert.match(mensal.xml, /<w:pgSz w:w="11906" w:h="16838"\/>/, "a quebra preserva retrato nas páginas anteriores");
+  const muitas = Array.from({ length: 20 }, (_, i) => ({ ...obra, nome: `OBRA ${i + 1}` })); const xmlMuitas = gerarGanttTabelaXml({ periodo: { inicio: "2026-08-01", fim: "2026-08-31" }, obras: muitas }).xml;
+  assert.equal((xmlMuitas.match(/B\.\d+ —/g) || []).length, 20); assert.ok((xmlMuitas.match(/<w:cantSplit\/>/g) || []).length >= 80);
+}
 {
   const zip = novoZip(); _test.prepararTemplateParaGraficos(zip);
   const dados = _test.montarDadosRelatorio({ atividades: registros, atividadesSemanais: [], periodoRelatorio: periodo }, zip);

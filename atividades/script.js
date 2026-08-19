@@ -2099,9 +2099,9 @@ async function obterPlannerParaRelatorio() {
 }
 
 async function prepararGanttParaRelatorio(atividadesPermitidas, periodoRelatorio, horasTotais) {
-  if (typeof PLANNER_GANTT_RELATORIO === "undefined") return { possuiDados: false, imagens: [] };
+  if (typeof PLANNER_GANTT_RELATORIO === "undefined") return { possuiDados: false, obras: [] };
   const checklists = await obterPlannerParaRelatorio();
-  return PLANNER_GANTT_RELATORIO.gerarImagem({ checklists, atividadesPermitidas, horasTotais,
+  return PLANNER_GANTT_RELATORIO.prepararEstruturaTabular({ checklists, atividadesPermitidas, horasTotais,
     periodo: { inicio: periodoRelatorio.dataInicio, fim: periodoRelatorio.dataFim } });
 }
 const fundoBrancoRelatorioPlugin = {

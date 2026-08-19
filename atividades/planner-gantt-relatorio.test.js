@@ -15,5 +15,11 @@ assert.deepEqual(dados.dias, ["2026-08-17", "2026-08-18", "2026-08-19", "2026-08
 const linhas = engine.filtrarLinhasHierarquia(dados.estrutura, { modo: "sintetico" });
 assert.ok(!linhas.some((linha) => linha.tipo === "item"), "a visão executiva não mostra itens");
 assert.deepEqual(linhas.find((linha) => linha.tipo === "fase").segmentosPeriodo.map((s) => s.data), ["2026-08-18", "2026-08-20"], "dias sem execução não viram barra contínua");
+assert.equal(linhas.find((linha) => linha.tipo === "obra").metricas.minutosNoPeriodo, 240);
+assert.equal(linhas.find((linha) => linha.tipo === "projeto").metricas.minutosNoPeriodo, 240);
+assert.equal(linhas.find((linha) => linha.tipo === "fase").metricas.minutosNoPeriodo, 240);
+assert.equal(relatorio.formatarHoras(330), "5,50 h");
+const duplicada = relatorio.prepararEstrutura({ checklists: [{ ...checklists[0], itens: [{ ...checklists[0].itens[0], atividadesVinculadas: [todas[1], todas[1]] }] }], atividadesPermitidas: [todas[1]], periodo });
+assert.equal(engine.filtrarLinhasHierarquia(duplicada.estrutura, { modo: "sintetico" }).find((x) => x.tipo === "fase").metricas.minutosNoPeriodo, 120, "a atividade não pode duplicar horas no mesmo nível");
 assert.equal(relatorio.prepararEstrutura({ checklists, atividadesPermitidas: [], periodo }).estrutura.length, 0);
 console.log("planner-gantt-relatorio: filtro, período, segmentos, síntese e imutabilidade validados");

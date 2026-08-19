@@ -2048,15 +2048,18 @@ async function gerarRelatorioWord() {
     
     const atividadesSemanaisRelatorio = filtrarAtividadesSemanaisPorPeriodo(obterAtividadesSemanaisFiltradas());
     const periodoRelatorio = obterPeriodoRelatorioWord();
+    const registrosOficiaisRelatorio = atividadesRelatorio.flatMap((atividade) => atividade.registros || []);
+    const dadosGerenciaisRelatorio = DADOS_GERENCIAIS_RELATORIO.construirDadosGerenciaisRelatorio(registrosOficiaisRelatorio);
     const payload = {
-      atividades: atividadesRelatorio.flatMap((atividade) => atividade.registros || []),
+      atividades: registrosOficiaisRelatorio,
       atividadesSemanais: atividadesSemanaisRelatorio,
       periodoRelatorio,
       historicoAtividades: [],
       tituloRelatorio: obterTituloRelatorioWord(),
       filtros: obterFiltrosDashboardRelatorio(),
-      graficos: await prepararGraficosParaRelatorio(atividadesRelatorio),
-      gantt: await prepararGanttParaRelatorio(registrosAtividadesRelatorio, periodoRelatorio)
+      dadosGerenciais: dadosGerenciaisRelatorio,
+      graficos: await prepararGraficosParaRelatorio(dadosGerenciaisRelatorio),
+      gantt: await prepararGanttParaRelatorio(registrosOficiaisRelatorio, periodoRelatorio, dadosGerenciaisRelatorio.horasTotais)
     };
 
     const response = await fetch(API_RELATORIO_WORD_URL, {
@@ -2095,10 +2098,10 @@ async function obterPlannerParaRelatorio() {
   return Array.isArray(data.checklists) ? data.checklists : [];
 }
 
-async function prepararGanttParaRelatorio(atividadesPermitidas, periodoRelatorio) {
+async function prepararGanttParaRelatorio(atividadesPermitidas, periodoRelatorio, horasTotais) {
   if (typeof PLANNER_GANTT_RELATORIO === "undefined") return { possuiDados: false, imagens: [] };
   const checklists = await obterPlannerParaRelatorio();
-  return PLANNER_GANTT_RELATORIO.gerarImagem({ checklists, atividadesPermitidas,
+  return PLANNER_GANTT_RELATORIO.gerarImagem({ checklists, atividadesPermitidas, horasTotais,
     periodo: { inicio: periodoRelatorio.dataInicio, fim: periodoRelatorio.dataFim } });
 }
 const fundoBrancoRelatorioPlugin = {
@@ -2192,20 +2195,9 @@ async function capturarGraficoTemporarioRelatorio(canvasId, largura = 1800, altu
   }
 }
 
-async function prepararGraficosParaRelatorio(lista) {
-  if (typeof Chart === "undefined") return capturarGraficosRelatorio();
-  renderizarGraficosDashboard(lista);
-  await aguardarRenderizacaoGraficos();
-  return {
-    atividadesProjeto: await capturarGraficoTemporarioRelatorio("chartAtividadesProjetoRelatorio", 1800, 1000),
-    horasProjeto: await capturarGraficoTemporarioRelatorio("chartHorasProjetoRelatorio", 1800, 1000),
-    atividadesColaborador: await capturarGraficoTemporarioRelatorio("chartAtividadesColaborador", 1800, 1000),
-    horasColaborador: await capturarGraficoTemporarioRelatorio("chartHorasColaborador", 1800, 1000),
-    status: await capturarGraficoTemporarioRelatorio("chartStatus", 1800, 1000),
-    tipoProjeto: await capturarGraficoTemporarioRelatorio("chartTipoProjeto", 1800, 1000),
-    prioridade: await capturarGraficoTemporarioRelatorio("chartPrioridade", 1800, 1000),
-    obrasPegando: await capturarGraficoTemporarioRelatorio("chartObrasPegando", 1800, 1000)
-  };
+async function prepararGraficosParaRelatorio(dadosGerenciais) {
+  if (typeof GRAFICOS_RELATORIO === "undefined") throw new Error("Renderizador de gráficos do relatório indisponível.");
+  return GRAFICOS_RELATORIO.gerarTodos({ dadosGerenciais });
 }
 function aguardarRenderizacaoGraficos() {
   return new Promise((resolve) => setTimeout(resolve, 350));

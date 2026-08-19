@@ -11,7 +11,7 @@ const {
   obterLabelFaseDashboard,
   obterLabelItemDashboard,
   ordenarTopHorasDashboard
-} = globalThis.DASHBOARD_CLASSIFICACAO;
+} = globalThis.DASHBOARD_CLASSIFICACAO || {};
 const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const prioridades = ["P0", "P1", "P2", "P3"];
 const plannerStatusLista = ["Não iniciado", "Em andamento", "Concluído", "Atrasado", "Pausado"];
@@ -1712,10 +1712,13 @@ function agruparPorColaborador(lista) {
 
 function renderizarGraficosDashboard(lista) {
   if (typeof Chart === "undefined") return;
-  // As classificações pertencem aos registros individuais, não à atividade
-  // consolidada. Expanda-os antes de montar os gráficos para preservar a fase,
-  // o item e as horas lançadas em cada registro do planner.
-  renderizarGraficosFaseItemDashboard(obterRegistrosDetalhadosDashboard(lista));
+  if (typeof obterRegistrosDetalhadosDashboard === "function") {
+    try {
+      renderizarGraficosFaseItemDashboard(obterRegistrosDetalhadosDashboard(lista));
+    } catch (erro) {
+      console.error("Não foi possível renderizar os gráficos de Fase e Item.", erro);
+    }
+  }
 
   const porColaborador = agruparPorColaborador(lista);
   const colaboradoresLabels = Object.keys(porColaborador).sort((a, b) => porColaborador[b].horas - porColaborador[a].horas).slice(0, 10);
@@ -1744,6 +1747,7 @@ function atualizarTextoAuxiliarGraficoClassificacao(tipo, resultado, totalCatego
   const capitalizado = tipo === "Fase" ? "Fase" : "Item";
   const sufixo = tipo === "Fase" ? "horasSemFase" : "horasSemItem";
   const nota = document.getElementById(`chartHoras${capitalizado}Nota`);
+  if (!nota) return;
   const mensagens = [];
   if (resultado[sufixo] > 0) mensagens.push(`Dados históricos: ${formatarHoras(resultado[sufixo])} sem classificação de ${capitalizado}.`);
   if (totalCategorias > 10) mensagens.push(`Exibindo as 10 categorias com maior consumo de horas entre ${totalCategorias} categorias.`);
@@ -1755,6 +1759,7 @@ function renderizarGraficoClassificacaoDashboard(tipo, resultado, obterLabel) {
   const canvasId = `chartHoras${tipo}`;
   const canvas = document.getElementById(canvasId);
   const semDados = document.getElementById(`${canvasId}SemDados`);
+  if (!canvas || !semDados || typeof ordenarTopHorasDashboard !== "function") return;
   const top = ordenarTopHorasDashboard(resultado.categorias, 10, obterLabel);
   atualizarTextoAuxiliarGraficoClassificacao(tipo, resultado, top.totalCategorias);
   if (!top.categorias.length) {
@@ -1792,9 +1797,14 @@ function renderizarGraficosFaseItemDashboard(registros) {
   const contexto = obterContextoGraficosFaseItemDashboard();
   ["Fase", "Item"].forEach((tipo) => {
     const elemento = document.getElementById(`chartHoras${tipo}Contexto`);
+    if (!elemento) return;
     elemento.textContent = contexto;
     elemento.hidden = !contexto;
   });
+  if (typeof agruparHorasPorFaseDashboard !== "function" ||
+      typeof agruparHorasPorItemDashboard !== "function" ||
+      typeof obterLabelFaseDashboard !== "function" ||
+      typeof obterLabelItemDashboard !== "function") return;
   const fases = agruparHorasPorFaseDashboard(registros, calcularHorasAtividade);
   const itens = agruparHorasPorItemDashboard(registros, calcularHorasAtividade);
   renderizarGraficoClassificacaoDashboard("Fase", fases, (categoria) => obterLabelFaseDashboard(categoria, multiplosProjetos));

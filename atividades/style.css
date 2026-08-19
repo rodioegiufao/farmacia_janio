@@ -1770,13 +1770,13 @@ label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margi
 .planner-gantt-toolbar button:disabled { opacity: .4; cursor: not-allowed; }
 .planner-gantt-scroll { max-height: min(68vh, 720px); overflow: auto; border: 1px solid var(--border-color); border-radius: 9px; overscroll-behavior: contain; }
 .planner-gantt-grid { position: relative; width: max-content; min-width: 100%; --label-width: 290px; --day-width: 42px; background: var(--bg-card); }
-.planner-gantt-header, .planner-gantt-row { display: grid; grid-template-columns: var(--label-width) calc(var(--gantt-days) * var(--day-width)); min-height: 42px; border-bottom: 1px solid var(--border-color); }
+.planner-gantt-header, .planner-gantt-row { display: grid; grid-template-columns: var(--label-width) calc(var(--gantt-days) * var(--day-width)); min-height: 52px; border-bottom: 1px solid var(--border-color); }
 .planner-gantt-header { position: sticky; z-index: 12; top: 0; min-height: 58px; background: var(--bg-card); }
-.planner-gantt-label { position: sticky; z-index: 6; left: 0; display: flex; gap: 7px; align-items: center; min-width: 0; padding: 7px 10px; border-right: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-lighter); }
+.planner-gantt-label { position: sticky; z-index: 6; left: 0; display: flex; flex-wrap: wrap; gap: 3px 7px; align-content: center; align-items: center; min-width: 0; padding: 7px 10px; border-right: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-lighter); }
 .planner-gantt-label button { flex: 0 0 24px; padding: 2px; border: 0; color: var(--text-light); background: transparent; box-shadow: none; }
 .planner-gantt-label .planner-gantt-item-name { flex: 1 1 auto; min-width: 0; padding: 0; overflow: hidden; color: var(--text-lighter); text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 .planner-gantt-label span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.planner-gantt-label small { margin-left: auto; color: var(--text-light); font-size: .64rem; white-space: nowrap; }
+.planner-gantt-label small { flex: 0 0 calc(100% - 31px); margin-left: 31px; color: var(--text-light); font-size: .64rem; line-height: 1.25; white-space: normal; }
 .planner-gantt-days, .planner-gantt-timeline { display: grid; grid-template-columns: repeat(var(--gantt-days), var(--day-width)); }
 .planner-gantt-day { display: grid; place-items: center; border-right: 1px solid rgba(148,163,184,.16); color: var(--text-light); font-size: .72rem; }
 .planner-gantt-day small { font-size: .6rem; text-transform: uppercase; }
@@ -1786,6 +1786,7 @@ label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margi
 .planner-gantt-project .planner-gantt-label { padding-left: 22px; font-weight: 750; }
 .planner-gantt-phase .planner-gantt-label { padding-left: 38px; color: var(--accent-light); font-weight: 700; }
 .planner-gantt-item .planner-gantt-label { padding-left: 66px; font-size: .78rem; }
+.planner-gantt-item .planner-gantt-label small { flex-basis: 100%; margin-left: 0; }
 .planner-gantt-segment { z-index: 2; height: 18px; margin: 0 4px; padding: 0; border: 1px solid color-mix(in srgb, var(--accent-light), #fff 20%); border-radius: 5px; background: color-mix(in srgb, var(--accent-light), transparent 18%); box-shadow: 0 2px 6px rgba(0,0,0,.22); }
 .planner-gantt-segment.aggregate { height: 14px; border-radius: 3px; box-shadow: none; }
 .planner-gantt-segment.intensity-1 { opacity: .42; }
@@ -1801,4 +1802,4 @@ label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margi
 .planner-gantt-today span { position: sticky; top: 62px; padding: 2px 4px; border-radius: 4px; color: #fff; background: rgba(197,15,30,.85); font-size: .58rem; }
 .planner-gantt-empty { display: grid; gap: 8px; place-items: center; min-height: 260px; padding: 30px; color: var(--text-light); text-align: center; }
 [data-theme="light"] .planner-gantt-grid, [data-theme="light"] .planner-gantt-header, [data-theme="light"] .planner-gantt-label { background-color: #fff; }
-@media (max-width: 720px) { .planner-gantt { padding-inline: 10px; } .planner-gantt-grid { --label-width: 205px; --day-width: 40px; } .planner-gantt-label { align-items: flex-start; flex-wrap: wrap; padding-inline: 7px; } .planner-gantt-label small { flex-basis: 100%; margin-left: 31px; white-space: normal; } .planner-gantt-project .planner-gantt-label { padding-left: 12px; } .planner-gantt-phase .planner-gantt-label { padding-left: 22px; } .planner-gantt-item .planner-gantt-label { padding-left: 45px; } }
+@media (max-width: 720px) { .planner-gantt { padding-inline: 10px; } .planner-gantt-grid { --label-width: 205px; --day-width: 40px; } .planner-gantt-label { padding-inline: 7px; } .planner-gantt-project .planner-gantt-label { padding-left: 12px; } .planner-gantt-phase .planner-gantt-label { padding-left: 22px; } .planner-gantt-item .planner-gantt-label { padding-left: 45px; } }

@@ -409,12 +409,13 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 .chart-card { min-height: 330px; padding: 18px; }
 .chart-card h3 { margin-bottom: 14px; font-size: 1rem; }
 .chart-card canvas { width: 100% !important; height: 260px !important; }
-.classification-chart-card { display: flex; flex-direction: column; }
+.classification-chart-card { display: flex; flex-direction: column; grid-column: 1 / -1; min-width: 0; }
 .classification-chart-card h3 { margin-bottom: 4px; }
 .chart-subtitle, .chart-filter-context, .chart-data-note, .chart-empty-state { color: var(--text-light); }
 .chart-subtitle { margin-bottom: 4px; font-size: .8rem; opacity: .78; }
-.chart-filter-context { margin-bottom: 8px; font-size: .78rem; font-weight: 600; color: var(--accent-light); }
-.classification-chart-card canvas { flex: 1; min-height: 230px; }
+.chart-filter-context { align-self: flex-start; margin: 4px 0 10px; padding: 4px 9px; border: 1px solid rgba(99, 179, 237, .3); border-radius: 999px; font-size: .78rem; font-weight: 600; color: var(--accent-light); background: rgba(99, 179, 237, .09); }
+.classification-chart-canvas { position: relative; width: 100%; min-width: 0; min-height: 300px; }
+.chart-card .classification-chart-canvas canvas { width: 100% !important; height: 100% !important; }
 .chart-data-note { display: block; margin-top: 8px; line-height: 1.45; opacity: .78; }
 .chart-empty-state { margin: auto 0; padding: 24px 12px; text-align: center; font-size: .88rem; opacity: .78; }
 .completed-activities-card { display: flex; flex-direction: column; }
@@ -430,6 +431,11 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
   .dashboard, .form-grid, .charts-grid { grid-template-columns: 1fr; }
   .delivery-date-field { width: 100%; }
   .chart-card { min-height: 300px; }
+}
+
+@media (max-width: 600px) {
+  .classification-chart-card { padding: 14px 10px; }
+  .classification-chart-canvas { min-height: 300px; }
 }
 
 .section-tabs {

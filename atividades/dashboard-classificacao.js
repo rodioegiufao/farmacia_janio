@@ -8,7 +8,7 @@
   const separarItens = faseItem?.separarItens;
   const limpar = (valor) => String(valor || "").trim();
   const chave = (...partes) => partes.map(limpar).join("\u001f");
-  const obterObra = (registro) => limpar(registro.obra) || "Obra não informada";
+  const obterProjeto = (registro) => limpar(registro.projeto) || "Projeto não informado";
 
   function obterRegistrosDetalhadosDashboard(lista = []) {
     return lista.flatMap((atividade) => Array.isArray(atividade.registros) ? atividade.registros : [atividade]);
@@ -21,11 +21,11 @@
       const horas = Number(calcularHoras(registro));
       if (!Number.isFinite(horas) || horas <= 0) return;
       totalHoras += horas;
-      const obra = obterObra(registro);
+      const projeto = obterProjeto(registro);
       const fase = limpar(registro.fase);
       if (!fase) { horasSemFase += horas; return; }
-      const id = chave(obra, fase);
-      const atual = mapa.get(id) || { chave: id, obra, fase, horas: 0 };
+      const id = chave(projeto, fase);
+      const atual = mapa.get(id) || { chave: id, projeto, fase, horas: 0 };
       atual.horas += horas;
       mapa.set(id, atual);
     });
@@ -42,23 +42,25 @@
       totalHoras += horas;
       const itens = separarItens(registro.item);
       if (!itens.length) { horasSemItem += horas; return; }
-      const obra = obterObra(registro);
+      const projeto = obterProjeto(registro);
+      const fase = limpar(registro.fase) || "Fase não informada";
       const horasRateadas = horas / itens.length;
       itens.forEach((item) => {
-        const id = chave(obra, item);
-        const atual = mapa.get(id) || { chave: id, obra, item, horas: 0 };
+        const id = chave(projeto, fase, item);
+        const atual = mapa.get(id) || { chave: id, projeto, fase, item, horas: 0 };
         atual.horas += horasRateadas;
         mapa.set(id, atual);
       });
     });
     return { categorias: [...mapa.values()], horasSemItem, totalHorasClassificadas: totalHoras - horasSemItem, totalHoras };
   }
-  function obterLabelFaseDashboard(categoria, multiplasObras) {
-    return multiplasObras ? `${categoria.obra} → ${categoria.fase}` : categoria.fase;
+  function obterLabelFaseDashboard(categoria, multiplosProjetos) {
+    return multiplosProjetos ? `${categoria.projeto} → ${categoria.fase}` : categoria.fase;
   }
-  function obterLabelItemDashboard(categoria, multiplasObras) {
-    return multiplasObras ? `${categoria.obra} → ${categoria.item}` : categoria.item;
-    return multiplosProjetos ? `${categoria.projeto || "Projeto não informado"} → ${fase} → ${categoria.item}` : `${fase} → ${categoria.item}`;
+  function obterLabelItemDashboard(categoria, multiplosProjetos) {
+    return multiplosProjetos
+      ? `${categoria.projeto} → ${categoria.fase} → ${categoria.item}`
+      : `${categoria.fase} → ${categoria.item}`;
   }
   function ordenarTopHorasDashboard(categorias = [], limite = 10, obterLabel = (item) => item.chave) {
     const ordenadas = [...categorias].sort((a, b) => b.horas - a.horas || obterLabel(a).localeCompare(obterLabel(b), "pt-BR"));

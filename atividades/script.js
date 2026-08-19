@@ -1766,34 +1766,22 @@ function renderizarGraficoClassificacaoDashboard(tipo, resultado, obterLabel) {
     if (dashboardCharts[canvasId]) dashboardCharts[canvasId].destroy();
     delete dashboardCharts[canvasId];
     canvas.hidden = true;
+    canvas.closest(".classification-chart-canvas")?.setAttribute("hidden", "");
     semDados.hidden = false;
     return;
   }
   canvas.hidden = false;
+  canvas.closest(".classification-chart-canvas")?.removeAttribute("hidden");
   semDados.hidden = true;
   const labels = top.categorias.map(obterLabel);
   const valores = top.categorias.map((categoria) => Number(categoria.horas.toFixed(2)));
   const totalClassificado = resultado.totalHorasClassificadas;
-  criarOuAtualizarGrafico(canvasId, "bar", labels, valores, "Horas", true, {
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          title: (itens) => itens[0]?.label || "",
-          label: (contexto) => {
-            const horas = top.categorias[contexto.dataIndex]?.horas || 0;
-            const percentual = totalClassificado ? (horas / totalClassificado) * 100 : 0;
-            return [formatarHoras(horas), `${percentual.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% das horas classificadas`];
-          }
-        }
-      }
-    }
-  });
+  criarOuAtualizarGraficoClassificacao(canvasId, top.categorias, labels, valores, totalClassificado);
 }
 
 function renderizarGraficosFaseItemDashboard(registros) {
-  const obrasFiltradas = new Set(registros.map((registro) => String(registro.obra || "Obra não informada").trim()));
-  const multiplasObras = obrasFiltradas.size > 1;
+  const projetosFiltrados = new Set(registros.map((registro) => String(registro.projeto || "Projeto não informado").trim()));
+  const multiplosProjetos = projetosFiltrados.size > 1;
   const contexto = obterContextoGraficosFaseItemDashboard();
   ["Fase", "Item"].forEach((tipo) => {
     const elemento = document.getElementById(`chartHoras${tipo}Contexto`);
@@ -1807,8 +1795,93 @@ function renderizarGraficosFaseItemDashboard(registros) {
       typeof obterLabelItemDashboard !== "function") return;
   const fases = agruparHorasPorFaseDashboard(registros, calcularHorasAtividade);
   const itens = agruparHorasPorItemDashboard(registros, calcularHorasAtividade);
-  renderizarGraficoClassificacaoDashboard("Fase", fases, (categoria) => obterLabelFaseDashboard(categoria, multiplasObras));
-  renderizarGraficoClassificacaoDashboard("Item", itens, (categoria) => obterLabelItemDashboard(categoria, multiplasObras));
+  renderizarGraficoClassificacaoDashboard("Fase", fases, (categoria) => obterLabelFaseDashboard(categoria, multiplosProjetos));
+  renderizarGraficoClassificacaoDashboard("Item", itens, (categoria) => obterLabelItemDashboard(categoria, multiplosProjetos));
+}
+
+function quebrarRotuloGrafico(texto, limite = 34) {
+  const palavras = String(texto || "").replace(/\s*→\s*/g, " → ").split(/\s+/).filter(Boolean);
+  const linhas = [];
+  let linha = "";
+  palavras.forEach((palavra) => {
+    const candidata = linha ? `${linha} ${palavra}` : palavra;
+    if (linha && candidata.length > limite) {
+      linhas.push(linha);
+      linha = palavra;
+    } else {
+      linha = candidata;
+    }
+  });
+  if (linha) linhas.push(linha);
+  return linhas.length ? linhas : [""];
+}
+
+const pluginValorFimBarra = {
+  id: "valorFimBarra",
+  afterDatasetsDraw(chart) {
+    const corTexto = getComputedStyle(document.documentElement).getPropertyValue("--text-lighter").trim() || "#f8fafc";
+    const contexto = chart.ctx;
+    contexto.save();
+    contexto.fillStyle = corTexto;
+    contexto.font = "600 12px sans-serif";
+    contexto.textBaseline = "middle";
+    chart.getDatasetMeta(0).data.forEach((barra, indice) => {
+      const valor = chart.data.datasets[0].data[indice];
+      contexto.fillText(formatarHoras(valor), Math.min(barra.x + 8, chart.width - 48), barra.y);
+    });
+    contexto.restore();
+  }
+};
+
+function criarOuAtualizarGraficoClassificacao(canvasId, categorias, labelsCompletos, valores, totalClassificado) {
+  const canvas = document.getElementById(canvasId);
+  const container = canvas?.closest(".classification-chart-canvas");
+  if (!canvas || !container) return;
+  if (dashboardCharts[canvasId]) dashboardCharts[canvasId].destroy();
+  container.style.height = `${Math.max(300, Math.min(600, categorias.length * 44 + 90))}px`;
+
+  const estilos = getComputedStyle(document.documentElement);
+  const corTexto = estilos.getPropertyValue("--text-light").trim() || "#e2e8f0";
+  const corGrade = estilos.getPropertyValue("--border-color").trim() || "#334155";
+  const corBarra = estilos.getPropertyValue("--accent-blue").trim() || estilos.getPropertyValue("--accent-light").trim() || "#4299e1";
+  const limiteRotulo = container.clientWidth < 600 ? 24 : 34;
+  dashboardCharts[canvasId] = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: labelsCompletos.map((label) => quebrarRotuloGrafico(label, limiteRotulo)),
+      datasets: [{ label: "Horas", data: valores, backgroundColor: corBarra, borderColor: corBarra, borderWidth: 1, borderRadius: 5, barPercentage: .72 }]
+    },
+    plugins: [pluginValorFimBarra],
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: "y",
+      animation: false,
+      layout: { padding: { right: 64 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (itens) => labelsCompletos[itens[0]?.dataIndex] || "",
+            label: (contexto) => {
+              const horas = categorias[contexto.dataIndex]?.horas || 0;
+              const percentual = totalClassificado ? (horas / totalClassificado) * 100 : 0;
+              return [formatarHoras(horas), `${percentual.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% das horas classificadas`];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          title: { display: true, text: "Horas", color: corTexto },
+          ticks: { color: corTexto, callback: (valor) => `${Number(valor).toLocaleString("pt-BR")}h` },
+          grid: { color: corGrade }
+        },
+        y: { ticks: { color: corTexto, autoSkip: false, font: { size: 13 } }, grid: { display: false } }
+      }
+    }
+  });
 }
 function obterChaveProjetoObra(atividade) {
   return chaveProjetoAtividade(atividade);

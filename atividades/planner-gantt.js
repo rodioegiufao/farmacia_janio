@@ -27,6 +27,19 @@
     (intervalos || []).forEach((entrada) => { const intervalo = entrada?.inicio ? entrada : obterIntervaloRealAtividade(entrada); if (intervalo && !unicos.has(identidadeAtividade(intervalo))) unicos.set(identidadeAtividade(intervalo), intervalo); });
     return [...unicos.values()];
   }
+  function correspondeFiltrosAtividade(atividade, filtros = {}) {
+    const responsavel = atividade?.colaborador || atividade?.colaborador_nome || "";
+    return (!filtros.responsavel || responsavel === filtros.responsavel)
+      && (!filtros.status || atividade?.status === filtros.status)
+      && (!filtros.prioridade || atividade?.prioridade === filtros.prioridade);
+  }
+  function obterAtividadesDoNivelGantt({ node, periodo = null, filtros = {} } = {}) {
+    if (!node) return [];
+    return deduplicarIntervalos(node.intervalos || [])
+      .filter((intervalo) => atividadeEstaNoPeriodo(intervalo, periodo) && correspondeFiltrosAtividade(intervalo.atividade, filtros))
+      .sort((a, b) => b.inicio - a.inicio)
+      .map((intervalo) => intervalo.atividade);
+  }
   function agruparAtividadesGanttPorDia(atividades, metadados = new Map()) {
     const grupos = new Map();
     deduplicarIntervalos(atividades).forEach((intervalo) => {
@@ -79,12 +92,12 @@
     }));
     return { tipo, id, nome, filhos, intervalos: unicos, segmentosGantt, segmentosPeriodo, metricas: { ...metricas, itensMovimentados } };
   }
-  function construirEstruturaGantt(checklists, { ocultarSemAtividade = true, periodo = null } = {}) {
+  function construirEstruturaGantt(checklists, { ocultarSemAtividade = true, periodo = null, filtrosAtividade = {} } = {}) {
     const obras = new Map();
     (checklists || []).forEach((checklist) => {
       const itensPorFase = new Map();
       (checklist.itens || []).forEach((item) => {
-        const intervalos = obterAtividadesValidasGantt(item), no = { ...criarNo("item", item.id, item.estagio || item.atividade || item.texto || "Item", intervalos, periodo), ...item, checklistId: checklist.id };
+        const intervalos = obterAtividadesValidasGantt(item).filter((intervalo) => correspondeFiltrosAtividade(intervalo.atividade, filtrosAtividade)), no = { ...criarNo("item", item.id, item.estagio || item.atividade || item.texto || "Item", intervalos, periodo), ...item, checklistId: checklist.id };
         if (ocultarSemAtividade && !no.metricas.diasAtivos) return;
         const faseNome = item.etapa || "Outros"; if (!itensPorFase.has(faseNome)) itensPorFase.set(faseNome, []); itensPorFase.get(faseNome).push(no);
       });
@@ -107,5 +120,5 @@
     (estrutura || []).forEach((obra) => { linhas.push(obra); if (recolhidos.has(`obra:${obra.id}`)) return; obra.projetos.forEach((projeto) => { linhas.push(projeto); if (recolhidos.has(`projeto:${projeto.id}`)) return; projeto.filhos.forEach((fase) => { linhas.push(fase); if (modo === "analitico" && !recolhidos.has(`fase:${fase.id}`)) linhas.push(...fase.filhos); }); }); });
     return linhas;
   }
-  return { obterIntervaloRealAtividade, obterAtividadesValidasGantt, agruparAtividadesGanttPorDia, obterIntervaloGlobalGantt, construirEstruturaGantt, calcularMetricasTemporais, calcularMaiorLacuna, atividadeEstaNoPeriodo, segmentoEstaNoPeriodo, intervalosNoPeriodo, filtrarLinhasHierarquia, deduplicarIntervalos, listarDias, diferencaDias, dataCivilIso };
+  return { obterIntervaloRealAtividade, obterAtividadesValidasGantt, obterAtividadesDoNivelGantt, correspondeFiltrosAtividade, agruparAtividadesGanttPorDia, obterIntervaloGlobalGantt, construirEstruturaGantt, calcularMetricasTemporais, calcularMaiorLacuna, atividadeEstaNoPeriodo, segmentoEstaNoPeriodo, intervalosNoPeriodo, filtrarLinhasHierarquia, deduplicarIntervalos, listarDias, diferencaDias, dataCivilIso };
 });

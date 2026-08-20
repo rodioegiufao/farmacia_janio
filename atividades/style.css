@@ -1760,6 +1760,17 @@ label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margi
 .planner-linked-table { display: grid; gap: 5px; max-height: 220px; overflow: auto; }
 .planner-linked-table > div { display: grid; grid-template-columns: 80px 90px minmax(140px,1fr) 55px 80px; gap: 7px; padding: 7px; border-radius: 5px; background: rgba(148,163,184,.08); font-size: .72rem; }
 @media (max-width: 680px) { .planner-linked-table > div { grid-template-columns: 1fr 1fr; } .planner-linked-table > div span:nth-child(3) { grid-column: 1 / -1; } }
+.planner-linked-activities-modal { align-items: stretch; }
+.planner-linked-activities-card { display: flex; flex-direction: column; width: min(760px, 100%); padding: 0; overflow: hidden; }
+.planner-linked-activities-header { position: sticky; z-index: 2; top: 0; flex: 0 0 auto; padding: 24px 60px 18px 24px; border-bottom: 1px solid var(--border-color); background: var(--bg-card); }
+.planner-linked-activities-header > span { color: var(--accent-light); font-size: .78rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.planner-linked-activities-header h2 { margin: 7px 0 2px; overflow-wrap: anywhere; }
+.planner-linked-activities-header p { margin: 0 0 10px; color: var(--text-light); font-size: .82rem; }
+.planner-linked-activities-header strong { font-size: .86rem; }
+.planner-linked-activities-list { min-height: 0; max-height: calc(100vh - 190px); padding: 16px 24px 24px; overflow-y: auto; }
+.planner-linked-activities-list .planner-linked-table { max-height: none; }
+.planner-linked-activity-row span:nth-child(3) { overflow-wrap: anywhere; white-space: normal; }
+.planner-linked-empty { margin: 18px 0; line-height: 1.5; }
 
 /* Gantt do realizado: somente intervalos das atividades vinculadas. */
 .planner-gantt { min-width: 0; padding: 2px 22px 22px; }
@@ -1774,7 +1785,9 @@ label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margi
 .planner-gantt-header { position: sticky; z-index: 12; top: 0; min-height: 58px; background: var(--bg-card); }
 .planner-gantt-label { position: sticky; z-index: 6; left: 0; display: flex; flex-wrap: wrap; gap: 3px 7px; align-content: center; align-items: center; min-width: 0; padding: 7px 10px; border-right: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-lighter); }
 .planner-gantt-label button { flex: 0 0 24px; padding: 2px; border: 0; color: var(--text-light); background: transparent; box-shadow: none; }
-.planner-gantt-label .planner-gantt-item-name { flex: 1 1 auto; min-width: 0; padding: 0; overflow: hidden; color: var(--text-lighter); text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.planner-gantt-label .planner-gantt-process-button { flex: 1 1 auto; min-width: 0; padding: 3px 5px; overflow: hidden; border-radius: 4px; color: inherit; cursor: pointer; text-align: left; text-overflow: ellipsis; white-space: nowrap; transition: color .15s ease, background-color .15s ease; }
+.planner-gantt-label .planner-gantt-process-button:hover, .planner-gantt-label .planner-gantt-process-button:focus-visible { color: var(--accent-light); background: rgba(99,179,237,.09); box-shadow: 0 0 0 2px rgba(99,179,237,.2); transform: none; }
+.planner-gantt-label .planner-gantt-toggle:hover, .planner-gantt-label .planner-gantt-toggle:focus-visible { color: var(--accent-light); background: rgba(99,179,237,.09); transform: none; }
 .planner-gantt-label span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .planner-gantt-label small { flex: 0 0 calc(100% - 31px); margin-left: 31px; color: var(--text-light); font-size: .64rem; line-height: 1.25; white-space: normal; }
 .planner-gantt-days, .planner-gantt-timeline { display: grid; grid-template-columns: repeat(var(--gantt-days), var(--day-width)); }
@@ -1803,3 +1816,4 @@ label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margi
 .planner-gantt-empty { display: grid; gap: 8px; place-items: center; min-height: 260px; padding: 30px; color: var(--text-light); text-align: center; }
 [data-theme="light"] .planner-gantt-grid, [data-theme="light"] .planner-gantt-header, [data-theme="light"] .planner-gantt-label { background-color: #fff; }
 @media (max-width: 720px) { .planner-gantt { padding-inline: 10px; } .planner-gantt-grid { --label-width: 205px; --day-width: 40px; } .planner-gantt-label { padding-inline: 7px; } .planner-gantt-project .planner-gantt-label { padding-left: 12px; } .planner-gantt-phase .planner-gantt-label { padding-left: 22px; } .planner-gantt-item .planner-gantt-label { padding-left: 45px; } }
+@media (max-width: 680px) { .planner-linked-activities-modal { padding: 0; } .planner-linked-activities-card { width: 100%; max-height: 100vh; border-radius: 0; } .planner-linked-activities-header { padding: 20px 54px 15px 18px; } .planner-linked-activities-list { max-height: none; padding: 12px 18px 20px; } .planner-linked-activity-row { grid-template-columns: 1fr 1fr !important; } .planner-linked-activity-row span:nth-child(3) { grid-column: 1 / -1; } }

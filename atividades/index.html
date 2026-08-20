@@ -494,6 +494,18 @@
         </form>
       </div>
     </div>
+    <div class="planner-item-modal planner-linked-activities-modal" id="plannerGanttActivitiesModal" hidden>
+      <section class="planner-item-card planner-linked-activities-card" role="dialog" aria-modal="true" aria-labelledby="plannerGanttActivitiesTitle" tabindex="-1">
+        <button type="button" id="btnFecharPlannerGanttActivities" class="planner-modal-close" aria-label="Fechar atividades vinculadas">&times;</button>
+        <header class="planner-linked-activities-header">
+          <span>Atividades vinculadas</span>
+          <h2 id="plannerGanttActivitiesTitle"></h2>
+          <p id="plannerGanttActivitiesContext"></p>
+          <strong id="plannerGanttActivitiesSummary"></strong>
+        </header>
+        <div id="plannerGanttActivitiesList" class="planner-linked-activities-list"></div>
+      </section>
+    </div>
     <section class="panel weekly-panel" id="semanaSection" data-section-panel="semanaSection" aria-label="Atividades da semana" hidden>
       <div class="weekly-hero">
         <div>

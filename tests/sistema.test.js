@@ -374,6 +374,13 @@ assert.ok(gantt.filtrarLinhasHierarquia(estrutura,{modo:"analitico",recolhidos})
 assert.ok(!gantt.filtrarLinhasHierarquia(estrutura,{modo:"analitico",recolhidos}).includes(fase.itens[0]));
 assert.ok(!gantt.filtrarLinhasHierarquia(estrutura,{modo:"sintetico"}).some(n=>n.tipo==="item"));
 assert.ok(gantt.filtrarLinhasHierarquia(estrutura,{modo:"analitico"}).some(n=>n.tipo==="item"));
+const atividadesFase=gantt.obterAtividadesDoNivelGantt({node:fase,periodo:{inicio:"2026-08-01",fim:"2026-08-05"}});
+assert.deepEqual(atividadesFase.map(a=>a.data_inicio),["2026-08-04","2026-08-03"],"o drill-down respeita período e ordena do mais recente");
+assert.equal(gantt.obterAtividadesDoNivelGantt({node:obra,periodo:{inicio:"2026-08-01",fim:"2026-08-31"}}).filter(a=>a.id===compartilhada.id).length,1,"atividade repetida é exibida uma vez");
+assert.deepEqual(gantt.obterAtividadesDoNivelGantt({node:obra,periodo:{inicio:"2026-08-01",fim:"2026-08-31"},filtros:{responsavel:"Bruno"}}).map(a=>a.id),[compartilhada.id],"o drill-down respeita responsável");
+const semId={...atividade("2026-08-12","08:00","10:00","Bruno"),id:null};
+const legado={intervalos:[semId,{...semId}]};
+assert.equal(gantt.obterAtividadesDoNivelGantt({node:legado}).length,1,"registros legados sem id usam identidade estável");
 }
 
 // ========================================================

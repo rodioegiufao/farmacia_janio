@@ -105,6 +105,9 @@ let plannerGanttModo = "sintetico";
 let plannerGanttReferencia = null;
 let plannerGanttMostrarJanela = true;
 const plannerGanttRecolhidos = new Set();
+let plannerGanttNosAtuais = new Map();
+let plannerGanttPeriodoAtual = null;
+let plannerGanttAtividadesFocoAnterior = null;
 
 const campos = {
   id: document.getElementById("atividadeId"),
@@ -186,6 +189,7 @@ const plannerEls = {
   filtroResponsavel: document.getElementById("plannerFiltroResponsavel"),
   filtroPrazo: document.getElementById("plannerFiltroPrazo"),
   itemModal: document.getElementById("plannerItemModal"),
+  ganttActivitiesModal: document.getElementById("plannerGanttActivitiesModal"),
   itemForm: document.getElementById("plannerItemForm"),
   agrupar: document.getElementById("plannerAgrupar"),
   detalheModal: document.getElementById("plannerDetalhesModal"),
@@ -2582,6 +2586,8 @@ function inicializarPlanner() {
   plannerEls.detalheChecklist?.addEventListener("click", manipularDetalhePlanner);
   plannerEls.itemForm?.addEventListener("submit", salvarDetalhesItemPlanner);
   document.getElementById("btnFecharPlannerItem")?.addEventListener("click", fecharDetalhesItemPlanner);
+  document.getElementById("btnFecharPlannerGanttActivities")?.addEventListener("click", fecharAtividadesVinculadasGantt);
+  plannerEls.ganttActivitiesModal?.addEventListener("click", (event) => { if (event.target === plannerEls.ganttActivitiesModal) fecharAtividadesVinculadasGantt(); });
   document.getElementById("btnCancelarPlannerItem")?.addEventListener("click", fecharDetalhesItemPlanner);
   document.getElementById("btnLimparPlannerItem")?.addEventListener("click", limparAgendamentoItemPlanner);
   document.getElementById("btnPlannerItemConclusao")?.addEventListener("click", async () => { const achado = localizarItemPlanner(document.getElementById("plannerItemChecklistId").value, document.getElementById("plannerItemId").value); if (achado) await atualizarItensPlannerEmLote([String(achado.item.id)], !achado.item.concluido, achado.checklist.id, true); abrirDetalhesItemPlanner(achado.checklist.id, achado.item.id); });
@@ -2590,7 +2596,8 @@ function inicializarPlanner() {
   plannerEls.detalheForm?.addEventListener("submit", salvarDetalhesPlanner);
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
-    if (!plannerEls.itemModal?.hidden) fecharDetalhesItemPlanner();
+    if (!plannerEls.ganttActivitiesModal?.hidden) fecharAtividadesVinculadasGantt();
+    else if (!plannerEls.itemModal?.hidden) fecharDetalhesItemPlanner();
     else if (!plannerEls.detalheModal?.hidden) fecharDetalhesPlanner();
     else if (!plannerEls.modal?.hidden) fecharPlannerModal();
   });
@@ -2840,18 +2847,41 @@ function resumoNoGantt(no) { const m = no.metricas; return `${formatarMinutosPla
 function tooltipOperacionalGantt(no, segmento) { return [no.nome, rotuloDataGantt(segmento.data), `${formatarMinutosPlanner(segmento.minutos)} registradas`, `${segmento.itens?.length || (no.tipo === "item" ? 1 : 0)} itens movimentados`, `${segmento.colaboradores.length} colaboradores`, segmento.itens?.length ? `Itens: ${segmento.itens.map((i) => i.nome).join(" · ")}` : ""].filter(Boolean).join("\n"); }
 function conteudoNoGantt(no, intervalo, dias) {
   const janela = plannerGanttMostrarJanela && no.tipo !== "item" && no.metricas.primeiraMovimentacao ? (() => { const ini=Math.max(1,PLANNER_GANTT.diferencaDias(intervalo.inicio,no.metricas.primeiraMovimentacao)+1), fim=Math.min(dias.length,PLANNER_GANTT.diferencaDias(intervalo.inicio,no.metricas.ultimaMovimentacao)+1); return fim>=ini?`<span class="planner-gantt-window" style="grid-column:${ini} / span ${fim-ini+1}"></span>`:""; })() : "";
-  return janela + no.segmentosPeriodo.map((segmento) => { const ini=Math.max(1,PLANNER_GANTT.diferencaDias(intervalo.inicio,segmento.data)+1), fim=Math.min(dias.length,PLANNER_GANTT.diferencaDias(intervalo.inicio,segmento.dataFim)+1); if(fim<ini||fim<1||ini>dias.length)return ""; const nivel=segmento.minutos<=240?1:segmento.minutos<=480?2:segmento.minutos<=960?3:4, tooltip=tooltipOperacionalGantt(no,segmento); return `<button type="button" class="planner-gantt-segment intensity-${nivel} ${no.tipo!=="item"?"aggregate":""}" style="grid-column:${ini} / span ${fim-ini+1}" ${no.tipo==="item"?`data-gantt-item="${escapeHtml(no.id)}" data-gantt-checklist="${escapeHtml(no.checklistId)}"`:""} title="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}"></button>`; }).join("");
+  return janela + no.segmentosPeriodo.map((segmento) => { const ini=Math.max(1,PLANNER_GANTT.diferencaDias(intervalo.inicio,segmento.data)+1), fim=Math.min(dias.length,PLANNER_GANTT.diferencaDias(intervalo.inicio,segmento.dataFim)+1); if(fim<ini||fim<1||ini>dias.length)return ""; const nivel=segmento.minutos<=240?1:segmento.minutos<=480?2:segmento.minutos<=960?3:4, tooltip=tooltipOperacionalGantt(no,segmento); return `<span class="planner-gantt-segment intensity-${nivel} ${no.tipo!=="item"?"aggregate":""}" style="grid-column:${ini} / span ${fim-ini+1}" title="${escapeHtml(tooltip)}"></span>`; }).join("");
 }
 function linhaPlannerGantt(no, intervalo, dias) {
   const id=`${no.tipo}:${no.id}`, recolhivel=no.tipo!=="item", recolhido=plannerGanttRecolhidos.has(id), tipoCss=no.tipo==="projeto"?"project":no.tipo==="fase"?"phase":no.tipo;
-  const nome=no.tipo==="item"?`<button type="button" class="planner-gantt-item-name" data-gantt-item="${escapeHtml(no.id)}" data-gantt-checklist="${escapeHtml(no.checklistId)}">${escapeHtml(`${no.concluido?"✓ ":""}${no.nome}`)}</button>`:`<span>${escapeHtml(no.nome)}</span>`;
-  return `<div class="planner-gantt-row planner-gantt-${tipoCss}"><div class="planner-gantt-label">${recolhivel?`<button type="button" data-gantt-toggle="${escapeHtml(id)}" aria-expanded="${!recolhido}">${recolhido?"▸":"▾"}</button>`:""}${nome}<small>${escapeHtml(resumoNoGantt(no))}</small></div><div class="planner-gantt-timeline" style="--gantt-days:${dias.length}">${conteudoNoGantt(no,intervalo,dias)}</div></div>`;
+  const nome=`<button type="button" class="planner-gantt-process-button" data-gantt-node="${escapeHtml(id)}" aria-label="Ver atividades vinculadas a ${escapeHtml(no.nome)}">${escapeHtml(`${no.tipo==="item"&&no.concluido?"✓ ":""}${no.nome}`)}</button>`;
+  return `<div class="planner-gantt-row planner-gantt-${tipoCss}"><div class="planner-gantt-label">${recolhivel?`<button type="button" class="planner-gantt-toggle" data-gantt-toggle="${escapeHtml(id)}" aria-label="${recolhido?"Expandir":"Recolher"} ${escapeHtml(no.nome)}" aria-expanded="${!recolhido}">${recolhido?"▸":"▾"}</button>`:""}${nome}<small>${escapeHtml(resumoNoGantt(no))}</small></div><div class="planner-gantt-timeline" style="--gantt-days:${dias.length}">${conteudoNoGantt(no,intervalo,dias)}</div></div>`;
+}
+function filtrosAtividadePlannerGantt() {
+  const statusMap = { "Concluído": "Finalizado", "Em andamento": "Em progresso", "Atrasado": "Atrasado", "Pausado": "Pausado", "Não iniciado": "__sem_atividade__" };
+  return { responsavel: plannerEls.filtroResponsavel?.value || "", status: statusMap[plannerEls.filtroStatus?.value] || "", prioridade: plannerEls.filtroPrioridade?.value || "" };
+}
+function registrarContextoNosGantt(estrutura) {
+  plannerGanttNosAtuais = new Map();
+  estrutura.forEach((obra) => { obra.contexto = "Obra"; plannerGanttNosAtuais.set(`obra:${obra.id}`, obra); obra.projetos.forEach((projeto) => { projeto.contexto = `Projeto · ${obra.nome}`; plannerGanttNosAtuais.set(`projeto:${projeto.id}`, projeto); projeto.fases.forEach((fase) => { fase.contexto = `Fase · ${projeto.nome} · ${obra.nome}`; plannerGanttNosAtuais.set(`fase:${fase.id}`, fase); fase.itens.forEach((item) => { item.contexto = `Item · ${fase.nome} · ${projeto.nome}`; plannerGanttNosAtuais.set(`item:${item.id}`, item); }); }); }); });
+}
+function fecharAtividadesVinculadasGantt() { if (!plannerEls.ganttActivitiesModal) return; plannerEls.ganttActivitiesModal.hidden = true; plannerGanttAtividadesFocoAnterior?.focus?.(); }
+function abrirAtividadesVinculadasGantt(no, gatilho) {
+  if (!no || !plannerEls.ganttActivitiesModal) return;
+  plannerGanttAtividadesFocoAnterior = gatilho;
+  const lista = PLANNER_GANTT.obterAtividadesDoNivelGantt({ node: no, periodo: plannerGanttPeriodoAtual, filtros: filtrosAtividadePlannerGantt() });
+  const minutos = lista.reduce((total, atividade) => total + calcularMinutosAtividadeBanco(atividade), 0);
+  document.getElementById("plannerGanttActivitiesTitle").textContent = no.nome;
+  document.getElementById("plannerGanttActivitiesContext").textContent = no.contexto;
+  document.getElementById("plannerGanttActivitiesSummary").textContent = `${lista.length} ${lista.length === 1 ? "atividade" : "atividades"} · ${formatarMinutosPlanner(minutos)} registradas`;
+  document.getElementById("plannerGanttActivitiesList").innerHTML = lista.length ? `<div class="planner-linked-table">${lista.map((a) => `<div class="planner-linked-activity-row"><time>${escapeHtml(formatarData(a.data_inicio || a.data_termino))}</time><strong>${escapeHtml(a.colaborador || a.colaborador_nome || "-")}</strong><span>${escapeHtml(a.trabalhos || a.descricao || "-")}</span><span>${formatarMinutosPlanner(calcularMinutosAtividadeBanco(a))}</span><span>${escapeHtml(a.status || "-")}</span></div>`).join("")}</div>` : '<p class="empty planner-linked-empty">Nenhuma atividade vinculada foi identificada para este elemento no período e filtros selecionados.</p>';
+  plannerEls.ganttActivitiesModal.hidden = false;
+  plannerEls.ganttActivitiesModal.querySelector("[role=dialog]")?.focus();
 }
 function renderizarPlannerGantt(checklists) {
   if (!plannerEls.gantt) return; const global=PLANNER_GANTT.obterIntervaloGlobalGantt(checklists);
   if(!global){plannerEls.gantt.innerHTML='<div class="planner-gantt-empty"><strong>Nenhuma atividade realizada encontrada para exibir no Gantt.</strong><span>O Gantt é construído exclusivamente das atividades reais vinculadas.</span></div>';return;}
   const intervalo=intervaloVisivelPlannerGantt(global), dias=PLANNER_GANTT.listarDias(intervalo.inicio,intervalo.fim), hoje=obterDataIsoLocal(new Date()), hojeVisivel=dias.includes(hoje);
-  const estrutura=PLANNER_GANTT.construirEstruturaGantt(checklists,{ocultarSemAtividade:plannerGanttOcultarVazios,periodo:intervalo});
+  plannerGanttPeriodoAtual=intervalo;
+  const estrutura=PLANNER_GANTT.construirEstruturaGantt(checklists,{ocultarSemAtividade:plannerGanttOcultarVazios,periodo:intervalo,filtrosAtividade:filtrosAtividadePlannerGantt()});
+  registrarContextoNosGantt(estrutura);
   const linhas=PLANNER_GANTT.filtrarLinhasHierarquia(estrutura,{modo:plannerGanttModo,recolhidos:plannerGanttRecolhidos}).map((no)=>linhaPlannerGantt(no,intervalo,dias)).join("");
   const titulo=plannerGanttEscala==="semana"?`SEMANA ${obterNumeroSemanaAno(new Date(`${intervalo.inicio}T12:00:00`))}`:plannerGanttEscala==="mes"?new Date(`${intervalo.inicio}T12:00:00`).toLocaleDateString("pt-BR",{month:"long",year:"numeric"}).toUpperCase():`${rotuloDataGantt(intervalo.inicio)} — ${rotuloDataGantt(intervalo.fim)}`;
   plannerEls.gantt.innerHTML=`<div class="planner-gantt-toolbar"><span>Escala:</span>${["semana","mes","tudo"].map((e)=>`<button data-gantt-scale="${e}" class="${plannerGanttEscala===e?"active":""}">${e[0].toUpperCase()+e.slice(1)}</button>`).join("")}<span>Detalhe:</span>${["sintetico","analitico"].map((m)=>`<button data-gantt-mode="${m}" class="${plannerGanttModo===m?"active":""}">${m==="sintetico"?"Sintético":"Analítico"}</button>`).join("")}<button data-gantt-nav="-1" ${plannerGanttEscala==="tudo"?"disabled":""}>◀</button><strong>${escapeHtml(titulo)}</strong><button data-gantt-nav="1" ${plannerGanttEscala==="tudo"?"disabled":""}>▶</button><button data-gantt-today>Hoje</button><label><input type="checkbox" data-gantt-window ${plannerGanttMostrarJanela?"checked":""}> Mostrar janela de execução</label><label><input type="checkbox" data-gantt-hide-empty ${plannerGanttOcultarVazios?"checked":""}> Com movimentação no período</label></div><div class="planner-gantt-scroll"><div class="planner-gantt-grid" style="--gantt-days:${dias.length}"><div class="planner-gantt-header"><div class="planner-gantt-label"><strong>${escapeHtml(titulo)}</strong></div><div class="planner-gantt-days">${cabecalhoPlannerGantt(dias)}</div></div>${linhas}${hojeVisivel?`<div class="planner-gantt-today" style="--today-column:${dias.indexOf(hoje)+1}"><span>Hoje</span></div>`:""}</div></div>`;
@@ -2861,8 +2891,8 @@ function renderizarPlannerGantt(checklists) {
   plannerEls.gantt.querySelector("[data-gantt-today]")?.addEventListener("click",()=>{plannerGanttReferencia=hoje;renderizarPlanner();});
   plannerEls.gantt.querySelector("[data-gantt-window]")?.addEventListener("change",(e)=>{plannerGanttMostrarJanela=e.target.checked;renderizarPlanner();});
   plannerEls.gantt.querySelector("[data-gantt-hide-empty]")?.addEventListener("change",(e)=>{plannerGanttOcultarVazios=e.target.checked;renderizarPlanner();});
-  plannerEls.gantt.querySelectorAll("[data-gantt-toggle]").forEach((b)=>b.addEventListener("click",()=>{plannerGanttRecolhidos.has(b.dataset.ganttToggle)?plannerGanttRecolhidos.delete(b.dataset.ganttToggle):plannerGanttRecolhidos.add(b.dataset.ganttToggle);renderizarPlanner();}));
-  plannerEls.gantt.querySelectorAll("[data-gantt-item]").forEach((b)=>b.addEventListener("click",()=>abrirDetalhesItemPlanner(b.dataset.ganttChecklist,b.dataset.ganttItem,b)));
+  plannerEls.gantt.querySelectorAll("[data-gantt-toggle]").forEach((b)=>b.addEventListener("click",(event)=>{event.stopPropagation();plannerGanttRecolhidos.has(b.dataset.ganttToggle)?plannerGanttRecolhidos.delete(b.dataset.ganttToggle):plannerGanttRecolhidos.add(b.dataset.ganttToggle);renderizarPlanner();}));
+  plannerEls.gantt.querySelectorAll("[data-gantt-node]").forEach((b)=>b.addEventListener("click",(event)=>{event.stopPropagation();abrirAtividadesVinculadasGantt(plannerGanttNosAtuais.get(b.dataset.ganttNode),b);}));
 }
 function centralizarDiaPlannerGantt(iso) { const scroll=plannerEls.gantt?.querySelector(".planner-gantt-scroll"),grid=plannerEls.gantt?.querySelector(".planner-gantt-grid");if(!scroll||!grid)return;const inicio=grid.querySelector(".planner-gantt-day")?.title?.split("/").reverse().join("-");scroll.scrollLeft=Math.max(0,290+PLANNER_GANTT.diferencaDias(inicio,iso)*42-scroll.clientWidth/2); }function criarBucketPlanner(grupo) {
   const podeAdicionar = (plannerEls.agrupar?.value || "bucket") === "bucket" && usuarioAtualEhAdmin();

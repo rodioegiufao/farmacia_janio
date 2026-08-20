@@ -509,6 +509,7 @@ assert.equal(top.length, 10); assert.ok(top.every((x, i) => !i || top[i - 1].val
 
 async function testarGraficosRelatorio() {
 global.document = { createElement: () => ({ style: {} }) };
+assert.doesNotThrow(() => require("../atividades/graficos-relatorio"), "o módulo deve importar sem ReferenceError");
 const graficos = require("../atividades/graficos-relatorio");
 const canvas = graficos.canvasRelatorio(1200, 600);
 assert.equal(canvas.width, 2400);
@@ -519,6 +520,20 @@ assert.ok(graficos.CONFIG_GRAFICO_RELATORIO.fontValue >= 36);
 assert.ok(graficos.CONFIG_GRAFICO_RELATORIO.paddingDireita >= 150);
 assert.ok(graficos.calcularAlturaGrafico(12) > graficos.calcularAlturaGrafico(4));
 assert.equal(graficos.formatarHoras(25.85), "25,85 h");
+assert.deepEqual(graficos.NIVEIS_EXPORTACAO.map((x) => [x.largura, x.qualidade]), [[1400, .94], [1200, .92], [1100, .9]]);
+
+const payloadApi = require("../atividades/payload-relatorio");
+const sinteticas = Array.from({ length: 1000 }, (_, i) => ({ id: i, obraId: `o${i % 20}`, obraCodigo: `OBR-${String(i % 20).padStart(6, "0")}`, obra: `Obra ${i % 20}`, projeto: `Projeto ${i % 50}`, fase: `Fase ${i % 5}`, item: `Item ${i % 8}`, colaborador: i % 2 ? "Bruno" : "Geovanna", trabalhos: "Descrição necessária", observacoes: "Observação necessária", dataInicio: "2026-08-03", horaInicio: "08:00", dataTermino: "2026-08-03", horaTermino: "09:00", status: "Finalizado", prioridade: "P1", campoNaoUsado: "x".repeat(2000) }));
+const imagens = Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`g${i}`, { imagem: `data:image/png;base64,${"A".repeat(200000)}` }]));
+const anterior = { atividades: sinteticas, historicoAtividades: sinteticas, dadosGerenciais: sinteticas, graficos: imagens, gantt: { obras: [] }, periodoRelatorio: { dataInicio: "2026-08-01", dataFim: "2026-08-31" } };
+const otimizado = payloadApi.montarPayloadCompacto({ ...anterior, historicoAtividades: undefined, dadosGerenciais: undefined });
+const antes = payloadApi.calcularTamanhoPayloadRelatorio(anterior), depois = payloadApi.calcularTamanhoPayloadRelatorio(otimizado);
+assert.ok(depois.total < payloadApi.MAX_PAYLOAD_RELATORIO_BYTES);
+assert.ok(depois.total < antes.total * .35, "o DTO mensal deve remover histórico, derivados e campos alheios");
+assert.equal(payloadApi.obterModoRelatorio({ dataInicio: "2026-08-01", dataFim: "2026-08-14" }), "semanal");
+assert.equal(payloadApi.obterModoRelatorio({ dataInicio: "2026-08-01", dataFim: "2026-08-31" }), "mensal");
+assert.equal(payloadApi.obterModoRelatorio({ dataInicio: "2026-08-01", dataFim: "2026-09-10" }), "longo");
+console.log(`  Payload sintético: antes ${(antes.total / 1048576).toFixed(2)} MB; depois ${(depois.total / 1048576).toFixed(2)} MB; redução ${((1 - depois.total / antes.total) * 100).toFixed(1)}%`);
 }
 
 // ========================================================
@@ -593,7 +608,13 @@ const registros = [
   { id: "3", obraId: "1", obraCodigo: "OBR-000023", obra: "Posto", projeto: "Elétrico", etapa: "Plotagem", trabalhos: "Texto deliberadamente repetido.", observacoes: "Projeto ainda incompleto por ausência da potência das bombas. Também solicitei um shaft no superior.", colaborador: "Hellen", dataInicio: "2026-07-21", horaInicio: "08:30", dataTermino: "2026-07-21", horaTermino: "11:00", criadoEm: "2026-07-21T12:00:00Z", status: "Finalizado", prioridade: "P2" }
 ];
 const [atividade] = require("../atividades/atividade-agrupamento").consolidarAtividades(registros);
-
+const mensais = Array.from({ length: 10 }, (_, i) => ({ ...registros[0], id: `m${i}`, obraCodigo: "OBR-000015", obra: "FIOCRUZ", projeto: "Elétrico BT", fase: "Distribuição", item: "Eletrocalha", colaborador: i < 8 ? "Bruno" : "Geovanna", dataInicio: ["2026-08-03", "2026-08-08", "2026-08-22"][i % 3], dataTermino: ["2026-08-03", "2026-08-08", "2026-08-22"][i % 3], horaInicio: "08:00", horaTermino: "09:00", status: i === 9 ? "Em progresso" : "Finalizado" }));
+const gruposMensais = _test.consolidarFrentesAnexoMensal(mensais);
+assert.equal(gruposMensais.length, 1); assert.equal(gruposMensais[0].quantidade, 10); assert.equal(gruposMensais[0].horas, 10);
+assert.deepEqual(gruposMensais[0].colaboradores, ["Bruno", "Geovanna"]); assert.equal(gruposMensais[0].primeira, "2026-08-03"); assert.equal(gruposMensais[0].ultima, "2026-08-22");
+const xmlMensal = _test.gerarAnexoConsolidado([...mensais, { ...mensais[0], id: "sem-classificacao", fase: "", etapa: "", item: "" }]);
+assert.match(xmlMensal, /Modo de apresentação: consolidado/); assert.match(xmlMensal, /Atividades não classificadas/); assert.equal((xmlMensal.match(/Eletrocalha/g) || []).length, 1);
+assert.equal(_test.obterModoRelatorio({ dataInicio: "2026-08-01", dataFim: "2026-08-31" }), "mensal");
 assert.equal(_test.formatarCompetenciaRelatorio(periodo), "JULHO/2026");
 assert.equal(_test.formatarCompetenciaRelatorio({ ...periodo, dataInicio: "2026-07-27", dataFim: "2026-08-02" }), "JULHO/2026 — AGOSTO/2026");
 assert.equal(_test.formatarCompetenciaRelatorio({ ...periodo, dataInicio: "2026-12-28", dataFim: "2027-01-03" }), "DEZEMBRO/2026 — JANEIRO/2027");
@@ -664,6 +685,17 @@ let xmlFinal;
   assert.match(xml, /SÍNTESE TEMPORAL/); assert.match(xml, /<w:tblHeader\/>/); assert.match(xml, /<w:cantSplit\/>/);
   assert.match(xml, /<w:tblLayout w:type="fixed"\/>/); assert.match(xml, /w:fill="286D9F"/);
   assert.doesNotMatch(xml, /\[@?LLLL\]/);
+}
+{
+  const zip = novoZip(); _test.prepararTemplateParaGraficos(zip);
+  const jpeg = "data:image/jpeg;base64,/9j/2Q==";
+  const periodoMensal = { tipo: "mensal", rotulo: "Agosto 2026", dataInicio: "2026-08-01", dataFim: "2026-08-31", ano: "2026" };
+  const dados = _test.montarDadosRelatorio({ atividades: mensais, atividadesSemanais: [], periodoRelatorio: periodoMensal, graficos: { status: { imagem: jpeg, largura: 1400, altura: 800 } } }, zip);
+  assert.match(dados.KKKK, /consolidado por frente de trabalho/); assert.equal((dados.KKKK.match(/Eletrocalha/g) || []).length, 1); assert.match(dados.KKKK, />10</);
+  assert.ok(zip.file("word/media/relatorio-grafico-1.jpg")); assert.equal(zip.file("word/media/relatorio-grafico-1.png"), null);
+  assert.match(zip.file("[Content_Types].xml").asText(), /Extension="jpg" ContentType="image\/jpeg"/);
+  assert.match(zip.file("word/_rels/document.xml.rels").asText(), /relatorio-grafico-1\.jpg/);
+  assert.equal(require("../atividades/dados-gerenciais-relatorio").construirDadosGerenciaisRelatorio(mensais).horasTotais, 10, "a consolidação visual não altera as horas oficiais");
 }
 {
   const { gerarGanttTabelaXml, periodosTemporais, aplicarPaisagemUltimaSecao, calcularCoberturaGantt, formatarTituloObraAnexoGantt } = require("../api/_relatorio-gantt");
@@ -752,7 +784,7 @@ assert.equal(invalida.contagens.intervalosInvalidos, 1);
 assert.equal(invalida.contagens.duracoesSuspeitas, 1);
 assert.match(_test.gerarAtividadesSemana([{ semana:"Semana 30", atividade:"Teste!.", prioridade:"P1", entregas:"Hoje" }], {}, periodo), /<w:t[^>]*>Atividade<\/w:t>/);
 assert.doesNotMatch(_test.gerarAtividadesSemana([{ semana:"Semana 30", atividade:"Teste", prioridade:"P1", entregas:"Hoje" }], {}, periodo), />Semana<\/w:t>/);
-const settings = novoZip().file("word/settings.xml").asText(); assert.match(settings, /<w:updateFields w:val="true"\/>/);
+const zipSettings = novoZip(); _test.prepararTemplateParaGraficos(zipSettings); const settings = zipSettings.file("word/settings.xml").asText(); assert.match(settings, /<w:updateFields w:val="true"\/>/);
 const templateXml = novoZip().file("word/document.xml").asText(); assert.match(templateXml, /TOC \\o &quot;1-3&quot;|TOC \\o "1-3"/);
 }
 

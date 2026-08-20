@@ -2054,18 +2054,26 @@ async function gerarRelatorioWord() {
     const periodoRelatorio = obterPeriodoRelatorioWord();
     const registrosOficiaisRelatorio = atividadesRelatorio.flatMap((atividade) => atividade.registros || []);
     const dadosGerenciaisRelatorio = DADOS_GERENCIAIS_RELATORIO.construirDadosGerenciaisRelatorio(registrosOficiaisRelatorio);
-    const payload = {
+    const modoRelatorio = PAYLOAD_RELATORIO.obterModoRelatorio(periodoRelatorio);
+    if (btnGerarRelatorioWord && modoRelatorio !== "semanal") btnGerarRelatorioWord.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Preparando relatório mensal consolidado...';
+    let nivelGrafico = 0;
+    let payload = PAYLOAD_RELATORIO.montarPayloadCompacto({
       atividades: registrosOficiaisRelatorio,
       atividadesSemanais: atividadesSemanaisRelatorio,
       periodoRelatorio,
-      historicoAtividades: [],
       tituloRelatorio: obterTituloRelatorioWord(),
       filtros: obterFiltrosDashboardRelatorio(),
-      dadosGerenciais: dadosGerenciaisRelatorio,
-      graficos: await prepararGraficosParaRelatorio(dadosGerenciaisRelatorio),
+      modoRelatorio,
+      graficos: await prepararGraficosParaRelatorio(dadosGerenciaisRelatorio, nivelGrafico),
       gantt: await prepararGanttParaRelatorio(registrosOficiaisRelatorio, periodoRelatorio, dadosGerenciaisRelatorio.horasTotais)
-    };
-
+    });
+    let diagnostico = PAYLOAD_RELATORIO.calcularTamanhoPayloadRelatorio(payload, { log: true });
+    while (diagnostico.total > PAYLOAD_RELATORIO.MAX_PAYLOAD_RELATORIO_BYTES && nivelGrafico < 2) {
+      nivelGrafico += 1;
+      payload.graficos = await prepararGraficosParaRelatorio(dadosGerenciaisRelatorio, nivelGrafico);
+      diagnostico = PAYLOAD_RELATORIO.calcularTamanhoPayloadRelatorio(payload, { log: true });
+    }
+    if (diagnostico.total > PAYLOAD_RELATORIO.MAX_PAYLOAD_RELATORIO_BYTES) throw new Error("O relatório possui volume acima do limite seguro. Os gráficos foram compactados automaticamente, mas o arquivo ainda permanece muito grande.");
     const response = await fetch(API_RELATORIO_WORD_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2074,6 +2082,10 @@ async function gerarRelatorioWord() {
 
     if (!response.ok) {
       const erro = await response.json().catch(() => null);
+      if (response.status === 413) {
+        PAYLOAD_RELATORIO.calcularTamanhoPayloadRelatorio(payload, { log: true });
+        throw new Error("Não foi possível enviar os dados porque o volume da requisição excedeu o limite permitido, mesmo após a compactação automática.");
+      }
       throw new Error(erro?.error || "Erro inesperado ao gerar relatório Word.");
     }
 
@@ -2199,9 +2211,9 @@ async function capturarGraficoTemporarioRelatorio(canvasId, largura = 1800, altu
   }
 }
 
-async function prepararGraficosParaRelatorio(dadosGerenciais) {
+async function prepararGraficosParaRelatorio(dadosGerenciais, nivel = 0) {
   if (typeof GRAFICOS_RELATORIO === "undefined") throw new Error("Renderizador de gráficos do relatório indisponível.");
-  return GRAFICOS_RELATORIO.gerarTodos({ dadosGerenciais });
+  return GRAFICOS_RELATORIO.gerarTodos({ dadosGerenciais, nivel });
 }
 function aguardarRenderizacaoGraficos() {
   return new Promise((resolve) => setTimeout(resolve, 350));

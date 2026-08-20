@@ -5,6 +5,7 @@ const { spawnSync } = require("node:child_process");
 const arquivos = [
   "atividades/dados-gerenciais-relatorio.js",
   "atividades/graficos-relatorio.js",
+  "atividades/payload-relatorio.js",
   "atividades/planner-gantt-relatorio.js",
   "api/obras-admin.js",
   "api/_obra-ficha.js",

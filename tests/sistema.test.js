@@ -536,6 +536,29 @@ const ficha = validarFicha({ categoriaRegistro: "empreendimento", natureza: "pub
 assert.equal(ficha.caracteristica.area_intervencao, 8700); assert.equal(ficha.caracteristica.area_externa_intervencao, null); assert.equal(ficha.projetos.length, 1); assert.equal(ficha.intervencoes.length, 2);
 assert.throws(() => validarFicha({ benchmarkStatus: "excluir" }), /motivo/); assert.throws(() => validarFicha({ benchmarkStatus: "incluir", caracterizacaoNaoAplicavel: true }), /não pode integrar/);
 assert.equal(completudeFicha(caracteristica, tipologias, [{ intervencao: "Reforma" }], [{ projeto: "SPDA" }]) > 0, true);
+
+}
+// ========================================================
+// TESTES — CENTRAL DE GESTÃO
+// ========================================================
+async function testarCentralGestao() {
+const G = require("../api/_gestao");
+const atividade = (id, data, horas, extra = {}) => ({ id, obra_id: "o1", data_inicio: data, hora_inicio: "08:00", data_termino: data, hora_termino: `${String(8 + horas).padStart(2, "0")}:00`, ...extra });
+assert.equal(G.calcularUltimaMovimentacao([atividade("1", "2026-08-01", 1), atividade("2", "2026-08-05", 1), atividade("3", "2026-08-12", 1)]), "2026-08-12");
+assert.equal(G.diferencaDias("2026-08-10", "2026-08-20"), 10);
+const cobertura = G.calcularCoberturaPlanner([atividade("1", "2026-08-10", 8), atividade("2", "2026-08-10", 2)], new Set(["1"]));
+assert.equal(cobertura.cobertura, 80);
+assert.equal(G.calcularCoberturaPlanner([], new Set()).cobertura, null);
+const duplicada = atividade("1", "2026-08-10", 4, { fase: "Fase", item: "Item" });
+assert.equal(G.calcularCoberturaPlanner([duplicada, duplicada], new Set(["1"])).horasPlanner, 4);
+const pendencias = G.obterPendenciasFicha({ categoria_registro: "empreendimento", natureza: "publico", benchmark_status: "nao_avaliado" }, [{ segmento: "Saúde", tipologia: "Hospital", principal: true }], [{ intervencao: "Reforma" }], []);
+assert.deepEqual(pendencias.map((p) => p.campo), ["area_intervencao", "pavimentos", "projetos", "benchmark", "observacoes"]);
+assert.deepEqual(G.obterPendenciasFicha({ caracterizacao_nao_aplicavel: true }), []);
+assert.deepEqual(G.compararProjetosDetectadosCadastrados(["BT", "SPDA", "CFTV"], ["BT", "SPDA"]).pendentes.map((p) => p.projeto), ["CFTV"]);
+const alerta = G.construirAlertasGestao({ id: "o1", nome: "TCE", ativo: true, diasSemMovimentacao: 8, coberturaPlanner: 90, projetosPendentes: [], projetosCadastrados: 1, pendenciasFicha: [], benchmarkPendente: false, completude: 100 });
+assert.equal(alerta[0].tipo, "SEM_MOVIMENTACAO"); assert.match(alerta[0].mensagem, /Sem movimentação/); assert.doesNotMatch(alerta[0].mensagem, /atras/i);
+const qualidade = G.calcularQualidadeDados([atividade("1", "2026-08-10", 8, { fase: "F", item: "I" }), atividade("2", "2026-08-10", 2, { fase: "F" })], [], new Set(["1"]));
+assert.equal(qualidade.fase, 100); assert.equal(qualidade.item, 80); assert.equal(qualidade.planner, 80);
 }
 
 // ========================================================
@@ -744,6 +767,7 @@ async function main() {
     ["Dados gerenciais", testarDadosGerenciais],
     ["Gráficos do relatório", testarGraficosRelatorio],
     ["Ficha de obra", testarFichaObra],
+    ["Central de Gestão", testarCentralGestao],
     ["Relatório Word", testarRelatorioWord],
   ];
 

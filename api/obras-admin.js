@@ -1,6 +1,6 @@
 const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
 const { listarObras, localizarObraPorId, resolverOuCriarObra } = require("./_obras");
-const { chaveProjeto, completudeFicha, exigirAdmin, statusFicha, validarFicha } = require("./_obra-ficha");
+const { chaveProjeto, completudeFicha, exigirAdmin, obterPendenciasFicha, statusFicha, validarFicha } = require("./_obra-ficha");
 
 function idsFiltro(ids) { return ids.map((id) => encodeURIComponent(id)).join(","); }
 async function carregarRelacionados(obras) {
@@ -24,7 +24,7 @@ function montarObra(obra, dados) {
     const chave = chaveProjeto(item.codigo_projeto || item.projeto); detectados.set(chave, { projeto: item.projeto, projetoChave: chave, codigoProjeto: item.codigo_projeto || null });
   });
   const todosProjetos = new Set([...projetos.map((item) => item.projeto_chave), ...detectados.keys()]);
-  return { ...obra, caracteristica, tipologias, intervencoes: intervencoes.map((item) => item.intervencao), projetos, projetosDetectados: [...detectados.values()].filter((item) => !projetos.some((projeto) => projeto.projeto_chave === item.projetoChave)), quantidadeProjetos: todosProjetos.size, statusFicha: statusFicha(caracteristica, tipologias, intervencoes), completude: completudeFicha(caracteristica, tipologias, intervencoes, projetos) };
+  return { ...obra, caracteristica, tipologias, intervencoes: intervencoes.map((item) => item.intervencao), projetos, projetosDetectados: [...detectados.values()].filter((item) => !projetos.some((projeto) => projeto.projeto_chave === item.projetoChave)), quantidadeProjetos: todosProjetos.size, statusFicha: statusFicha(caracteristica, tipologias, intervencoes), completude: completudeFicha(caracteristica, tipologias, intervencoes, projetos), pendenciasFicha: obterPendenciasFicha(caracteristica, tipologias, intervencoes, projetos) };
 }
 async function substituir(table, obraId, rows) {
   await supabaseRequest(table, `?obra_id=eq.${encodeURIComponent(obraId)}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });

@@ -20,12 +20,26 @@ function statusFicha(caracteristica, tipologias = [], intervencoes = []) {
   if (caracteristica.categoria_registro === "empreendimento" && caracteristica.natureza && principal?.segmento && principal?.tipologia && intervencoes.length) return "caracterizada";
   return "parcial";
 }
+function criteriosFicha(caracteristica, tipologias = [], intervencoes = [], projetos = []) {
+  if (caracteristica?.caracterizacao_nao_aplicavel) return [];
+  const principal = tipologias.find((item) => item.principal);
+  const tem = (valor) => valor !== null && valor !== undefined && valor !== "";
+  return [
+    ["categoria_registro", "Classificação", caracteristica?.categoria_registro], ["natureza", "Natureza", caracteristica?.natureza],
+    ["segmento", "Segmento", principal?.segmento], ["tipologia", "Tipologia", principal?.tipologia],
+    ["intervencoes", "Intervenção", intervencoes.length], ["area_intervencao", "Área de intervenção", tem(caracteristica?.area_intervencao)],
+    ["pavimentos", "Pavimentos", tem(caracteristica?.pavimentos_acima)], ["projetos", "Projetos da Obra", projetos.length],
+    ["benchmark", "Benchmark", caracteristica?.benchmark_status && caracteristica.benchmark_status !== "nao_avaliado"], ["observacoes", "Observações", caracteristica?.observacoes]
+  ].map(([campo, label, preenchido]) => ({ campo, label, preenchido: Boolean(preenchido) }));
+}
+function obterPendenciasFicha(caracteristica, tipologias = [], intervencoes = [], projetos = []) {
+  return criteriosFicha(caracteristica, tipologias, intervencoes, projetos).filter((item) => !item.preenchido).map(({ campo, label }) => ({ campo, label }));
+}
 function completudeFicha(caracteristica, tipologias = [], intervencoes = [], projetos = []) {
   if (!caracteristica) return 0;
   if (caracteristica.caracterizacao_nao_aplicavel) return 100;
-  const principal = tipologias.find((item) => item.principal);
-  const itens = [caracteristica.categoria_registro, caracteristica.natureza, principal?.segmento, principal?.tipologia, intervencoes.length, caracteristica.area_intervencao !== null && caracteristica.area_intervencao !== undefined, caracteristica.pavimentos_acima !== null && caracteristica.pavimentos_acima !== undefined, projetos.length, caracteristica.benchmark_status !== "nao_avaliado", caracteristica.observacoes];
-  return Math.round(itens.filter(Boolean).length / itens.length * 100);
+  const itens = criteriosFicha(caracteristica, tipologias, intervencoes, projetos);
+  return Math.round(itens.filter((item) => item.preenchido).length / itens.length * 100);
 }
 function validarFicha(body) {
   const categoria = texto(body.categoriaRegistro);
@@ -50,4 +64,4 @@ function validarFicha(body) {
   };
 }
 
-module.exports = { BENCHMARKS, CATEGORIAS, INTERVENCOES, MOTIVOS, NATUREZAS, chaveProjeto, completudeFicha, exigirAdmin, numeroOpcional, statusFicha, validarFicha };
+module.exports = { BENCHMARKS, CATEGORIAS, INTERVENCOES, MOTIVOS, NATUREZAS, chaveProjeto, completudeFicha, criteriosFicha, exigirAdmin, numeroOpcional, obterPendenciasFicha, statusFicha, validarFicha };

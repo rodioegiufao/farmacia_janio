@@ -69,6 +69,7 @@
       <nav class="admin-tabs" aria-label="Áreas administrativas">
         <button type="button" class="admin-tab active" data-admin-tab="usuarios" role="tab" aria-selected="true"><i class="fa-solid fa-users"></i> Usuários <span id="usuariosTabCount" class="admin-tab-count">0</span></button>
         <button type="button" class="admin-tab" data-admin-tab="obras" role="tab" aria-selected="false"><i class="fa-solid fa-building"></i> Obras <span id="obrasTabCount" class="admin-tab-count">0</span></button>
+        <button type="button" class="admin-tab" data-admin-tab="gestao" role="tab" aria-selected="false"><i class="fa-solid fa-gauge-high"></i> Gestão</button>
       </nav>
       <div id="adminUsuarios" class="admin-tab-content">
         <div class="admin-section-header"><div><span class="admin-eyebrow">Acessos</span><h2>Usuários</h2><p>Gerencie as pessoas que possuem acesso ao sistema.</p></div><button type="button" id="novoUsuario" class="primary"><i class="fa-solid fa-plus"></i> Novo usuário</button></div>
@@ -88,10 +89,17 @@
             <label>Benchmark<select id="obrasFiltroBenchmark"><option value="">Todos</option><option value="nao_avaliado">Não avaliado</option><option value="incluir">Incluir</option><option value="excluir">Excluir</option></select></label>
             <label>Status<select id="obrasFiltroAtivo"><option value="true">Ativas</option><option value="false">Inativas</option><option value="">Todas</option></select></label>
             <button type="button" id="limparFiltros" class="admin-link-button"><i class="fa-solid fa-filter-circle-xmark"></i> Limpar</button>
+            <label>Ordenar por<select id="obrasOrdenacao"><option value="nome">Nome</option><option value="codigo">Código</option><option value="ultima">Última movimentação</option><option value="completude-asc">Menor completude</option><option value="completude-desc">Maior completude</option><option value="benchmark">Benchmark pendente</option><option value="projetos">Maior quantidade de Projetos</option></select></label>
           </div>
+          <div id="obrasVisoesRapidas" class="admin-quick-filters" aria-label="Visões rápidas"><button class="active" data-visao="todas">Todas</button><button data-visao="atencao">Requer atenção</button><button data-visao="sem-movimentacao">Sem movimentação</button><button data-visao="ficha">Ficha pendente</button><button data-visao="benchmark">Benchmark pendente</button><button data-visao="projetos">Projetos não sincronizados</button></div>
           <div id="obrasTabela" class="admin-obras-tabela"><p>Carregando obras...</p></div>
         </div>
         <div id="adminObraFicha" hidden></div>
+      </div>
+      <div id="adminGestao" class="admin-tab-content admin-gestao" hidden>
+        <div class="admin-section-header"><div><span class="admin-eyebrow">Central do coordenador</span><h2>Gestão</h2><p>Visão administrativa das Obras, Projetos e qualidade dos dados.</p></div></div>
+        <div class="admin-gestao-filters"><label>Período<select id="gestaoPeriodo"><option value="semana-atual">Semana atual</option><option value="hoje">Hoje</option><option value="semana-anterior">Semana anterior</option><option value="mes-atual">Mês atual</option><option value="mes-anterior">Mês anterior</option><option value="personalizado">Personalizado</option></select></label><label>Obra<select id="gestaoObra"><option value="">Todas</option></select></label><label class="gestao-personalizado" hidden>Início<input type="date" id="gestaoInicio"></label><label class="gestao-personalizado" hidden>Fim<input type="date" id="gestaoFim"></label></div>
+        <div id="gestaoConteudo"><p class="admin-empty">Carregando indicadores...</p></div>
       </div>
     </section>
     <div id="cadastroModal" class="admin-modal" hidden><div class="admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="cadastroModalTitle"><button type="button" class="admin-modal-close" data-close-modal="cadastroModal" aria-label="Fechar">×</button><h2 id="cadastroModalTitle">Cadastrar usuário</h2><p>Crie um novo acesso e defina o perfil inicial.</p><form id="cadastroForm" class="admin-modal-form"><label for="cadastroNome">Nome</label><input type="text" id="cadastroNome" required><label for="cadastroUsuario">Usuário</label><input type="text" id="cadastroUsuario" autocomplete="username" required><label for="cadastroSenha">Senha</label><input type="password" id="cadastroSenha" autocomplete="new-password" minlength="6" required><label for="cadastroPerfil">Perfil</label><select id="cadastroPerfil"><option value="colaborador">Colaborador</option><option value="admin">Administrador</option></select><div class="admin-modal-actions"><button type="button" data-close-modal="cadastroModal">Cancelar</button><button type="submit" class="primary">Cadastrar usuário</button></div></form></div></div>
@@ -135,6 +143,7 @@
   <script src="/atividades/fase-item.js"></script>
   <script src="/atividades/planner-modelos.js"></script>
   <script src="/atividades/planner-gantt.js"></script>
+  <script src="/admin/gestao.js"></script>
   <script src="/admin/script.js"></script>
 </body>
 </html>

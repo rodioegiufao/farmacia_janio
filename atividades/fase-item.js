@@ -14,7 +14,8 @@
       "Circuitos": ["Dimensionar", "Nomear", "Numerar", "Renumerar"],
       "Plotagem": ["CFTV"],
       "Compatibilização": ["Estrutural", "Arquitetura", "Elétrico", "Hidráulico", "Sanitário", "Climatização", "Exaustão", "Cabeamento", "Telefonia"],
-      "Documentos": ["Memorial", "Relatório"]
+      "Documentos": ["Memorial", "Relatório"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     },
     "Cabeamento": {
       "Estudos": ["ABNT NBR 14565", "ABNT NBR 16455", "ABNT NBR 16264", "ABNT NBR 5410"],
@@ -23,7 +24,8 @@
       "Circuitos": ["Dimensionar", "Nomear", "Numerar", "Renumerar"],
       "Plotagem": ["Cabeamento"],
       "Compatibilização": ["Estrutural", "Arquitetura", "Elétrico", "Hidráulico", "Sanitário", "Climatização", "Exaustão", "CFTV", "Telefonia"],
-      "Documentos": ["Memorial", "Relatório"]
+      "Documentos": ["Memorial", "Relatório"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     },
     "Telefonia": {
       "Estudos": ["ABNT NBR 14565", "ABNT NBR 16455", "ABNT NBR 16264", "ABNT NBR 5410"],
@@ -32,7 +34,8 @@
       "Circuitos": ["Dimensionar", "Nomear", "Numerar", "Renumerar"],
       "Plotagem": ["Telefonia"],
       "Compatibilização": ["Estrutural", "Arquitetura", "Elétrico", "Hidráulico", "Sanitário", "Climatização", "Exaustão", "CFTV", "Cabeamento"],
-      "Documentos": ["Memorial", "Relatório"]
+      "Documentos": ["Memorial", "Relatório"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     },
     "Elétrico Baixa Tensão": {
       "Estudos": ["ABNT NBR 5410", "ABNT NBR 5419", "NR 10", "ABNT NBR 13534", "RDC nº 50 da ANVISA", "SOMASUS", "NR 35"],
@@ -41,7 +44,8 @@
       "Circuitos": ["Dimensionar", "Nomear", "Numerar", "Renumerar"],
       "Plotagem": ["Iluminação", "Iluminação de Emergência", "Tomadas", "Tomadas de Uso Geral", "Tomadas de Uso Específico", "Climatização", "Exaustão", "Climatização e Exaustão"],
       "Compatibilização": ["Estrutural", "Arquitetura", "Hidráulico", "Sanitário", "Climatização", "Exaustão", "CFTV", "Cabeamento", "Telefonia"],
-      "Documentos": ["Memorial", "Relatório"]
+      "Documentos": ["Memorial", "Relatório"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     },
     "Iluminação Externa": {
       "Estudos": ["ABNT NBR 5410", "ABNT NBR 5419", "NR 10", "NR 35"],
@@ -50,7 +54,8 @@
       "Circuitos": ["Dimensionar", "Nomear", "Numerar", "Renumerar"],
       "Plotagem": ["Iluminação Externa"],
       "Compatibilização": ["Estrutural", "Arquitetura", "Hidráulico", "Sanitário", "Climatização", "Exaustão", "Elétrico", "CFTV", "Cabeamento", "Telefonia"],
-      "Documentos": ["Memorial", "Relatório"]
+      "Documentos": ["Memorial", "Relatório"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     },
     "SPDA": {
       "Estudos": ["ABNT NBR 5410", "ABNT NBR 5419", "NR 10", "NR 35"],
@@ -58,7 +63,8 @@
       "Distribuição": ["Caixas de Passagem", "Hastes de aterramento", "Minicaptor", "Captor Franklin", "Re-bar"],
       "Plotagem": ["SPDA"],
       "Compatibilização": ["Estrutural", "Arquitetura", "Hidráulico", "Sanitário", "Climatização", "Exaustão", "Elétrico", "Iluminação Externa", "CFTV", "Cabeamento", "Telefonia"],
-      "Documentos": ["Memorial", "Gerenciamento de risco", "Relatório"]
+      "Documentos": ["Memorial", "Gerenciamento de risco", "Relatório"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     },
     "Subestação": {
       "Estudos": ["ABNT NBR 5410", "ABNT NBR 14039", "ABNT NBR 15751", "ABNT NBR 7117", "MPN-DC-01/NDEE-01", "NR 10", "NR 35"],
@@ -67,7 +73,8 @@
       "Distribuição": ["Vergalhão", "Poste", "Caixa", "Conector", "Disjuntor", "Gerador", "Transformador", "TC/TP"],
       "Plotagem": ["Subestação"],
       "Compatibilização": ["Estrutural", "Arquitetura"],
-      "Documentos": ["Memorial", "Relatório"]
+      "Documentos": ["Memorial", "Relatório", "Viabilidade"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     },
     "Alimentador": {
       "Estudos": ["ABNT NBR 5410", "ABNT NBR 5419", "ABNT NBR 14039", "NR 10", "NR 35"],
@@ -76,14 +83,16 @@
       "Circuitos": ["Dimensionar", "Nomear", "Numerar", "Renumerar"],
       "Plotagem": ["Alimentador", "Alimentador 220V", "Alimentador 380V"],
       "Compatibilização": ["Estrutural", "Arquitetura", "Hidráulico", "Sanitário", "Climatização", "Exaustão", "CFTV", "Cabeamento", "Iluminação Externa", "Telefonia"],
-      "Documentos": ["Memorial", "Relatório"]
+      "Documentos": ["Memorial", "Relatório"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     },
     "Mapa Chave/Situação": {
       "Análise de Projeto": ["Localização do Projeto"],
       "Desenhos": ["Mapa Chave", "Situação"],
       "Distribuição": ["Vergalhão", "Poste", "Caixa", "Conector", "Disjuntor", "Gerador", "Transformador", "TC/TP"],
       "Plotagem": ["Mapa Chave", "Situação"],
-      "Documentos": ["Memorial", "Relatório"]
+      "Documentos": ["Memorial", "Relatório"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     },
     "Sonorização": {
       "Estudos": ["ABNT NBR 10151", "ABNT NBR 10152"],
@@ -92,7 +101,8 @@
       "Circuitos": ["Dimensionar", "Nomear", "Numerar", "Renumerar"],
       "Plotagem": ["Sonorização"],
       "Compatibilização": ["Estrutural", "Arquitetura", "Elétrico", "Hidráulico", "Sanitário", "Climatização", "Exaustão", "CFTV", "Telefonia"],
-      "Documentos": ["Memorial", "Relatório"]
+      "Documentos": ["Memorial", "Relatório"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     },
     "Solar": {
       "Estudos": ["ABNT NBR 16690", "ABNT NBR 16274", "ABNT NBR 5410", "ABNT NBR 14039", "REN 1.000/2021", "PRODIST (Módulo 3)", "ABNT NBR 5419 (Partes 1 a 4)"],
@@ -101,7 +111,8 @@
       "Circuitos": ["Dimensionar", "Nomear", "Numerar", "Renumerar"],
       "Plotagem": ["Sonorização"],
       "Compatibilização": ["Estrutural", "Arquitetura", "Elétrico", "Hidráulico", "Sanitário", "Climatização", "Exaustão", "CFTV", "Telefonia", "SPDA"],
-      "Documentos": ["Memorial", "Relatório"]
+      "Documentos": ["Memorial", "Relatório", "Viabilidade"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     },
     "Automação": {
       "Estudos": ["ABNT NBR ISO 13849 / IEC 62061", "ISA-88 (IEC 61512)", "ISA-95 (IEC 62264", "IEC 61131-3", "ISO/IEC 14543", "BACnet (ISO 16484-5)", "IEC 62443", "NR-12"],
@@ -110,7 +121,8 @@
       "Circuitos": ["Dimensionar", "Nomear", "Numerar", "Renumerar"],
       "Plotagem": ["Automação"],
       "Compatibilização": ["Estrutural", "Arquitetura", "Elétrico", "Hidráulico", "Sanitário", "Climatização", "Exaustão", "CFTV", "Telefonia", "SPDA"],
-      "Documentos": ["Memorial", "Relatório"]
+      "Documentos": ["Memorial", "Relatório"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     },
     "Lógica": {
       "Estudos": ["ABNT NBR 14565", "ABNT NBR 16455", "ABNT NBR 16264", "ABNT NBR 5410", "ABNT NBR IEC 62676", "ABNT NBR 16264"],
@@ -119,7 +131,8 @@
       "Circuitos": ["Dimensionar", "Nomear", "Numerar", "Renumerar"],
       "Plotagem": ["Cabeamento", "CFTV", "Telefonia"],
       "Compatibilização": ["Estrutural", "Arquitetura", "Elétrico", "Hidráulico", "Sanitário", "Climatização", "Exaustão"],
-      "Documentos": ["Memorial", "Relatório"]
+      "Documentos": ["Memorial", "Relatório"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     },
     "SDAI": {
       "Estudos": ["ABNT NBR 17240", "ABNT NBR 5410", "ABNT NBR 11836", "ABNT NBR ISO 7240", "ABNT NBR IEC 62676", "Instruções Técnicas do Corpo de Bombeiros (ITs/NTs)"],
@@ -128,7 +141,8 @@
       "Circuitos": ["Dimensionar", "Nomear", "Numerar", "Renumerar"],
       "Plotagem": ["SDAI"],
       "Compatibilização": ["Estrutural", "Arquitetura", "Elétrico", "Hidráulico", "Sanitário", "Climatização", "Exaustão"],
-      "Documentos": ["Memorial", "Relatório"]
+      "Documentos": ["Memorial", "Relatório"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     },
     "Média Tensão": {
       "Estudos": ["ABNT NBR 14039", "ABNT NBR 5410", "ABNT NBR 15688", "Normas Técnicas das Concessionárias", "ABNT NBR 5419", "Instruções Técnicas do Corpo de Bombeiros (ITs/NTs)"],
@@ -136,7 +150,8 @@
       "Distribuição": ["Eletrocalha", "Perfilado", "Eletroduto Flexível", "Eletroduto FG", "Conduletes", "Saídas e Base Fixa"],
       "Circuitos": ["Dimensionar", "Nomear", "Numerar", "Renumerar", "Diagrama Unifilar Geral"],
       "Plotagem": ["Média Tensão", "Eletrificação Rural"],
-      "Documentos": ["Memorial", "Relatório"]
+      "Documentos": ["Memorial", "Relatório"],
+      "Fiscalização": ["ART", "Relatório", "Quadros", "Cabos"]
     }
   };
   const projetosComFaseItem = Object.freeze(Object.keys(taxonomiaPorProjeto));

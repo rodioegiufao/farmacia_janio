@@ -249,6 +249,7 @@ assert.equal(porColaborador.find((item) => item.colaborador === "Bruno").horasCo
 // ========================================================
 
 async function testarFaseItem() {
+const fs = require("node:fs");
 const api = require("../atividades/fase-item");
 
 assert.deepEqual(api.obterProjetosComFaseItem(), ["CFTV", "Cabeamento", "Telefonia", "Elétrico Baixa Tensão", "Iluminação Externa", "SPDA", "Subestação", "Alimentador", "Mapa Chave/Situação", "Sonorização", "Solar", "Automação", "Lógica", "SDAI", "Média Tensão"]);
@@ -322,7 +323,14 @@ assert.equal(classificacoes.aplicarRegraRateio([], 240, true).motivo, "classific
 assert.equal(classificacoes.deveMostrarRateio({ exigeClassificacao: true, classificacoes: [{}, {}], duracaoMinutos: 120 }), true);
 assert.equal(classificacoes.deveMostrarRateio({ exigeClassificacao: true, classificacoes: [{}], duracaoMinutos: 120 }), false);
 assert.equal(classificacoes.deveMostrarRateio({ exigeClassificacao: true, classificacoes: [{}, {}], duracaoMinutos: 0 }), false);
+const fonteClassificacoesUi = fs.readFileSync(require.resolve("../atividades/classificacoes-ui.js"), "utf8");
+assert.match(fonteClassificacoesUi, /function resetarClassificacoesAtividade\(\)/, "a UI deve possuir um reset central das classificações");
+assert.match(fonteClassificacoesUi, /fases\.clear\(\);\s*estado\.clear\(\);\s*personalizados = 0;/, "o reset deve limpar fases, itens, rateios e IDs temporários na fonte de verdade");
+assert.match(fonteClassificacoesUi, /limpar: resetarClassificacoesAtividade/, "as entradas públicas devem reutilizar o mesmo reset");
 
+const fonteFormulario = fs.readFileSync(require.resolve("../atividades/script.js"), "utf8");
+assert.match(fonteFormulario, /atividadeParaPlanner = JSON\.parse[\s\S]*?await tratarResultadoPlanner\(atividadeParaPlanner\);[\s\S]*?resetarFormularioAtividade/, "o reset deve ocorrer após o save e após o Planner consumir uma cópia da atividade salva");
+assert.match(fonteFormulario, /function resetarFormularioAtividade[\s\S]*?ATIVIDADE_CLASSIFICACOES_UI\?\.resetarClassificacoesAtividade\(\)/, "o formulário deve delegar ao reset central da feature");
 const itemNormal = classificacoes.normalizarClassificacao({
   fase: "Estudos", item: "ABNT NBR 5410", itemOutro: false, minutosDedicados: 30
 });

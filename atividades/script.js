@@ -779,23 +779,19 @@ async function salvarAtividade(event) {
       if (indice >= 0) atividades[indice] = atividadeSalva;
       else atividades.unshift(atividadeSalva);
     }
-    const trabalhoFinalizado = atividade.status === "Finalizado" ? atividade.trabalhos : "";
-    form.reset();
-     // Mantém a descrição visível para que o texto do trabalho concluído não se
-    // perca da tela após o registro ser finalizado.
-    if (trabalhoFinalizado) campos.trabalhos.value = trabalhoFinalizado;
-    atualizarFasesDoProjeto(false);
-    atualizarCamposOutros();
-    atualizarRestricoesDatasAtividade();
-    preencherColaboradoresPermitidos();
-    campos.id.value = "";
-    campos.obraId.value = "";
-    btnCancelarEdicao.style.display = "none";
-    document.getElementById("btnSalvar").textContent = "Salvar atividade";
+
     atualizarOpcoesDashboard();
     renderizarTabela();
     renderizarCalendario();
-    await tratarResultadoPlanner(atividadeSalva);
+    // O Planner recebe uma fotografia da resposta salva, sem depender do estado
+    // mutável do formulário que será limpo em seguida.
+    const atividadeParaPlanner = JSON.parse(JSON.stringify(atividadeSalva));
+    try {
+      await tratarResultadoPlanner(atividadeParaPlanner);
+    } catch (erroPlanner) {
+      console.error("Atividade salva, mas a sincronização com o Planner falhou:", erroPlanner);
+      alert("Atividade salva, mas não foi possível concluir a sincronização com o Planner.");
+    }
   } catch (erro) {
     alert(`Não foi possível salvar no Supabase: ${erro.message}`);
   } finally {
@@ -1057,7 +1053,14 @@ async function excluirAtividade(id) {
 }
 
 function cancelarEdicao() {
+  resetarFormularioAtividade();
+}
+
+function resetarFormularioAtividade({ preservarTrabalho = "" } = {}) {
   form.reset();
+  globalThis.ATIVIDADE_CLASSIFICACOES_UI?.resetarClassificacoesAtividade();
+  // Mantém a política já existente para a descrição de trabalhos finalizados.
+  if (preservarTrabalho) campos.trabalhos.value = preservarTrabalho;
   atualizarItensDaFase(false);
   atualizarCamposOutros();
   atualizarRestricoesDatasAtividade();
@@ -1075,6 +1078,7 @@ async function limparTodosRegistros() {
   try {
     await fetch(`${API_URL}?all=true`, { method: "DELETE" }).then(validarResposta);
     atividades = [];
+    resetarFormularioAtividade();
     atualizarOpcoesDashboard();
     renderizarTabela();
     renderizarCalendario();

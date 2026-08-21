@@ -37,6 +37,14 @@
   }
   function adicionarPersonalizado(c = {}) { const id = ++personalizados, div=document.createElement("div"); div.className="item-personalizado"; div.dataset.personalizado=id; div.innerHTML=`<label>Nome do Item<input data-nome maxlength="100" value="${esc(c.item||"")}"></label><label>Fase relacionada<select data-fase>${[...fases].map(f=>`<option ${f===c.fase?"selected":""}>${esc(f)}</option>`).join("")}</select></label><button type="button" class="item-personalizado-remover" data-remover aria-label="Remover item personalizado" title="Remover item personalizado"><i class="fas fa-trash-alt" aria-hidden="true"></i></button>`; $("itensPersonalizados").append(div); }
   function removerFase(f) { const n=[...estado.values()].filter(c=>c.fase===f);if(n.length&&!confirm(`${f} possui ${n.length} Itens selecionados. Ao remover esta Fase, esses Itens também serão removidos.`))return false;n.forEach(c=>estado.delete(c.chave));fases.delete(f);return true; }
+  function resetarClassificacoesAtividade() {
+    fases.clear();
+    estado.clear();
+    personalizados = 0;
+    $("itensPersonalizados").replaceChildren();
+    projetoAnterior = projeto();
+    render();
+  }
   document.addEventListener("change", (e) => {
     if (e.target.matches("#fasesMultiselect input")) { if(e.target.checked) fases.add(e.target.dataset.fase); else if(!removerFase(e.target.dataset.fase)) e.target.checked=true; render(); }
     if (e.target.matches("#itensAgrupados input")) { const {chave,fase,item}=e.target.dataset;e.target.checked?estado.set(chave,{chave,fase,item,minutosDedicados:0}):estado.delete(chave);render(); }
@@ -58,6 +66,6 @@
     if (novoProjeto !== projetoAnterior) { fases.clear();estado.clear();$("itensPersonalizados").innerHTML=""; }
     projetoAnterior = projeto(); render();
   }));
-  globalThis.ATIVIDADE_CLASSIFICACOES_UI = { obter: classes, carregar(a){ fases.clear();estado.clear();$("itensPersonalizados").innerHTML="";projetoAnterior=projeto();if(F.projetoExigeFaseItem(projeto()))C.obterClassificacoesAtividade(a).forEach(c=>{fases.add(c.fase);estado.set(c.chave,{...c});if(c.itemOutro)adicionarPersonalizado(c);});render();}, limpar(){fases.clear();estado.clear();$("itensPersonalizados").innerHTML="";projetoAnterior=projeto();render();}, validar };
+  globalThis.ATIVIDADE_CLASSIFICACOES_UI = { obter: classes, carregar(a){ resetarClassificacoesAtividade();if(F.projetoExigeFaseItem(projeto()))C.obterClassificacoesAtividade(a).forEach(c=>{fases.add(c.fase);estado.set(c.chave,{...c});if(c.itemOutro)adicionarPersonalizado(c);});render();}, limpar: resetarClassificacoesAtividade, resetarClassificacoesAtividade, validar };
   render();
 })();

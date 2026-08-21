@@ -279,6 +279,18 @@ assert.equal(faseLegada.faseOutro, "Levantamento");
 assert.equal(faseLegada.itemOutro, "Conferência existente");
 assert.deepEqual(api.taxonomiaPlannerCompleta("SDAI")[1], { etapa: "Lançamento", estagios: ["Central de Alarme de Incêndio", "Detector de Fumaça", "Detector de Temperatura", "Detector de Térmicos", "Acionadores", "Sinalizador", "Fonte Auxiliar"] });
 assert.equal(api.taxonomiaPlannerCompleta("CFTV").some((grupo) => grupo.estagios.includes("Iluminação")), false);
+const classificacoes = require("../atividades/classificacoes");
+const atividadeMultipla = { dataInicio:"2026-08-20",horaInicio:"08:00",dataTermino:"2026-08-20",horaTermino:"14:00",classificacoes:[
+  { fase:"Distribuição",item:"Eletrocalha",minutosDedicados:180 },
+  { fase:"Distribuição",item:"Leito",minutosDedicados:60 },
+  { fase:"Plotagem",item:"Iluminação",minutosDedicados:120 }
+] };
+assert.equal(classificacoes.duracaoAtividadeMinutos(atividadeMultipla), 360);
+assert.equal(classificacoes.validarRateio(classificacoes.obterClassificacoesAtividade(atividadeMultipla), 360).valido, true);
+assert.deepEqual(classificacoes.dividirIgualmente(360, 3), [120,120,120]);
+assert.deepEqual(classificacoes.dividirIgualmente(301, 3), [101,100,100]);
+assert.notEqual(classificacoes.chaveClassificacao("Lançamento","Iluminação"), classificacoes.chaveClassificacao("Plotagem","Iluminação"));
+assert.deepEqual(classificacoes.obterClassificacoesAtividade({ fase:"Distribuição",item:"Eletrocalha",data_inicio:"2026-08-20",hora_inicio:"08:00",data_termino:"2026-08-20",hora_termino:"12:00" })[0].minutosDedicados,240);
 }
 
 // ========================================================

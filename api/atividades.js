@@ -3,8 +3,10 @@ const { enriquecerRegistroComObra, resolverOuCriarObra } = require("./_obras");
 const { limparItensOrfaos, normalizarItemPlanner, removerVinculosAtividade, sincronizarAtividadeComPlanner } = require("./_planner-sync");
 const { separarItens } = require("../atividades/fase-item");
 const { normalizarChavePlanner } = require("../atividades/planner-modelos");
+const { duracaoAtividadeMinutos, obterClassificacoesAtividade, validarRateio } = require("../atividades/classificacoes");
 
 const SUPABASE_TABLE = "atividades_colaboradores";
+const CLASSIFICACOES_TABLE = "atividade_classificacoes";
 
 const COLABORADORES = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 
@@ -145,9 +147,23 @@ function fromDatabaseRecord(record) {
   }, {});
 }
 
-async function fromDatabaseRecordComObra(record) {
+async function fromDatabaseRecordComObra(record, classificacoes = []) {
   const enriched = await enriquecerRegistroComObra(record);
-  return { ...fromDatabaseRecord(enriched), obraId: enriched.obra_id || "", obraCodigo: enriched.obraCodigo || "", obra: enriched.obra || "" };
+  return { ...fromDatabaseRecord(enriched), obraId: enriched.obra_id || "", obraCodigo: enriched.obraCodigo || "", obra: enriched.obra || "", classificacoes: obterClassificacoesAtividade({ ...enriched, classificacoes }) };
+}
+function validarClassificacoes(body) {
+  if (!Array.isArray(body.classificacoes)) return [];
+  const classificacoes = obterClassificacoesAtividade({ classificacoes: body.classificacoes });
+  if (classificacoes.length !== body.classificacoes.length) throw Object.assign(new Error("Toda classificação deve informar Fase e Item."), { statusCode: 422 });
+  if (new Set(classificacoes.map((c) => c.chave)).size !== classificacoes.length) throw Object.assign(new Error("A mesma classificação não pode ser repetida."), { statusCode: 422 });
+  const total = duracaoAtividadeMinutos(body), rateio = validarRateio(classificacoes, total);
+  if (!rateio.valido) throw Object.assign(new Error(`O rateio (${rateio.distribuido} min) deve ser igual à duração (${total} min).`), { statusCode: 422 });
+  return classificacoes;
+}
+async function substituirClassificacoes(atividadeId, classificacoes) {
+  await supabaseRequest(CLASSIFICACOES_TABLE, `?atividade_id=eq.${encodeURIComponent(atividadeId)}`, { method: "DELETE" });
+  if (!classificacoes.length) return;
+  await supabaseRequest(CLASSIFICACOES_TABLE, "", { method: "POST", body: JSON.stringify(classificacoes.map((c) => ({ atividade_id: atividadeId, fase: c.fase, item: c.item, item_outro: c.itemOutro ? c.item : null, minutos_dedicados: c.minutosDedicados }))) });
 }
 function filtroAtividadesRelacionadas(record) {
   const campos = [
@@ -250,7 +266,9 @@ module.exports = async function atividadesHandler(req, res) {
     if (req.method === "GET") {
       const user = await requireUser(req);
       const data = await supabaseRequest(SUPABASE_TABLE, "?select=*&order=criado_em.desc");
-      sendJson(res, 200, Array.isArray(data) ? await Promise.all(data.map(fromDatabaseRecordComObra)) : []);
+      const ids = (data || []).map((a) => a.id);
+      const classificacoes = ids.length ? await supabaseRequest(CLASSIFICACOES_TABLE, `?atividade_id=in.(${ids.map(encodeURIComponent).join(",")})&select=*`) : [];
+      sendJson(res, 200, Array.isArray(data) ? await Promise.all(data.map((a) => fromDatabaseRecordComObra(a, classificacoes.filter((c) => c.atividade_id === a.id)))) : []);
       return;
     }
 
@@ -262,9 +280,11 @@ module.exports = async function atividadesHandler(req, res) {
         const atividade = rows?.[0];
         if (!atividade) return sendJson(res, 404, { error: "Atividade não encontrada." });
         if (user.perfil !== "admin" && atividade.usuario_id !== user.id) return sendJson(res, 403, { error: "Você só pode sincronizar suas próprias atividades." });
-        return sendJson(res, 200, { ...fromDatabaseRecord(atividade), plannerSync: await sincronizarComResposta(atividade, user, body.checklistId) });
+        atividade.classificacoes = await supabaseRequest(CLASSIFICACOES_TABLE, `?atividade_id=eq.${encodeURIComponent(atividade.id)}&select=*`);
+        return sendJson(res, 200, { ...fromDatabaseRecord(atividade), classificacoes: obterClassificacoesAtividade(atividade), plannerSync: await sincronizarComResposta(atividade, user, body.checklistId) });
       }
       validateActivityDates(body);
+      const classificacoes = validarClassificacoes(body);
       const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id, origemCriacao: "nova_atividade" });
       body.obraId = obra.id;
       body.obra = obra.nome;
@@ -280,6 +300,9 @@ module.exports = async function atividadesHandler(req, res) {
       });
       await finalizarAtividadesRelacionadas(record);
       const salvo = data[0] || { ...record, id: body.id };
+      try { if (Array.isArray(body.classificacoes)) await substituirClassificacoes(salvo.id, classificacoes); }
+      catch (error) { await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(salvo.id)}`, { method: "DELETE" }); throw Object.assign(new Error(`A atividade não foi salva porque o rateio falhou: ${error.message}`), { statusCode: 500 }); }
+      salvo.classificacoes = classificacoes;
       sendJson(res, 201, { ...fromDatabaseRecord(salvo), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome, plannerSync: await sincronizarComResposta(salvo, user) });
       return;
     }
@@ -293,6 +316,7 @@ module.exports = async function atividadesHandler(req, res) {
       }
 
       validateActivityDates(body);
+      const classificacoes = validarClassificacoes(body);
 
       const atuais = await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(body.id)}&select=id,usuario_id`);
       const atual = Array.isArray(atuais) ? atuais[0] : null;
@@ -319,6 +343,8 @@ module.exports = async function atividadesHandler(req, res) {
       );
       await finalizarAtividadesRelacionadas(record);
       const salvo = data[0] || record;
+      if (Array.isArray(body.classificacoes)) await substituirClassificacoes(body.id, classificacoes);
+      salvo.classificacoes = classificacoes;
       sendJson(res, 200, { ...fromDatabaseRecord(salvo), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome, plannerSync: await sincronizarComResposta(salvo, user) });
       return;
     }
@@ -380,5 +406,6 @@ module.exports._test = {
   idsPlannerPorAtividade,
   possuiValor,
   setsIguais,
+  validarClassificacoes,
   toDatabaseRecord
 };

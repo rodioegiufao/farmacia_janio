@@ -662,10 +662,11 @@ function atualizarFasesDoProjeto(focar = false) {
 }
 function atualizarObrigatoriedadeFaseItem() {
   const exibir = projetoExigeFaseItem(campos.projeto.value);
-  document.getElementById("faseField").hidden = !exibir;
-  document.getElementById("itemField").hidden = !exibir;
-  campos.fase.required = exibir;
-  campos.item.required = exibir;
+  const interfaceNova = Boolean(globalThis.ATIVIDADE_CLASSIFICACOES_UI);
+  document.getElementById("faseField").hidden = interfaceNova || !exibir;
+  document.getElementById("itemField").hidden = interfaceNova || !exibir;
+  campos.fase.required = exibir && !interfaceNova;
+  campos.item.required = exibir && !interfaceNova;
   campos.fase.setAttribute("aria-required", String(exibir));
   campos.item.setAttribute("aria-required", String(exibir));
   if (!exibir) {
@@ -727,6 +728,8 @@ function preencherOpcaoComOutro(tipo, valor, opcoes) {
 }
 async function salvarAtividade(event) {
   event.preventDefault();
+  const classificacoes = globalThis.ATIVIDADE_CLASSIFICACOES_UI?.obter() || [];
+  const classificacaoLegada = classificacoes[0];
 
   const atividade = {
     id: campos.id.value || gerarId(),
@@ -736,8 +739,9 @@ async function salvarAtividade(event) {
     prioridade: campos.prioridade.value,
     projeto: valorComOpcaoOutro("projeto"),
     trabalhos: campos.trabalhos.value.trim(),
-    fase: valorFinal(campos.fase.value, campos.faseOutro.value),
-    item: valorFinalMultiplos(Array.from(campos.item.selectedOptions, (option) => option.value), campos.itemOutro.value),
+    fase: classificacaoLegada?.fase || valorFinal(campos.fase.value, campos.faseOutro.value),
+    item: classificacaoLegada?.item || valorFinalMultiplos(Array.from(campos.item.selectedOptions, (option) => option.value), campos.itemOutro.value),
+    classificacoes,
     etapa: valorComOpcaoOutro("etapa"),
     dataInicio: campos.dataInicio.value,
     horaInicio: campos.horaInicio.value,
@@ -750,6 +754,7 @@ async function salvarAtividade(event) {
   };
 
   atualizarRestricoesDatasAtividade();
+  globalThis.ATIVIDADE_CLASSIFICACOES_UI?.validar();
   if (!form.checkValidity()) {
     form.reportValidity();
     return;
@@ -999,6 +1004,7 @@ function preencherFormularioComAtividade(atividade, { limparHorarios = false } =
   atualizarCampoOutro("item", false);
   atualizarObrigatoriedadeFaseItem();
   preencherOpcaoComOutro("etapa", atividade.etapa, etapas);
+  globalThis.ATIVIDADE_CLASSIFICACOES_UI?.carregar(atividade);
   campos.id.value = "";
   if (limparHorarios) {
     campos.horaInicio.value = "";

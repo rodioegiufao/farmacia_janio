@@ -157,6 +157,13 @@
             <input type="text" id="itemOutro" placeholder="Informe o item" maxlength="100" disabled />
           </span>
         </div>
+        <section id="classificacoesField" class="classificacoes-field span-2" hidden aria-labelledby="classificacoesTitulo">
+          <h3 id="classificacoesTitulo">Fases e itens</h3>
+          <fieldset><legend>Fase</legend><div id="fasesMultiselect" class="fase-multiselect"></div><div id="fasesChips" class="fase-chips" aria-live="polite"></div></fieldset>
+          <div id="itensAgrupados" class="itens-agrupados"></div>
+          <section class="itens-personalizados"><h4>Outros</h4><div id="itensPersonalizados"></div><button type="button" class="secondary" id="adicionarItemPersonalizado">+ Adicionar item personalizado</button></section>
+          <p id="resumoClassificacoes" aria-live="polite">Nenhum item selecionado.</p>
+        </section>
         <label>
           Etapa
           <select id="etapa" required></select>
@@ -196,6 +203,12 @@
           Horário de término
           <input type="time" id="horaTermino" />
         </label>
+
+        <section id="rateioTempo" class="rateio-tempo span-2" hidden aria-labelledby="rateioTitulo" aria-describedby="rateioMensagem">
+          <h3 id="rateioTitulo">Rateio do tempo</h3><div class="rateio-total">Duração calculada <strong id="rateioDuracao">00:00</strong></div>
+          <div id="rateioLinhas"></div><div class="rateio-resumo"><span>Distribuído <strong id="rateioDistribuido">00:00</strong></span><span>Restante <strong id="rateioRestante">00:00</strong></span></div>
+          <p id="rateioMensagem" role="status" aria-live="polite"></p><button type="button" class="secondary" id="dividirRateio">Dividir igualmente</button>
+        </section>
 
         <label class="span-2">
           Observações
@@ -591,6 +604,8 @@
       </div>
   </main>
   <script src="/atividades/fase-item.js"></script>
+  <script src="/atividades/classificacoes.js"></script>
+  <script src="/atividades/classificacoes-ui.js"></script>
   <script src="/atividades/planner-modelos.js"></script>
   <script src="/atividades/planner-gantt.js"></script>
   <script src="/atividades/planner-gantt-relatorio.js"></script>

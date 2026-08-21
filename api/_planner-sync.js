@@ -1,6 +1,7 @@
 const { supabaseRequest } = require("./_auth");
 const { normalizarChavePlanner, normalizarProjetoPlanner, obterProjetoPlanner, obterCodigoProjetoPlanner, obterBucketModeloPlanner } = require("../atividades/planner-modelos");
 const { separarItens, taxonomiaPlannerCompleta, projetoExigeFaseItem } = require("../atividades/fase-item");
+const { obterClassificacoesAtividade } = require("../atividades/classificacoes");
 
 const CHECKLISTS_TABLE = "planner_checklists";
 const ITEMS_TABLE = "planner_checklist_itens";
@@ -22,7 +23,13 @@ function normalizarItemPlanner(valor) {
   return ITEM_ALIASES.get(chave) || chave;
 }
 function gerarChaveItemPlanner(fase, item) { return `${normalizarChavePlanner(fase)}::${normalizarItemPlanner(item)}`; }
-function itensDaAtividade(atividade) { return separarItens(atividade.item).filter((item) => normalizarChavePlanner(item) !== "outros"); }
+function classificacoesDaAtividade(atividade) {
+  return obterClassificacoesAtividade(atividade).filter((c) => normalizarChavePlanner(c.item) !== "outros");
+}
+function itensDaAtividade(atividade) {
+  const classificacoes = classificacoesDaAtividade(atividade);
+  return classificacoes.length ? classificacoes.map((c) => c.item) : separarItens(atividade.item).filter((item) => normalizarChavePlanner(item) !== "outros");
+}
 function minutosDaAtividade(atividade) {
   if (!atividade.data_inicio || !atividade.hora_inicio || !atividade.data_termino || !atividade.hora_termino) return 0;
   const inicio = new Date(`${atividade.data_inicio}T${atividade.hora_inicio}`);
@@ -103,19 +110,20 @@ async function limparItensOrfaos(vinculos) {
 }
 async function sincronizarAtividadeComPlanner(atividade, { user, checklistId } = {}) {
   if (!projetoExigeFaseItem(obterProjetoPlanner(atividade.projeto)?.projeto || atividade.projeto)) { const antigos = await removerVinculosAtividade(atividade.id); await limparItensOrfaos(antigos); return { status: "ignorado" }; }
-  if (!atividade.obra_id || !atividade.id || !atividade.fase || !itensDaAtividade(atividade).length) return { status: "ignorado" };
+  const classificacoes = classificacoesDaAtividade(atividade);
+  if (!atividade.obra_id || !atividade.id || !classificacoes.length) return { status: "ignorado" };
   const localizado = await localizarOuCriarPlanner(atividade, user, checklistId);
   if (localizado.ambigua) return { status: "ambigua", candidatos: localizado.candidatos };
   const antigos = await removerVinculosAtividade(atividade.id);
   const itemIds = []; let itensCriados = 0;
-  for (const [indice, nome] of itensDaAtividade(atividade).entries()) {
-    const localizadoItem = await localizarOuCriarItemPlanner(localizado.checklist.id, atividade.fase, nome, indice);
+  for (const [indice, classificacao] of classificacoes.entries()) {
+    const localizadoItem = await localizarOuCriarItemPlanner(localizado.checklist.id, classificacao.fase, classificacao.item, indice);
     itemIds.push(localizadoItem.item.id); if (localizadoItem.criado) itensCriados += 1;
     await supabaseRequest(LINKS_TABLE, "?on_conflict=atividade_id,item_id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ atividade_id: atividade.id, checklist_id: localizado.checklist.id, item_id: localizadoItem.item.id }) });
   }
   await limparItensOrfaos(antigos.filter((v) => !itemIds.includes(v.item_id)));
   return { status: "sincronizado", checklistId: localizado.checklist.id, itemIds, plannerCriado: localizado.criado, itensCriados, precisaConfigurar: localizado.criado || !localizado.checklist.configuracao_automatica_concluida,
-    itens: itensDaAtividade(atividade).map((item, index) => ({ id: itemIds[index], fase: atividade.fase, item })) };
+    itens: classificacoes.map((c, index) => ({ id: itemIds[index], fase: c.fase, item: c.item, minutosDedicados: c.minutosDedicados })) };
 }
 async function agregarAtividadesDosItens(checklistIds) {
   if (!checklistIds.length) return new Map();
@@ -136,4 +144,4 @@ async function configurarPlannerAutomatico({ checklistId, modo, tipo, selecao, u
   return { status: "sincronizado", checklistId: checklist.id };
 }
 
-module.exports = { agregarAtividadesDosItens, configurarPlannerAutomatico, ehProjetoBaixaTensao, projetoExigeFaseItem, gerarChaveItemPlanner, gerarChavePlanner, itensDaAtividade, limparItensOrfaos, minutosDaAtividade, normalizarItemPlanner, obterCodigoProjetoDaAtividade, removerVinculosAtividade, sincronizarAtividadeComPlanner };
+module.exports = { agregarAtividadesDosItens, classificacoesDaAtividade, configurarPlannerAutomatico, ehProjetoBaixaTensao, projetoExigeFaseItem, gerarChaveItemPlanner, gerarChavePlanner, itensDaAtividade, limparItensOrfaos, minutosDaAtividade, normalizarItemPlanner, obterCodigoProjetoDaAtividade, removerVinculosAtividade, sincronizarAtividadeComPlanner };

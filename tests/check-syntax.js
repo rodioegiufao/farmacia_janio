@@ -26,6 +26,8 @@ const arquivos = [
   "api/ifc-storage-upload-url.js",
   "api/supabase-public-config.js",
   "atividades/fase-item.js",
+  "atividades/classificacoes.js",
+  "atividades/classificacoes-ui.js",
   "atividades/planner-modelos.js",
   "atividades/script.js",
   "admin/script.js",

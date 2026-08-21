@@ -103,7 +103,7 @@ let plannerGanttEscala = "mes";
 let plannerGanttOcultarVazios = true;
 let plannerGanttModo = "sintetico";
 let plannerGanttReferencia = null;
-let plannerGanttMostrarJanela = true;
+let plannerGanttMostrarJanela = false;
 const plannerGanttRecolhidos = new Set();
 let plannerGanttNosAtuais = new Map();
 let plannerGanttPeriodoAtual = null;
@@ -1243,11 +1243,7 @@ function obterIndiceSemanaAtual(semanas) {
 }
 
 function obterNumeroSemanaAno(data) {
-  const dataUtc = new Date(Date.UTC(data.getFullYear(), data.getMonth(), data.getDate()));
-  const diaSemana = dataUtc.getUTCDay() || 7;
-  dataUtc.setUTCDate(dataUtc.getUTCDate() + 4 - diaSemana);
-  const inicioAno = new Date(Date.UTC(dataUtc.getUTCFullYear(), 0, 1));
-  return Math.ceil((((dataUtc - inicioAno) / 86400000) + 1) / 7);
+  return PLANNER_GANTT.obterNumeroSemanaIso(data);
 }
 
 function ordenarSemanasPlanejamento(semanas) {
@@ -2620,7 +2616,11 @@ function alterarVisualizacaoPlanner(modo) {
   plannerEls.viewGantt?.classList.toggle("active", plannerViewMode === "gantt");
   plannerEls.viewQuadro?.setAttribute("aria-pressed", String(plannerViewMode === "quadro"));
   plannerEls.viewGantt?.setAttribute("aria-pressed", String(plannerViewMode === "gantt"));
-  if (plannerEls.agrupar) { plannerEls.agrupar.disabled = plannerViewMode === "gantt"; plannerEls.agrupar.closest("label")?.classList.toggle("planner-control-disabled", plannerViewMode === "gantt"); }
+  if (plannerEls.agrupar) {
+    const noGantt = plannerViewMode === "gantt";
+    plannerEls.agrupar.disabled = noGantt;
+    plannerEls.agrupar.closest("label")?.toggleAttribute("hidden", noGantt);
+  }
   renderizarPlanner();
 }
 function habilitarMovimentoPlannerItem() {
@@ -2854,17 +2854,28 @@ function intervaloVisivelPlannerGantt(global) {
   return { inicio: PLANNER_GANTT.dataCivilIso(inicio), fim: PLANNER_GANTT.dataCivilIso(fim) };
 }
 function rotuloDataGantt(iso) { return new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }); }
-function cabecalhoPlannerGantt(dias) { return dias.map((iso) => { const d = new Date(`${iso}T12:00:00`), fimSemana = d.getDay() === 0 || d.getDay() === 6; return `<div class="planner-gantt-day ${fimSemana ? "weekend" : ""}" title="${rotuloDataGantt(iso)}"><strong>${String(d.getDate()).padStart(2, "0")}</strong><small>${d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "")}</small></div>`; }).join(""); }
-function resumoNoGantt(no) { const m = no.metricas; return `${formatarMinutosPlanner(m.minutosNoPeriodo)} no período · ${formatarMinutosPlanner(m.minutosAcumulados)} acumuladas`; }
+function gruposSemanasPlannerGantt(dias) {
+  return dias.reduce((grupos, iso, indice) => {
+    const semana = obterNumeroSemanaAno(new Date(`${iso}T12:00:00`)), anterior = grupos.at(-1);
+    if (anterior?.semana === semana) anterior.quantidade += 1;
+    else grupos.push({ semana, inicio: indice + 1, quantidade: 1 });
+    return grupos;
+  }, []);
+}
+function cabecalhoPlannerGantt(dias) { return dias.map((iso) => { const d = new Date(`${iso}T12:00:00`), fimSemana = d.getDay() === 0 || d.getDay() === 6, inicioSemana = d.getDay() === 1; return `<div class="planner-gantt-day ${fimSemana ? "weekend" : ""} ${inicioSemana ? "planner-gantt-week-boundary" : ""}" title="${rotuloDataGantt(iso)}"><strong>${String(d.getDate()).padStart(2, "0")}</strong><small>${d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "")}</small></div>`; }).join(""); }
+function cabecalhoSemanasPlannerGantt(dias) { return gruposSemanasPlannerGantt(dias).map((grupo) => `<div class="planner-gantt-week-header" style="grid-column:${grupo.inicio} / span ${grupo.quantidade}">SEM ${grupo.semana}</div>`).join(""); }
+function divisoriasSemanasPlannerGantt(dias) { return dias.map((iso, indice) => new Date(`${iso}T12:00:00`).getDay() === 1 && indice ? `<span class="planner-gantt-week-divider" style="grid-column:${indice + 1}"></span>` : "").join(""); }
+function formatarHorasCompactasPlanner(minutos) { return formatarMinutosPlanner(minutos).toLowerCase().replace(/\s+/g, ""); }
+function tooltipHorasPlannerGantt(no) { const m = no.metricas; return `No período: ${formatarHorasCompactasPlanner(m.minutosNoPeriodo)}\nAcumulado: ${formatarHorasCompactasPlanner(m.minutosAcumulados)}\nDias ativos: ${m.diasAtivos}`; }
 function tooltipOperacionalGantt(no, segmento) { return [no.nome, rotuloDataGantt(segmento.data), `${formatarMinutosPlanner(segmento.minutos)} registradas`, `${segmento.itens?.length || (no.tipo === "item" ? 1 : 0)} itens movimentados`, `${segmento.colaboradores.length} colaboradores`, segmento.itens?.length ? `Itens: ${segmento.itens.map((i) => i.nome).join(" · ")}` : ""].filter(Boolean).join("\n"); }
 function conteudoNoGantt(no, intervalo, dias) {
   const janela = plannerGanttMostrarJanela && no.tipo !== "item" && no.metricas.primeiraMovimentacao ? (() => { const ini=Math.max(1,PLANNER_GANTT.diferencaDias(intervalo.inicio,no.metricas.primeiraMovimentacao)+1), fim=Math.min(dias.length,PLANNER_GANTT.diferencaDias(intervalo.inicio,no.metricas.ultimaMovimentacao)+1); return fim>=ini?`<span class="planner-gantt-window" style="grid-column:${ini} / span ${fim-ini+1}"></span>`:""; })() : "";
-  return janela + no.segmentosPeriodo.map((segmento) => { const ini=Math.max(1,PLANNER_GANTT.diferencaDias(intervalo.inicio,segmento.data)+1), fim=Math.min(dias.length,PLANNER_GANTT.diferencaDias(intervalo.inicio,segmento.dataFim)+1); if(fim<ini||fim<1||ini>dias.length)return ""; const nivel=segmento.minutos<=240?1:segmento.minutos<=480?2:segmento.minutos<=960?3:4, tooltip=tooltipOperacionalGantt(no,segmento); return `<span class="planner-gantt-segment intensity-${nivel} ${no.tipo!=="item"?"aggregate":""}" style="grid-column:${ini} / span ${fim-ini+1}" title="${escapeHtml(tooltip)}"></span>`; }).join("");
+  return divisoriasSemanasPlannerGantt(dias) + janela + no.segmentosPeriodo.map((segmento) => { const ini=Math.max(1,PLANNER_GANTT.diferencaDias(intervalo.inicio,segmento.data)+1), fim=Math.min(dias.length,PLANNER_GANTT.diferencaDias(intervalo.inicio,segmento.dataFim)+1); if(fim<ini||fim<1||ini>dias.length)return ""; const nivel=segmento.minutos<=240?1:segmento.minutos<=480?2:segmento.minutos<=960?3:4, tooltip=tooltipOperacionalGantt(no,segmento); return `<span class="planner-gantt-bar planner-gantt-bar--${no.tipo} planner-gantt-segment intensity-${nivel} ${no.tipo!=="item"?"aggregate":""}" style="grid-column:${ini} / span ${fim-ini+1}" title="${escapeHtml(tooltip)}"></span>`; }).join("");;
 }
 function linhaPlannerGantt(no, intervalo, dias) {
   const id=`${no.tipo}:${no.id}`, recolhivel=no.tipo!=="item", recolhido=plannerGanttRecolhidos.has(id), tipoCss=no.tipo==="projeto"?"project":no.tipo==="fase"?"phase":no.tipo;
   const nome=`<button type="button" class="planner-gantt-process-button" data-gantt-node="${escapeHtml(id)}" aria-label="Ver atividades vinculadas a ${escapeHtml(no.nome)}">${escapeHtml(`${no.tipo==="item"&&no.concluido?"✓ ":""}${no.nome}`)}</button>`;
-  return `<div class="planner-gantt-row planner-gantt-${tipoCss}"><div class="planner-gantt-label">${recolhivel?`<button type="button" class="planner-gantt-toggle" data-gantt-toggle="${escapeHtml(id)}" aria-label="${recolhido?"Expandir":"Recolher"} ${escapeHtml(no.nome)}" aria-expanded="${!recolhido}">${recolhido?"▸":"▾"}</button>`:""}${nome}<small>${escapeHtml(resumoNoGantt(no))}</small></div><div class="planner-gantt-timeline" style="--gantt-days:${dias.length}">${conteudoNoGantt(no,intervalo,dias)}</div></div>`;
+  return `<div class="planner-gantt-row planner-gantt-row--${no.tipo} planner-gantt-${tipoCss}"><div class="planner-gantt-label"><div class="planner-gantt-process-column">${recolhivel?`<button type="button" class="planner-gantt-toggle" data-gantt-toggle="${escapeHtml(id)}" aria-label="${recolhido?"Expandir":"Recolher"} ${escapeHtml(no.nome)}" aria-expanded="${!recolhido}">${recolhido?"▸":"▾"}</button>`:"<span class=\"planner-gantt-toggle-spacer\"></span>"}${nome}</div><span class="planner-gantt-hours-column" tabindex="0" title="${escapeHtml(tooltipHorasPlannerGantt(no))}">${formatarHorasCompactasPlanner(no.metricas.minutosNoPeriodo)}</span></div><div class="planner-gantt-timeline" style="--gantt-days:${dias.length}">${conteudoNoGantt(no,intervalo,dias)}</div></div>`;
 }
 function filtrosAtividadePlannerGantt() {
   const statusMap = { "Concluído": "Finalizado", "Em andamento": "Em progresso", "Atrasado": "Atrasado", "Pausado": "Pausado", "Não iniciado": "__sem_atividade__" };
@@ -2896,9 +2907,10 @@ function renderizarPlannerGantt(checklists) {
   registrarContextoNosGantt(estrutura);
   const linhas=PLANNER_GANTT.filtrarLinhasHierarquia(estrutura,{modo:plannerGanttModo,recolhidos:plannerGanttRecolhidos}).map((no)=>linhaPlannerGantt(no,intervalo,dias)).join("");
   const titulo=plannerGanttEscala==="semana"?`SEMANA ${obterNumeroSemanaAno(new Date(`${intervalo.inicio}T12:00:00`))}`:plannerGanttEscala==="mes"?new Date(`${intervalo.inicio}T12:00:00`).toLocaleDateString("pt-BR",{month:"long",year:"numeric"}).toUpperCase():`${rotuloDataGantt(intervalo.inicio)} — ${rotuloDataGantt(intervalo.fim)}`;
-  plannerEls.gantt.innerHTML=`<div class="planner-gantt-toolbar"><span>Escala:</span>${["semana","mes","tudo"].map((e)=>`<button data-gantt-scale="${e}" class="${plannerGanttEscala===e?"active":""}">${e[0].toUpperCase()+e.slice(1)}</button>`).join("")}<span>Detalhe:</span>${["sintetico","analitico"].map((m)=>`<button data-gantt-mode="${m}" class="${plannerGanttModo===m?"active":""}">${m==="sintetico"?"Sintético":"Analítico"}</button>`).join("")}<button data-gantt-nav="-1" ${plannerGanttEscala==="tudo"?"disabled":""}>◀</button><strong>${escapeHtml(titulo)}</strong><button data-gantt-nav="1" ${plannerGanttEscala==="tudo"?"disabled":""}>▶</button><button data-gantt-today>Hoje</button><label><input type="checkbox" data-gantt-window ${plannerGanttMostrarJanela?"checked":""}> Mostrar janela de execução</label><label><input type="checkbox" data-gantt-hide-empty ${plannerGanttOcultarVazios?"checked":""}> Com movimentação no período</label></div><div class="planner-gantt-scroll"><div class="planner-gantt-grid" style="--gantt-days:${dias.length}"><div class="planner-gantt-header"><div class="planner-gantt-label"><strong>${escapeHtml(titulo)}</strong></div><div class="planner-gantt-days">${cabecalhoPlannerGantt(dias)}</div></div>${linhas}${hojeVisivel?`<div class="planner-gantt-today" style="--today-column:${dias.indexOf(hoje)+1}"><span>Hoje</span></div>`:""}</div></div>`;
+  const botoesEscala=["semana","mes","tudo"].map((e)=>`<button data-gantt-scale="${e}" class="${plannerGanttEscala===e?"active":""}">${e[0].toUpperCase()+e.slice(1)}</button>`).join(""), botoesModo=["sintetico","analitico"].map((m)=>`<button data-gantt-mode="${m}" class="${plannerGanttModo===m?"active":""}">${m==="sintetico"?"Sintético":"Analítico"}</button>`).join("");
+  plannerEls.gantt.innerHTML=`<div class="planner-gantt-toolbar"><div class="planner-gantt-toolbar-group planner-gantt-period"><span class="planner-gantt-toolbar-label">Período</span><div class="planner-gantt-toolbar-actions"><button data-gantt-nav="-1" aria-label="Período anterior" ${plannerGanttEscala==="tudo"?"disabled":""}>◀</button><strong>${escapeHtml(titulo)}</strong><button data-gantt-nav="1" aria-label="Próximo período" ${plannerGanttEscala==="tudo"?"disabled":""}>▶</button><button data-gantt-today>Hoje</button></div></div><div class="planner-gantt-toolbar-group"><span class="planner-gantt-toolbar-label">Escala</span><div class="planner-gantt-segmented">${botoesEscala}</div></div><div class="planner-gantt-toolbar-group"><span class="planner-gantt-toolbar-label">Visualização</span><div class="planner-gantt-segmented">${botoesModo}</div></div><div class="planner-gantt-toolbar-group planner-gantt-options"><span class="planner-gantt-toolbar-label">Opções</span><div class="planner-gantt-option-list"><label><input type="checkbox" data-gantt-hide-empty ${plannerGanttOcultarVazios?"checked":""}> Somente com movimentação</label><label><input type="checkbox" data-gantt-window ${plannerGanttMostrarJanela?"checked":""}> Janela de execução</label></div></div></div><div class="planner-gantt-scroll"><div class="planner-gantt-grid" style="--gantt-days:${dias.length}"><div class="planner-gantt-header"><div class="planner-gantt-label"><span class="planner-gantt-process-column">Processo</span><span class="planner-gantt-hours-column">Horas</span></div><div class="planner-gantt-calendar-header"><div class="planner-gantt-weeks">${cabecalhoSemanasPlannerGantt(dias)}</div><div class="planner-gantt-days">${cabecalhoPlannerGantt(dias)}</div></div></div>${linhas}${hojeVisivel?`<div class="planner-gantt-today planner-gantt-today-line" style="--today-column:${dias.indexOf(hoje)+1}"><span>Hoje</span></div>`:""}</div></div>`;
   plannerEls.gantt.querySelectorAll("[data-gantt-scale]").forEach((b)=>b.addEventListener("click",()=>{plannerGanttEscala=b.dataset.ganttScale;plannerGanttReferencia=null;renderizarPlanner();}));
-  plannerEls.gantt.querySelectorAll("[data-gantt-mode]").forEach((b)=>b.addEventListener("click",()=>{plannerGanttModo=b.dataset.ganttMode;plannerGanttMostrarJanela=plannerGanttModo==="sintetico";renderizarPlanner();}));
+  plannerEls.gantt.querySelectorAll("[data-gantt-mode]").forEach((b)=>b.addEventListener("click",()=>{plannerGanttModo=b.dataset.ganttMode;renderizarPlanner();}));
   plannerEls.gantt.querySelectorAll("[data-gantt-nav]").forEach((b)=>b.addEventListener("click",()=>{const d=new Date(`${intervalo.inicio}T12:00:00`);plannerGanttEscala==="semana"?d.setDate(d.getDate()+7*Number(b.dataset.ganttNav)):d.setMonth(d.getMonth()+Number(b.dataset.ganttNav));plannerGanttReferencia=PLANNER_GANTT.dataCivilIso(d);renderizarPlanner();}));
   plannerEls.gantt.querySelector("[data-gantt-today]")?.addEventListener("click",()=>{plannerGanttReferencia=hoje;renderizarPlanner();});
   plannerEls.gantt.querySelector("[data-gantt-window]")?.addEventListener("change",(e)=>{plannerGanttMostrarJanela=e.target.checked;renderizarPlanner();});
@@ -2906,7 +2918,7 @@ function renderizarPlannerGantt(checklists) {
   plannerEls.gantt.querySelectorAll("[data-gantt-toggle]").forEach((b)=>b.addEventListener("click",(event)=>{event.stopPropagation();plannerGanttRecolhidos.has(b.dataset.ganttToggle)?plannerGanttRecolhidos.delete(b.dataset.ganttToggle):plannerGanttRecolhidos.add(b.dataset.ganttToggle);renderizarPlanner();}));
   plannerEls.gantt.querySelectorAll("[data-gantt-node]").forEach((b)=>b.addEventListener("click",(event)=>{event.stopPropagation();abrirAtividadesVinculadasGantt(plannerGanttNosAtuais.get(b.dataset.ganttNode),b);}));
 }
-function centralizarDiaPlannerGantt(iso) { const scroll=plannerEls.gantt?.querySelector(".planner-gantt-scroll"),grid=plannerEls.gantt?.querySelector(".planner-gantt-grid");if(!scroll||!grid)return;const inicio=grid.querySelector(".planner-gantt-day")?.title?.split("/").reverse().join("-");scroll.scrollLeft=Math.max(0,290+PLANNER_GANTT.diferencaDias(inicio,iso)*42-scroll.clientWidth/2); }function criarBucketPlanner(grupo) {
+function centralizarDiaPlannerGantt(iso) { const scroll=plannerEls.gantt?.querySelector(".planner-gantt-scroll"),grid=plannerEls.gantt?.querySelector(".planner-gantt-grid");if(!scroll||!grid)return;const inicio=grid.querySelector(".planner-gantt-day")?.title?.split("/").reverse().join("-");scroll.scrollLeft=Math.max(0,360+PLANNER_GANTT.diferencaDias(inicio,iso)*42-scroll.clientWidth/2); }function criarBucketPlanner(grupo) {
   const podeAdicionar = (plannerEls.agrupar?.value || "bucket") === "bucket" && usuarioAtualEhAdmin();
   return `<section class="planner-bucket-column" data-drop-bucket="${escapeHtml(grupo.nome)}"><header class="planner-bucket-header"><h3>${escapeHtml(grupo.nome)}</h3><span>${grupo.itens.length}</span></header>${podeAdicionar ? `<button type="button" class="planner-add-task" data-add-bucket="${escapeHtml(grupo.nome)}"><i class="fas fa-plus" aria-hidden="true"></i> Adicionar tarefa</button>` : ""}<div class="planner-bucket-cards">${grupo.itens.map(criarCardPlanner).join("")}</div></section>`;
 }

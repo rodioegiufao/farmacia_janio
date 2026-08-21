@@ -354,6 +354,10 @@ const item = (id, etapa, atividadesVinculadas) => ({ id, etapa, estagio:id, ativ
 
 assert.equal(gantt.obterIntervaloRealAtividade(atividade("2026-08-18","08:00","12:00")).minutos,240);
 assert.equal(gantt.obterIntervaloRealAtividade(atividade("2026-08-20","08:00","12:00","R","2026-08-18")),null);
+assert.equal(gantt.obterNumeroSemanaIso("2026-08-01"),31,"agosto inicia na semana ISO correta");
+assert.equal(gantt.obterNumeroSemanaIso("2026-08-31"),36,"a troca para setembro recalcula o agrupamento semanal");
+assert.equal(gantt.obterNumeroSemanaIso("2027-01-01"),53,"a semana ISO atravessa corretamente a mudança de ano");
+assert.equal(gantt.obterNumeroSemanaIso("2027-01-04"),1,"a primeira segunda-feira inicia a semana 1");
 const compartilhada=atividade("2026-08-03","08:00","10:00","Bruno");
 const checklists=[
  {id:"p1",obraId:"o1",obra:"FIOCRUZ",projeto:"Elétrico",itens:[item("A","Fase A",[compartilhada,atividade("2026-08-08")]),item("B","Fase A",[atividade("2026-08-04")])]},

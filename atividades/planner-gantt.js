@@ -9,6 +9,15 @@
   function dataCivilIso(data) { return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`; }
   function dataCivil(valor) { const m = String(valor || "").match(/^(\d{4})-(\d{2})-(\d{2})$/); if (!m) return null; const d = new Date(+m[1], +m[2] - 1, +m[3]); return dataCivilIso(d) === valor ? d : null; }
   function diferencaDias(inicio, fim) { const a = dataCivil(inicio), b = dataCivil(fim); return a && b ? Math.round((Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()) - Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / DIA_MS) : 0; }
+  function obterNumeroSemanaIso(entrada) {
+    const data = entrada instanceof Date ? entrada : dataCivil(entrada);
+    if (!data || !Number.isFinite(data.getTime())) return null;
+    const dataUtc = new Date(Date.UTC(data.getFullYear(), data.getMonth(), data.getDate()));
+    const diaSemana = dataUtc.getUTCDay() || 7;
+    dataUtc.setUTCDate(dataUtc.getUTCDate() + 4 - diaSemana);
+    const inicioAno = new Date(Date.UTC(dataUtc.getUTCFullYear(), 0, 1));
+    return Math.ceil((((dataUtc - inicioAno) / DIA_MS) + 1) / 7);
+  }
   function listarDias(inicio, fim) { const a = dataCivil(inicio), b = dataCivil(fim), dias = []; if (!a || !b || b < a) return dias; for (let d = a; d <= b; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) dias.push(dataCivilIso(d)); return dias; }
   function obterIntervaloRealAtividade(atividade) {
     if (!atividade?.data_inicio || !atividade?.hora_inicio || !atividade?.data_termino || !atividade?.hora_termino) return null;
@@ -120,5 +129,5 @@
     (estrutura || []).forEach((obra) => { linhas.push(obra); if (recolhidos.has(`obra:${obra.id}`)) return; obra.projetos.forEach((projeto) => { linhas.push(projeto); if (recolhidos.has(`projeto:${projeto.id}`)) return; projeto.filhos.forEach((fase) => { linhas.push(fase); if (modo === "analitico" && !recolhidos.has(`fase:${fase.id}`)) linhas.push(...fase.filhos); }); }); });
     return linhas;
   }
-  return { obterIntervaloRealAtividade, obterAtividadesValidasGantt, obterAtividadesDoNivelGantt, correspondeFiltrosAtividade, agruparAtividadesGanttPorDia, obterIntervaloGlobalGantt, construirEstruturaGantt, calcularMetricasTemporais, calcularMaiorLacuna, atividadeEstaNoPeriodo, segmentoEstaNoPeriodo, intervalosNoPeriodo, filtrarLinhasHierarquia, deduplicarIntervalos, listarDias, diferencaDias, dataCivilIso };
+  return { obterIntervaloRealAtividade, obterAtividadesValidasGantt, obterAtividadesDoNivelGantt, correspondeFiltrosAtividade, agruparAtividadesGanttPorDia, obterIntervaloGlobalGantt, construirEstruturaGantt, calcularMetricasTemporais, calcularMaiorLacuna, atividadeEstaNoPeriodo, segmentoEstaNoPeriodo, intervalosNoPeriodo, filtrarLinhasHierarquia, deduplicarIntervalos, listarDias, diferencaDias, dataCivilIso, obterNumeroSemanaIso };
 });

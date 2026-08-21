@@ -396,8 +396,8 @@
     <section class="panel planner-panel" id="plannerSection" data-section-panel="plannerSection" aria-label="Planner de checklist por projeto" hidden>
       <div class="planner-toolbar">
         <div>
-          <span class="planner-breadcrumb">Projetos / Plano elétrico</span>
-          <h2>Projetos Modelos – Elétrica</h2>
+          <span class="planner-breadcrumb">Projetos / Planner</span>
+          <h2>Planner de Projetos Elétricos</h2>
           <div class="planner-view-switch" role="group" aria-label="Visualização do Planner"><button type="button" class="active" id="plannerViewQuadro" aria-pressed="true"><i class="fas fa-table-columns" aria-hidden="true"></i> Quadro</button><button type="button" id="plannerViewGantt" aria-pressed="false"><i class="fas fa-chart-gantt" aria-hidden="true"></i> Gantt</button></div>
         </div>
         <button type="button" class="primary" id="btnNovoChecklistPlanner"><i class="fas fa-plus" aria-hidden="true"></i> Adicionar tarefa</button>
@@ -408,7 +408,7 @@
         <label>Prioridade<select id="plannerFiltroPrioridade"><option value="">Todas</option></select></label>
         <label>Responsável<select id="plannerFiltroResponsavel"><option value="">Todos</option></select></label>
         <label>Prazos dos estágios<select id="plannerFiltroPrazo"><option value="">Todos</option><option value="sem-prazo">Sem agendamento</option><option value="agendados">Agendados</option><option value="hoje">Para hoje</option><option value="proximo">Próximos</option><option value="atrasado">Atrasados</option></select></label>
-        <label>Agrupar por<select id="plannerAgrupar"><option value="bucket">Bucket</option><option value="status">Status</option><option value="prioridade">Prioridade</option></select></label>
+        <label class="planner-group-control">Agrupar por<select id="plannerAgrupar"><option value="bucket">Bucket</option><option value="status">Status</option><option value="prioridade">Prioridade</option></select></label>
       </div>
       <div id="plannerModelosStatus" class="planner-status" aria-live="polite"></div>
       <div id="plannerBoard" class="planner-board" aria-live="polite"></div>

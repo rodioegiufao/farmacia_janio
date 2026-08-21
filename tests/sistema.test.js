@@ -291,6 +291,33 @@ assert.deepEqual(classificacoes.dividirIgualmente(360, 3), [120,120,120]);
 assert.deepEqual(classificacoes.dividirIgualmente(301, 3), [101,100,100]);
 assert.notEqual(classificacoes.chaveClassificacao("Lançamento","Iluminação"), classificacoes.chaveClassificacao("Plotagem","Iluminação"));
 assert.deepEqual(classificacoes.obterClassificacoesAtividade({ fase:"Distribuição",item:"Eletrocalha",data_inicio:"2026-08-20",hora_inicio:"08:00",data_termino:"2026-08-20",hora_termino:"12:00" })[0].minutosDedicados,240);
+const itemPersonalizado = "ABNT NBR ISO/CIE 8995-1";
+const personalizadoFrontend = classificacoes.normalizarClassificacao({
+  fase: "Estudos", item: itemPersonalizado, itemOutro: true, minutosDedicados: 89
+});
+assert.equal(personalizadoFrontend.item, itemPersonalizado);
+assert.equal(personalizadoFrontend.itemOutro, true);
+assert.equal(personalizadoFrontend.minutosDedicados, 89);
+assert.notEqual(personalizadoFrontend.item, "true");
+
+const personalizadoBanco = classificacoes.normalizarClassificacao({
+  fase: "Estudos", item: itemPersonalizado, item_outro: itemPersonalizado, minutos_dedicados: 89
+});
+assert.equal(personalizadoBanco.item, itemPersonalizado);
+assert.equal(personalizadoBanco.itemOutro, true);
+assert.equal(personalizadoBanco.minutosDedicados, 89);
+assert.equal(personalizadoFrontend.chave, personalizadoBanco.chave);
+assert.equal(new Map([personalizadoFrontend, personalizadoBanco].map((c) => [c.chave, c])).size, 1);
+assert.equal(classificacoes.validarRateio([personalizadoFrontend], 89).valido, true);
+
+const itemNormal = classificacoes.normalizarClassificacao({
+  fase: "Estudos", item: "ABNT NBR 5410", itemOutro: false, minutosDedicados: 30
+});
+assert.equal(itemNormal.item, "ABNT NBR 5410");
+assert.equal(itemNormal.itemOutro, false);
+
+// Defesa contra a regressão de tipagem: booleanos não viram nomes textuais.
+assert.equal(classificacoes.normalizarClassificacao({ fase: "Estudos", item: true, itemOutro: true }).item, "");
 }
 
 // ========================================================

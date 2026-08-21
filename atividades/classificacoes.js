@@ -6,6 +6,8 @@
   "use strict";
   const texto = (v) => String(v ?? "").trim();
   const chaveClassificacao = (fase, item) => `${texto(fase).normalize("NFC")}::${texto(item).normalize("NFC")}`;
+  // Convenção: item = nome real; itemOutro = booleano da UI/domínio;
+  // item_outro = texto persistido do item personalizado (ou null).
   function duracaoAtividadeMinutos(a = {}) {
     const di = a.dataInicio || a.data_inicio, hi = a.horaInicio || a.hora_inicio;
     const df = a.dataTermino || a.data_termino, hf = a.horaTermino || a.hora_termino;
@@ -14,9 +16,13 @@
     return Number.isFinite(inicio) && Number.isFinite(fim) && fim > inicio ? Math.round((fim - inicio) / 60000) : 0;
   }
   function normalizarClassificacao(c = {}) {
-    const fase = texto(c.fase), item = texto(c.item_outro || c.itemOutro || c.item);
+    const fase = texto(c.fase);
+    const itemOutroTexto = typeof c.item_outro === "string" ? texto(c.item_outro) : "";
+    // Campos booleanos nunca participam da escolha do nome da classificação.
+    const item = itemOutroTexto || (typeof c.item === "string" ? texto(c.item) : "");
+    const itemOutro = Boolean(itemOutroTexto) || c.itemOutro === true;
     const minutosDedicados = Number(c.minutos_dedicados ?? c.minutosDedicados ?? 0);
-    return { id: c.id || "", fase, item, itemOutro: Boolean(c.item_outro || c.itemOutro), minutosDedicados: Number.isInteger(minutosDedicados) && minutosDedicados >= 0 ? minutosDedicados : 0, chave: chaveClassificacao(fase, item) };
+    return { id: c.id || "", fase, item, itemOutro, minutosDedicados: Number.isInteger(minutosDedicados) && minutosDedicados >= 0 ? minutosDedicados : 0, chave: chaveClassificacao(fase, item) };
   }
   function obterClassificacoesAtividade(atividade = {}) {
     const novas = atividade.classificacoes || atividade.atividade_classificacoes;

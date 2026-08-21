@@ -5,12 +5,18 @@ assert.deepEqual(api.obterProjetosComFaseItem(), ["CFTV", "Cabeamento", "Telefon
 api.obterProjetosComFaseItem().forEach((projeto) => assert.equal(api.projetoExigeFaseItem(projeto), true));
 ["", "Site", "Todos", "Outros"].forEach((projeto) => assert.equal(api.projetoExigeFaseItem(projeto), false));
 
-assert.deepEqual(api.obterFasesDoProjeto("CFTV"), ["Estudos", "Lançamento", "Distribuição", "Circuitos", "Plotagem", "Compatibilização", "Documentos", "Outros"]);
+assert.deepEqual(api.obterFasesDoProjeto("CFTV"), ["Estudos", "Lançamento", "Distribuição", "Circuitos", "Plotagem", "Compatibilização", "Documentos", "Fiscalização", "Outros"]);
 assert.deepEqual(api.obterItensDoProjetoFase("CFTV", "Lançamento"), ["Câmeras Bullet", "Câmeras Dome", "Câmera IP/Wi-fi", "Switch", "Patch Panel", "Conectores", "Rack", "NVR/DVR", "Outros"]);
 assert.deepEqual(api.obterItensDoProjetoFase("SPDA", "Distribuição"), ["Caixas de Passagem", "Hastes de aterramento", "Minicaptor", "Captor Franklin", "Re-bar", "Outros"]);
 assert.ok(!api.obterFasesDoProjeto("SPDA").includes("Circuitos"));
-assert.deepEqual(api.obterFasesDoProjeto("Subestação"), ["Estudos", "Análise de Projeto", "Desenhos", "Distribuição", "Plotagem", "Compatibilização", "Documentos", "Outros"]);
-assert.deepEqual(api.obterFasesDoProjeto("Mapa Chave/Situação"), ["Análise de Projeto", "Desenhos", "Distribuição", "Plotagem", "Documentos", "Outros"]);
+assert.deepEqual(api.obterFasesDoProjeto("Subestação"), ["Estudos", "Análise de Projeto", "Desenhos", "Distribuição", "Plotagem", "Compatibilização", "Documentos", "Fiscalização", "Outros"]);
+assert.deepEqual(api.obterFasesDoProjeto("Mapa Chave/Situação"), ["Análise de Projeto", "Desenhos", "Distribuição", "Plotagem", "Documentos", "Fiscalização", "Outros"]);
+api.obterProjetosComFaseItem().forEach((projeto) => {
+  assert.ok(api.obterFasesDoProjeto(projeto).includes("Fiscalização"));
+  assert.deepEqual(api.obterItensDoProjetoFase(projeto, "Fiscalização"), ["ART", "Relatório", "Quadros", "Cabos", "Outros"]);
+});
+assert.deepEqual(api.obterItensDoProjetoFase("Subestação", "Documentos"), ["Memorial", "Relatório", "Viabilidade", "Outros"]);
+assert.deepEqual(api.obterItensDoProjetoFase("Solar", "Documentos"), ["Memorial", "Relatório", "Viabilidade", "Outros"]);
 assert.deepEqual(api.obterItensDoProjetoFase("SDAI", "Lançamento"), ["Central de Alarme de Incêndio", "Detector de Fumaça", "Detector de Temperatura", "Detector de Térmicos", "Acionadores", "Sinalizador", "Fonte Auxiliar", "Outros"]);
 assert.deepEqual(api.obterItensDoProjetoFase("Média Tensão", "Circuitos"), ["Dimensionar", "Nomear", "Numerar", "Renumerar", "Diagrama Unifilar Geral", "Outros"]);
 assert.equal(api.obterItensDoProjetoFase("Lógica", "Estudos").filter((item) => item === "ABNT NBR 16264").length, 1);

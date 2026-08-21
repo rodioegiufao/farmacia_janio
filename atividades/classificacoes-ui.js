@@ -9,12 +9,14 @@
   const classes = () => [...estado.values()].filter((c) => c.fase && c.item).map((c) => ({ ...c, minutosDedicados: Number(c.minutosDedicados) || 0 }));
   function duracao() { return C.duracaoAtividadeMinutos({ dataInicio: $("dataInicio").value, horaInicio: $("horaInicio").value, dataTermino: $("dataTermino").value, horaTermino: $("horaTermino").value }); }
   function validar() {
-    const lista = classes(), total = duracao();
-    if (lista.length === 1) { lista[0].minutosDedicados = total; estado.get(lista[0].chave).minutosDedicados = total; }
-    const r = C.validarRateio(lista, total), card = $("rateioTempo"); card.hidden = !lista.length;
+    const lista = classes(), total = duracao(), exige = F.projetoExigeFaseItem(projeto());
+    const regra = C.aplicarRegraRateio(lista, total, exige);
+    if (lista.length === 1) estado.get(lista[0].chave).minutosDedicados = regra.classificacoes[0].minutosDedicados;
+    const r = regra, card = $("rateioTempo"); card.hidden = !C.deveMostrarRateio({ exigeClassificacao: exige, classificacoes: lista, duracaoMinutos: total });
     $("rateioDuracao").textContent = hhmm(total); $("rateioDistribuido").textContent = hhmm(r.distribuido); $("rateioRestante").textContent = `${r.restante < 0 ? "−" : ""}${hhmm(r.restante)}`;
     $("rateioMensagem").textContent = !total ? "Informe o intervalo da atividade." : r.restante > 0 ? `Faltam ${hhmm(r.restante)} para distribuir.` : r.restante < 0 ? `Rateio excede a duração da atividade em ${hhmm(-r.restante)}.` : "Distribuição concluída.";
-    $("btnSalvar").disabled = F.projetoExigeFaseItem(projeto()) && !r.valido;
+    $("projeto").setCustomValidity(exige && !lista.length ? "Selecione pelo menos uma Fase e um Item para este Projeto." : "");
+    $("btnSalvar").disabled = exige && lista.length > 1 && !r.valido;
     renderRateio();
   }
   function renderRateio() {
@@ -44,7 +46,18 @@
   });
   document.addEventListener("click", (e) => { const alvo=e.target.closest("button"); if(alvo?.id==="adicionarItemPersonalizado"){if(!fases.size)return alert("Selecione uma Fase primeiro.");adicionarPersonalizado();} if(alvo?.dataset.remover!==undefined){const d=alvo.closest(".item-personalizado");if(d.dataset.chave)estado.delete(d.dataset.chave);d.remove();render();} if(alvo?.dataset.removerFase&&removerFase(alvo.dataset.removerFase))render(); if(alvo?.id==="dividirRateio"){C.dividirIgualmente(duracao(),classes().length).forEach((m,i)=>estado.get(classes()[i].chave).minutosDedicados=m);validar();} });
   document.addEventListener("keydown", (e) => { if(e.key==="Enter"&&e.target.matches("#fasesMultiselect input")){e.preventDefault();e.target.click();} });
-  ["projeto","projetoOutro"].forEach(id => $(id).addEventListener("change",()=>{fases.clear();estado.clear();$("itensPersonalizados").innerHTML="";render();}));
-  globalThis.ATIVIDADE_CLASSIFICACOES_UI = { obter: classes, carregar(a){ fases.clear();estado.clear();$("itensPersonalizados").innerHTML="";C.obterClassificacoesAtividade(a).forEach(c=>{fases.add(c.fase);estado.set(c.chave,{...c});if(c.itemOutro)adicionarPersonalizado(c);});render();}, limpar(){fases.clear();estado.clear();$("itensPersonalizados").innerHTML="";render();}, validar };
+  let projetoAnterior = projeto();
+  ["projeto","projetoOutro"].forEach(id => $(id).addEventListener("change",()=>{
+    const novoProjeto = projeto(), possuiDados = estado.size > 0;
+    if (novoProjeto !== projetoAnterior && possuiDados && !F.projetoExigeFaseItem(novoProjeto)
+      && !confirm("Este Projeto não utiliza Fases e Itens. As classificações e o rateio informados serão removidos.")) {
+      if (id === "projeto") $("projeto").value = projetoAnterior;
+      else $("projetoOutro").value = projetoAnterior;
+      render(); return;
+    }
+    if (novoProjeto !== projetoAnterior) { fases.clear();estado.clear();$("itensPersonalizados").innerHTML=""; }
+    projetoAnterior = projeto(); render();
+  }));
+  globalThis.ATIVIDADE_CLASSIFICACOES_UI = { obter: classes, carregar(a){ fases.clear();estado.clear();$("itensPersonalizados").innerHTML="";projetoAnterior=projeto();if(F.projetoExigeFaseItem(projeto()))C.obterClassificacoesAtividade(a).forEach(c=>{fases.add(c.fase);estado.set(c.chave,{...c});if(c.itemOutro)adicionarPersonalizado(c);});render();}, limpar(){fases.clear();estado.clear();$("itensPersonalizados").innerHTML="";projetoAnterior=projeto();render();}, validar };
   render();
 })();

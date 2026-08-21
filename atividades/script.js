@@ -728,6 +728,7 @@ function preencherOpcaoComOutro(tipo, valor, opcoes) {
 }
 async function salvarAtividade(event) {
   event.preventDefault();
+  globalThis.ATIVIDADE_CLASSIFICACOES_UI?.validar();
   const classificacoes = globalThis.ATIVIDADE_CLASSIFICACOES_UI?.obter() || [];
   const classificacaoLegada = classificacoes[0];
 
@@ -754,7 +755,6 @@ async function salvarAtividade(event) {
   };
 
   atualizarRestricoesDatasAtividade();
-  globalThis.ATIVIDADE_CLASSIFICACOES_UI?.validar();
   if (!form.checkValidity()) {
     form.reportValidity();
     return;

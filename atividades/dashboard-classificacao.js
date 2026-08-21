@@ -10,6 +10,7 @@
   const limpar = (valor) => String(valor || "").trim();
   const chave = (...partes) => partes.map(limpar).join("\u001f");
   const obterProjeto = (registro) => limpar(registro.projeto) || "Projeto não informado";
+  const classificavel = (registro) => Boolean(faseItem?.projetoExigeFaseItem?.(registro?.projeto));
 
   function obterRegistrosDetalhadosDashboard(lista = []) {
     return lista.flatMap((atividade) => Array.isArray(atividade.registros) ? atividade.registros : [atividade]);
@@ -19,6 +20,7 @@
     let horasSemFase = 0;
     let totalHoras = 0;
     registros.forEach((registro) => {
+      if (!classificavel(registro)) return;
       const horas = Number(calcularHoras(registro));
       if (!Number.isFinite(horas) || horas <= 0) return;
       totalHoras += horas;
@@ -43,6 +45,7 @@
     let horasSemItem = 0;
     let totalHoras = 0;
     registros.forEach((registro) => {
+      if (!classificavel(registro)) return;
       const horas = Number(calcularHoras(registro));
       if (!Number.isFinite(horas) || horas <= 0) return;
       totalHoras += horas;

@@ -1,4 +1,5 @@
 const { chaveProjeto, completudeFicha, obterPendenciasFicha } = require("./_obra-ficha");
+const { projetoExigeFaseItem } = require("../atividades/fase-item");
 
 const DIAS_SEM_MOVIMENTACAO_ATENCAO = 7;
 const COBERTURA_PLANNER_BOA = 90;
@@ -55,9 +56,10 @@ function construirAlertasGestao(obra) {
 function calcularQualidadeDados(atividades, obras, idsPlanner) {
   const validas = atividadesUnicas(atividades).map((a) => ({ a, i: intervaloValido(a) }));
   const horas = (f) => validas.filter((x) => x.i && f(x.a)).reduce((s, x) => s + x.i.minutos, 0);
-  const total = horas(() => true), pct = (n, d = total) => d ? n / d * 100 : null;
+  const total = horas(() => true), totalClassificavel = horas((a) => projetoExigeFaseItem(a.projeto));
+  const pct = (n, d = total) => d ? n / d * 100 : null;
   const elegiveis = obras.filter((o) => o.benchmarkElegivel);
-  return { fase: pct(horas((a) => String(a.fase || "").trim())), item: pct(horas((a) => String(a.item || "").trim())), planner: pct(horas((a) => idsPlanner.has(String(a.id)))), intervalosValidos: pct(validas.filter((x) => x.i).length, validas.length), fichasCaracterizadas: pct(obras.filter((o) => !o.pendenciasFicha.length).length, obras.length), benchmarkAvaliado: pct(elegiveis.filter((o) => !o.benchmarkPendente).length, elegiveis.length) };
+  return { fase: pct(horas((a) => projetoExigeFaseItem(a.projeto) && String(a.fase || "").trim()), totalClassificavel), totalClassificavel: totalClassificavel / 60, item: pct(horas((a) => projetoExigeFaseItem(a.projeto) && String(a.item || "").trim()), totalClassificavel), planner: pct(horas((a) => projetoExigeFaseItem(a.projeto) && idsPlanner.has(String(a.id))), totalClassificavel), intervalosValidos: pct(validas.filter((x) => x.i).length, validas.length), fichasCaracterizadas: pct(obras.filter((o) => !o.pendenciasFicha.length).length, obras.length), benchmarkAvaliado: pct(elegiveis.filter((o) => !o.benchmarkPendente).length, elegiveis.length) };
 }
 
 module.exports = { COBERTURA_PLANNER_ATENCAO, COBERTURA_PLANNER_BOA, DIAS_SEM_MOVIMENTACAO_ATENCAO, atividadesUnicas, calcularCoberturaPlanner, calcularQualidadeDados, calcularUltimaMovimentacao, classificarCoberturaPlanner, compararProjetosDetectadosCadastrados, construirAlertasGestao, diferencaDias, intervaloValido, completudeFicha, obterPendenciasFicha };

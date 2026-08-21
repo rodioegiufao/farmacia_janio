@@ -42,5 +42,14 @@
     const distribuido = classificacoes.reduce((s, c) => s + normalizarClassificacao(c).minutosDedicados, 0);
     return { valido: classificacoes.length > 0 && total > 0 && distribuido === total, distribuido, restante: total - distribuido };
   }
-  return { chaveClassificacao, dividirIgualmente, duracaoAtividadeMinutos, normalizarClassificacao, obterClassificacoesAtividade, validarRateio };
+  function aplicarRegraRateio(classificacoes = [], total = 0, exigeClassificacao = true) {
+    const lista = classificacoes.map(normalizarClassificacao);
+    if (!exigeClassificacao) return { classificacoes: [], valido: true, motivo: "nao_aplicavel", distribuido: 0, restante: total };
+    if (!lista.length) return { classificacoes: lista, valido: false, motivo: "classificacao_ausente", distribuido: 0, restante: total };
+    if (lista.length === 1) lista[0].minutosDedicados = Math.max(0, Math.trunc(Number(total) || 0));
+    const rateio = validarRateio(lista, total);
+    return { classificacoes: lista, ...rateio, motivo: lista.length === 1 ? "automatico" : (rateio.valido ? "rateio_valido" : "rateio_invalido") };
+  }
+  const deveMostrarRateio = ({ exigeClassificacao, classificacoes = [], duracaoMinutos = 0 } = {}) => Boolean(exigeClassificacao && classificacoes.length > 1 && duracaoMinutos > 0);
+  return { aplicarRegraRateio, chaveClassificacao, deveMostrarRateio, dividirIgualmente, duracaoAtividadeMinutos, normalizarClassificacao, obterClassificacoesAtividade, validarRateio };
 });

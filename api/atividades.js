@@ -1,7 +1,7 @@
 const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
 const { enriquecerRegistroComObra, resolverOuCriarObra } = require("./_obras");
 const { limparItensOrfaos, normalizarItemPlanner, removerVinculosAtividade, sincronizarAtividadeComPlanner } = require("./_planner-sync");
-const { separarItens } = require("../atividades/fase-item");
+const { projetoExigeFaseItem, separarItens } = require("../atividades/fase-item");
 const { normalizarChavePlanner } = require("../atividades/planner-modelos");
 const { duracaoAtividadeMinutos, obterClassificacoesAtividade, validarRateio } = require("../atividades/classificacoes");
 
@@ -152,11 +152,15 @@ async function fromDatabaseRecordComObra(record, classificacoes = []) {
   return { ...fromDatabaseRecord(enriched), obraId: enriched.obra_id || "", obraCodigo: enriched.obraCodigo || "", obra: enriched.obra || "", classificacoes: obterClassificacoesAtividade({ ...enriched, classificacoes }) };
 }
 function validarClassificacoes(body) {
-  if (!Array.isArray(body.classificacoes)) return [];
+  const exige = projetoExigeFaseItem(body.projeto);
+  if (!exige) return [];
+  if (!Array.isArray(body.classificacoes) || !body.classificacoes.length) throw Object.assign(new Error("Selecione pelo menos uma Fase e um Item para este Projeto."), { statusCode: 422 });
   const classificacoes = obterClassificacoesAtividade({ classificacoes: body.classificacoes });
   if (classificacoes.length !== body.classificacoes.length) throw Object.assign(new Error("Toda classificação deve informar Fase e Item."), { statusCode: 422 });
   if (new Set(classificacoes.map((c) => c.chave)).size !== classificacoes.length) throw Object.assign(new Error("A mesma classificação não pode ser repetida."), { statusCode: 422 });
-  const total = duracaoAtividadeMinutos(body), rateio = validarRateio(classificacoes, total);
+  const total = duracaoAtividadeMinutos(body);
+  if (classificacoes.length === 1) classificacoes[0].minutosDedicados = total;
+  const rateio = validarRateio(classificacoes, total);
   if (!rateio.valido) throw Object.assign(new Error(`O rateio (${rateio.distribuido} min) deve ser igual à duração (${total} min).`), { statusCode: 422 });
   return classificacoes;
 }
@@ -285,6 +289,7 @@ module.exports = async function atividadesHandler(req, res) {
       }
       validateActivityDates(body);
       const classificacoes = validarClassificacoes(body);
+      if (!projetoExigeFaseItem(body.projeto)) { body.classificacoes = []; body.fase = ""; body.item = ""; }
       const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id, origemCriacao: "nova_atividade" });
       body.obraId = obra.id;
       body.obra = obra.nome;
@@ -317,6 +322,7 @@ module.exports = async function atividadesHandler(req, res) {
 
       validateActivityDates(body);
       const classificacoes = validarClassificacoes(body);
+      if (!projetoExigeFaseItem(body.projeto)) { body.classificacoes = []; body.fase = ""; body.item = ""; }
 
       const atuais = await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(body.id)}&select=id,usuario_id`);
       const atual = Array.isArray(atuais) ? atuais[0] : null;

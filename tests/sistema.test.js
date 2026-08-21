@@ -72,6 +72,11 @@ assert.equal(_test.fromDatabaseRecord({ fase: "Estudos", item: "NBR-5410" }).fas
 assert.equal(_test.fromDatabaseRecord({ fase: "Estudos", item: "NBR-5410" }).item, "NBR-5410");
 assert.equal(_test.fromDatabaseRecord({}).fase, "");
 assert.equal(_test.fromDatabaseRecord({}).item, "");
+assert.deepEqual(_test.validarClassificacoes({ projeto: "Site", classificacoes: [] }), []);
+assert.throws(() => _test.validarClassificacoes({ projeto: "CFTV", classificacoes: [] }), /Selecione pelo menos/);
+const unicaApi = _test.validarClassificacoes({ projeto: "CFTV", dataInicio: "2026-08-20", horaInicio: "08:00", dataTermino: "2026-08-20", horaTermino: "09:29", classificacoes: [{ fase: "Estudos", item: "ABNT NBR 5410", minutosDedicados: 1 }] });
+assert.equal(unicaApi[0].minutosDedicados, 89, "a API deve atribuir toda a duração à classificação única");
+assert.throws(() => _test.validarClassificacoes({ projeto: "CFTV", dataInicio: "2026-08-20", horaInicio: "08:00", dataTermino: "2026-08-20", horaTermino: "10:00", classificacoes: [{ fase: "Estudos", item: "A", minutosDedicados: 50 }, { fase: "Estudos", item: "B", minutosDedicados: 50 }] }), /rateio \(100 min\)/);
 
 const base = {
   id: "00000000-0000-0000-0000-000000000001",
@@ -309,6 +314,14 @@ assert.equal(personalizadoBanco.minutosDedicados, 89);
 assert.equal(personalizadoFrontend.chave, personalizadoBanco.chave);
 assert.equal(new Map([personalizadoFrontend, personalizadoBanco].map((c) => [c.chave, c])).size, 1);
 assert.equal(classificacoes.validarRateio([personalizadoFrontend], 89).valido, true);
+const automatico = classificacoes.aplicarRegraRateio([{ fase: "Estudos", item: "ABNT NBR 5410", minutosDedicados: 0 }], 89, true);
+assert.equal(automatico.classificacoes[0].minutosDedicados, 89);
+assert.equal(automatico.valido, true);
+assert.equal(classificacoes.aplicarRegraRateio([], 240, false).valido, true);
+assert.equal(classificacoes.aplicarRegraRateio([], 240, true).motivo, "classificacao_ausente");
+assert.equal(classificacoes.deveMostrarRateio({ exigeClassificacao: true, classificacoes: [{}, {}], duracaoMinutos: 120 }), true);
+assert.equal(classificacoes.deveMostrarRateio({ exigeClassificacao: true, classificacoes: [{}], duracaoMinutos: 120 }), false);
+assert.equal(classificacoes.deveMostrarRateio({ exigeClassificacao: true, classificacoes: [{}, {}], duracaoMinutos: 0 }), false);
 
 const itemNormal = classificacoes.normalizarClassificacao({
   fase: "Estudos", item: "ABNT NBR 5410", itemOutro: false, minutosDedicados: 30
@@ -485,6 +498,9 @@ assert.equal(fases.categorias.find((item) => item.fase === "Lançamento").horas,
 assert.equal(fases.horasSemFase, 5);
 assert.equal(soma(fases.categorias) + fases.horasSemFase, fases.totalHoras);
 assert.equal(api.obterLabelFaseDashboard(fases.categorias[0], false), "Distribuição");
+const fasesComNaoAplicavel = api.agruparHorasPorFaseDashboard([registro("FIOCRUZ", "Site", "", "", 8), registro("FIOCRUZ", "CFTV", "Estudos", "ABNT NBR 5410", 2)], calcular);
+assert.equal(fasesComNaoAplicavel.totalHoras, 2, "projetos não classificáveis não participam de Horas por Fase");
+assert.equal(fasesComNaoAplicavel.horasSemFase, 0);
 
 const projetos = api.agruparHorasPorFaseDashboard([
   registro("FIOCRUZ", "Elétrico Baixa Tensão", "Distribuição", "", 10),
@@ -628,8 +644,9 @@ assert.deepEqual(G.obterPendenciasFicha({ caracterizacao_nao_aplicavel: true }),
 assert.deepEqual(G.compararProjetosDetectadosCadastrados(["BT", "SPDA", "CFTV"], ["BT", "SPDA"]).pendentes.map((p) => p.projeto), ["CFTV"]);
 const alerta = G.construirAlertasGestao({ id: "o1", nome: "TCE", ativo: true, diasSemMovimentacao: 8, coberturaPlanner: 90, projetosPendentes: [], projetosCadastrados: 1, pendenciasFicha: [], benchmarkPendente: false, completude: 100 });
 assert.equal(alerta[0].tipo, "SEM_MOVIMENTACAO"); assert.match(alerta[0].mensagem, /Sem movimentação/); assert.doesNotMatch(alerta[0].mensagem, /atras/i);
-const qualidade = G.calcularQualidadeDados([atividade("1", "2026-08-10", 8, { fase: "F", item: "I" }), atividade("2", "2026-08-10", 2, { fase: "F" })], [], new Set(["1"]));
+const qualidade = G.calcularQualidadeDados([atividade("1", "2026-08-10", 8, { projeto: "CFTV", fase: "F", item: "I" }), atividade("2", "2026-08-10", 2, { projeto: "CFTV", fase: "F" }), atividade("3", "2026-08-10", 5, { projeto: "Site" })], [], new Set(["1"]));
 assert.equal(qualidade.fase, 100); assert.equal(qualidade.item, 80); assert.equal(qualidade.planner, 80);
+assert.equal(qualidade.totalClassificavel, 10);
 }
 
 // ========================================================

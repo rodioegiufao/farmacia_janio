@@ -792,6 +792,7 @@ async function salvarAtividade(event) {
       console.error("Atividade salva, mas a sincronização com o Planner falhou:", erroPlanner);
       alert("Atividade salva, mas não foi possível concluir a sincronização com o Planner.");
     }
+    resetarFormularioAtividade();
   } catch (erro) {
     alert(`Não foi possível salvar no Supabase: ${erro.message}`);
   } finally {

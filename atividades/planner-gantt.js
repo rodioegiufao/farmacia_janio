@@ -18,6 +18,12 @@
     const inicioAno = new Date(Date.UTC(dataUtc.getUTCFullYear(), 0, 1));
     return Math.ceil((((dataUtc - inicioAno) / DIA_MS) + 1) / 7);
   }
+  function obterNumeroSemanaDomingo(entrada) {
+    const data = entrada instanceof Date ? new Date(entrada.getFullYear(), entrada.getMonth(), entrada.getDate()) : dataCivil(entrada);
+    if (!data || !Number.isFinite(data.getTime())) return null;
+    data.setDate(data.getDate() + 1);
+    return obterNumeroSemanaIso(data);
+  }
   function listarDias(inicio, fim) { const a = dataCivil(inicio), b = dataCivil(fim), dias = []; if (!a || !b || b < a) return dias; for (let d = a; d <= b; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) dias.push(dataCivilIso(d)); return dias; }
   function obterIntervaloRealAtividade(atividade) {
     if (!atividade?.data_inicio || !atividade?.hora_inicio || !atividade?.data_termino || !atividade?.hora_termino) return null;
@@ -129,5 +135,5 @@
     (estrutura || []).forEach((obra) => { linhas.push(obra); if (recolhidos.has(`obra:${obra.id}`)) return; obra.projetos.forEach((projeto) => { linhas.push(projeto); if (recolhidos.has(`projeto:${projeto.id}`)) return; projeto.filhos.forEach((fase) => { linhas.push(fase); if (modo === "analitico" && !recolhidos.has(`fase:${fase.id}`)) linhas.push(...fase.filhos); }); }); });
     return linhas;
   }
-  return { obterIntervaloRealAtividade, obterAtividadesValidasGantt, obterAtividadesDoNivelGantt, correspondeFiltrosAtividade, agruparAtividadesGanttPorDia, obterIntervaloGlobalGantt, construirEstruturaGantt, calcularMetricasTemporais, calcularMaiorLacuna, atividadeEstaNoPeriodo, segmentoEstaNoPeriodo, intervalosNoPeriodo, filtrarLinhasHierarquia, deduplicarIntervalos, listarDias, diferencaDias, dataCivilIso, obterNumeroSemanaIso };
+  return { obterIntervaloRealAtividade, obterAtividadesValidasGantt, obterAtividadesDoNivelGantt, correspondeFiltrosAtividade, agruparAtividadesGanttPorDia, obterIntervaloGlobalGantt, construirEstruturaGantt, calcularMetricasTemporais, calcularMaiorLacuna, atividadeEstaNoPeriodo, segmentoEstaNoPeriodo, intervalosNoPeriodo, filtrarLinhasHierarquia, deduplicarIntervalos, listarDias, diferencaDias, dataCivilIso, obterNumeroSemanaIso, obterNumeroSemanaDomingo };
 });

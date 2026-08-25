@@ -418,6 +418,10 @@ assert.equal(gantt.obterNumeroSemanaIso("2026-08-01"),31,"agosto inicia na seman
 assert.equal(gantt.obterNumeroSemanaIso("2026-08-31"),36,"a troca para setembro recalcula o agrupamento semanal");
 assert.equal(gantt.obterNumeroSemanaIso("2027-01-01"),53,"a semana ISO atravessa corretamente a mudança de ano");
 assert.equal(gantt.obterNumeroSemanaIso("2027-01-04"),1,"a primeira segunda-feira inicia a semana 1");
+  assert.equal(gantt.obterNumeroSemanaDomingo("2026-08-01"),31,"o sábado permanece na semana anterior");
+assert.equal(gantt.obterNumeroSemanaDomingo("2026-08-02"),32,"o domingo inicia a nova semana do Gantt");
+assert.equal(gantt.obterNumeroSemanaDomingo("2026-08-08"),32,"a semana do Gantt termina no sábado");
+assert.equal(gantt.obterNumeroSemanaDomingo("2026-08-09"),33,"o domingo seguinte inicia outra semana");
 const compartilhada=atividade("2026-08-03","08:00","10:00","Bruno");
 const checklists=[
  {id:"p1",obraId:"o1",obra:"FIOCRUZ",projeto:"Elétrico",itens:[item("A","Fase A",[compartilhada,atividade("2026-08-08")]),item("B","Fase A",[atividade("2026-08-04")])]},

@@ -153,7 +153,10 @@ async function sincronizarAtividadeComPlanner(atividade, { user, checklistId } =
 }
 async function agregarAtividadesDosItens(checklistIds) {
   if (!checklistIds.length) return new Map();
-  const links = await supabaseRequest(LINKS_TABLE, `?checklist_id=in.(${checklistIds.map(encodeURIComponent).join(",")})&select=item_id,item:planner_checklist_itens(etapa,atividade,estagio),atividade:atividades_colaboradores(*,atividade_classificacoes(*))`);
+  // `planner_checklist_itens` stores the stage name in `atividade`. Requesting
+  // the legacy/nonexistent `estagio` column makes PostgREST reject the entire
+  // Planner request with HTTP 400 before the board or Gantt can be rendered.
+  const links = await supabaseRequest(LINKS_TABLE, `?checklist_id=in.(${checklistIds.map(encodeURIComponent).join(",")})&select=item_id,item:planner_checklist_itens(etapa,atividade),atividade:atividades_colaboradores(*,atividade_classificacoes(*))`);
   return agregarVinculosPlanner(links || []);
 }
 async function configurarPlannerAutomatico({ checklistId, modo, tipo, selecao, user }) {

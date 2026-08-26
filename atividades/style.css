@@ -2074,3 +2074,123 @@ label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margi
 @media (prefers-reduced-motion: reduce) {
   .fase-itens-card { animation: none; }
 }
+
+/* Nova Atividade: controles auxiliares ficam disponíveis somente na experiência móvel. */
+.mobile-form-heading,
+.mobile-now-button,
+.records-mobile-toggle,
+.atividade-toast { display: none; }
+
+@media (max-width: 768px) {
+  body { overflow-x: hidden; }
+  .theme-selector-content { height: 42px; padding-inline: 12px; }
+  .theme-logo { max-width: calc(100vw - 130px); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .theme-switch { transform: scale(.86); transform-origin: right center; }
+  .container { width: 100%; padding: 10px; overflow-x: clip; }
+  .header { margin-bottom: 10px; padding: 12px 14px; border-radius: 10px; }
+  .logo { flex-direction: row; align-items: center; gap: 10px; }
+  .logo i { padding: 8px; font-size: 1.35rem; }
+  .logo h1 { margin: 0; font-size: 1rem; line-height: 1.25; }
+  .subtitle { display: none; }
+  .section-tabs { display: flex; gap: 8px; margin-bottom: 10px; padding: 2px 0 7px; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; white-space: nowrap; }
+  .section-tabs .tab-button { flex: 0 0 auto; min-height: 42px; padding: 9px 13px; }
+
+  #atividadeSection { padding: 14px 12px calc(102px + env(safe-area-inset-bottom)); border-radius: 10px; }
+  #atividadeSection > .panel-header { gap: 10px; margin-bottom: 16px; }
+  #atividadeSection > .panel-header h2 { font-size: 1.3rem; }
+  #atividadeSection > .panel-header p { margin-top: 2px; font-size: .82rem; }
+  #atividadeSection > .panel-header .panel-header-actions { width: 100%; gap: 8px; }
+  #btnRepetirUltimaAtividade { order: -1; width: 100%; min-height: 50px; justify-content: center; font-size: .94rem; }
+  #btnLimparTudo { margin-left: auto; min-height: 40px; padding: 7px 10px; font-size: .76rem; }
+
+  #atividadeForm { display: grid; grid-template-columns: minmax(0, 1fr); gap: 15px; }
+  #atividadeForm > label,
+  #atividadeForm > .form-field,
+  #atividadeForm > section { min-width: 0; }
+  #atividadeForm label { font-size: .88rem; font-weight: 600; }
+  #atividadeForm input,
+  #atividadeForm select,
+  #atividadeForm textarea,
+  #atividadeForm button,
+  #atividadeForm .item-picker-trigger { min-height: 48px; font-size: 16px; }
+  #atividadeForm textarea { min-height: 96px; }
+  #atividadeForm #trabalhos { min-height: 112px; }
+  #atividadeForm .mobile-observations textarea { min-height: 112px; }
+  #atividadeForm small { font-size: .75rem; line-height: 1.4; }
+
+  .mobile-form-heading,
+  #atividadeForm .mobile-section-start::before {
+    display: block;
+    grid-column: 1 / -1;
+    margin: 11px 0 -3px;
+    padding: 9px 0 7px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--accent-light);
+    font-size: .75rem;
+    font-weight: 800;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+  }
+  #atividadeForm .mobile-section-start::before { content: attr(data-mobile-section); }
+  #atividadeForm label.mobile-section-start { display: grid; }
+  #atividadeForm .mobile-section-start:first-of-type::before { margin-top: 0; }
+  .classificacoes-field,
+  .rateio-tempo { padding: 14px; }
+  .fase-chip > span,
+  .item-selecao { min-height: 44px; }
+  .item-selecao input { width: 22px; height: 22px; flex-basis: 22px; }
+  .fase-chip > span { padding: 10px 13px; }
+  .classificacoes-outline,
+  #dividirRateio { width: 100%; justify-content: center; }
+  .rateio-tempo fieldset { padding: 10px; }
+  .rateio-tempo fieldset label { gap: 6px; }
+
+  #atividadeForm .form-actions {
+    position: fixed;
+    z-index: 900;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-card) 94%, transparent);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, .28);
+    backdrop-filter: blur(10px);
+  }
+  #atividadeForm .form-actions #btnSalvar { flex: 1; min-height: 52px; font-weight: 700; text-transform: uppercase; }
+  #atividadeForm .form-actions #btnCancelarEdicao { flex: 0 0 auto; }
+
+  .mobile-time-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; }
+  .mobile-time-field > input { grid-column: 1; }
+  .mobile-time-field > .mobile-now-button { display: inline-flex; grid-column: 2; grid-row: 2; align-items: center; justify-content: center; min-width: 72px; padding: 8px 10px; border: 1px solid var(--accent-blue); color: var(--accent-light); background: transparent; box-shadow: none; }
+  .mobile-time-field > .mobile-now-button:hover { transform: none; }
+
+  .records-area { margin-top: 24px; }
+  .records-mobile-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 50px; padding: 11px 14px; border: 1px solid var(--border-color); color: var(--text-lighter); background: var(--primary-medium); }
+  .records-mobile-toggle span { display: flex; align-items: center; gap: 9px; }
+  .records-mobile-toggle[aria-expanded="true"] > i { transform: rotate(180deg); }
+  .records-content { margin-top: 16px; }
+  .mobile-records-collapsed .records-content { display: none; }
+  .records-content[hidden] { display: none !important; }
+  .records-content .filters { display: grid; grid-template-columns: 1fr; }
+  .records-content .table-wrapper { max-width: 100%; overflow-x: auto; }
+
+  .atividade-toast:not([hidden]) { position: fixed; z-index: 1100; right: 12px; bottom: calc(82px + env(safe-area-inset-bottom)); left: 12px; display: block; padding: 13px 16px; border: 1px solid color-mix(in srgb, var(--success) 65%, var(--border-color)); border-radius: 10px; color: #fff; background: color-mix(in srgb, var(--success) 82%, #173326); box-shadow: var(--shadow); font-size: .9rem; font-weight: 700; text-align: center; }
+}
+
+@media (max-width: 480px) {
+  #atividadeForm { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #atividadeForm > :not(.mobile-date-field):not(.mobile-time-field) { grid-column: 1 / -1; }
+  #atividadeForm .mobile-date-field,
+  #atividadeForm .mobile-time-field { grid-column: span 1; }
+  #atividadeForm .mobile-time-field { grid-template-columns: 1fr; }
+  #atividadeForm .mobile-time-field > .mobile-now-button { grid-column: 1; grid-row: auto; width: 100%; min-width: 0; }
+}
+
+@media (max-width: 350px) {
+  #atividadeForm { grid-template-columns: 1fr; }
+  #atividadeForm .mobile-date-field,
+  #atividadeForm .mobile-time-field { grid-column: 1; }
+  #atividadeForm .form-actions #btnCancelarEdicao { max-width: 42%; padding-inline: 9px; font-size: .76rem; }
+}

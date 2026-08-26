@@ -71,6 +71,12 @@ const btnCancelarEdicao = document.getElementById("btnCancelarEdicao");
 const btnLimparTudo = document.getElementById("btnLimparTudo");
 const btnRepetirUltimaAtividade = document.getElementById("btnRepetirUltimaAtividade");
 const btnExportarCSV = document.getElementById("btnExportarCSV");
+const btnAgoraInicio = document.getElementById("btnAgoraInicio");
+const btnAgoraTermino = document.getElementById("btnAgoraTermino");
+const btnToggleAtividades = document.getElementById("btnToggleAtividades");
+const recordsArea = document.querySelector("#atividadeSection .records-area");
+const atividadeToast = document.getElementById("atividadeToast");
+let atividadeToastTimeout;
 
 const formSemanal = document.getElementById("atividadeSemanalForm");
 const tabelaSemanal = document.getElementById("tabelaAtividadesSemanais");
@@ -276,6 +282,10 @@ async function inicializar() {
   form.addEventListener("submit", salvarAtividade);
   btnCancelarEdicao.addEventListener("click", cancelarEdicao);
   btnRepetirUltimaAtividade?.addEventListener("click", repetirUltimaAtividade);
+  btnAgoraInicio?.addEventListener("click", () => preencherPeriodoAgora("inicio"));
+  btnAgoraTermino?.addEventListener("click", () => preencherPeriodoAgora("termino"));
+  btnToggleAtividades?.addEventListener("click", alternarAtividadesRegistradas);
+  recordsArea?.classList.add("mobile-records-collapsed");
   btnLimparTudo.addEventListener("click", limparTodosRegistros);
   btnExportarCSV.addEventListener("click", exportarCSV);
   formSemanal.addEventListener("submit", salvarAtividadeSemanal);
@@ -793,12 +803,39 @@ async function salvarAtividade(event) {
       alert("Atividade salva, mas não foi possível concluir a sincronização com o Planner.");
     }
     resetarFormularioAtividade();
+    mostrarFeedbackAtividadeSalva();
   } catch (erro) {
     alert(`Não foi possível salvar no Supabase: ${erro.message}`);
   } finally {
     setFormDisabled(false);
     preencherColaboradoresPermitidos();
   }
+}
+function preencherPeriodoAgora(tipo) {
+  const agora = new Date();
+  const campoData = tipo === "inicio" ? campos.dataInicio : campos.dataTermino;
+  const campoHora = tipo === "inicio" ? campos.horaInicio : campos.horaTermino;
+  campoData.value = obterDataIsoLocal(agora);
+  campoHora.value = `${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}`;
+  [campoData, campoHora].forEach((campo) => {
+    campo.dispatchEvent(new Event("input", { bubbles: true }));
+    campo.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+function alternarAtividadesRegistradas() {
+  const recolhida = recordsArea?.classList.toggle("mobile-records-collapsed");
+  btnToggleAtividades.setAttribute("aria-expanded", String(!recolhida));
+  btnToggleAtividades.querySelector("span").lastChild.textContent = recolhida
+    ? " Ver atividades registradas"
+    : " Ocultar atividades registradas";
+}
+
+function mostrarFeedbackAtividadeSalva() {
+  if (!atividadeToast) return;
+  clearTimeout(atividadeToastTimeout);
+  atividadeToast.hidden = false;
+  atividadeToastTimeout = setTimeout(() => { atividadeToast.hidden = true; }, 3200);
 }
 
 function statusAtualizado(statusInformado, dataPrevista) {

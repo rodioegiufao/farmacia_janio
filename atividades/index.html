@@ -101,7 +101,7 @@
         <input type="hidden" id="atividadeId" />
         <input type="hidden" id="obraId" />
 
-        <label>
+        <label class="mobile-section-start" data-mobile-section="1 · Identificação">
           Colaborador
           <select id="colaborador" required></select>
         </label>
@@ -157,6 +157,7 @@
             <input type="text" id="itemOutro" placeholder="Informe o item" maxlength="100" disabled />
           </span>
         </div>
+        <div class="mobile-form-heading span-2">2 · Classificação técnica</div>
         <section id="classificacoesField" class="classificacoes-field span-2" hidden aria-labelledby="classificacoesTitulo">
           <header class="classificacoes-header">
             <h3 id="classificacoesTitulo">Fases e Itens</h3>
@@ -196,29 +197,32 @@
           <select id="status" required></select>
         </label>
         
+        <div class="mobile-form-heading span-2">3 · Prazo e período</div>
         <label class="delivery-date-field span-2">
           Data prevista para entrega
           <input type="date" id="dataPrevista" required />
         </label>
 
-        <label>
+        <label class="mobile-time-field mobile-start-time">
           Data de início
           <input type="date" id="dataInicio" min="1000-01-01" max="9999-12-31" required />
         </label>
 
-        <label>
+        <label class="mobile-time-field mobile-start-time">
           Horário de início
           <input type="time" id="horaInicio" required />
+          <button type="button" class="mobile-now-button" id="btnAgoraInicio">Agora</button>
         </label>
 
-        <label>
+        <label class="mobile-date-field mobile-end-date">
           Data de término
           <input type="date" id="dataTermino" min="1000-01-01" max="9999-12-31" />
         </label>
 
-        <label>
+        <label class="mobile-time-field mobile-end-time">
           Horário de término
           <input type="time" id="horaTermino" />
+          <button type="button" class="mobile-now-button" id="btnAgoraTermino">Agora</button>
         </label>
 
         <section id="rateioTempo" class="rateio-tempo span-2" hidden aria-labelledby="rateioTitulo" aria-describedby="rateioMensagem">
@@ -228,7 +232,7 @@
           <p id="rateioMensagem" role="status" aria-live="polite"></p><button type="button" class="secondary" id="dividirRateio">Dividir igualmente</button>
         </section>
 
-        <label class="span-2">
+        <label class="span-2 mobile-section-start mobile-observations" data-mobile-section="4 · Observações">
           Observações
           <textarea id="observacoes" rows="2" placeholder="Informações complementares"></textarea>
         </label>
@@ -238,7 +242,13 @@
           <button type="button" class="secondary" id="btnCancelarEdicao">Cancelar edição</button>
         </div>
       </form>
+      <div id="atividadeToast" class="atividade-toast" role="status" aria-live="polite" hidden>✓ Atividade salva com sucesso</div>
       <div class="records-area">
+        <button type="button" class="records-mobile-toggle" id="btnToggleAtividades" aria-expanded="false" aria-controls="atividadesRegistradasConteudo">
+          <span><i class="fas fa-list" aria-hidden="true"></i> Ver atividades registradas</span>
+          <i class="fas fa-chevron-down" aria-hidden="true"></i>
+        </button>
+        <div id="atividadesRegistradasConteudo" class="records-content">
         <div class="panel-header records-header">
           <div>
             <h2>Atividades registradas</h2>
@@ -293,11 +303,12 @@
             </thead>
             <tbody id="atividadesTabela"></tbody>
           </table>
-          <div class="table-footer">
+        <div class="table-footer">
             <p class="table-limit-info" id="atividadesLimiteInfo" aria-live="polite"></p>
             <nav class="pagination" id="atividadesPaginacao" aria-label="Paginação de atividades"></nav>
           </div>
-          </div>
+        </div>
+      </div>
       </div>
     </section>
 

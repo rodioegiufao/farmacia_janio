@@ -1,7 +1,7 @@
 const { supabaseRequest } = require("./_auth");
 const { normalizarChavePlanner, normalizarProjetoPlanner, obterProjetoPlanner, obterCodigoProjetoPlanner, obterBucketModeloPlanner } = require("../atividades/planner-modelos");
 const { separarItens, taxonomiaPlannerCompleta, projetoExigeFaseItem } = require("../atividades/fase-item");
-const { obterClassificacoesAtividade } = require("../atividades/classificacoes");
+const { minutosDaClassificacao, obterClassificacoesAtividade } = require("../atividades/classificacoes");
 
 const CHECKLISTS_TABLE = "planner_checklists";
 const ITEMS_TABLE = "planner_checklist_itens";
@@ -36,6 +36,32 @@ function minutosDaAtividade(atividade) {
   const fim = new Date(`${atividade.data_termino}T${atividade.hora_termino}`);
   const minutos = Math.round((fim - inicio) / 60000);
   return Number.isFinite(minutos) && minutos > 0 ? minutos : 0;
+}
+
+function minutosDoVinculoPlanner(atividade, itemPlanner) {
+  return minutosDaClassificacao(atividade, itemPlanner?.etapa, itemPlanner?.atividade || itemPlanner?.estagio, {
+    normalizarFase: normalizarChavePlanner,
+    normalizarItem: normalizarItemPlanner
+  });
+}
+function agregarVinculosPlanner(links = []) {
+  const mapa = new Map();
+  for (const link of links) {
+    const a = link.atividade, item = link.item;
+    if (!a || !item) continue;
+    const minutosRateados = minutosDoVinculoPlanner(a, item);
+    // Um vínculo sem classificação correspondente é obsoleto: não pode herdar a
+    // duração integral nem continuar contribuindo depois de uma edição do rateio.
+    if (minutosRateados <= 0) continue;
+    const atual = mapa.get(link.item_id) || { atividadeCount: 0, minutosRegistrados: 0, colaboradores: [], ultimaAtividade: "", atividades: [] };
+    atual.atividadeCount += 1;
+    atual.minutosRegistrados += minutosRateados;
+    if (a.colaborador && !atual.colaboradores.includes(a.colaborador)) atual.colaboradores.push(a.colaborador);
+    atual.ultimaAtividade = [atual.ultimaAtividade, a.data_termino || a.data_inicio || ""].sort().pop();
+    atual.atividades.push({ ...a, minutosRateados, plannerItemId: link.item_id });
+    mapa.set(link.item_id, atual);
+  }
+  return mapa;
 }
 
 async function localizarOuCriarPlanner(atividade, user, checklistEscolhidoId) {
@@ -127,12 +153,8 @@ async function sincronizarAtividadeComPlanner(atividade, { user, checklistId } =
 }
 async function agregarAtividadesDosItens(checklistIds) {
   if (!checklistIds.length) return new Map();
-  const links = await supabaseRequest(LINKS_TABLE, `?checklist_id=in.(${checklistIds.map(encodeURIComponent).join(",")})&select=item_id,atividade:atividades_colaboradores(*)`);
-  const mapa = new Map();
-  for (const link of links || []) { const a = link.atividade; if (!a) continue; const atual = mapa.get(link.item_id) || { atividadeCount: 0, minutosRegistrados: 0, colaboradores: [], ultimaAtividade: "", atividades: [] };
-    atual.atividadeCount += 1; atual.minutosRegistrados += minutosDaAtividade(a); if (a.colaborador && !atual.colaboradores.includes(a.colaborador)) atual.colaboradores.push(a.colaborador);
-    atual.ultimaAtividade = [atual.ultimaAtividade, a.data_termino || a.data_inicio || ""].sort().pop(); atual.atividades.push(a); mapa.set(link.item_id, atual); }
-  return mapa;
+  const links = await supabaseRequest(LINKS_TABLE, `?checklist_id=in.(${checklistIds.map(encodeURIComponent).join(",")})&select=item_id,item:planner_checklist_itens(etapa,atividade,estagio),atividade:atividades_colaboradores(*,atividade_classificacoes(*))`);
+  return agregarVinculosPlanner(links || []);
 }
 async function configurarPlannerAutomatico({ checklistId, modo, tipo, selecao, user }) {
   const rows = await supabaseRequest(CHECKLISTS_TABLE, `?id=eq.${encodeURIComponent(checklistId)}&select=*`); const checklist = rows?.[0];
@@ -144,4 +166,4 @@ async function configurarPlannerAutomatico({ checklistId, modo, tipo, selecao, u
   return { status: "sincronizado", checklistId: checklist.id };
 }
 
-module.exports = { agregarAtividadesDosItens, classificacoesDaAtividade, configurarPlannerAutomatico, ehProjetoBaixaTensao, projetoExigeFaseItem, gerarChaveItemPlanner, gerarChavePlanner, itensDaAtividade, limparItensOrfaos, minutosDaAtividade, normalizarItemPlanner, obterCodigoProjetoDaAtividade, removerVinculosAtividade, sincronizarAtividadeComPlanner };
+module.exports = { agregarAtividadesDosItens, agregarVinculosPlanner, classificacoesDaAtividade, configurarPlannerAutomatico, ehProjetoBaixaTensao, projetoExigeFaseItem, gerarChaveItemPlanner, gerarChavePlanner, itensDaAtividade, limparItensOrfaos, minutosDaAtividade, minutosDoVinculoPlanner, normalizarItemPlanner, obterCodigoProjetoDaAtividade, removerVinculosAtividade, sincronizarAtividadeComPlanner };

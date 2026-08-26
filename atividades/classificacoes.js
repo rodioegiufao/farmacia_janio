@@ -32,6 +32,19 @@
     const total = duracaoAtividadeMinutos(atividade), base = Math.floor(total / itens.length), resto = total % itens.length;
     return itens.map((item, i) => normalizarClassificacao({ fase, item, minutosDedicados: base + (i < resto ? 1 : 0) }));
   }
+  function possuiRateioPersistido(atividade = {}) {
+    const classificacoes = atividade.classificacoes || atividade.atividade_classificacoes;
+    return Array.isArray(classificacoes) && classificacoes.length > 0;
+  }
+  function minutosDaClassificacao(atividade = {}, fase, item, normalizadores = {}) {
+    if (!possuiRateioPersistido(atividade)) return duracaoAtividadeMinutos(atividade);
+    const normalizarFase = normalizadores.normalizarFase || texto;
+    const normalizarItem = normalizadores.normalizarItem || texto;
+    const faseEsperada = normalizarFase(fase), itemEsperado = normalizarItem(item);
+    return obterClassificacoesAtividade(atividade)
+      .filter((classificacao) => normalizarFase(classificacao.fase) === faseEsperada && normalizarItem(classificacao.item) === itemEsperado)
+      .reduce((total, classificacao) => total + classificacao.minutosDedicados, 0);
+  }
   function dividirIgualmente(total, quantidade) {
     total = Math.max(0, Math.trunc(Number(total) || 0)); quantidade = Math.max(0, Math.trunc(Number(quantidade) || 0));
     if (!quantidade) return [];
@@ -51,5 +64,5 @@
     return { classificacoes: lista, ...rateio, motivo: lista.length === 1 ? "automatico" : (rateio.valido ? "rateio_valido" : "rateio_invalido") };
   }
   const deveMostrarRateio = ({ exigeClassificacao, classificacoes = [], duracaoMinutos = 0 } = {}) => Boolean(exigeClassificacao && classificacoes.length > 1 && duracaoMinutos > 0);
-  return { aplicarRegraRateio, chaveClassificacao, deveMostrarRateio, dividirIgualmente, duracaoAtividadeMinutos, normalizarClassificacao, obterClassificacoesAtividade, validarRateio };
+  return { aplicarRegraRateio, chaveClassificacao, deveMostrarRateio, dividirIgualmente, duracaoAtividadeMinutos, minutosDaClassificacao, normalizarClassificacao, obterClassificacoesAtividade, possuiRateioPersistido, validarRateio };
 });

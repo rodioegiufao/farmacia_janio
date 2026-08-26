@@ -30,12 +30,15 @@
     const inicio = new Date(`${atividade.data_inicio}T${atividade.hora_inicio}`), fim = new Date(`${atividade.data_termino}T${atividade.hora_termino}`);
     const minutos = Math.round((fim - inicio) / 60000);
     if (!Number.isFinite(inicio.getTime()) || !Number.isFinite(fim.getTime()) || !Number.isFinite(minutos) || minutos <= 0) return null;
-    return { inicio, fim, minutos, dataInicio: dataCivilIso(inicio), dataFim: dataCivilIso(fim), atividade };
+    const minutosRateados = Number(atividade.minutosRateados);
+    const minutosDedicados = Number.isFinite(minutosRateados) && minutosRateados >= 0 ? minutosRateados : minutos;
+    return { inicio, fim, minutos, minutosDedicados, dataInicio: dataCivilIso(inicio), dataFim: dataCivilIso(fim), atividade };
   }
   function obterAtividadesValidasGantt(item) { return (item?.atividadesVinculadas || []).map(obterIntervaloRealAtividade).filter(Boolean); }
   function identidadeAtividade(intervalo) {
     const a = intervalo.atividade || {};
-    return String(a.id || [a.data_inicio, a.hora_inicio, a.data_termino, a.hora_termino, a.colaborador, a.usuario_id, a.descricao].join("|"));
+    const id = String(a.id || [a.data_inicio, a.hora_inicio, a.data_termino, a.hora_termino, a.colaborador, a.usuario_id, a.descricao].join("|"));
+    return a.plannerItemId ? `${id}::${a.plannerItemId}` : id;
   }
   function deduplicarIntervalos(intervalos) {
     const unicos = new Map();
@@ -61,10 +64,10 @@
       const chave = intervalo.dataInicio;
       const grupo = grupos.get(chave) || { data: chave, dataFim: chave, minutos: 0, quantidade: 0, colaboradores: [], atividades: [], itens: [], colaboradoresHoras: {} };
       if (intervalo.dataFim > grupo.dataFim) grupo.dataFim = intervalo.dataFim;
-      grupo.minutos += intervalo.minutos; grupo.quantidade += 1;
+      grupo.minutos += intervalo.minutosDedicados; grupo.quantidade += 1;
       const nome = intervalo.atividade.colaborador || intervalo.atividade.colaborador_nome;
       if (nome && !grupo.colaboradores.includes(nome)) grupo.colaboradores.push(nome);
-      if (nome) grupo.colaboradoresHoras[nome] = (grupo.colaboradoresHoras[nome] || 0) + intervalo.minutos;
+      if (nome) grupo.colaboradoresHoras[nome] = (grupo.colaboradoresHoras[nome] || 0) + intervalo.minutosDedicados;
       const meta = metadados.get(identidadeAtividade(intervalo));
       (meta?.itens || []).forEach((item) => { if (!grupo.itens.some((existente) => existente.id === item.id)) grupo.itens.push(item); });
       grupo.atividades.push(intervalo.atividade); grupos.set(chave, grupo);
@@ -96,7 +99,7 @@
     const primeiraMovimentacao = dias[0] || null, ultimaMovimentacao = dias.at(-1) || null;
     const diasJanela = primeiraMovimentacao ? diferencaDias(primeiraMovimentacao, ultimaMovimentacao) + 1 : 0;
     const colaboradores = [...new Set(filtrados.map((x) => x.atividade.colaborador || x.atividade.colaborador_nome).filter(Boolean))];
-    return { minutosNoPeriodo: filtrados.reduce((s, x) => s + x.minutos, 0), minutosAcumulados: acumulados.reduce((s, x) => s + x.minutos, 0), diasAtivos: dias.length, primeiraMovimentacao, ultimaMovimentacao, diasJanela, cadencia: diasJanela ? dias.length / diasJanela : 0, maiorLacuna: calcularMaiorLacuna(dias), colaboradores, segmentos };
+    return { minutosNoPeriodo: filtrados.reduce((s, x) => s + x.minutosDedicados, 0), minutosAcumulados: acumulados.reduce((s, x) => s + x.minutosDedicados, 0), diasAtivos: dias.length, primeiraMovimentacao, ultimaMovimentacao, diasJanela, cadencia: diasJanela ? dias.length / diasJanela : 0, maiorLacuna: calcularMaiorLacuna(dias), colaboradores, segmentos };
   }
   function criarNo(tipo, id, nome, intervalos, periodo, filhos = []) {
     const unicos = deduplicarIntervalos(intervalos), metricas = calcularMetricasTemporais(unicos, periodo);

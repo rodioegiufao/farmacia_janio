@@ -388,6 +388,32 @@ assert.equal(sync.normalizarItemPlanner("Tomadas de Uso Específico"), "tomada d
 assert.deepEqual(sync.itensDaAtividade({ item: "Eletrocalha · Leito · Perfilado" }), ["Eletrocalha", "Leito", "Perfilado"]);
 assert.equal(sync.minutosDaAtividade({ data_inicio: "2026-08-14", hora_inicio: "08:00", data_termino: "2026-08-14", hora_termino: "11:57" }), 237);
 assert.equal(sync.minutosDaAtividade({ data_inicio: "2026-08-14", hora_inicio: "12:00", data_termino: "2026-08-14", hora_termino: "11:00" }), 0);
+const atividadeRateada = (id, minutos, classificacoes) => ({ id, data_inicio: "2026-08-14", hora_inicio: "08:00", data_termino: "2026-08-14", hora_termino: `${String(8 + Math.floor(minutos / 60)).padStart(2, "0")}:${String(minutos % 60).padStart(2, "0")}`, atividade_classificacoes: classificacoes });
+const vinculo = (atividade, itemId, etapa, item) => ({ atividade, item_id: itemId, item: { etapa, atividade: item } });
+const agregar = (atividade, classificacoes) => sync.agregarVinculosPlanner(classificacoes.map(([id, fase, item]) => vinculo(atividade, id, fase, item)));
+
+const unica = atividadeRateada("rateio-1", 120, [{ fase: "Lançamento", item: "Iluminação", minutos_dedicados: 120 }]);
+assert.equal(agregar(unica, [["iluminacao", "Lançamento", "Iluminação"]]).get("iluminacao").minutosRegistrados, 120, "uma classificação usa seus minutos dedicados");
+
+const duas = atividadeRateada("rateio-2", 151, [{ fase: "Lançamento", item: "Iluminação", minutos_dedicados: 16 }, { fase: "Lançamento", item: "Tomadas de Uso Específico", minutos_dedicados: 135 }]);
+const duasAgregadas = agregar(duas, [["iluminacao", "Lançamento", "Iluminação"], ["tue", "Lançamento", "Tomada de Uso Específico"]]);
+assert.equal(duasAgregadas.get("iluminacao").minutosRegistrados, 16);
+assert.equal(duasAgregadas.get("tue").minutosRegistrados, 135);
+assert.equal([...duasAgregadas.values()].reduce((s, item) => s + item.minutosRegistrados, 0), 151, "o Planner não duplica a duração integral entre itens");
+assert.equal(duasAgregadas.get("iluminacao").atividades[0].minutosRateados, 16, "o detalhe recebe os minutos do vínculo");
+
+const tres = atividadeRateada("rateio-3", 240, [{ fase: "Lançamento", item: "Iluminação", minutos_dedicados: 60 }, { fase: "Lançamento", item: "TUE", minutos_dedicados: 120 }, { fase: "Distribuição", item: "Perfilado", minutos_dedicados: 60 }]);
+const tresAgregadas = agregar(tres, [["luz", "Lançamento", "Iluminação"], ["tue", "Lançamento", "TUE"], ["perfil", "Distribuição", "Perfilado"]]);
+assert.equal(tresAgregadas.get("luz").minutosRegistrados + tresAgregadas.get("tue").minutosRegistrados, 180);
+assert.equal(tresAgregadas.get("perfil").minutosRegistrados, 60);
+
+const legadoPlanner = { id: "legado", data_inicio: "2026-08-14", hora_inicio: "08:00", data_termino: "2026-08-14", hora_termino: "10:00", atividade_classificacoes: [] };
+assert.equal(agregar(legadoPlanner, [["legado-item", "", ""]]).get("legado-item").minutosRegistrados, 120, "atividade sem classificação preserva a duração integral");
+
+const editada = atividadeRateada("rateio-editado", 180, [{ fase: "Lançamento", item: "Iluminação", minutos_dedicados: 90 }, { fase: "Lançamento", item: "TUE", minutos_dedicados: 90 }]);
+const editadaAgregada = agregar(editada, [["luz", "Lançamento", "Iluminação"], ["tue", "Lançamento", "TUE"], ["perfil", "Distribuição", "Perfilado"]]);
+assert.deepEqual([editadaAgregada.get("luz").minutosRegistrados, editadaAgregada.get("tue").minutosRegistrados], [90, 90], "uma edição substitui o rateio anterior");
+assert.equal(editadaAgregada.has("perfil"), false, "classificação removida não contribui por meio de vínculo obsoleto");
 }
 
 // ========================================================
@@ -455,6 +481,16 @@ assert.deepEqual(gantt.obterAtividadesDoNivelGantt({node:obra,periodo:{inicio:"2
 const semId={...atividade("2026-08-12","08:00","10:00","Bruno"),id:null};
 const legado={intervalos:[semId,{...semId}]};
 assert.equal(gantt.obterAtividadesDoNivelGantt({node:legado}).length,1,"registros legados sem id usam identidade estável");
+const rateadaGantt={id:"rateada-gantt",data_inicio:"2026-08-14",hora_inicio:"08:00",data_termino:"2026-08-14",hora_termino:"10:31",colaborador:"R"};
+const estruturaRateada=gantt.construirEstruturaGantt([{id:"p-rateio",obraId:"o-rateio",obra:"OBRA RATEIO",projeto:"Elétrico",itens:[
+  item("luz","Lançamento",[{...rateadaGantt,plannerItemId:"luz",minutosRateados:16}]),
+  item("tue","Lançamento",[{...rateadaGantt,plannerItemId:"tue",minutosRateados:135}])
+]}]);
+const obraRateada=estruturaRateada[0],faseRateada=obraRateada.projetos[0].fases[0];
+assert.deepEqual(faseRateada.itens.map((x)=>x.metricas.minutosNoPeriodo),[16,135],"itens do Gantt exibem valores quantitativos rateados");
+assert.equal(faseRateada.metricas.minutosNoPeriodo,151);
+assert.equal(obraRateada.metricas.minutosNoPeriodo,151,"fase, projeto e obra somam as parcelas sem duplicação");
+assert.equal(faseRateada.itens[0].intervalos[0].fim-faseRateada.itens[0].intervalos[0].inicio,151*60000,"o intervalo cronológico original não é encurtado pelo rateio");
 }
 
 // ========================================================
@@ -600,6 +636,7 @@ assert.equal(graficos.formatarHoras(25.85), "25,85 h");
 assert.deepEqual(graficos.NIVEIS_EXPORTACAO.map((x) => [x.largura, x.qualidade]), [[1400, .94], [1200, .92], [1100, .9]]);
 
 const payloadApi = require("../atividades/payload-relatorio");
+assert.deepEqual(payloadApi.compactarAtividadeParaRelatorio({ id: "rateada", classificacoes: [{ fase: "Lançamento", item: "Iluminação", minutosDedicados: 16 }], campoNaoUsado: true }).classificacoes, [{ fase: "Lançamento", item: "Iluminação", minutosDedicados: 16 }], "o payload do relatório preserva o rateio oficial");
 const sinteticas = Array.from({ length: 1000 }, (_, i) => ({ id: i, obraId: `o${i % 20}`, obraCodigo: `OBR-${String(i % 20).padStart(6, "0")}`, obra: `Obra ${i % 20}`, projeto: `Projeto ${i % 50}`, fase: `Fase ${i % 5}`, item: `Item ${i % 8}`, colaborador: i % 2 ? "Bruno" : "Geovanna", trabalhos: "Descrição necessária", observacoes: "Observação necessária", dataInicio: "2026-08-03", horaInicio: "08:00", dataTermino: "2026-08-03", horaTermino: "09:00", status: "Finalizado", prioridade: "P1", campoNaoUsado: "x".repeat(2000) }));
 const imagens = Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`g${i}`, { imagem: `data:image/png;base64,${"A".repeat(200000)}` }]));
 const anterior = { atividades: sinteticas, historicoAtividades: sinteticas, dadosGerenciais: sinteticas, graficos: imagens, gantt: { obras: [] }, periodoRelatorio: { dataInicio: "2026-08-01", dataFim: "2026-08-31" } };
@@ -836,6 +873,8 @@ assert.match(anexo, />2,5 h</);
 assert.doesNotMatch(anexo, />8 h<\/w:t>[\s\S]*>8 h<\/w:t>/);
 assert.match(anexo, /<w:noWrap\/>/);
 assert.equal((anexo.match(/<w:tblW w:w="13750" w:type="dxa"\/>/g) || []).length, 2);
+const frentesRateadas = _test.consolidarFrentesAnexoMensal([{ ...registros[0], classificacoes: [{ fase: "Lançamento", item: "Iluminação", minutosDedicados: 16 }, { fase: "Lançamento", item: "TUE", minutosDedicados: 135 }] }]);
+assert.deepEqual(frentesRateadas.map((frente) => [frente.item, frente.horas]), [["Iluminação", Number((16 / 60).toFixed(2))], ["TUE", 2.25]], "o anexo mensal consolida cada Fase/Item pelos minutos rateados");
 assert.ok(anexo.includes('<w:gridCol w:w="4800"/>'));
 assert.ok(anexo.includes('<w:gridCol w:w="4600"/>'));
 assert.ok(anexo.includes('<w:shd w:fill="1F4E78"/>'));

@@ -11,6 +11,7 @@ const {
 const { construirDadosGerenciaisRelatorio } = require("../atividades/dados-gerenciais-relatorio");
 const { gerarGanttTabelaXml, aplicarPaisagemUltimaSecao } = require("./_relatorio-gantt");
 const { obterModoRelatorio } = require("../atividades/payload-relatorio");
+const { obterClassificacoesAtividade, possuiRateioPersistido } = require("../atividades/classificacoes");
 
 const TEMPLATE_PATH = path.join(process.cwd(), "atividades", "template", "Relatorio.docx");
 const MESES = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
@@ -299,13 +300,15 @@ function gerarAnexoDetalhado(registrosAtividades, atividadesConsolidadas) {
 }
 function consolidarFrentesAnexoMensal(registros = []) {
   const grupos = new Map();
-  registros.forEach((registro) => {
+  registros.flatMap((registro) => possuiRateioPersistido(registro)
+    ? obterClassificacoesAtividade(registro).map((classificacao) => ({ ...registro, fase: classificacao.fase, item: classificacao.item, horasRateadas: classificacao.minutosDedicados / 60 }))
+    : [registro]).forEach((registro) => {
     const obra = registro.obra || "Obra não informada", projeto = registro.projeto || "Projeto não informado";
     const fase = registro.fase || registro.etapa || "Atividades não classificadas", item = registro.item || "Atividades não classificadas";
     const chave = [registro.obraId || registro.obra_id || obra, projeto, fase, item].join("|");
     if (!grupos.has(chave)) grupos.set(chave, { obraCodigo: registro.obraCodigo || registro.obra_codigo || "", obra, projeto, fase, item, quantidade: 0, horas: 0, primeira: "", ultima: "", finalizadas: 0, progresso: 0, atrasadas: 0, colaboradores: new Set() });
     const grupo = grupos.get(chave), data = String(valorRegistro(registro, "dataInicio", "data_inicio") || valorRegistro(registro, "dataTermino", "data_termino") || "").slice(0, 10);
-    grupo.quantidade += 1; grupo.horas += calcularHorasAtividade(registro);
+    grupo.quantidade += 1; grupo.horas += Number.isFinite(registro.horasRateadas) ? registro.horasRateadas : calcularHorasAtividade(registro);
     if (data && (!grupo.primeira || data < grupo.primeira)) grupo.primeira = data;
     if (data && (!grupo.ultima || data > grupo.ultima)) grupo.ultima = data;
     if (statusEh(registro, "Finalizado")) grupo.finalizadas += 1;

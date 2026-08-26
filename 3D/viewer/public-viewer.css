@@ -18,8 +18,29 @@
 .public-viewer-header { display: flex; flex-direction: column; min-width: 190px; padding: 11px 14px; border-radius: 10px; }
 .public-viewer-header strong { font-size: .92rem; letter-spacing: .02em; }
 .public-viewer-header span { margin-top: 2px; color: #94a3b8; font-size: .72rem; }
-.public-viewer-login { pointer-events: auto; position: absolute; top: max(18px, env(safe-area-inset-top)); right: max(18px, env(safe-area-inset-right)); padding: 10px 14px; border-radius: 9px; color: #cbd5e1; font-size: .78rem; font-weight: 600; text-decoration: none; transition: 180ms ease; }
-.public-viewer-login:hover, .public-viewer-login:focus-visible { color: #fff; border-color: rgba(125, 211, 252, .6); background: #1e293b; }
+.public-viewer-login { pointer-events: auto; position: absolute; top: max(18px, env(safe-area-inset-top)); right: max(18px, env(safe-area-inset-right)); display: grid; place-items: center; width: 58px; height: 58px; padding: 7px; border-radius: 50%; color: #e2e8f0; font-size: .68rem; font-weight: 700; cursor: pointer; transition: 180ms ease; }
+.public-viewer-login svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.public-viewer-login span { line-height: 1; }
+.public-viewer-login:hover, .public-viewer-login:focus-visible { color: #fff; border-color: rgba(125, 211, 252, .7); background: #1e293b; transform: translateY(-1px); }
+.public-login-modal { pointer-events: auto; position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; background: rgba(2, 6, 23, .62); backdrop-filter: blur(4px); }
+.public-login-modal[hidden] { display: none; }
+.public-login-card { box-sizing: border-box; position: relative; width: min(390px, 100%); padding: 26px; border: 1px solid rgba(148, 163, 184, .24); border-radius: 16px; color: #f8fafc; background: #0f172a; box-shadow: 0 24px 70px rgba(2, 6, 23, .5); }
+.public-login-close { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 8px; color: #94a3b8; background: transparent; cursor: pointer; }
+.public-login-close:hover { color: #fff; background: rgba(148, 163, 184, .12); }
+.public-login-close svg, .public-login-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.public-login-heading { display: flex; align-items: center; gap: 13px; padding-right: 28px; }
+.public-login-icon { display: grid; place-items: center; flex: 0 0 42px; height: 42px; border-radius: 50%; color: #7dd3fc; background: rgba(14, 165, 233, .14); }
+.public-login-heading h2 { margin: 0; font-size: 1.12rem; }
+.public-login-heading p { margin: 4px 0 0; color: #94a3b8; font-size: .76rem; }
+.public-login-form { display: grid; gap: 14px; margin-top: 22px; }
+.public-login-form label { display: grid; gap: 6px; color: #cbd5e1; font-size: .76rem; font-weight: 600; }
+.public-login-form input { box-sizing: border-box; width: 100%; padding: 11px 12px; border: 1px solid #334155; border-radius: 8px; outline: 0; color: #f8fafc; background: #020617; font: inherit; }
+.public-login-form input:focus { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, .14); }
+.public-login-form > button { padding: 11px 16px; border: 0; border-radius: 8px; color: #082f49; background: #7dd3fc; font: inherit; font-weight: 800; cursor: pointer; }
+.public-login-form > button:hover { background: #bae6fd; }
+.public-login-form > button:disabled { opacity: .65; cursor: wait; }
+.public-login-error { margin: -3px 0 0; color: #fca5a5; font-size: .76rem; }
+.public-login-open { overflow: hidden; }
 .public-viewer-trigger { pointer-events: auto; display: flex; align-items: center; gap: 9px; padding: 10px 13px; border-radius: 10px; color: #f8fafc; cursor: pointer; transition: 180ms ease; }
 .public-viewer-trigger:hover { background: #1e293b; transform: translateY(-1px); }
 .public-viewer-trigger svg, .public-viewer-close svg, .public-viewer-eye svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -58,7 +79,7 @@
 .viewer-public-mode #myNavCubeCanvas { right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); }
 @media (max-width: 600px) {
     .public-viewer-header { min-width: 0; padding: 9px 11px; }
-    .public-viewer-login { padding: 9px 11px; }
+    .public-viewer-login { width: 52px; height: 52px; padding: 6px; }
     .public-viewer-topbar { gap: 6px; }
     .public-viewer-trigger { padding: 9px 11px; }
     .public-viewer-loading { bottom: max(106px, calc(env(safe-area-inset-bottom) + 100px)); }

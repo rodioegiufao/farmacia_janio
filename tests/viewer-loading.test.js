@@ -11,6 +11,10 @@ const authenticated = read("3D/viewer/viewer-authenticated.js");
 
 assert.match(bootstrap, /fetch\("\/api\/auth"/);
 assert.ok(bootstrap.indexOf("/api/auth") < bootstrap.indexOf("viewer-authenticated.js"));
+assert.match(publicViewer, /class="public-viewer-login"/);
+assert.match(publicViewer, /class="public-login-modal"/);
+assert.match(publicViewer, /method: "POST"/);
+assert.match(publicViewer, /window\.location\.reload\(\)/);
 assert.doesNotMatch(publicViewer + core, /xlsx|base_de_dados|excel-export|materials|collision|budget/i);
 assert.doesNotMatch(authenticated, /^loadExplicitLinearMaterialsFromExcel\(\);/m);
 assert.strictEqual((core.match(/xeokit-sdk@2\.6\.107/g) || []).length, 1);

@@ -3,7 +3,8 @@ import { createViewerCore } from "./viewer-core.js";
 const ICONS = {
     menu: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>`,
     eye: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.6"/></svg>`,
-    close: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>`
+    close: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>`,
+    user: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-4 3-6 7-6s6.3 2 7 6"/></svg>`
 };
 
 function loadPublicStyles() {
@@ -29,7 +30,24 @@ function createPublicViewerUI(config) {
                 ${ICONS.menu}<span>Disciplinas</span><span class="public-viewer-count">${count}</span>
             </button>
         </div>
-        <a class="public-viewer-login" href="/login" title="Entrar na área técnica">Área técnica</a>
+        <button class="public-viewer-login" type="button" aria-haspopup="dialog" aria-controls="publicLoginModal" title="Fazer login">
+            ${ICONS.user}<span>Login</span>
+        </button>
+        <div class="public-login-modal" id="publicLoginModal" hidden>
+            <div class="public-login-card" role="dialog" aria-modal="true" aria-labelledby="publicLoginTitle">
+                <button class="public-login-close" type="button" aria-label="Fechar login">${ICONS.close}</button>
+                <div class="public-login-heading">
+                    <span class="public-login-icon">${ICONS.user}</span>
+                    <div><h2 id="publicLoginTitle">Login</h2><p>Entre para acessar as ferramentas técnicas.</p></div>
+                </div>
+                <form class="public-login-form">
+                    <label>Usuário<input name="usuario" type="text" autocomplete="username" required></label>
+                    <label>Senha<input name="senha" type="password" autocomplete="current-password" required></label>
+                    <p class="public-login-error" role="alert" hidden></p>
+                    <button type="submit">Entrar</button>
+                </form>
+            </div>
+        </div>
         <div class="public-viewer-scrim" aria-hidden="true"></div>
         <aside id="publicDisciplineDrawer" class="public-viewer-drawer" aria-hidden="true" aria-label="Disciplinas do projeto">
             <div class="public-viewer-drawer-header">
@@ -55,7 +73,55 @@ function createPublicViewerUI(config) {
     document.body.append(root);
     return root;
 }
+function connectLogin(root) {
+    const trigger = root.querySelector(".public-viewer-login");
+    const modal = root.querySelector(".public-login-modal");
+    const card = root.querySelector(".public-login-card");
+    const form = root.querySelector(".public-login-form");
+    const errorMessage = root.querySelector(".public-login-error");
+    const submit = form.querySelector('button[type="submit"]');
+    const userInput = form.elements.usuario;
 
+    const setOpen = (open) => {
+        modal.hidden = !open;
+        document.body.classList.toggle("public-login-open", open);
+        if (open) window.setTimeout(() => userInput.focus(), 0);
+        else trigger.focus({ preventScroll: true });
+    };
+
+    trigger.addEventListener("click", () => setOpen(true));
+    root.querySelector(".public-login-close").addEventListener("click", () => setOpen(false));
+    modal.addEventListener("click", (event) => { if (event.target === modal) setOpen(false); });
+    card.addEventListener("click", (event) => event.stopPropagation());
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !modal.hidden) setOpen(false);
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        errorMessage.hidden = true;
+        submit.disabled = true;
+        submit.textContent = "Entrando...";
+        try {
+            const response = await fetch("/api/auth", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json", Accept: "application/json" },
+                body: JSON.stringify({ usuario: userInput.value, senha: form.elements.senha.value })
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || !payload.user) throw new Error(payload.error || "Não foi possível fazer login.");
+            window.location.reload();
+        } catch (error) {
+            errorMessage.textContent = error.message || "Usuário ou senha inválidos.";
+            errorMessage.hidden = false;
+            form.elements.senha.value = "";
+            form.elements.senha.focus();
+            submit.disabled = false;
+            submit.textContent = "Entrar";
+        }
+    });
+}
 function connectDisciplineDrawer(root, core) {
     const drawer = root.querySelector(".public-viewer-drawer");
     const trigger = root.querySelector(".public-viewer-trigger");
@@ -127,6 +193,7 @@ export function startPublicViewer() {
     } });
     root = createPublicViewerUI(core.config);
     connectDisciplineDrawer(root, core);
+    connectLogin(root);
     core.viewer.scene.input.on("mouseclicked", (coords) => {
         const pick = core.viewer.scene.pick({ canvasPos: coords, pickSurface: true });
         if (!pick?.entity) return;

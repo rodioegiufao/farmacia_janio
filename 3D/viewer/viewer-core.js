@@ -17,7 +17,10 @@ function detectLightProfile() {
     return { webgl2, constrained };
 }
 
-export function createViewerCore({ projectKey = document.body?.dataset?.project } = {}) {
+export function createViewerCore({
+    projectKey = document.body?.dataset?.project,
+    onModelProgress = () => {}
+} = {}) {
     const profile = detectLightProfile();
     const viewer = new Viewer({
         canvasId: "meuCanvas",
@@ -55,6 +58,13 @@ export function createViewerCore({ projectKey = document.body?.dataset?.project 
             if (transform?.position) model.position = [...transform.position];
             if (transform?.rotation) model.rotation = [...transform.rotation];
             loaded += 1;
+            onModelProgress({ loaded, total: config.models.length, id, status: "loaded" });
+            if (loaded === config.models.length) viewer.cameraFlight.flyTo(viewer.scene);
+        });
+        model.on("error", (error) => {
+            loaded += 1;
+            onModelProgress({ loaded, total: config.models.length, id, status: "error" });
+            console.error(`Erro ao carregar ${src}:`, error);
             if (loaded === config.models.length) viewer.cameraFlight.flyTo(viewer.scene);
         });
         model.on("error", (error) => console.error(`Erro ao carregar ${src}:`, error));

@@ -1,4 +1,28 @@
 // Configuração compartilhada dos projetos; nenhum módulo técnico é importado aqui.
+export const DISCIPLINE_LABELS = {
+    IFC_ELE: "Instalações elétricas", IFC_LOG: "Cabeamento estruturado",
+    IFC_HID: "Instalações hidráulicas", IFC_ALI: "Alimentadores elétricos",
+    IFC_EST: "Estrutura", IFC_PLU: "Águas pluviais",
+    IFC_SAN: "Instalações sanitárias", IFC_INC: "Prevenção e combate a incêndio",
+    IFC_FOT: "Sistema fotovoltaico", IFC_CLI: "Climatização", IFC_SPDA: "SPDA",
+    IFC_SUB: "Subestação", IFC_ILUX: "Iluminação externa", IFC_ILU: "Iluminação",
+    IFC_TEF: "Telefonia", IFC_SDAI: "Detecção e alarme de incêndio", IFC_GLP: "GLP",
+    IFC_IRRI: "Irrigação", IFC_SOM: "Sonorização", IFC_ARQ: "Arquitetura",
+    IFC_EXA: "Exaustão", IFC_ECX: "Equipamentos especiais", IFC_ITM: "Instalações mecânicas",
+    IFC_LOG_TEF: "Cabeamento estruturado e telefonia", IFC_SAN_PLU: "Instalações sanitárias e águas pluviais",
+    IFC_EST_PP: "Estrutura do prédio principal", IFC_EST_SQD: "Estrutura da subestação e quadros",
+    IFC_EST_SUB: "Estrutura da subestação", IFC_EST_CT: "Estrutura da central técnica",
+    IFC_EST_MR: "Estrutura do módulo de resíduos", IFC_EST_MRC: "Estrutura do módulo de resíduos coberto",
+    IFC_EST_EMT: "Estrutura do edifício multiuso", IFC_EMT_ESC: "Edifício multiuso — escola",
+    IFC_EMT_COB: "Edifício multiuso — cobertura", IFC_CLI_DUT: "Climatização — dutos",
+    IFC_ELE_T_220: "Elétrica 220 V — tomadas", IFC_ELE_S_220: "Elétrica 220 V — serviços",
+    IFC_ELE_A_220: "Elétrica 220 V — ar-condicionado", IFC_ALI_220: "Alimentadores 220 V",
+    IFC_ALI_380: "Alimentadores 380 V", IFC_ARQ_SESC_GERAL: "Arquitetura geral"
+};
+
+function withDisciplineLabels(models) {
+    return models.map((model) => ({ ...model, label: model.label || DISCIPLINE_LABELS[model.id] || "Modelo do projeto" }));
+}
 const IPER_MODELS = [
     { id: "IFC_ELE", src: "/3D/iper/modelo-01.xkt" },
     { id: "IFC_LOG", src: "/3D/iper/modelo-02.xkt" },
@@ -242,15 +266,15 @@ const DEFAULT_MODEL_TRANSFORMS = {
 };
 
 export const PROJECT_CONFIGS = {
-    iper: { name: "IPER", models: IPER_MODELS, transforms: IPER_MODEL_TRANSFORMS },
-    lacen: { name: "LACEN", models: defaultModels, transforms: DEFAULT_MODEL_TRANSFORMS },
-    policlinica: { name: "Policlínica", models: POLICLINICA_MODELS, transforms: POLICLINICA_MODEL_TRANSFORMS },
-    farmacia: { name: "Farmácia do Jânio", models: FARMACIA_MODELS, transforms: FARMACIA_MODEL_TRANSFORMS },
-    fecomercio: { name: "Fecomércio", models: fecomercio_MODELS, transforms: fecomercio_MODEL_TRANSFORMS },
-    esc_canaa: { name: "Escola Canaã", models: CANAA_MODELS, transforms: CANAA_MODEL_TRANSFORMS },
-    sesc_centro_ecologico: { name: "SESC Centro Ecológico", models: SESC_CENTRO_ECOLOGICO_MODELS, transforms: SESC_CENTRO_ECOLOGICO_MODEL_TRANSFORMS },
-    sebrae_rr: { name: "SEBRAE RR", models: SEBRAE_RR_MODELS, transforms: SEBRAE_RR_MODEL_TRANSFORMS },
-    esc_modelo: { name: "Escola Modelo", models: ESC_MODELO_MODELS, transforms: ESC_MODELO_MODEL_TRANSFORMS }
+    iper: { name: "IPER", models: withDisciplineLabels(IPER_MODELS), transforms: IPER_MODEL_TRANSFORMS },
+    lacen: { name: "LACEN", models: withDisciplineLabels(defaultModels), transforms: DEFAULT_MODEL_TRANSFORMS },
+    policlinica: { name: "Policlínica", models: withDisciplineLabels(POLICLINICA_MODELS), transforms: POLICLINICA_MODEL_TRANSFORMS },
+    farmacia: { name: "Farmácia do Jânio", models: withDisciplineLabels(FARMACIA_MODELS), transforms: FARMACIA_MODEL_TRANSFORMS },
+    fecomercio: { name: "Fecomércio", models: withDisciplineLabels(fecomercio_MODELS), transforms: fecomercio_MODEL_TRANSFORMS },
+    esc_canaa: { name: "Escola Canaã", models: withDisciplineLabels(CANAA_MODELS), transforms: CANAA_MODEL_TRANSFORMS },
+    sesc_centro_ecologico: { name: "SESC Centro Ecológico", models: withDisciplineLabels(SESC_CENTRO_ECOLOGICO_MODELS), transforms: SESC_CENTRO_ECOLOGICO_MODEL_TRANSFORMS },
+    sebrae_rr: { name: "SEBRAE RR", models: withDisciplineLabels(SEBRAE_RR_MODELS), transforms: SEBRAE_RR_MODEL_TRANSFORMS },
+    esc_modelo: { name: "Escola Modelo", models: withDisciplineLabels(ESC_MODELO_MODELS), transforms: ESC_MODELO_MODEL_TRANSFORMS }
 };
 
 export function getProjectConfig(projectKey) {

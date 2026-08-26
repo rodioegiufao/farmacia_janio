@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "check": "node tests/check-syntax.js",
+    "test:viewer": "node tests/viewer-loading.test.js",
     "test:system": "node tests/sistema.test.js",
     "test:carimbo": "node carimbo/js/pdf-processor.test.js",
-    "test": "npm run check && npm run test:system && npm run test:carimbo",
+    "test": "npm run check && npm run test:viewer && npm run test:system && npm run test:carimbo",
     "test:ifc-tools": "node ifc-tools/test.js"
   },
   "dependencies": {

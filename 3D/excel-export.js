@@ -218,17 +218,24 @@ let cachedAssociationDefinitions = null;
 let cachedExcelPath = null;
 let cachedAssociaUnits = null;
 let cachedAssociaUnitsPath = null;
+let xlsxLoadPromise = null;
 
 async function ensureXLSXLoaded() {
     if (window.XLSX) return;
 
-    await new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
-        script.onload = resolve;
-        script.onerror = () => reject(new Error("Falha ao carregar a biblioteca XLSX (SheetJS)."));
-        document.head.appendChild(script);
-    });
+    if (!xlsxLoadPromise) {
+        xlsxLoadPromise = new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+            script.onload = resolve;
+            script.onerror = () => {
+                xlsxLoadPromise = null;
+                reject(new Error("Falha ao carregar a biblioteca XLSX (SheetJS)."));
+            };
+            document.head.appendChild(script);
+        });
+    }
+    await xlsxLoadPromise;
 }
 
 function pickHeader(rowObj, headerNames) {

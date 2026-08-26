@@ -3095,3 +3095,15 @@ body[data-mode="mobile"] .viewer-user-menu {
 .viewer-profile-modal[hidden] {
     display: none;
 }
+/* Interface deliberadamente mínima do modo público; painéis técnicos nem são inicializados. */
+.viewer-public-mode #toolbar { display:flex; flex-direction:column; gap:8px; width:min(270px,calc(100vw - 32px)); max-height:calc(100vh - 32px); overflow:auto; padding:16px; background:rgba(15,23,42,.92); }
+.viewer-public-mode #toolbar::before { display:none; }
+.public-viewer-heading { display:flex; flex-direction:column; color:#fff; padding-bottom:10px; border-bottom:1px solid #475569; }
+.public-viewer-heading span { color:#94a3b8; font-size:.78rem; margin-top:3px; text-transform:uppercase; letter-spacing:.06em; }
+.public-discipline { border:1px solid #475569; border-radius:7px; padding:9px 11px; color:#cbd5e1; background:#1e293b; text-align:left; cursor:pointer; }
+.public-discipline::after { content:" ◯"; float:right; }
+.public-discipline.active { color:#fff; border-color:#38bdf8; }
+.public-discipline.active::after { content:" ●"; color:#38bdf8; }
+.public-login-link { color:#7dd3fc; text-align:center; padding-top:10px; border-top:1px solid #475569; text-decoration:none; }
+.viewer-public-mode #modelSelection, .viewer-public-mode #accessGate, .viewer-public-mode #treeViewContainer, .viewer-public-mode #transformPanel, .viewer-public-mode #collisionPanel, .viewer-public-mode #materialsPanel, .viewer-public-mode #budgetPanel, .viewer-public-mode #searchBar, .viewer-public-mode #helpPanel, .viewer-public-mode #modeSwitcher { display:none !important; }
+@media (max-width:700px) { .viewer-public-mode #toolbar { width:210px; max-height:45vh; } }

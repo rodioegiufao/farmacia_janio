@@ -21,13 +21,15 @@ function createPublicViewerUI(config) {
     root.id = "publicViewerUI";
     root.className = "public-viewer-ui";
     root.innerHTML = `
-        <header class="public-viewer-header" aria-label="Identificação do projeto">
-            <strong>${config.name}</strong><span>Visualização pública</span>
-        </header>
+        <div class="public-viewer-topbar">
+            <header class="public-viewer-header" aria-label="Identificação do projeto">
+                <strong>${config.name}</strong><span>Visualização pública</span>
+            </header>
+            <button class="public-viewer-trigger" type="button" aria-expanded="false" aria-controls="publicDisciplineDrawer">
+                ${ICONS.menu}<span>Disciplinas</span><span class="public-viewer-count">${count}</span>
+            </button>
+        </div>
         <a class="public-viewer-login" href="/login" title="Entrar na área técnica">Área técnica</a>
-        <button class="public-viewer-trigger" type="button" aria-expanded="false" aria-controls="publicDisciplineDrawer">
-            ${ICONS.menu}<span>Disciplinas</span><span class="public-viewer-count">${count}</span>
-        </button>
         <div class="public-viewer-scrim" aria-hidden="true"></div>
         <aside id="publicDisciplineDrawer" class="public-viewer-drawer" aria-hidden="true" aria-label="Disciplinas do projeto">
             <div class="public-viewer-drawer-header">

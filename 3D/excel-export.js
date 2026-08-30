@@ -219,6 +219,7 @@ let cachedExcelPath = null;
 let cachedAssociaUnits = null;
 let cachedAssociaUnitsPath = null;
 let xlsxLoadPromise = null;
+const workbookLoadPromises = new Map();
 
 async function ensureXLSXLoaded() {
     if (window.XLSX) return;
@@ -251,21 +252,37 @@ function pickHeader(rowObj, headerNames) {
     return undefined;
 }
 
+async function loadWorkbookFromExcel(excelPath) {
+    if (workbookLoadPromises.has(excelPath)) {
+        return workbookLoadPromises.get(excelPath);
+    }
+
+    const loadPromise = (async () => {
+        await ensureXLSXLoaded();
+        const res = await fetch(excelPath, { cache: "no-store" });
+        if (!res.ok) {
+            throw new Error(`Não foi possível carregar "${excelPath}" (status ${res.status}).`);
+        }
+        const arrayBuffer = await res.arrayBuffer();
+        return window.XLSX.read(arrayBuffer, { type: "array" });
+    })();
+
+    workbookLoadPromises.set(excelPath, loadPromise);
+    loadPromise.catch(() => {
+        if (workbookLoadPromises.get(excelPath) === loadPromise) {
+            workbookLoadPromises.delete(excelPath);
+        }
+    });
+    return loadPromise;
+}
+
 export async function loadAssociationDefinitionsFromExcel({ excelPath = "./base_de_dados.xlsx" } = {}) {
     // cache para não buscar/parsear toda hora
     if (cachedAssociationDefinitions && cachedExcelPath === excelPath) {
         return cachedAssociationDefinitions;
     }
 
-    await ensureXLSXLoaded();
-
-    const res = await fetch(excelPath, { cache: "no-store" });
-    if (!res.ok) {
-        throw new Error(`Não foi possível carregar "${excelPath}" (status ${res.status}).`);
-    }
-
-    const arrayBuffer = await res.arrayBuffer();
-    const workbook = window.XLSX.read(arrayBuffer, { type: "array" });
+    const workbook = await loadWorkbookFromExcel(excelPath);
 
     // No arquivo que você enviou:
     // - "Descricao" tem CÓDIGO/BASE/DESCRIÇÃO/UNIDADE
@@ -322,15 +339,7 @@ export async function loadAssociaUnitsFromExcel({ excelPath = "./base_de_dados.x
         return cachedAssociaUnits;
     }
 
-    await ensureXLSXLoaded();
-
-    const res = await fetch(excelPath, { cache: "no-store" });
-    if (!res.ok) {
-        throw new Error(`Não foi possível carregar "${excelPath}" (status ${res.status}).`);
-    }
-
-    const arrayBuffer = await res.arrayBuffer();
-    const workbook = window.XLSX.read(arrayBuffer, { type: "array" });
+    const workbook = await loadWorkbookFromExcel(excelPath);
 
     const sheetItems =
         workbook.Sheets["Associa"] ||

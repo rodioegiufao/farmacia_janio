@@ -52,7 +52,8 @@ const ACCESS_PASSWORD = "ribeiro2026";
 const ACCESS_STORAGE_KEY = "farmacia_access_granted";
 const PERFORMANCE_MODE_STORAGE_KEY = "viewer_performance_mode_enabled";
 let explicitLinearMaterials = new Set();
-let explicitLinearMaterialsLoadPromise = null
+let explicitLinearMaterialsLoadPromise = null;
+let materialsGenerationPromise = null;
 let activeProjectKey = null;
 let performanceModeEnabled = false;
 const MAX_MEASUREMENT_HISTORY = 100;
@@ -2548,9 +2549,9 @@ function setupMaterialsPanelControls() {
     });
     closeMaterialsPanelButton?.addEventListener("click", () => togglePanel(false));
 
-    generateMaterialsButton?.addEventListener("click", () => {
+    generateMaterialsButton?.addEventListener("click", async () => {
         if (!materialsFeatureAllowed) return;
-        generateAndRenderMaterialsList();
+        await generateAndRenderMaterialsList();
         resetMaterialsIdsPanel();
     });
     materialsSearchButton?.addEventListener("click", () => {
@@ -3981,7 +3982,7 @@ function isolateBudgetComposition({ code = "", description = "" } = {}) {
     return true;
 }
 
-function openMaterialsPanelAndFilterByBudgetReference({ code = "", description = "" } = {}) {
+async function openMaterialsPanelAndFilterByBudgetReference({ code = "", description = "" } = {}) {
     if (!materialsFeatureAllowed) {
         return [];
     }
@@ -3990,7 +3991,7 @@ function openMaterialsPanelAndFilterByBudgetReference({ code = "", description =
     }
 
     if (!materialsAllResults.length) {
-        generateAndRenderMaterialsList();
+        await generateAndRenderMaterialsList();
     }
 
     const associatedMaterials = getAssociatedMaterialsByBudgetReference({ code, description });
@@ -4086,7 +4087,7 @@ async function renderProjectBudgetTable(projectKey) {
                     const handleCompositionClick = async () => {
                         await ensureBudgetAssociationsLoaded();
 
-                        const associatedMaterials = openMaterialsPanelAndFilterByBudgetReference({
+                        const associatedMaterials = await openMaterialsPanelAndFilterByBudgetReference({
                             code: codigo,
                             description: descricao
                         });
@@ -5555,19 +5556,26 @@ function loadExplicitLinearMaterialsFromExcel() {
         return explicitLinearMaterialsLoadPromise;
     }
 
-    explicitLinearMaterialsLoadPromise = (async () => {
-        try {
-            const associaRows = await loadAssociaUnitsFromExcel({ excelPath: "./base_de_dados.xlsx" });
-            const linearDescriptions = associaRows
-                .filter((row) => String(row.unidade || "").trim().toLowerCase() === "m")
-                .map((row) => normalizeMaterialDescription(row.descricao));
-            explicitLinearMaterials = new Set(linearDescriptions);
-        } catch (error) {
-            console.warn("Não foi possível carregar as unidades do Excel.", error);
-        }
+    const currentLoadPromise = (async () => {
+        const associaRows = await loadAssociaUnitsFromExcel({ excelPath: "./base_de_dados.xlsx" });
+        const linearDescriptions = associaRows
+            .filter((row) => String(row.unidade || "").trim().toLowerCase() === "m")
+            .map((row) => normalizeMaterialDescription(row.descricao));
+        explicitLinearMaterials = new Set(linearDescriptions);
     })();
+    explicitLinearMaterialsLoadPromise = currentLoadPromise;
 
-    return explicitLinearMaterialsLoadPromise;
+    return currentLoadPromise.catch((error) => {
+        // Uma falha não deve bloquear o visualizador nem impedir uma nova tentativa futura.
+        if (explicitLinearMaterialsLoadPromise === currentLoadPromise) {
+            explicitLinearMaterialsLoadPromise = null;
+        }
+        console.warn("Não foi possível carregar as unidades do Excel.", error);
+    });
+}
+
+async function ensureMaterialsClassificationReady() {
+    await loadExplicitLinearMaterialsFromExcel();
 }
 
 function normalizeQuantityByIfcType(prop, numericValue) {
@@ -6171,14 +6179,39 @@ function renderMaterialsResults(items, options = {}) {
     updateMaterialsActiveItem();
 }
 
-function generateAndRenderMaterialsList() {
-    const items = collectQuantitativeMaterials();
-    materialsAllResults = items;
-    materialsSearchQuery = "";
-    if (materialsSearchInput) {
-        materialsSearchInput.value = "";
+async function generateAndRenderMaterialsList() {
+    if (materialsGenerationPromise) {
+        return materialsGenerationPromise;
     }
-    renderMaterialsResults(items, { totalCount: items.length, query: "" });
+
+    const previousButtonText = generateMaterialsButton?.textContent;
+    materialsGenerationPromise = (async () => {
+        if (generateMaterialsButton) {
+            generateMaterialsButton.disabled = true;
+            generateMaterialsButton.textContent = "Carregando classificação dos materiais...";
+        }
+
+        try {
+            await ensureMaterialsClassificationReady();
+
+            const items = collectQuantitativeMaterials();
+            materialsAllResults = items;
+            materialsSearchQuery = "";
+            if (materialsSearchInput) {
+                materialsSearchInput.value = "";
+            }
+            renderMaterialsResults(items, { totalCount: items.length, query: "" });
+            return items;
+        } finally {
+            if (generateMaterialsButton) {
+                generateMaterialsButton.disabled = false;
+                generateMaterialsButton.textContent = previousButtonText;
+            }
+            materialsGenerationPromise = null;
+        }
+    })();
+
+    return materialsGenerationPromise;
 }
 
 async function applyMaterialsSearch({ skipAssociationsLoad = false } = {}) {
@@ -6489,7 +6522,7 @@ function isScreenshotShortcut(event) {
     return event.key === "9" || event.code === "Digit9" || event.code === "Numpad9" || event.keyCode === 57 || event.keyCode === 105;
 }
 
-document.addEventListener("keydown", (event) => {
+document.addEventListener("keydown", async (event) => {
     const key = event.key?.toLowerCase();
     const isTyping = isEditableKeyboardTarget(event.target);
 
@@ -6534,7 +6567,7 @@ document.addEventListener("keydown", (event) => {
         if (materialsPanel) {
             materialsPanel.hidden = false;
             materialsPanelToggleButton?.classList.add("active");
-            generateAndRenderMaterialsList();
+            await generateAndRenderMaterialsList();
         }
         return;
     }

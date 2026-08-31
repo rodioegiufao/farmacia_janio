@@ -46,7 +46,7 @@ export function createViewerCore({
     }
 
     const loader = new XKTLoaderPlugin(viewer);
-    const config = getProjectConfig(projectKey);
+    const config = getProjectConfig(projectKey, "public");
     const models = new Map();
     let loaded = 0;
 

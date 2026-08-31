@@ -1,282 +1,845 @@
 // Configuração compartilhada dos projetos; nenhum módulo técnico é importado aqui.
 export const DISCIPLINE_LABELS = {
-    IFC_ELE: "Instalações elétricas", IFC_LOG: "Cabeamento estruturado",
-    IFC_HID: "Instalações hidráulicas", IFC_ALI: "Alimentadores elétricos",
-    IFC_EST: "Estrutura", IFC_PLU: "Águas pluviais",
-    IFC_SAN: "Instalações sanitárias", IFC_INC: "Prevenção e combate a incêndio",
-    IFC_FOT: "Sistema fotovoltaico", IFC_CLI: "Climatização", IFC_SPDA: "SPDA",
-    IFC_SUB: "Subestação", IFC_ILUX: "Iluminação externa", IFC_ILU: "Iluminação",
-    IFC_TEF: "Telefonia", IFC_SDAI: "Detecção e alarme de incêndio", IFC_GLP: "GLP",
-    IFC_IRRI: "Irrigação", IFC_SOM: "Sonorização", IFC_ARQ: "Arquitetura",
-    IFC_EXA: "Exaustão", IFC_ECX: "Equipamentos especiais", IFC_ITM: "Instalações mecânicas",
-    IFC_LOG_TEF: "Cabeamento estruturado e telefonia", IFC_SAN_PLU: "Instalações sanitárias e águas pluviais",
-    IFC_EST_PP: "Estrutura do prédio principal", IFC_EST_SQD: "Estrutura da subestação e quadros",
-    IFC_EST_SUB: "Estrutura da subestação", IFC_EST_CT: "Estrutura da central técnica",
-    IFC_EST_MR: "Estrutura do módulo de resíduos", IFC_EST_MRC: "Estrutura do módulo de resíduos coberto",
-    IFC_EST_EMT: "Estrutura do edifício multiuso", IFC_EMT_ESC: "Edifício multiuso — escola",
-    IFC_EMT_COB: "Edifício multiuso — cobertura", IFC_CLI_DUT: "Climatização — dutos",
-    IFC_ELE_T_220: "Elétrica 220 V — tomadas", IFC_ELE_S_220: "Elétrica 220 V — serviços",
-    IFC_ELE_A_220: "Elétrica 220 V — ar-condicionado", IFC_ALI_220: "Alimentadores 220 V",
-    IFC_ALI_380: "Alimentadores 380 V", IFC_ARQ_SESC_GERAL: "Arquitetura geral"
+    "IFC_ELE": "Instalações elétricas",
+    "IFC_LOG": "Cabeamento estruturado",
+    "IFC_HID": "Instalações hidráulicas",
+    "IFC_ALI": "Alimentadores elétricos",
+    "IFC_EST": "Estrutura",
+    "IFC_PLU": "Águas pluviais",
+    "IFC_SAN": "Instalações sanitárias",
+    "IFC_INC": "Prevenção e combate a incêndio",
+    "IFC_FOT": "Sistema fotovoltaico",
+    "IFC_CLI": "Climatização",
+    "IFC_SPDA": "SPDA",
+    "IFC_SUB": "Subestação",
+    "IFC_ILUX": "Iluminação externa",
+    "IFC_ILU": "Iluminação",
+    "IFC_TEF": "Telefonia",
+    "IFC_SDAI": "Detecção e alarme de incêndio",
+    "IFC_GLP": "GLP",
+    "IFC_IRRI": "Irrigação",
+    "IFC_SOM": "Sonorização",
+    "IFC_ARQ": "Arquitetura",
+    "IFC_EXA": "Exaustão",
+    "IFC_ECX": "Equipamentos especiais",
+    "IFC_ITM": "Instalações mecânicas",
+    "IFC_LOG_TEF": "Cabeamento estruturado e telefonia",
+    "IFC_SAN_PLU": "Instalações sanitárias e águas pluviais",
+    "IFC_EST_PP": "Estrutura do prédio principal",
+    "IFC_EST_SQD": "Estrutura da subestação e quadros",
+    "IFC_EST_SUB": "Estrutura da subestação",
+    "IFC_EST_CT": "Estrutura da central técnica",
+    "IFC_EST_MR": "Estrutura do módulo de resíduos",
+    "IFC_EST_MRC": "Estrutura do módulo de resíduos coberto",
+    "IFC_EST_EMT": "Estrutura do edifício multiuso",
+    "IFC_EMT_ESC": "Edifício multiuso — escola",
+    "IFC_EMT_COB": "Edifício multiuso — cobertura",
+    "IFC_CLI_DUT": "Climatização — dutos",
+    "IFC_ELE_T_220": "Elétrica 220 V — tomadas",
+    "IFC_ELE_S_220": "Elétrica 220 V — serviços",
+    "IFC_ELE_A_220": "Elétrica 220 V — ar-condicionado",
+    "IFC_ALI_220": "Alimentadores 220 V",
+    "IFC_ALI_380": "Alimentadores 380 V",
+    "IFC_ARQ_SESC_GERAL": "Arquitetura geral"
 };
 
-function withDisciplineLabels(models) {
-    return models.map((model) => ({ ...model, label: model.label || DISCIPLINE_LABELS[model.id] || "Modelo do projeto" }));
-}
-const IPER_MODELS = [
-    { id: "IFC_ELE", src: "/3D/iper/modelo-01.xkt" },
-    { id: "IFC_LOG", src: "/3D/iper/modelo-02.xkt" },
-    { id: "IFC_HID", src: "/3D/iper/modelo-03.xkt" },
-    { id: "IFC_ALI", src: "/3D/iper/modelo-04.xkt" },
-    { id: "IFC_EST", src: "/3D/iper/modelo-05.xkt" },
-    { id: "IFC_ARQ", src: "/3D/iper/modelo-06.xkt" },
-    { id: "IFC_PLU", src: "/3D/iper/modelo-07.xkt" },
-    { id: "IFC_SAN", src: "/3D/iper/modelo-08.xkt" },
-    { id: "IFC_INC", src: "/3D/iper/modelo-09.xkt" },
-    { id: "IFC_EST_SQD", src: "/3D/iper/modelo-10.xkt" },
-    { id: "IFC_EST_SUB", src: "/3D/iper/modelo-11.xkt" },
-    { id: "IFC_EST_CT", src: "/3D/iper/modelo-12.xkt" },
-    { id: "IFC_EST_MR", src: "/3D/iper/modelo-13.xkt" },
-    { id: "IFC_EST_MRC", src: "/3D/iper/modelo-14.xkt" },
-    { id: "IFC_FOT", src: "/3D/iper/modelo-15.xkt" },
-    { id: "IFC_EMT_ESC", src: "/3D/iper/modelo-16.xkt" },
-    { id: "IFC_EMT_COB", src: "/3D/iper/modelo-17.xkt" },
-    { id: "IFC_CLI", src: "/3D/iper/modelo-18.xkt" },
-    { id: "IFC_SPDA", src: "/3D/iper/modelo-19.xkt" },
-    { id: "IFC_SUB", src: "/3D/iper/modelo-20.xkt" },
-    { id: "IFC_ILUX", src: "/3D/iper/modelo-21.xkt" },
-    { id: "IFC_TEF", src: "/3D/iper/modelo-22.xkt" },
-    { id: "IFC_SDAI", src: "/3D/iper/modelo-23.xkt" },
-    { id: "IFC_GLP", src: "/3D/iper/modelo-24.xkt" },
-    { id: "IFC_IRRI", src: "/3D/iper/modelo-25.xkt" },
-    { id: "IFC_SOM", src: "/3D/iper/modelo-26.xkt" },
-];
-
-const FARMACIA_MODELS = [
-    { id: "IFC_LOG_TEF", src: "/3D/drogaria/modelo-05.xkt" },
-    { id: "IFC_ELE", src: "/3D/drogaria/modelo-04.xkt" },
-    //{ id: "IFC_ILUX", src: "/3D/drogaria/modelo-02.xkt" },
-    { id: "IFC_EST", src: "/3D/drogaria/modelo-06.xkt" },
-    { id: "IFC_SAN", src: "/3D/drogaria/modelo-08.xkt" },
-    { id: "IFC_PLU", src: "/3D/drogaria/modelo-07.xkt" },
-    { id: "IFC_ARQ", src: "/3D/drogaria/modelo-09.xkt" },
-    { id: "IFC_FOT", src: "/3D/drogaria/modelo-03.xkt" },
-    { id: "IFC_ALI", src: "/3D/drogaria/modelo-01.xkt" },
-    { id: "IFC_CLI", src: "/3D/drogaria/modelo-10.xkt" },
-    { id: "IFC_HID", src: "/3D/drogaria/modelo-11.xkt" },
-    { id: "IFC_INC", src: "/3D/drogaria/modelo-12.xkt" },
-    { id: "IFC_EXA", src: "/3D/drogaria/modelo-13.xkt" },
-];
-
-const POLICLINICA_MODELS = [
-    { id: "IFC_EST_PP", src: "/3D/policlinica/modelo-01.xkt" },
-    { id: "IFC_ELE_T_220", src: "/3D/policlinica/modelo-02.xkt" },
-    { id: "IFC_PLU", src: "/3D/policlinica/modelo-03.xkt" },
-    { id: "IFC_HID", src: "/3D/policlinica/modelo-04.xkt" },
-    { id: "IFC_SAN", src: "/3D/policlinica/modelo-05.xkt" },
-    { id: "IFC_ELE_S_220", src: "/3D/policlinica/modelo-06.xkt" },
-    { id: "IFC_ITM", src: "/3D/policlinica/modelo-07.xkt" },
-    { id: "IFC_ELE_A_220", src: "/3D/policlinica/modelo-08.xkt" },
-    { id: "IFC_LOG", src: "/3D/policlinica/modelo-09.xkt" },
-    { id: "IFC_TEF", src: "/3D/policlinica/modelo-10.xkt" },
-    { id: "IFC_ALI_220", src: "/3D/policlinica/modelo-11.xkt" },
-    { id: "IFC_ALI_380", src: "/3D/policlinica/modelo-12.xkt" },
-    { id: "IFC_IRRI", src: "/3D/policlinica/modelo-13.xkt" },
-];
-
-const fecomercio_MODELS = [
-    { id: "IFC_EST", src: "/3D/fecomercio/ifc-est-fecomercio.xkt" },
-    { id: "IFC_ELE", src: "/3D/fecomercio/ifc-ele-fecomercio.xkt" },
-    { id: "IFC_ARQ", src: "/3D/fecomercio/ifc-arq-fecomercio.xkt" },
-    { id: "IFC_SAN_PLU", src: "/3D/fecomercio/ifc-san-plu-fecomercio.xkt" },
-    { id: "IFC_HID", src: "/3D/fecomercio/ifc-hid-fecomercio.xkt" },
-];
-
-const CANAA_MODELS = [
-    { id: "IFC_ELE", src: "/3D/esc_canaa/modelo-01.xkt" },
-    { id: "IFC_ILUX", src: "/3D/esc_canaa/modelo-02.xkt" },
-    { id: "IFC_LOG", src: "/3D/esc_canaa/modelo-03.xkt" },
-    { id: "IFC_ALI", src: "/3D/esc_canaa/modelo-04.xkt" },
-    { id: "IFC_INC", src: "/3D/esc_canaa/modelo-05.xkt" },
-    { id: "IFC_EST_PP", src: "/3D/esc_canaa/modelo-06.xkt" },
-    { id: "IFC_SUB", src: "/3D/esc_canaa/modelo-07.xkt" },
-    { id: "IFC_CLI", src: "/3D/esc_canaa/modelo-08.xkt" },
-    { id: "IFC_ILU", src: "/3D/esc_canaa/modelo-09.xkt" },
-    { id: "IFC_SPDA", src: "/3D/esc_canaa/modelo-10.xkt" },
-    { id: "IFC_HID", src: "/3D/esc_canaa/modelo-11.xkt" },
-    { id: "IFC_SAN", src: "/3D/esc_canaa/modelo-12.xkt" },
-    { id: "IFC_EXA", src: "/3D/esc_canaa/modelo-13.xkt" },
-    { id: "IFC_ARQ", src: "/3D/esc_canaa/modelo-14.xkt" },
-    { id: "IFC_PLU", src: "/3D/esc_canaa/modelo-15.xkt" },
-    { id: "IFC_EST_EMT", src: "/3D/esc_canaa/modelo-16.xkt" },
-    { id: "IFC_SDAI", src: "/3D/esc_canaa/modelo-17.xkt" },
-    { id: "IFC_GLP", src: "/3D/esc_canaa/modelo-18.xkt" },
-    { id: "IFC_IRRI", src: "/3D/esc_canaa/modelo-19.xkt" },
-  ];
-
-const SEBRAE_RR_MODELS = [
-    { id: "IFC_ALI", src: "/3D/sebrae-rr/modelo-01.xkt" },
-];
-
-const SESC_CENTRO_ECOLOGICO_MODELS = [
-    { id: "IFC_ARQ_SESC_GERAL", src: "/3D/sesc_centro_ecologico/XKT-ARQ-SESC-GERAL.xkt" },
-];
-
-const ESC_MODELO_MODELS = [
-    { id: "IFC_EST_PP", src: "/3D/esc_modelo/modelo-01.xkt" },
-    { id: "IFC_ARQ", src: "/3D/esc_modelo/modelo-02.xkt" },
-    { id: "IFC_CLI", src: "/3D/esc_modelo/modelo-03.xkt" },
-    { id: "IFC_SAN", src: "/3D/esc_modelo/modelo-04.xkt" },
-    { id: "IFC_PLU", src: "/3D/esc_modelo/modelo-05.xkt" },
-];
-
-const defaultModels = [
-    { id: "IFC_LOG_TEF", src: "/3D/lacen/modelo-01.xkt" },
-    { id: "IFC_ELE", src: "/3D/lacen/modelo-02.xkt" },
-    { id: "IFC_SPDA", src: "/3D/lacen/modelo-03.xkt" },
-    { id: "IFC_ECX", src: "/3D/lacen/modelo-04.xkt" },
-    { id: "IFC_ILUX", src: "/3D/lacen/modelo-05.xkt" },
-    { id: "IFC_EST", src: "/3D/lacen/modelo-06.xkt" },
-    { id: "IFC_SAN", src: "/3D/lacen/modelo-07.xkt" },
-    { id: "IFC_INC", src: "/3D/lacen/modelo-08.xkt" },
-    { id: "IFC_HID", src: "/3D/lacen/modelo-09.xkt" },
-    { id: "IFC_PLU", src: "/3D/lacen/modelo-10.xkt" },
-    { id: "IFC_GLP", src: "/3D/lacen/modelo-11.xkt" },
-    //{ id: "IFC_ARQ", src: "/3D/lacen/modelo-12.xkt" },
-    { id: "IFC_EST_SUB", src: "/3D/lacen/modelo-13.xkt" },
-    { id: "IFC_CLI_DUT", src: "/3D/lacen/modelo-14.xkt" },
-    { id: "IFC_EXA", src: "/3D/lacen/modelo-15.xkt" },
-    { id: "IFC_CLI", src: "/3D/lacen/modelo-16.xkt" },
-    { id: "IFC_EST_CT", src: "/3D/lacen/modelo-17.xkt" },
-    { id: "IFC_ALI_220", src: "/3D/lacen/modelo-18.xkt" },
-    { id: "IFC_ALI_380", src: "/3D/lacen/modelo-19.xkt" },
-];
-
-const IPER_MODEL_TRANSFORMS = {
-    IFC_EST: { position: [-8.789, 0.4, 22.5] },
-    IFC_SPDA: { position: [0.15, 0, -0.2], rotation: [0, 90, 0] },
-    IFC_LOG: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
-    IFC_TEF: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
-    //IFC_ELE: { position: [-13.93, 0, -0.19] },
-    IFC_SAN: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
-    IFC_SUB: { position: [2.74, -0.28, 2.65], rotation: [0, 96.1, 0] },
-    IFC_INC: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },
-    IFC_HID: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },
-    IFC_PLU: { position: [0.15, 0, -0.19], rotation: [0, 90, 0] },
-    IFC_FOT: { position: [0, 0, 0], rotation: [0, 90, 0]},
-    IFC_CLI: { position: [0.16, 0, -0.2], rotation: [0, 90, 0]  },
-    IFC_ALI: { position: [-13.94, 0, -0.17] },
-    IFC_EST_SQD: { position: [18.655, -0.658, -15.215] },
-    IFC_EST_SUB: { position: [27.7, -0.58, -22.4], rotation: [0, -84.1, 0] },
-    IFC_EST_CT: { position: [-15.15, 1.44, -16.47], rotation: [0, 90, 0]  },
-    IFC_EST_MR: { position: [35.25, 0, 20.2], rotation: [0, 90, 0]  },
-    IFC_EST_MRC: { position: [-23, 0.35, 28.88] },
-    IFC_EMT_ESC: { position: [0.14, 0.35, -0.15], rotation: [0, 90, 0]  },
-    IFC_EMT_COB: { position: [0.14, 0, -0.15], rotation: [0, 90, 0]  },
-    IFC_ILUX: { position: [-13.94, 0, 0]},
-    IFC_ARQ: { position: [0.16, 0, -0.19], rotation: [0, 90, 0]  },
-    IFC_SDAI: { position: [0.16, 0, -0.19] },
-    IFC_GLP: { position: [0.16, 0, -0.17], rotation: [0, 90, 0] },
-    IFC_IRRI: { position: [0.15, 0, 13.9], rotation: [0, 90, 0] },
-    IFC_SOM: { position: [0.16, 0, -0.19], rotation: [0, 90, 0] },
-};
-
-const FARMACIA_MODEL_TRANSFORMS = {
-    IFC_EST: { position: [2.22, 0, 2.61] },
-    IFC_SAN: { position: [14.09, 0, 0] },
-    IFC_HID: { position: [0, 0, 0] },
-    //IFC_INC: { position: [14.09, 0, 0] },
-    IFC_ILUX: { position: [14.09, 0, 0] },
-    IFC_ALI: { position: [14.09, 0, 0] },
-    IFC_FOT: { position: [14.09, 0, 0] },
-    IFC_ARQ: { position: [14.09, 0, 0] },
-    IFC_CLI: { position: [14.09, 0, 0] },
-    //IFC_EXA: { position: [14.09, 0, 0] },
-    IFC_ELE: { position: [14.09, 0, 0] },
-    IFC_LOG_TEF: { position: [14.09, 0, 0] },
-};
-
-const POLICLINICA_MODEL_TRANSFORMS = {
-    IFC_EST_PP: { position: [-80, 0.4, 50] },
-    IFC_ELE_T_220: { position: [-78, 0, 40] },
-    IFC_PLU: { position: [-78, 0, 40] },
-    IFC_HID: { position: [-78, 0, 40] , rotation: [0, -45, 0] },
-    IFC_ELE_S_220: { position: [-78, 0, 40], rotation: [0, -45, 0]  },
-    IFC_ITM: { position: [-78, 0, 40] },
-    IFC_ELE_A_220: { position: [-78, 0, 40], rotation: [0, -45, 0] },
-    IFC_SAN: { position: [-78, 0, 40] },
-    IFC_LOG: { position: [-78, 0, 40] },
-    IFC_TEF: { position: [-78, 0, 40] },
-    IFC_ALI_220: { position: [-78, 0, 40] },
-    IFC_ALI_380: { position: [-78, 0, 40] },
-    IFC_IRRI: { position: [-78, 0, 40], rotation: [0, -45, 0] },
-};
-
-const fecomercio_MODEL_TRANSFORMS = {
-    IFC_EST: { position: [0, -0.1, 0] },
-    IFC_ELE: { position: [0, 0, 0] },
-    IFC_ARQ: { position: [-18.7, 0, 8.95] },
-    IFC_SAN_PLU: { position: [50, 0, 0] },
-    
-};
-
-const CANAA_MODEL_TRANSFORMS = {
-    IFC_EST_PP: { position: [48.212, 0.385, -36.8995]},
-    IFC_SAN: { position: [-0.03,-0.1, 0] },
-    //IFC_PLU: { position: [0, 0, 0], rotation: [0, 180, 0] },
-    IFC_ARQ: { position: [48.25, 0, -36.8695]},
-    IFC_CLI: { position: [0, -0.05, 0]},
-    IFC_EST_EMT: { position: [48.212, 0.075, -36.8995], rotation: [0, 180, 0]},
-};
-
-const SEBRAE_RR_MODEL_TRANSFORMS = {
-    IFC_ALI: { position: [15, 0, 50] },
-};
-
-const SESC_CENTRO_ECOLOGICO_MODEL_TRANSFORMS = {
-    IFC_ARQ_SESC_GERAL: { position: [257.26, 0, 33.02], rotation: [0, 16.4, 0]  },
-};
-
-const ESC_MODELO_MODEL_TRANSFORMS = {
-    IFC_EST_PP: { position: [45, -2.05, 25], rotation: [0, 0, 0] },
-    IFC_ARQ: { position: [354.6, 0, 3187.75], rotation: [0, 0, 0] },
-    IFC_CLI: { position: [354.6, 0, 3187.75], rotation: [0, 0, 0] },
-    IFC_SAN: { position: [354.6, 0, 3187.75], rotation: [0, 0, 0] },
-    IFC_PLU: { position: [354.6, 0, 3187.75], rotation: [0, 0, 0] },
-};
-
-const DEFAULT_MODEL_TRANSFORMS = {
-    IFC_ILUX: { position: [-14.08, 0, 0] },
-    IFC_EST: { position: [-62.3, 0.4, 35.2] },
-    IFC_LOG_TEF: { position: [-14.08, 0, 0] },
-    IFC_ECX: { position: [-14.08, 0, 0] },
-    IFC_SAN: { position: [-1, 0, -14.1] },
-    IFC_INC: { position: [-1, 0, -14.1] },
-    IFC_HID: { position: [-1, 0, -14.1] },
-    IFC_PLU: { position: [13.03, 0, -14.05] },
-    IFC_GLP: { position: [13.03, 0, -14.05] },
-    //IFC_ARQ: { position: [13.03, 0, -14.05], rotation: [0, 90, 0]  },
-    IFC_EST_SUB: { position: [-41.57, 0.4, 15.5], rotation: [0, 90, 0] },
-    IFC_CLI_DUT: { position: [13, 0, 0], rotation: [0, 90, 0] },
-    IFC_EXA: { position: [13.03, 0, -14.05] },
-    IFC_CLI: { position: [-0.5, 0, -14.05] },
-    IFC_EST_CT: { position: [-54, 0, -5.3] },
-    IFC_ALI_220: { position: [-14.08, 0, 0] },
-    IFC_ALI_380: { position: [-14.08, 0, 0] },
-};
-
+// Cada modelo possui valores comuns e overrides explícitos por contexto de autenticação.
+// enabled=false remove o modelo antes do carregamento: o respectivo XKT não é solicitado.
 export const PROJECT_CONFIGS = {
-    iper: { name: "IPER", models: withDisciplineLabels(IPER_MODELS), transforms: IPER_MODEL_TRANSFORMS },
-    lacen: { name: "LACEN", models: withDisciplineLabels(defaultModels), transforms: DEFAULT_MODEL_TRANSFORMS },
-    policlinica: { name: "Policlínica", models: withDisciplineLabels(POLICLINICA_MODELS), transforms: POLICLINICA_MODEL_TRANSFORMS },
-    farmacia: { name: "Farmácia do Jânio", models: withDisciplineLabels(FARMACIA_MODELS), transforms: FARMACIA_MODEL_TRANSFORMS },
-    fecomercio: { name: "Fecomércio", models: withDisciplineLabels(fecomercio_MODELS), transforms: fecomercio_MODEL_TRANSFORMS },
-    esc_canaa: { name: "Escola Canaã", models: withDisciplineLabels(CANAA_MODELS), transforms: CANAA_MODEL_TRANSFORMS },
-    sesc_centro_ecologico: { name: "SESC Centro Ecológico", models: withDisciplineLabels(SESC_CENTRO_ECOLOGICO_MODELS), transforms: SESC_CENTRO_ECOLOGICO_MODEL_TRANSFORMS },
-    sebrae_rr: { name: "SEBRAE RR", models: withDisciplineLabels(SEBRAE_RR_MODELS), transforms: SEBRAE_RR_MODEL_TRANSFORMS },
-    esc_modelo: { name: "Escola Modelo", models: withDisciplineLabels(ESC_MODELO_MODELS), transforms: ESC_MODELO_MODEL_TRANSFORMS }
+    iper: {
+        name: "IPER",
+        models: {
+            IFC_ELE: {
+                src: "/3D/iper/modelo-01.xkt",
+                label: "Instalações elétricas",
+                public: { enabled: true },
+                authenticated: { enabled: true, transform: { position: [-13.93, 0, -0.19] } }
+            },
+            IFC_LOG: {
+                src: "/3D/iper/modelo-02.xkt",
+                label: "Cabeamento estruturado",
+                transform: {"position":[0.16,0,-0.19],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_HID: {
+                src: "/3D/iper/modelo-03.xkt",
+                label: "Instalações hidráulicas",
+                transform: {"position":[0.15,0,13.9],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ALI: {
+                src: "/3D/iper/modelo-04.xkt",
+                label: "Alimentadores elétricos",
+                transform: {"position":[-13.94,0,-0.17]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST: {
+                src: "/3D/iper/modelo-05.xkt",
+                label: "Estrutura",
+                transform: {"position":[-8.789,0.4,22.5]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ARQ: {
+                src: "/3D/iper/modelo-06.xkt",
+                label: "Arquitetura",
+                transform: {"position":[0.16,0,-0.19],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: false }
+            },
+            IFC_PLU: {
+                src: "/3D/iper/modelo-07.xkt",
+                label: "Águas pluviais",
+                transform: {"position":[0.15,0,-0.19],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SAN: {
+                src: "/3D/iper/modelo-08.xkt",
+                label: "Instalações sanitárias",
+                transform: {"position":[0.16,0,-0.19],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_INC: {
+                src: "/3D/iper/modelo-09.xkt",
+                label: "Prevenção e combate a incêndio",
+                transform: {"position":[0.15,0,13.9],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST_SQD: {
+                src: "/3D/iper/modelo-10.xkt",
+                label: "Estrutura da subestação e quadros",
+                transform: {"position":[18.655,-0.658,-15.215]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST_SUB: {
+                src: "/3D/iper/modelo-11.xkt",
+                label: "Estrutura da subestação",
+                transform: {"position":[27.7,-0.58,-22.4],"rotation":[0,-84.1,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST_CT: {
+                src: "/3D/iper/modelo-12.xkt",
+                label: "Estrutura da central técnica",
+                transform: {"position":[-15.15,1.44,-16.47],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST_MR: {
+                src: "/3D/iper/modelo-13.xkt",
+                label: "Estrutura do módulo de resíduos",
+                transform: {"position":[35.25,0,20.2],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST_MRC: {
+                src: "/3D/iper/modelo-14.xkt",
+                label: "Estrutura do módulo de resíduos coberto",
+                transform: {"position":[-23,0.35,28.88]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_FOT: {
+                src: "/3D/iper/modelo-15.xkt",
+                label: "Sistema fotovoltaico",
+                transform: {"position":[0,0,0],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EMT_ESC: {
+                src: "/3D/iper/modelo-16.xkt",
+                label: "Edifício multiuso — escola",
+                transform: {"position":[0.14,0.35,-0.15],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EMT_COB: {
+                src: "/3D/iper/modelo-17.xkt",
+                label: "Edifício multiuso — cobertura",
+                transform: {"position":[0.14,0,-0.15],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_CLI: {
+                src: "/3D/iper/modelo-18.xkt",
+                label: "Climatização",
+                transform: {"position":[0.16,0,-0.2],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SPDA: {
+                src: "/3D/iper/modelo-19.xkt",
+                label: "SPDA",
+                transform: {"position":[0.15,0,-0.2],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SUB: {
+                src: "/3D/iper/modelo-20.xkt",
+                label: "Subestação",
+                transform: {"position":[2.74,-0.28,2.65],"rotation":[0,96.1,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ILUX: {
+                src: "/3D/iper/modelo-21.xkt",
+                label: "Iluminação externa",
+                transform: {"position":[-13.94,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_TEF: {
+                src: "/3D/iper/modelo-22.xkt",
+                label: "Telefonia",
+                transform: {"position":[0.16,0,-0.19],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SDAI: {
+                src: "/3D/iper/modelo-23.xkt",
+                label: "Detecção e alarme de incêndio",
+                transform: {"position":[0.16,0,-0.19]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_GLP: {
+                src: "/3D/iper/modelo-24.xkt",
+                label: "GLP",
+                transform: {"position":[0.16,0,-0.17],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_IRRI: {
+                src: "/3D/iper/modelo-25.xkt",
+                label: "Irrigação",
+                transform: {"position":[0.15,0,13.9],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SOM: {
+                src: "/3D/iper/modelo-26.xkt",
+                label: "Sonorização",
+                transform: {"position":[0.16,0,-0.19],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+        }
+    },
+    lacen: {
+        name: "LACEN",
+        models: {
+            IFC_LOG_TEF: {
+                src: "/3D/lacen/modelo-01.xkt",
+                label: "Cabeamento estruturado e telefonia",
+                transform: {"position":[-14.08,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ELE: {
+                src: "/3D/lacen/modelo-02.xkt",
+                label: "Instalações elétricas",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SPDA: {
+                src: "/3D/lacen/modelo-03.xkt",
+                label: "SPDA",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ECX: {
+                src: "/3D/lacen/modelo-04.xkt",
+                label: "Equipamentos especiais",
+                transform: {"position":[-14.08,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ILUX: {
+                src: "/3D/lacen/modelo-05.xkt",
+                label: "Iluminação externa",
+                transform: {"position":[-14.08,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST: {
+                src: "/3D/lacen/modelo-06.xkt",
+                label: "Estrutura",
+                transform: {"position":[-62.3,0.4,35.2]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SAN: {
+                src: "/3D/lacen/modelo-07.xkt",
+                label: "Instalações sanitárias",
+                transform: {"position":[-1,0,-14.1]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_INC: {
+                src: "/3D/lacen/modelo-08.xkt",
+                label: "Prevenção e combate a incêndio",
+                transform: {"position":[-1,0,-14.1]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_HID: {
+                src: "/3D/lacen/modelo-09.xkt",
+                label: "Instalações hidráulicas",
+                transform: {"position":[-1,0,-14.1]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_PLU: {
+                src: "/3D/lacen/modelo-10.xkt",
+                label: "Águas pluviais",
+                transform: {"position":[13.03,0,-14.05]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_GLP: {
+                src: "/3D/lacen/modelo-11.xkt",
+                label: "GLP",
+                transform: {"position":[13.03,0,-14.05]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST_SUB: {
+                src: "/3D/lacen/modelo-13.xkt",
+                label: "Estrutura da subestação",
+                transform: {"position":[-41.57,0.4,15.5],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_CLI_DUT: {
+                src: "/3D/lacen/modelo-14.xkt",
+                label: "Climatização — dutos",
+                transform: {"position":[13,0,0],"rotation":[0,90,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EXA: {
+                src: "/3D/lacen/modelo-15.xkt",
+                label: "Exaustão",
+                transform: {"position":[13.03,0,-14.05]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_CLI: {
+                src: "/3D/lacen/modelo-16.xkt",
+                label: "Climatização",
+                transform: {"position":[-0.5,0,-14.05]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST_CT: {
+                src: "/3D/lacen/modelo-17.xkt",
+                label: "Estrutura da central técnica",
+                transform: {"position":[-54,0,-5.3]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ALI_220: {
+                src: "/3D/lacen/modelo-18.xkt",
+                label: "Alimentadores 220 V",
+                transform: {"position":[-14.08,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ALI_380: {
+                src: "/3D/lacen/modelo-19.xkt",
+                label: "Alimentadores 380 V",
+                transform: {"position":[-14.08,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+        }
+    },
+    policlinica: {
+        name: "Policlínica",
+        models: {
+            IFC_EST_PP: {
+                src: "/3D/policlinica/modelo-01.xkt",
+                label: "Estrutura do prédio principal",
+                transform: {"position":[-80,0.4,50]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ELE_T_220: {
+                src: "/3D/policlinica/modelo-02.xkt",
+                label: "Elétrica 220 V — tomadas",
+                transform: {"position":[-78,0,40]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_PLU: {
+                src: "/3D/policlinica/modelo-03.xkt",
+                label: "Águas pluviais",
+                transform: {"position":[-78,0,40]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_HID: {
+                src: "/3D/policlinica/modelo-04.xkt",
+                label: "Instalações hidráulicas",
+                transform: {"position":[-78,0,40],"rotation":[0,-45,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SAN: {
+                src: "/3D/policlinica/modelo-05.xkt",
+                label: "Instalações sanitárias",
+                transform: {"position":[-78,0,40]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ELE_S_220: {
+                src: "/3D/policlinica/modelo-06.xkt",
+                label: "Elétrica 220 V — serviços",
+                transform: {"position":[-78,0,40],"rotation":[0,-45,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ITM: {
+                src: "/3D/policlinica/modelo-07.xkt",
+                label: "Instalações mecânicas",
+                transform: {"position":[-78,0,40]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ELE_A_220: {
+                src: "/3D/policlinica/modelo-08.xkt",
+                label: "Elétrica 220 V — ar-condicionado",
+                transform: {"position":[-78,0,40],"rotation":[0,-45,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_LOG: {
+                src: "/3D/policlinica/modelo-09.xkt",
+                label: "Cabeamento estruturado",
+                transform: {"position":[-78,0,40]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_TEF: {
+                src: "/3D/policlinica/modelo-10.xkt",
+                label: "Telefonia",
+                transform: {"position":[-78,0,40]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ALI_220: {
+                src: "/3D/policlinica/modelo-11.xkt",
+                label: "Alimentadores 220 V",
+                transform: {"position":[-78,0,40]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ALI_380: {
+                src: "/3D/policlinica/modelo-12.xkt",
+                label: "Alimentadores 380 V",
+                transform: {"position":[-78,0,40]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_IRRI: {
+                src: "/3D/policlinica/modelo-13.xkt",
+                label: "Irrigação",
+                transform: {"position":[-78,0,40],"rotation":[0,-45,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+        }
+    },
+    farmacia: {
+        name: "Farmácia do Jânio",
+        models: {
+            IFC_LOG_TEF: {
+                src: "/3D/drogaria/modelo-05.xkt",
+                label: "Cabeamento estruturado e telefonia",
+                transform: {"position":[14.09,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ELE: {
+                src: "/3D/drogaria/modelo-04.xkt",
+                label: "Instalações elétricas",
+                transform: {"position":[14.09,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST: {
+                src: "/3D/drogaria/modelo-06.xkt",
+                label: "Estrutura",
+                transform: {"position":[2.22,0,2.61]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SAN: {
+                src: "/3D/drogaria/modelo-08.xkt",
+                label: "Instalações sanitárias",
+                transform: {"position":[14.09,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_PLU: {
+                src: "/3D/drogaria/modelo-07.xkt",
+                label: "Águas pluviais",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ARQ: {
+                src: "/3D/drogaria/modelo-09.xkt",
+                label: "Arquitetura",
+                transform: {"position":[14.09,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_FOT: {
+                src: "/3D/drogaria/modelo-03.xkt",
+                label: "Sistema fotovoltaico",
+                transform: {"position":[14.09,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ALI: {
+                src: "/3D/drogaria/modelo-01.xkt",
+                label: "Alimentadores elétricos",
+                transform: {"position":[14.09,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_CLI: {
+                src: "/3D/drogaria/modelo-10.xkt",
+                label: "Climatização",
+                transform: {"position":[14.09,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_HID: {
+                src: "/3D/drogaria/modelo-11.xkt",
+                label: "Instalações hidráulicas",
+                transform: {"position":[0,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_INC: {
+                src: "/3D/drogaria/modelo-12.xkt",
+                label: "Prevenção e combate a incêndio",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EXA: {
+                src: "/3D/drogaria/modelo-13.xkt",
+                label: "Exaustão",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+        }
+    },
+    fecomercio: {
+        name: "Fecomércio",
+        models: {
+            IFC_EST: {
+                src: "/3D/fecomercio/ifc-est-fecomercio.xkt",
+                label: "Estrutura",
+                transform: {"position":[0,-0.1,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ELE: {
+                src: "/3D/fecomercio/ifc-ele-fecomercio.xkt",
+                label: "Instalações elétricas",
+                transform: {"position":[0,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ARQ: {
+                src: "/3D/fecomercio/ifc-arq-fecomercio.xkt",
+                label: "Arquitetura",
+                transform: {"position":[-18.7,0,8.95]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SAN_PLU: {
+                src: "/3D/fecomercio/ifc-san-plu-fecomercio.xkt",
+                label: "Instalações sanitárias e águas pluviais",
+                transform: {"position":[50,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_HID: {
+                src: "/3D/fecomercio/ifc-hid-fecomercio.xkt",
+                label: "Instalações hidráulicas",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+        }
+    },
+    esc_canaa: {
+        name: "Escola Canaã",
+        models: {
+            IFC_ELE: {
+                src: "/3D/esc_canaa/modelo-01.xkt",
+                label: "Instalações elétricas",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ILUX: {
+                src: "/3D/esc_canaa/modelo-02.xkt",
+                label: "Iluminação externa",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_LOG: {
+                src: "/3D/esc_canaa/modelo-03.xkt",
+                label: "Cabeamento estruturado",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ALI: {
+                src: "/3D/esc_canaa/modelo-04.xkt",
+                label: "Alimentadores elétricos",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_INC: {
+                src: "/3D/esc_canaa/modelo-05.xkt",
+                label: "Prevenção e combate a incêndio",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST_PP: {
+                src: "/3D/esc_canaa/modelo-06.xkt",
+                label: "Estrutura do prédio principal",
+                transform: {"position":[48.212,0.385,-36.8995]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SUB: {
+                src: "/3D/esc_canaa/modelo-07.xkt",
+                label: "Subestação",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_CLI: {
+                src: "/3D/esc_canaa/modelo-08.xkt",
+                label: "Climatização",
+                transform: {"position":[0,-0.05,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ILU: {
+                src: "/3D/esc_canaa/modelo-09.xkt",
+                label: "Iluminação",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SPDA: {
+                src: "/3D/esc_canaa/modelo-10.xkt",
+                label: "SPDA",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_HID: {
+                src: "/3D/esc_canaa/modelo-11.xkt",
+                label: "Instalações hidráulicas",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SAN: {
+                src: "/3D/esc_canaa/modelo-12.xkt",
+                label: "Instalações sanitárias",
+                transform: {"position":[-0.03,-0.1,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EXA: {
+                src: "/3D/esc_canaa/modelo-13.xkt",
+                label: "Exaustão",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ARQ: {
+                src: "/3D/esc_canaa/modelo-14.xkt",
+                label: "Arquitetura",
+                transform: {"position":[48.25,0,-36.8695]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_PLU: {
+                src: "/3D/esc_canaa/modelo-15.xkt",
+                label: "Águas pluviais",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST_EMT: {
+                src: "/3D/esc_canaa/modelo-16.xkt",
+                label: "Estrutura do edifício multiuso",
+                transform: {"position":[48.212,0.075,-36.8995],"rotation":[0,180,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SDAI: {
+                src: "/3D/esc_canaa/modelo-17.xkt",
+                label: "Detecção e alarme de incêndio",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_GLP: {
+                src: "/3D/esc_canaa/modelo-18.xkt",
+                label: "GLP",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_IRRI: {
+                src: "/3D/esc_canaa/modelo-19.xkt",
+                label: "Irrigação",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+        }
+    },
+    sesc_centro_ecologico: {
+        name: "SESC Centro Ecológico",
+        models: {
+            IFC_ARQ_SESC_GERAL: {
+                src: "/3D/sesc_centro_ecologico/XKT-ARQ-SESC-GERAL.xkt",
+                label: "Arquitetura geral",
+                transform: {"position":[257.26,0,33.02],"rotation":[0,16.4,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+        }
+    },
+    sebrae_rr: {
+        name: "SEBRAE RR",
+        models: {
+            IFC_ALI: {
+                src: "/3D/sebrae-rr/modelo-01.xkt",
+                label: "Alimentadores elétricos",
+                transform: {"position":[15,0,50]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+        }
+    },
+    esc_modelo: {
+        name: "Escola Modelo",
+        models: {
+            IFC_EST_PP: {
+                src: "/3D/esc_modelo/modelo-01.xkt",
+                label: "Estrutura do prédio principal",
+                transform: {"position":[45,-2.05,25],"rotation":[0,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ARQ: {
+                src: "/3D/esc_modelo/modelo-02.xkt",
+                label: "Arquitetura",
+                transform: {"position":[354.6,0,3187.75],"rotation":[0,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_CLI: {
+                src: "/3D/esc_modelo/modelo-03.xkt",
+                label: "Climatização",
+                transform: {"position":[354.6,0,3187.75],"rotation":[0,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SAN: {
+                src: "/3D/esc_modelo/modelo-04.xkt",
+                label: "Instalações sanitárias",
+                transform: {"position":[354.6,0,3187.75],"rotation":[0,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_PLU: {
+                src: "/3D/esc_modelo/modelo-05.xkt",
+                label: "Águas pluviais",
+                transform: {"position":[354.6,0,3187.75],"rotation":[0,0,0]},
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+        }
+    },
 };
 
-export function getProjectConfig(projectKey) {
-    return PROJECT_CONFIGS[projectKey] || PROJECT_CONFIGS.lacen;
+const VALID_MODES = new Set(["public", "authenticated"]);
+const ZERO_VECTOR = Object.freeze([0, 0, 0]);
+
+function resolveMode(mode) {
+    const requestedMode = typeof mode === "object" ? mode?.mode : mode;
+    if (VALID_MODES.has(requestedMode)) return requestedMode;
+    if (requestedMode !== undefined) {
+        console.warn(`[project-config] Modo "${requestedMode}" inválido; usando "public".`);
+    }
+    return "public";
+}
+
+function resolveVector(value, fallback, modelId, field, mode) {
+    if (value === undefined) return [...fallback];
+    if (Array.isArray(value) && value.length === 3 && value.every(Number.isFinite)) return [...value];
+    console.warn(`[project-config] ${field} inválida para o modelo ${modelId} (${mode}); usando fallback seguro.`);
+    return [...fallback];
+}
+
+function resolveModel(modelId, definition, mode) {
+    const context = definition?.[mode] || {};
+    if (context.enabled === false) return null;
+
+    const src = context.src ?? definition?.src;
+    if (!src || typeof src !== "string") {
+        console.warn(`[project-config] Modelo ${modelId} habilitado sem src (${mode}); ele não será carregado.`);
+        return null;
+    }
+
+    const commonTransform = definition?.transform || {};
+    const contextTransform = context.transform || {};
+    const position = resolveVector(
+        contextTransform.position ?? context.position,
+        resolveVector(commonTransform.position, ZERO_VECTOR, modelId, "position", mode),
+        modelId,
+        "position",
+        mode
+    );
+    const rotation = resolveVector(
+        contextTransform.rotation ?? context.rotation,
+        resolveVector(commonTransform.rotation, ZERO_VECTOR, modelId, "rotation", mode),
+        modelId,
+        "rotation",
+        mode
+    );
+
+    return {
+        model: { id: modelId, src, label: definition.label || DISCIPLINE_LABELS[modelId] || "Modelo do projeto" },
+        transform: { position, rotation }
+    };
+}
+
+export function hasProjectConfig(projectKey) {
+    return Object.prototype.hasOwnProperty.call(PROJECT_CONFIGS, projectKey);
+}
+
+export function getProjectConfig(projectKey, mode = "public") {
+    const resolvedMode = resolveMode(mode);
+    const project = PROJECT_CONFIGS[projectKey] || PROJECT_CONFIGS.lacen;
+    const models = [];
+    const transforms = {};
+
+    Object.entries(project.models || {}).forEach(([modelId, definition]) => {
+        const resolved = resolveModel(modelId, definition, resolvedMode);
+        if (!resolved) return;
+        models.push(resolved.model);
+        transforms[modelId] = resolved.transform;
+    });
+
+    return { name: project.name, models, transforms };
 }

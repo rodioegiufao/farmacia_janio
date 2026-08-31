@@ -18,6 +18,10 @@ assert.match(publicViewer, /window\.location\.reload\(\)/);
 assert.doesNotMatch(publicViewer + core, /xlsx|base_de_dados|excel-export|materials|collision|budget/i);
 assert.doesNotMatch(authenticated, /^loadExplicitLinearMaterialsFromExcel\(\);/m);
 assert.strictEqual((core.match(/xeokit-sdk@2\.6\.107/g) || []).length, 1);
+assert.match(core, /getProjectConfig\(projectKey, "public"\)/);
+assert.match(authenticated, /getProjectConfig\(projectFromDataset, "authenticated"\)/);
+assert.doesNotMatch(authenticated, /const (?:IPER|FARMACIA|POLICLINICA|CANAA)_MODELS/);
+assert.doesNotMatch(authenticated, /const PROJECT_CONFIGS/);
 
 for (const html of fs.readdirSync(path.join(root, "3D")).filter((name) => name.endsWith(".html"))) {
     const contents = read(`3D/${html}`);

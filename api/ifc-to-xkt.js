@@ -397,7 +397,7 @@ async function handleMultipartConversion(req, res, tempPaths) {
   });
   stream.pipe(res);
 }
-
+const { require3DUser } = require("./_auth");
 async function ifcToXktHandler(req, res) {
   const tempPaths = [];
 
@@ -408,6 +408,7 @@ async function ifcToXktHandler(req, res) {
   }
 
   try {
+    await require3DUser(req);
     if (isJson(req)) {
       await handleJsonStorageConversion(req, res, tempPaths);
       cleanup(tempPaths);

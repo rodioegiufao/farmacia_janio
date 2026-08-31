@@ -88,8 +88,8 @@ export const PROJECT_CONFIGS = {
                 src: "/3D/iper/modelo-06.xkt",
                 label: "Arquitetura",
                 transform: {"position":[0.16,0,-0.19],"rotation":[0,90,0]},
-                public: { enabled: false },
-                authenticated: { enabled: true }
+                public: { enabled: true },
+                authenticated: { enabled: false }
             },
             IFC_PLU: {
                 src: "/3D/iper/modelo-07.xkt",

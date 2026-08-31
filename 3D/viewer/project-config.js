@@ -52,8 +52,9 @@ export const PROJECT_CONFIGS = {
             IFC_ELE: {
                 src: "/3D/iper/modelo-01.xkt",
                 label: "Instalações elétricas",
+                transform: {"position":[0.16,0,-0.19]},
                 public: { enabled: true },
-                authenticated: { enabled: true, transform: { position: [-13.93, 0, -0.19] } }
+                authenticated: { enabled: true }
             },
             IFC_LOG: {
                 src: "/3D/iper/modelo-02.xkt",

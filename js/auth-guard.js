@@ -1,6 +1,8 @@
 (function () {
   const AUTH_URL = "/api/auth";
-  const PROTECTED_PATHS = ["/viabilidade", "/Memorial", "/alimentador", "/carimbo", "/memo"];
+  const INTERNAL_PATHS = ["/viabilidade", "/Memorial", "/alimentador", "/carimbo", "/iluminancia", "/memo", "/atividades"];
+  const ADMIN_PATHS = ["/admin"];
+  const PROTECTED_PATHS = [...INTERNAL_PATHS, ...ADMIN_PATHS];
 
   async function requestJson(url, options) {
     const response = await fetch(url, options);
@@ -26,6 +28,11 @@
   function isProtectedPath() {
     const path = window.location.pathname.replace(/\/$/, "") || "/";
     return PROTECTED_PATHS.some((protectedPath) => path === protectedPath || path.startsWith(`${protectedPath}/`));
+  }
+
+  function pathMatches(paths) {
+    const path = window.location.pathname.replace(/\/$/, "") || "/";
+    return paths.some((base) => path.toLowerCase() === base.toLowerCase() || path.toLowerCase().startsWith(`${base.toLowerCase()}/`));
   }
 
   function obterIniciais(nome) {
@@ -220,6 +227,8 @@
     const user = await getCurrentUser();
     aplicarUsuarioNoMenu(user);
     if (!user) redirectToHomeLogin();
+    else if (user.perfil === "cliente" && pathMatches(PROTECTED_PATHS)) window.location.replace("/3D/?acesso=negado");
+    else if (pathMatches(ADMIN_PATHS) && user.perfil !== "admin") window.location.replace("/");
   }
 
   window.SiteAuth = { getCurrentUser, requestJson, redirectToHomeLogin, aplicarUsuarioNoMenu };

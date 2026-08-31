@@ -1,4 +1,4 @@
-const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
+const { parseRequestBody, requireInternalUser, sendJson, supabaseRequest } = require("./_auth");
 const { enriquecerRegistroComObra, resolverOuCriarObra } = require("./_obras");
 const { limparItensOrfaos, normalizarItemPlanner, removerVinculosAtividade, sincronizarAtividadeComPlanner } = require("./_planner-sync");
 const { projetoExigeFaseItem, separarItens } = require("../atividades/fase-item");
@@ -268,7 +268,7 @@ async function finalizarAtividadesRelacionadas(record, request = supabaseRequest
 module.exports = async function atividadesHandler(req, res) {
   try {
     if (req.method === "GET") {
-      const user = await requireUser(req);
+      const user = await requireInternalUser(req);
       const data = await supabaseRequest(SUPABASE_TABLE, "?select=*&order=criado_em.desc");
       const ids = (data || []).map((a) => a.id);
       const classificacoes = ids.length ? await supabaseRequest(CLASSIFICACOES_TABLE, `?atividade_id=in.(${ids.map(encodeURIComponent).join(",")})&select=*`) : [];
@@ -277,7 +277,7 @@ module.exports = async function atividadesHandler(req, res) {
     }
 
     if (req.method === "POST") {
-      const user = await requireUser(req);
+      const user = await requireInternalUser(req);
       const body = parseRequestBody(req);
       if (body.acao === "sincronizarPlanner") {
         const rows = await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(body.id)}&select=*`);
@@ -313,7 +313,7 @@ module.exports = async function atividadesHandler(req, res) {
     }
 
     if (req.method === "PUT") {
-      const user = await requireUser(req);
+      const user = await requireInternalUser(req);
       const body = parseRequestBody(req);
       if (!body.id) {
         sendJson(res, 400, { error: "ID da atividade não informado." });
@@ -356,7 +356,7 @@ module.exports = async function atividadesHandler(req, res) {
     }
 
     if (req.method === "DELETE") {
-      const user = await requireUser(req);
+      const user = await requireInternalUser(req);
       const id = typeof req.query?.id === "string" ? req.query.id : "";
       const all = req.query?.all === "true";
 

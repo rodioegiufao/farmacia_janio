@@ -12,7 +12,7 @@ const {
   WidthType,
   BorderStyle
 } = require("docx");
-const { parseRequestBody, requireUser, sendJson } = require("./_auth");
+const { parseRequestBody, requireInternalUser, sendJson } = require("./_auth");
 
 const FONTE_PADRAO = "Arial";
 const LARGURA_MAXIMA_IMAGEM_PX = 520;
@@ -289,7 +289,7 @@ module.exports = async function gerarMemorandoWordHandler(req, res) {
       return;
     }
 
-    await requireUser(req);
+    await requireInternalUser(req);
 
     const body = parseRequestBody(req);
     validarBody(body);

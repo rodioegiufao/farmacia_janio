@@ -199,6 +199,7 @@
                         <option value="" selected disabled>Selecione um projeto</option>
                     </select>
                     <button id="irProjeto" type="button">Abrir projeto</button>
+                    <a id="authenticatedModelUpload" class="button hidden" href="/3D/ifc_upload.html">📂 Abrir modelo IFC / XKT / GLB</a>
                 </div>
             </section>
         </div>
@@ -214,8 +215,8 @@
             { label: "LACEN", href: "/3D/lacen.html" },
             { label: "Policlínica", href: "/3D/policlinica.html" },
             { label: "ESC Modelo", href: "/3D/esc_modelo.html" },
-            { label: "Fecomercio", href: "3D/fecomercio" },
-            { label: "SESC Centro Ecológico", href: "/3D/sesc_centro_ecologico" }
+            { label: "Fecomercio", href: "/3D/fecomercio.html" },
+            { label: "SESC Centro Ecológico", href: "/3D/sesc_centro_ecologico.html" }
         ];
 
         const PRIVATE_PROJECTS = [
@@ -231,6 +232,7 @@
         const projectSection = document.getElementById("projectSection");
         const btnPublico = document.getElementById("btnPublico");
         const btnPrivado = document.getElementById("btnPrivado");
+        const authenticatedModelUpload = document.getElementById("authenticatedModelUpload");
 
         let accessUnlocked = false;
         let selectedType = "public";
@@ -275,6 +277,20 @@
             updateProjectTypeButtons();
         }
 
+        async function unlockForAuthenticatedUser() {
+            try {
+                const response = await fetch("/api/auth", { credentials: "same-origin", headers: { Accept: "application/json" } });
+                if (!response.ok) return;
+                const user = (await response.json())?.user;
+                if (!user || !["admin", "colaborador", "cliente"].includes(user.perfil)) return;
+                accessUnlocked = true;
+                authenticatedModelUpload.classList.remove("hidden");
+                updateAccessState();
+            } catch (_error) {
+                // Visitantes preservam o gate público legado quando a autenticação não estiver disponível.
+            }
+        }
+
         botaoDesbloquear.addEventListener("click", () => {
             const password = inputSenha.value.trim();
             if (password === ACCESS_PASSWORD) {
@@ -294,6 +310,7 @@
             updateProjectTypeButtons();
             renderSelectOptions();
         });
+        unlockForAuthenticatedUser();
 
         btnPrivado.addEventListener("click", () => {
             selectedType = "private";

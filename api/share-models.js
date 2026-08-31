@@ -1,4 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
+const { require3DUser } = require("./_auth");
 
 const SHARE_TTL_MS = 60 * 60 * 1000;
 const SUPABASE_BUCKET = "ifc-conversions";
@@ -153,6 +154,12 @@ async function shareModelsHandler(req, res) {
     cleanupExpiredShares();
 
     if (req.method === "POST") {
+        try {
+            await require3DUser(req);
+        } catch (error) {
+            sendJson(res, error.statusCode || 500, { error: error.message });
+            return;
+        }
         const body = parseRequestBody(req);
         const files = Array.isArray(body?.files) ? body.files : [];
 

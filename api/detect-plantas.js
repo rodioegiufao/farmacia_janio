@@ -1,3 +1,4 @@
+const { requireInternalUser } = require("./_auth");
 const DEFAULT_MODEL = 'plantas-4eu8q';
 const DEFAULT_VERSION = 2;
 const DEFAULT_CONFIDENCE = 55;
@@ -28,6 +29,7 @@ function sanitizarPayload(body = {}) {
 }
 
 module.exports = async function detectPlantasHandler(req, res) {
+    try { await requireInternalUser(req); } catch (error) { return json(res, error.statusCode || 500, { error: error.message }); }
     if (req.method !== 'POST') {
         res.setHeader('Allow', 'POST');
         return json(res, 405, { error: 'Método não permitido. Use POST.' });

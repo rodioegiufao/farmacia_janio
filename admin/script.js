@@ -10,6 +10,11 @@ let ultimoFocoModal = null;
 let observadorSecoes = null;
 let visaoRapidaObras = "todas";
 
+function getProfileLabel(profile) {
+  if (profile === "admin") return "Administrador";
+  if (profile === "cliente") return "Cliente";
+  return "Colaborador";
+}
 const adminPanel = document.getElementById("adminPanel");
 const accessDeniedPanel = document.getElementById("accessDeniedPanel");
 const cadastroForm = document.getElementById("cadastroForm");
@@ -56,6 +61,10 @@ async function verificarAcessoAdmin() {
   try {
     const data = await fetch(AUTH_URL).then(validarResposta);
     const user = data.user;
+    if (user?.perfil === "cliente") {
+      window.location.replace("/3D/?acesso=negado");
+      return;
+    }
     const adminLogado = user?.perfil === "admin";
 
     aplicarUsuarioNoMenu(user);
@@ -261,7 +270,7 @@ function renderizarUsuarios() {
   const admins = usuariosAdmin.filter((user) => user.perfil === "admin").length;
   document.getElementById("usuariosMetricas").innerHTML = [[usuariosAdmin.length, "Usuários", ""], [ativos, "Ativos", "success"], [admins, "Administradores", "blue"]].map(([numero, rotulo, classe]) => `<article class="admin-metric-card ${classe}"><strong>${numero}</strong><span>${rotulo}</span></article>`).join("");
   if (!lista.length) { usuariosLista.innerHTML = '<p class="admin-empty">Nenhum usuário encontrado.</p>'; return; }
-  usuariosLista.innerHTML = `<table><thead><tr><th>Usuário</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead><tbody>${lista.map((user) => `<tr><td><div class="admin-user-identity"><span class="admin-user-avatar">${obterIniciais(user.nome)}</span><span><strong>${escapeHtml(user.nome)}</strong><small>${escapeHtml(user.usuario)}</small></span></div></td><td><span class="admin-badge ${user.perfil === "admin" ? "admin" : ""}">${user.perfil === "admin" ? "Administrador" : "Colaborador"}</span></td><td><span class="admin-badge admin-status-dot ${user.ativo ? "success" : "danger"}">${user.ativo ? "Ativo" : "Inativo"}</span></td><td><button type="button" class="admin-row-action user-password-button" data-user-id="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.nome)}"><i class="fa-solid fa-key"></i> Alterar senha</button></td></tr>`).join("")}</tbody></table>`;
+  usuariosLista.innerHTML = `<table><thead><tr><th>Usuário</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead><tbody>${lista.map((user) => `<tr><td><div class="admin-user-identity"><span class="admin-user-avatar">${obterIniciais(user.nome)}</span><span><strong>${escapeHtml(user.nome)}</strong><small>${escapeHtml(user.usuario)}</small></span></div></td><td><span class="admin-badge ${escapeHtml(user.perfil)}">${getProfileLabel(user.perfil)}</span></td><td><span class="admin-badge admin-status-dot ${user.ativo ? "success" : "danger"}">${user.ativo ? "Ativo" : "Inativo"}</span></td><td><button type="button" class="admin-row-action user-password-button" data-user-id="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.nome)}"><i class="fa-solid fa-key"></i> Alterar senha</button></td></tr>`).join("")}</tbody></table>`;
 }
 function tratarAcaoUsuario(event) {
   const button = event.target.closest(".user-password-button");

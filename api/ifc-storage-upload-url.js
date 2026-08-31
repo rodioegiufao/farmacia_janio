@@ -172,7 +172,7 @@ async function ensureBucketExists(supabase) {
     throw new Error(`Não foi possível criar o bucket ${SUPABASE_BUCKET}: ${error.message}`);
   }
 }
-
+const { require3DUser } = require("./_auth");
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -181,6 +181,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    await require3DUser(req);
     const body = await readJsonBody(req);
     assertRequestedFileFitsLimit(body.fileSize);
     const path = createUploadPath(body.fileName);
@@ -202,6 +203,6 @@ module.exports = async function handler(req, res) {
       signedUrl: data.signedUrl
     });
   } catch (error) {
-    sendJson(res, 500, { ok: false, error: error.message || "Falha ao preparar upload IFC." });
+    sendJson(res, error.statusCode || 500, { ok: false, error: error.message || "Falha ao preparar upload IFC." });
   }
 };

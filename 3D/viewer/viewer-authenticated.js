@@ -344,6 +344,12 @@ function setupAccessGate() {
 
     const modelSelectionOverlay = document.getElementById("modelSelection");
     const accessToggleButton = document.getElementById("accessGateToggle");
+    
+    if (window.__VIEWER_AUTH_USER__) {
+        accessGate.hidden = true;
+        if (modelSelectionOverlay) modelSelectionOverlay.hidden = false;
+        return;
+    }
 
     if (sessionStorage.getItem(ACCESS_STORAGE_KEY) === "true") {
         accessGate.hidden = true;

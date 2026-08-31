@@ -49,14 +49,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const params = new URLSearchParams(window.location.search);
             const redirect = params.get('redirect');
             if (redirect) {
-                window.location.href = redirect;
+                window.location.href = currentUser?.perfil === 'cliente' && !redirect.startsWith('/3D') ? '/3D/' : redirect;
             }
         }
 
         function updateAuthUi(user) {
             currentUser = user;
             loginForm.hidden = Boolean(user);
-            if (ferramentasMenu) ferramentasMenu.hidden = !user;
+            const isInternalUser = user?.perfil === 'admin' || user?.perfil === 'colaborador';
+            if (ferramentasMenu) ferramentasMenu.hidden = !isInternalUser;
             window.SiteAuth.aplicarUsuarioNoMenu?.(user);
         }
 

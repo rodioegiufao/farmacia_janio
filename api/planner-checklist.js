@@ -1,4 +1,4 @@
-const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
+const { parseRequestBody, requireInternalUser, sendJson, supabaseRequest } = require("./_auth");
 const { enriquecerRegistroComObra, resolverOuCriarObra } = require("./_obras");
 const {
   PLANNER_MODELOS,
@@ -154,7 +154,7 @@ async function migrarChecklist(record) {
 }
 module.exports = async function plannerChecklistHandler(req, res) {
   try {
-    const user = await requireUser(req);
+    const user = await requireInternalUser(req);
 
     if (req.method === "GET") {
       const url = new URL(req.url, "http://localhost");

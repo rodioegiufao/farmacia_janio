@@ -1,4 +1,4 @@
-const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
+const { parseRequestBody, requireInternalUser, sendJson, supabaseRequest } = require("./_auth");
 const { enriquecerRegistroComObra, resolverOuCriarObra } = require("./_obras");
 
 const SUPABASE_TABLE = "atividades_semanais";
@@ -54,14 +54,14 @@ function validateRequiredFields(record) {
 module.exports = async function atividadesSemanaisHandler(req, res) {
   try {
     if (req.method === "GET") {
-      await requireUser(req);
+      await requireInternalUser(req);
       const data = await supabaseRequest(SUPABASE_TABLE, "?select=*&order=criado_em.desc");
       sendJson(res, 200, Array.isArray(data) ? await Promise.all(data.map(fromDatabaseRecordComObra)) : []);
       return;
     }
 
     if (req.method === "POST") {
-      const user = await requireUser(req);
+      const user = await requireInternalUser(req);
       requireAdmin(user);
       const body = parseRequestBody(req);
       if (body.obraId || String(body.obra || "").trim()) {
@@ -81,7 +81,7 @@ module.exports = async function atividadesSemanaisHandler(req, res) {
     }
 
     if (req.method === "PUT") {
-      const user = await requireUser(req);
+      const user = await requireInternalUser(req);
       requireAdmin(user);
       const body = parseRequestBody(req);
       if (!body.id) {
@@ -112,7 +112,7 @@ module.exports = async function atividadesSemanaisHandler(req, res) {
     }
 
     if (req.method === "DELETE") {
-      const user = await requireUser(req);
+      const user = await requireInternalUser(req);
       requireAdmin(user);
       const id = typeof req.query?.id === "string" ? req.query.id : "";
       if (!id) {

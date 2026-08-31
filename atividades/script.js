@@ -430,6 +430,10 @@ async function verificarSessao() {
       redirecionarParaLoginInicial();
       return;
     }
+    if (data.user.perfil === "cliente") {
+      window.location.replace("/3D/?acesso=negado");
+      return;
+    }
     aplicarUsuarioLogado(data.user);
   } catch (_erro) {
     redirecionarParaLoginInicial();

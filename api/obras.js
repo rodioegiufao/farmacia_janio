@@ -1,9 +1,9 @@
-const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
+const { parseRequestBody, requireInternalUser, sendJson, supabaseRequest } = require("./_auth");
 const { listarObras, localizarObraPorId, localizarObraPorNome, normalizarNomeObra, resolverOuCriarObra } = require("./_obras");
 
 module.exports = async function obrasHandler(req, res) {
   try {
-    const user = await requireUser(req);
+    const user = await requireInternalUser(req);
     if (req.method === "GET") return sendJson(res, 200, await listarObras());
     if (req.method === "POST") {
       const body = parseRequestBody(req);

@@ -2,6 +2,7 @@ const {
   USERS_TABLE,
   countUsers,
   hashPassword,
+  normalizeUserProfile,
   parseRequestBody,
   requireUser,
   sendJson,
@@ -51,7 +52,7 @@ module.exports = async function usuariosHandler(req, res) {
           sendJson(res, 403, { error: "Apenas administradores podem cadastrar novos usuários." });
           return;
         }
-        perfil = body.perfil === "admin" ? "admin" : "colaborador";
+        perfil = normalizeUserProfile(body.perfil);
       }
 
       const data = await supabaseRequest(USERS_TABLE, "", {

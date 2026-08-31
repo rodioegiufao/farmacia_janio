@@ -1,6 +1,17 @@
 const crypto = require("crypto");
 
 const USERS_TABLE = "usuarios_setor";
+const USER_PROFILES = Object.freeze({ ADMIN: "admin", COLLABORATOR: "colaborador", CLIENT: "cliente" });
+const VALID_PROFILES = Object.freeze(Object.values(USER_PROFILES));
+
+function normalizeUserProfile(profile) {
+  const normalized = String(profile || "").trim().toLowerCase();
+  return VALID_PROFILES.includes(normalized) ? normalized : USER_PROFILES.COLLABORATOR;
+}
+
+function userHasProfile(user, allowedProfiles = []) {
+  return allowedProfiles.includes(user?.perfil);
+}
 
 function sendJson(res, statusCode, payload, extraHeaders = {}) {
   Object.entries(extraHeaders).forEach(([key, value]) => res.setHeader(key, value));
@@ -159,21 +170,44 @@ async function requireUser(req) {
   }
   return user;
 }
+async function requireProfiles(req, allowedProfiles) {
+  const user = await requireUser(req);
+  if (!userHasProfile(user, allowedProfiles)) {
+    const error = new Error("Seu perfil não possui acesso a este recurso.");
+    error.statusCode = 403;
+    throw error;
+  }
+  return user;
+}
 
+async function requireInternalUser(req) {
+  return requireProfiles(req, [USER_PROFILES.ADMIN, USER_PROFILES.COLLABORATOR]);
+}
+
+async function require3DUser(req) {
+  return requireProfiles(req, VALID_PROFILES);
+}
 async function countUsers() {
   const users = await supabaseRequest(USERS_TABLE, "?select=id", { headers: { Prefer: "count=exact" } });
   return Array.isArray(users) ? users.length : 0;
 }
 
 module.exports = {
+  USER_PROFILES,
+  VALID_PROFILES,
   USERS_TABLE,
   clearSessionCookie,
   countUsers,
   createSessionCookie,
   hashPassword,
+  normalizeUserProfile,
   parseRequestBody,
+  require3DUser,
+  requireInternalUser,
+  requireProfiles,
   requireUser,
   sendJson,
   supabaseRequest,
+  userHasProfile,
   verifyPassword
 };

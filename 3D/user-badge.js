@@ -1,6 +1,9 @@
 (function () {
     const AUTH_URL = "/api/auth";
     let usuarioAtual = null;
+    function formatProfileLabel(profile) {
+        return ({ admin: "Administrador", colaborador: "Colaborador", cliente: "Cliente" })[profile] || "";
+    }
 
     function obterIniciais(nome) {
         const partes = String(nome || "").trim().split(/\s+/).filter(Boolean);
@@ -79,7 +82,7 @@
         const menuName = document.getElementById("viewerUserMenuName");
         if (menuName) menuName.textContent = user?.nome || "";
         const menuRole = document.getElementById("viewerUserMenuRole");
-        if (menuRole) menuRole.textContent = user?.perfil || "";
+        if (menuRole) menuRole.textContent = formatProfileLabel(user?.perfil);
         document.getElementById("viewerAdminLink")?.toggleAttribute("hidden", user?.perfil !== "admin");
     }
 

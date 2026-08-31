@@ -143,7 +143,7 @@ export const PROJECT_CONFIGS = {
             IFC_EST_MRC: {
                 src: "/3D/iper/modelo-14.xkt",
                 label: "Estrutura do módulo de resíduos coberto",
-                transform: {"position":[-23,0.35,28.88]},
+                transform: {"position":[-23.005,0.35,28.88]},
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },

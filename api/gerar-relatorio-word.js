@@ -227,6 +227,11 @@ function prepararTemplateParaGraficos(zip) {
   if (settings && !settings.asText().includes("<w:updateFields")) zip.file("word/settings.xml", settings.asText().replace("</w:settings>", '<w:updateFields w:val="true"/></w:settings>'));
   let documentXml = zip.file("word/document.xml").asText();
   documentXml = documentXml.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g, (paragrafoXml) => {
+    if (/<w:bookmarkStart\b[^>]*w:name="_Toc238041805"/.test(paragrafoXml) && extrairTextoParagrafoXml(paragrafoXml).includes("ANEXO B — GANTT DA EXECUÇÃO REAL DOS PROJETOS")) {
+      if (/<w:pPr\b[^>]*>/.test(paragrafoXml) && !/<w:keepNext\b/.test(paragrafoXml)) {
+        paragrafoXml = paragrafoXml.replace(/<w:pPr\b[^>]*>/, "$&<w:keepNext/>");
+      }
+    }
     for (const marcador of MARCADORES_XML_BRUTO) {
       const convertido = converterMarcadorParagrafoParaXmlBruto(paragrafoXml, marcador);
       if (convertido !== paragrafoXml) return convertido;

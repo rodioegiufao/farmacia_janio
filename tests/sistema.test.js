@@ -747,11 +747,13 @@ assert.equal(_test.formatarCompetenciaRelatorio({ tipo: "anual", dataInicio: "20
 }
 
 let xmlFinal;
+let xmlMensalFinal;
 {
   const zip = novoZip();
   _test.prepararTemplateParaGraficos(zip);
   assert.match(zip.file("word/document.xml").asText(), /\[@KKKK\]/, "o template real deve reconhecer KKKK como XML bruto");
   assert.match(zip.file("word/document.xml").asText(), /\[@LLLL\]/, "o template real deve reconhecer LLLL como XML bruto");
+  assert.match(zip.file("word/document.xml").asText(), /<w:p\b[^>]*><w:pPr><w:keepNext\/>[\s\S]*?<w:bookmarkStart\b[^>]*w:name="_Toc238041805"[^>]*\/>[\s\S]*?<\/w:p>/, "o título do Anexo B deve permanecer com o conteúdo seguinte");
   const dados = _test.montarDadosRelatorio({ atividades: registros, atividadesSemanais: [], periodoRelatorio: periodo, graficos: {} }, zip);
   assert.equal(dados.PERIODO_RELATORIO, "JULHO/2026");
   assert.equal(dados.COMPETENCIA_RELATORIO, "JULHO/2026");
@@ -781,6 +783,13 @@ let xmlFinal;
   assert.match(xmlAnexo, /<w:shd w:fill="1F4E78"\/>/, "o cabeçalho deve ser azul");
   assert.match(xmlAnexo, /OBR-000023/);
   assert.match(xmlFinal, /<w:pgSz w:w="11906" w:h="16838"[^>]*\/>/, "o novo template deve preservar a página A4 retrato do Anexo B");
+  const paragrafosSemanais = [...xmlFinal.matchAll(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)];
+  const tituloASemanal = paragrafosSemanais.find((p) => p[0].includes('w:name="_Toc238041804"') && _test.extrairTextoParagrafoXml(p[0]).includes("ANEXO A — DETALHAMENTO DAS FRENTES DE TRABALHO"));
+  const tituloBSemanal = paragrafosSemanais.find((p) => p[0].includes('w:name="_Toc238041805"') && _test.extrairTextoParagrafoXml(p[0]).includes("ANEXO B — GANTT DA EXECUÇÃO REAL DOS PROJETOS"));
+  assert.ok(tituloASemanal && tituloBSemanal && tituloBSemanal.index > tituloASemanal.index, "o relatório semanal deve preservar ambos os anexos");
+  const transicaoSemanal = xmlFinal.slice(tituloASemanal.index, tituloBSemanal.index);
+  assert.doesNotMatch(transicaoSemanal, /<w:sectPr\b/, "o semanal deve continuar sem seção entre os anexos");
+  assert.match(transicaoSemanal, /<w:br w:type="page"\/>/, "o semanal deve preservar a quebra de página antes do Anexo B");
   const outputPath = path.join(os.tmpdir(), "relatorio-semana-30.docx");
   fs.writeFileSync(outputPath, documento.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" }));
 }
@@ -805,12 +814,27 @@ let xmlFinal;
   const zip = novoZip(); _test.prepararTemplateParaGraficos(zip);
   const jpeg = "data:image/jpeg;base64,/9j/2Q==";
   const periodoMensal = { tipo: "mensal", rotulo: "Agosto 2026", dataInicio: "2026-08-01", dataFim: "2026-08-31", ano: "2026" };
-  const dados = _test.montarDadosRelatorio({ atividades: mensais, atividadesSemanais: [], periodoRelatorio: periodoMensal, graficos: { status: { imagem: jpeg, largura: 1400, altura: 800 } } }, zip);
+  const ganttMensal = { periodo: { inicio: "2026-08-01", fim: "2026-08-31" }, totalHoras: 10, obras: [{ nome: "FIOCRUZ", horas: 10, dias: ["2026-08-03", "2026-08-08", "2026-08-22"], linha: { nivel: "obra", nome: "FIOCRUZ", horas: 10, dias: ["2026-08-03", "2026-08-08", "2026-08-22"] }, projetos: [] }] };
+  const dados = _test.montarDadosRelatorio({ atividades: mensais, atividadesSemanais: [], periodoRelatorio: periodoMensal, graficos: { status: { imagem: jpeg, largura: 1400, altura: 800 } }, gantt: ganttMensal }, zip);
   assert.match(dados.KKKK, /consolidado por frente de trabalho/); assert.equal((dados.KKKK.match(/Eletrocalha/g) || []).length, 1); assert.match(dados.KKKK, />10</);
   assert.ok(zip.file("word/media/relatorio-grafico-1.jpg")); assert.equal(zip.file("word/media/relatorio-grafico-1.png"), null);
   assert.match(zip.file("[Content_Types].xml").asText(), /Extension="jpg" ContentType="image\/jpeg"/);
   assert.match(zip.file("word/_rels/document.xml.rels").asText(), /relatorio-grafico-1\.jpg/);
   assert.equal(require("../atividades/dados-gerenciais-relatorio").construirDadosGerenciaisRelatorio(mensais).horasTotais, 10, "a consolidação visual não altera as horas oficiais");
+  const documento = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true });
+  documento.render(dados);
+  const arquivo = documento.getZip().file("word/document.xml");
+  documento.getZip().file("word/document.xml", _test.aplicarPaisagemUltimaSecao(arquivo.asText()));
+  xmlMensalFinal = _test.validarDocumentoFinal(documento);
+  const paragrafosFinais = [...xmlMensalFinal.matchAll(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)];
+  const tituloA = paragrafosFinais.find((p) => p[0].includes('w:name="_Toc238041804"') && _test.extrairTextoParagrafoXml(p[0]).includes("ANEXO A — DETALHAMENTO DAS FRENTES DE TRABALHO"));
+  const tituloB = paragrafosFinais.find((p) => p[0].includes('w:name="_Toc238041805"') && _test.extrairTextoParagrafoXml(p[0]).includes("ANEXO B — GANTT DA EXECUÇÃO REAL DOS PROJETOS"));
+  assert.ok(tituloA && tituloB && tituloB.index > tituloA.index, "os Anexos A e B devem existir e manter sua ordem");
+  const transicaoAnexos = xmlMensalFinal.slice(tituloA.index, tituloB.index);
+  assert.doesNotMatch(transicaoAnexos, /<w:sectPr\b/, "não deve existir seção intermediária entre os anexos");
+  assert.match(transicaoAnexos, /<w:br w:type="page"\/>/, "o Anexo B deve começar por quebra de página comum");
+  assert.match(xmlMensalFinal, /<w:pgSz w:w="16838" w:h="11906" w:orient="landscape"\/>/, "a seção compartilhada pelos anexos deve permanecer em paisagem");
+  assert.equal((xmlMensalFinal.match(/<w:sectPr\b/g) || []).length, (xmlFinal.match(/<w:sectPr\b/g) || []).length, "o relatório mensal não deve criar uma seção adicional");
 }
 {
   const { gerarGanttTabelaXml, periodosTemporais, aplicarPaisagemUltimaSecao, calcularCoberturaGantt, formatarTituloObraAnexoGantt } = require("../api/_relatorio-gantt");
@@ -827,7 +851,9 @@ let xmlFinal;
   assert.equal(periodosTemporais({ inicio: "2026-02-01", fim: "2026-02-28" })[0].dias.length, 28);
   const longo = periodosTemporais({ inicio: "2026-08-20", fim: "2026-09-10" }); assert.deepEqual(longo.map((x) => [x.dias[0], x.dias.at(-1)]), [["2026-08-20", "2026-08-31"], ["2026-09-01", "2026-09-10"]]);
   const orientado = aplicarPaisagemUltimaSecao('<w:document><w:body><w:sectPr><w:pgSz w:w="11906" w:h="16838"/></w:sectPr></w:body></w:document>');
-  assert.match(orientado, /w:orient="landscape"/); assert.match(mensal.xml, /<w:pgSz w:w="11906" w:h="16838"\/>/, "a quebra preserva retrato nas páginas anteriores");
+  assert.match(orientado, /w:orient="landscape"/);
+  assert.doesNotMatch(mensal.xml, /<w:sectPr\b/, "o Gantt mensal deve reutilizar a seção paisagem dos anexos");
+  assert.doesNotMatch(mensal.xml, /<w:pgSz\b/, "o fragmento do Gantt não deve redefinir orientação ou papel");
   const muitas = Array.from({ length: 20 }, (_, i) => ({ ...obra, nome: `OBRA ${i + 1}` })); const xmlMuitas = gerarGanttTabelaXml({ periodo: { inicio: "2026-08-01", fim: "2026-08-31" }, obras: muitas }).xml;
   assert.equal((xmlMuitas.match(/B\.\d+ —/g) || []).length, 20); assert.ok((xmlMuitas.match(/<w:cantSplit\/>/g) || []).length >= 80);
 }

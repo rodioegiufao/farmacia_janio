@@ -115,7 +115,7 @@ export const PROJECT_CONFIGS = {
             IFC_EST_SQD: {
                 src: "/3D/iper/modelo-10.xkt",
                 label: "Estrutura da subestação e quadros",
-                transform: {"position":[18.655,-0.658,-15.215]},
+                transform: {"position":[18.655,-0.658,-15.615]},
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
@@ -192,7 +192,7 @@ export const PROJECT_CONFIGS = {
             IFC_ILUX: {
                 src: "/3D/iper/modelo-21.xkt",
                 label: "Iluminação externa",
-                transform: {"position":[-13.94,0,0]},
+                transform: {"position":[-13.94,0,-0.2]},
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },

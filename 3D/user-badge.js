@@ -174,7 +174,6 @@
         usuarioAtual = null;
         fecharMenuUsuario();
         document.getElementById("viewerUserMenu")?.remove();
-        window.location.href = "/";
     }
 
     function criarMenuUsuario(user) {

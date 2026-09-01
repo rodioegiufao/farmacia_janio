@@ -47,6 +47,11 @@ async function main() {
   assert.match(authenticatedViewer, /function findAndRenderCollisions\(modelId\) \{\s*if \(!collisionFeatureAllowed\)/);
   assert.match(authenticatedViewer, /if \(key === rotationShortcutKey\) \{\s*if \(!transformFeatureAllowed\) return;/);
   assert.match(authenticatedViewer, /if \(key === "l"\) \{\s*if \(!materialsFeatureAllowed\) return;/);
+  const viewerUserBadge = fs.readFileSync("3D/user-badge.js", "utf8");
+  const viewerLogout = viewerUserBadge.match(/async function sair\(\) \{([\s\S]*?)\n    \}/)?.[1] || "";
+  assert.match(viewerLogout, /method: "DELETE"/, "logout do 3D deve encerrar a sessão");
+  assert.match(viewerLogout, /viewerUserMenu[\s\S]*remove\(\)/, "logout do 3D deve remover o menu do usuário");
+  assert.doesNotMatch(viewerLogout, /(?:window\.)?location/, "logout do 3D deve manter o visitante no projeto atual");
   console.log("client profile authorization: ok");
 }
 

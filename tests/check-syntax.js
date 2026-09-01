@@ -27,6 +27,7 @@ const arquivos = [
   "api/supabase-public-config.js",
   "atividades/fase-item.js",
   "atividades/classificacoes.js",
+  "atividades/atividade-continuacao.js",
   "atividades/classificacoes-ui.js",
   "atividades/planner-modelos.js",
   "atividades/script.js",

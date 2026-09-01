@@ -323,6 +323,17 @@ assert.equal(classificacoes.aplicarRegraRateio([], 240, true).motivo, "classific
 assert.equal(classificacoes.deveMostrarRateio({ exigeClassificacao: true, classificacoes: [{}, {}], duracaoMinutos: 120 }), true);
 assert.equal(classificacoes.deveMostrarRateio({ exigeClassificacao: true, classificacoes: [{}], duracaoMinutos: 120 }), false);
 assert.equal(classificacoes.deveMostrarRateio({ exigeClassificacao: true, classificacoes: [{}, {}], duracaoMinutos: 0 }), false);
+for (const [inicio, fim, minutos] of [["08:00", "12:00", 240], ["08:35", "11:31", 176], ["12:01", "13:00", 59]]) {
+  const analise = classificacoes.analisarDuracaoAtividade({ dataInicio: "2026-09-01", horaInicio: inicio, dataTermino: "2026-09-01", horaTermino: fim });
+  assert.equal(analise.minutos, minutos); assert.equal(analise.valido, true);
+}
+assert.deepEqual(classificacoes.analisarDuracaoAtividade({ dataInicio: "2026-09-01", horaInicio: "08:00", dataTermino: "2026-09-01", horaTermino: "08:00" }), { valido: false, motivo: "duracao_zero", minutos: 0, horas: 0 });
+assert.equal(classificacoes.analisarDuracaoAtividade({ dataInicio: "2026-09-01", horaInicio: "08:00" }).motivo, "intervalo_incompleto");
+assert.equal(classificacoes.horasAtividade({ data_inicio: "2026-09-01", hora_inicio: "08:00", data_termino: "2026-09-01", hora_termino: "13:00", horas: 0 }), 5, "o intervalo válido é a fonte oficial, mesmo se o valor persistido for zero");
+const continuacao = require("../atividades/atividade-continuacao");
+const originalContinuacao = { id: "100", obra: "FIOCRUZ", obraId: "o1", projeto: "Elétrico Baixa Tensão", prioridade: "P1", etapa: "QI Builder", status: "Finalizado", trabalhos: "Antigo", observacoes: "Antiga", dataInicio: "2026-08-31", horaInicio: "08:00", dataTermino: "2026-08-31", horaTermino: "12:00", classificacoes: [{ fase: "Lançamento", item: "Iluminação", minutosDedicados: 120 }, { fase: "Lançamento", item: "TUG", minutosDedicados: 60 }, { fase: "Distribuição", item: "TUE", minutosDedicados: 60 }] };
+const novaContinuacao = continuacao.prepararContinuacaoAtividade(originalContinuacao, { dataAtual: "2026-09-01" });
+assert.equal(novaContinuacao.id, undefined); assert.equal(novaContinuacao.dataInicio, "2026-09-01"); assert.equal(novaContinuacao.horaInicio, ""); assert.equal(novaContinuacao.trabalhos, ""); assert.equal(novaContinuacao.observacoes, ""); assert.equal(novaContinuacao.status, "Em progresso"); assert.deepEqual(novaContinuacao.classificacoes.map((item) => [item.fase, item.item]), [["Lançamento", "Iluminação"], ["Lançamento", "TUG"], ["Distribuição", "TUE"]]); assert.equal(originalContinuacao.status, "Finalizado");
 const fonteClassificacoesUi = fs.readFileSync(require.resolve("../atividades/classificacoes-ui.js"), "utf8");
 assert.match(fonteClassificacoesUi, /function resetarClassificacoesAtividade\(\)/, "a UI deve possuir um reset central das classificações");
 assert.match(fonteClassificacoesUi, /fases\.clear\(\);\s*estado\.clear\(\);\s*personalizados = 0;/, "o reset deve limpar fases, itens, rateios e IDs temporários na fonte de verdade");
@@ -330,6 +341,10 @@ assert.match(fonteClassificacoesUi, /limpar: resetarClassificacoesAtividade/, "a
 
 const fonteFormulario = fs.readFileSync(require.resolve("../atividades/script.js"), "utf8");
 assert.match(fonteFormulario, /atividadeParaPlanner = JSON\.parse[\s\S]*?await tratarResultadoPlanner\(atividadeParaPlanner\);[\s\S]*?resetarFormularioAtividade/, "o reset deve ocorrer após o save e após o Planner consumir uma cópia da atividade salva");
+assert.match(fonteFormulario, /function renderizarTabela[\s\S]*?Object\.values\(filtros\)|Object\.values\(filtros\)[\s\S]*?function renderizarTabela/, "a tabela compacta deve continuar ligada aos filtros existentes");
+assert.match(fonteFormulario, /Ver detalhes[\s\S]*?Editar[\s\S]*?Continuar atividade[\s\S]*?Excluir/, "o menu compacto deve preservar todas as ações");
+assert.match(fonteFormulario, /activity-details-grid[\s\S]*?Fases e itens \/ rateio[\s\S]*?Observações[\s\S]*?Cadastro/, "os detalhes expansíveis devem preservar classificação, rateio e metadados");
+assert.match(fonteFormulario, /renderizarPaginacaoAtividades\(totalPaginas\)/, "a paginação deve continuar sendo renderizada");
 assert.match(fonteFormulario, /function resetarFormularioAtividade[\s\S]*?ATIVIDADE_CLASSIFICACOES_UI\?\.resetarClassificacoesAtividade\(\)/, "o formulário deve delegar ao reset central da feature");
 const itemNormal = classificacoes.normalizarClassificacao({
   fase: "Estudos", item: "ABNT NBR 5410", itemOutro: false, minutosDedicados: 30
@@ -935,6 +950,18 @@ assert.equal(_test.sanitizarTextoGerencial("Todos os projetos entregues!."), "To
 const invalida = _test.verificarConsistencia([{ obra:"SOW", projeto:"ART", colaborador:"Rodrigo", dataInicio:"2026-08-17", horaInicio:"15:19", dataTermino:"2026-08-17", horaTermino:"10:25", horas:0 }], periodo, { horasTotais:0, horasPorColaborador:[], horasPorFrente:[] });
 assert.equal(invalida.contagens.intervalosInvalidos, 1);
 assert.equal(invalida.contagens.duracoesSuspeitas, 1);
+for (const [inicio, fim] of [["08:00", "12:00"], ["08:35", "11:31"], ["12:01", "13:00"]]) {
+  const consistente = _test.verificarConsistencia([{ obra: "SOW", projeto: "ART", colaborador: "Rodrigo", dataInicio: "2026-08-17", horaInicio: inicio, dataTermino: "2026-08-17", horaTermino: fim }], periodo);
+  assert.equal(consistente.contagens.duracoesSuspeitas, 0, `${inicio}–${fim} não deve ser suspeita sem campo de horas persistido`);
+}
+const zero = _test.verificarConsistencia([{ obra: "SOW", projeto: "ART", colaborador: "Rodrigo", dataInicio: "2026-08-17", horaInicio: "08:00", dataTermino: "2026-08-17", horaTermino: "08:00" }], periodo);
+assert.equal(zero.contagens.duracoesSuspeitas, 1);
+const parcial = _test.verificarConsistencia([{ obra: "SOW", projeto: "ART", colaborador: "Rodrigo", dataInicio: "2026-08-17", horaInicio: "08:00" }], periodo);
+assert.equal(parcial.contagens.duracoesSuspeitas, 1);
+const rateioCorreto = _test.verificarConsistencia([{ obra: "SOW", projeto: "CFTV", fase: "Lançamento", item: "A", colaborador: "Rodrigo", dataInicio: "2026-08-17", horaInicio: "08:00", dataTermino: "2026-08-17", horaTermino: "13:00", classificacoes: [{ fase: "Lançamento", item: "A", minutosDedicados: 180 }, { fase: "Lançamento", item: "B", minutosDedicados: 120 }] }], periodo);
+assert.equal(rateioCorreto.contagens.divergenciasRateio, 0); assert.equal(rateioCorreto.contagens.duracoesSuspeitas, 0);
+const rateioDivergente = _test.verificarConsistencia([{ obra: "SOW", projeto: "CFTV", fase: "Lançamento", item: "A", colaborador: "Rodrigo", dataInicio: "2026-08-17", horaInicio: "08:00", dataTermino: "2026-08-17", horaTermino: "13:00", classificacoes: [{ fase: "Lançamento", item: "A", minutosDedicados: 180 }, { fase: "Lançamento", item: "B", minutosDedicados: 90 }] }], periodo);
+assert.equal(rateioDivergente.contagens.divergenciasRateio, 1);
 assert.match(_test.gerarAtividadesSemana([{ semana:"Semana 30", atividade:"Teste!.", prioridade:"P1", entregas:"Hoje" }], {}, periodo), /<w:t[^>]*>Atividade<\/w:t>/);
 assert.doesNotMatch(_test.gerarAtividadesSemana([{ semana:"Semana 30", atividade:"Teste", prioridade:"P1", entregas:"Hoje" }], {}, periodo), />Semana<\/w:t>/);
 const zipSettings = novoZip(); _test.prepararTemplateParaGraficos(zipSettings); const settings = zipSettings.file("word/settings.xml").asText(); assert.match(settings, /<w:updateFields w:val="true"\/>/);

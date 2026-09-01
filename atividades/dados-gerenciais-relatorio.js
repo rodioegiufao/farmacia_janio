@@ -1,19 +1,14 @@
 (function (root, factory) {
   const agrupamento = root?.ATIVIDADE_AGRUPAMENTO || (typeof require === "function" ? require("./atividade-agrupamento") : null);
-  const api = factory(agrupamento);
+  const classificacoes = root?.CLASSIFICACOES_ATIVIDADE || (typeof require === "function" ? require("./classificacoes") : null);
+  const api = factory(agrupamento, classificacoes);
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) root.DADOS_GERENCIAIS_RELATORIO = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function (AGRUPAMENTO) {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (AGRUPAMENTO, CLASSIFICACOES) {
   "use strict";
   const STATUS = ["Atrasado", "Em progresso", "Pausado", "Finalizado"];
   const limpar = (valor, fallback) => String(valor || fallback || "").trim();
-  const horasRegistro = (a = {}) => {
-    const di = a.dataInicio || a.data_inicio, hi = a.horaInicio || a.hora_inicio;
-    const df = a.dataTermino || a.data_termino, hf = a.horaTermino || a.hora_termino;
-    const inicio = di && hi ? new Date(`${di}T${hi}`) : null, fim = df && hf ? new Date(`${df}T${hf}`) : null;
-    if (inicio && fim && Number.isFinite(inicio.getTime()) && Number.isFinite(fim.getTime()) && fim > inicio) return (fim - inicio) / 36e5;
-    return Number(a.horas) || 0;
-  };
+  const horasRegistro = (a = {}) => CLASSIFICACOES.horasAtividade(a);
   const ordenar = (itens) => [...itens].sort((a, b) => b.valor - a.valor || a.label.localeCompare(b.label, "pt-BR"));
   const arredondar = (valor) => Number(Number(valor || 0).toFixed(2));
   function agregar(lista, obterLabel, obterValor = () => 1) {

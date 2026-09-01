@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
   const MAX_PAYLOAD_RELATORIO_BYTES = 3.5 * 1024 * 1024;
-  const CAMPOS_ATIVIDADE = ["id", "obraId", "obra_id", "obraCodigo", "obra_codigo", "obra", "projeto", "etapa", "fase", "item", "colaborador", "trabalhos", "prioridade", "status", "dataInicio", "data_inicio", "horaInicio", "hora_inicio", "dataTermino", "data_termino", "horaTermino", "hora_termino", "dataPrevista", "data_prevista", "prazo", "entrega", "entregaPrevista", "horas", "criadoEm", "criado_em", "observacoes"];
+  const CAMPOS_ATIVIDADE = ["id", "obraId", "obra_id", "obraCodigo", "obra_codigo", "obra", "projeto", "etapa", "fase", "item", "classificacoes", "atividade_classificacoes", "colaborador", "trabalhos", "prioridade", "status", "dataInicio", "data_inicio", "horaInicio", "hora_inicio", "dataTermino", "data_termino", "horaTermino", "hora_termino", "dataPrevista", "data_prevista", "prazo", "entrega", "entregaPrevista", "horas", "duracao_horas", "horas_trabalhadas", "duracao", "criadoEm", "criado_em", "observacoes"];
   const CAMPOS_SEMANAIS = ["id", "semana", "atividade", "descricao", "prioridade", "entregas", "entrega"];
   function diasInclusivos(periodo = {}) { const inicio = new Date(`${periodo.dataInicio || periodo.inicio || ""}T12:00:00Z`), fim = new Date(`${periodo.dataFim || periodo.fim || ""}T12:00:00Z`); return Number.isFinite(inicio.getTime()) && Number.isFinite(fim.getTime()) && fim >= inicio ? Math.floor((fim - inicio) / 864e5) + 1 : 0; }
   function obterModoRelatorio(periodo) { const dias = diasInclusivos(periodo); return dias <= 14 ? "semanal" : dias <= 31 ? "mensal" : "longo"; }

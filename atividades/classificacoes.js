@@ -6,14 +6,34 @@
   "use strict";
   const texto = (v) => String(v ?? "").trim();
   const chaveClassificacao = (fase, item) => `${texto(fase).normalize("NFC")}::${texto(item).normalize("NFC")}`;
+  const primeiroValor = (objeto, campos) => campos.map((campo) => objeto?.[campo]).find((valor) => valor !== undefined && valor !== null && texto(valor) !== "");
+  function analisarDuracaoAtividade(a = {}) {
+    const dataInicio = primeiroValor(a, ["dataInicio", "data_inicio"]), horaInicio = primeiroValor(a, ["horaInicio", "hora_inicio"]);
+    const dataTermino = primeiroValor(a, ["dataTermino", "data_termino", "dataFim", "data_fim"]), horaTermino = primeiroValor(a, ["horaTermino", "hora_termino"]);
+    const incompleto = Boolean(dataInicio || horaInicio || dataTermino || horaTermino) && !(dataInicio && horaInicio && dataTermino && horaTermino);
+    if (!(dataInicio && horaInicio && dataTermino && horaTermino)) return { valido: false, motivo: incompleto ? "intervalo_incompleto" : "intervalo_ausente", minutos: 0, horas: 0 };
+    const inicio = Date.parse(`${dataInicio}T${horaInicio}`), fim = Date.parse(`${dataTermino}T${horaTermino}`);
+    if (!Number.isFinite(inicio) || !Number.isFinite(fim)) return { valido: false, motivo: "horario_invalido", minutos: 0, horas: 0 };
+    const minutos = Math.round((fim - inicio) / 60000);
+    if (minutos < 0) return { valido: false, motivo: "intervalo_negativo", minutos, horas: minutos / 60 };
+    if (minutos === 0) return { valido: false, motivo: "duracao_zero", minutos: 0, horas: 0 };
+    return { valido: true, motivo: "intervalo", minutos, horas: minutos / 60, inicio, fim };
+  }
   // Convenção: item = nome real; itemOutro = booleano da UI/domínio;
   // item_outro = texto persistido do item personalizado (ou null).
   function duracaoAtividadeMinutos(a = {}) {
-    const di = a.dataInicio || a.data_inicio, hi = a.horaInicio || a.hora_inicio;
-    const df = a.dataTermino || a.data_termino, hf = a.horaTermino || a.hora_termino;
-    if (!di || !hi || !df || !hf) return 0;
-    const inicio = Date.parse(`${di}T${hi}`), fim = Date.parse(`${df}T${hf}`);
-    return Number.isFinite(inicio) && Number.isFinite(fim) && fim > inicio ? Math.round((fim - inicio) / 60000) : 0;
+    const analise = analisarDuracaoAtividade(a);
+    return analise.valido ? analise.minutos : 0;
+  }
+  function horasPersistidasAtividade(a = {}) {
+    const valor = primeiroValor(a, ["horas", "duracao_horas", "horas_trabalhadas", "duracao"]);
+    if (valor === undefined) return null;
+    const numero = Number(String(valor).replace(",", "."));
+    return Number.isFinite(numero) ? numero : null;
+  }
+  function horasAtividade(a = {}) {
+    const analise = analisarDuracaoAtividade(a);
+    return analise.valido ? analise.horas : (horasPersistidasAtividade(a) ?? 0);
   }
   function normalizarClassificacao(c = {}) {
     const fase = texto(c.fase);
@@ -64,5 +84,5 @@
     return { classificacoes: lista, ...rateio, motivo: lista.length === 1 ? "automatico" : (rateio.valido ? "rateio_valido" : "rateio_invalido") };
   }
   const deveMostrarRateio = ({ exigeClassificacao, classificacoes = [], duracaoMinutos = 0 } = {}) => Boolean(exigeClassificacao && classificacoes.length > 1 && duracaoMinutos > 0);
-  return { aplicarRegraRateio, chaveClassificacao, deveMostrarRateio, dividirIgualmente, duracaoAtividadeMinutos, minutosDaClassificacao, normalizarClassificacao, obterClassificacoesAtividade, possuiRateioPersistido, validarRateio };
+  return { analisarDuracaoAtividade, aplicarRegraRateio, chaveClassificacao, deveMostrarRateio, dividirIgualmente, duracaoAtividadeMinutos, horasAtividade, horasPersistidasAtividade, minutosDaClassificacao, normalizarClassificacao, obterClassificacoesAtividade, possuiRateioPersistido, validarRateio };
 });

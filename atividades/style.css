@@ -2194,3 +2194,23 @@ label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margi
   #atividadeForm .mobile-time-field { grid-column: 1; }
   #atividadeForm .form-actions #btnCancelarEdicao { max-width: 42%; padding-inline: 9px; font-size: .76rem; }
 }
+
+/* Listagem compacta e retomada de atividades */
+.recent-activities { margin: 18px 0 24px; padding: 16px 18px; border: 1px solid var(--border-color); border-radius: 12px; background: rgba(255,255,255,.025); }
+.recent-activities header h3 { font-size: .84rem; letter-spacing: .08em; text-transform: uppercase; }
+.recent-activities header p { margin-top: 3px; color: var(--text-muted); font-size: .8rem; }
+.recent-activities-list { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 10px; margin-top: 12px; }
+.recent-activities-list article { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; padding: 10px; border: 1px solid var(--border-color); border-radius: 9px; }
+.recent-activities-list article div { display: grid; min-width: 0; }
+.recent-activities-list strong,.recent-activities-list span,.recent-activities-list small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-activities-list span { color: var(--text-light); font-size: .82rem; }.recent-activities-list small { color: var(--text-muted); font-size: .75rem; }
+.recent-activities-list button { flex: none; padding: 7px 9px; font-size: .76rem; }.recent-activities-empty { color: var(--text-muted); font-size: .85rem; }
+.activities-table { min-width: 850px; table-layout: fixed; }.activities-table th:nth-child(1){width:9%}.activities-table th:nth-child(2){width:13%}.activities-table th:nth-child(3){width:22%}.activities-table th:nth-child(4){width:27%}.activities-table th:nth-child(5){width:9%}.activities-table th:nth-child(6){width:13%}.activities-table th:nth-child(7){width:7%}
+.activities-table td { vertical-align: middle; }.activities-table td strong,.activities-table td small { display: block; }.activities-table td small { margin-top: 3px; color: var(--text-muted); }
+.activity-work { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.activity-hours { white-space: nowrap; font-weight: 800; }
+.activity-actions { position: relative; }.activity-actions summary { display: grid; place-items: center; width: 34px; height: 34px; cursor: pointer; border-radius: 8px; font-size: 1.4rem; list-style: none; }.activity-actions summary::-webkit-details-marker{display:none}.activity-actions[open] summary{background:var(--primary-medium)}
+.activity-actions>div { position: absolute; z-index: 20; top: 38px; right: 0; display: grid; min-width: 175px; padding: 6px; border: 1px solid var(--border-color); border-radius: 9px; background: var(--primary-dark); box-shadow: 0 12px 28px rgba(0,0,0,.3); }
+.activity-actions button { padding: 8px 10px; border: 0; border-radius: 6px; color: var(--text-light); background: transparent; text-align: left; box-shadow: none; }.activity-actions button:hover { background: var(--primary-medium); transform: none; }.activity-actions button.danger { color: #feb2b2; }
+.activity-details-row td { padding: 0 14px 16px!important; background: rgba(99,179,237,.035); }.activity-details-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; padding: 16px; border-left: 3px solid var(--accent-light); }.activity-details-grid dl{margin:0}.activity-details-grid dt{margin-top:8px;color:var(--text-muted);font-size:.72rem;font-weight:800;text-transform:uppercase}.activity-details-grid dt:first-child{margin-top:0}.activity-details-grid dd{margin:3px 0 0;overflow-wrap:anywhere}.activity-details-work{grid-column:1/-1}
+@media(max-width:1100px){.recent-activities-list{grid-template-columns:repeat(2,minmax(0,1fr))}.activities-table th:nth-child(2),.activities-table td:nth-child(2){display:none}.activity-details-row td{display:table-cell!important}.activity-details-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.recent-activities-list{grid-template-columns:1fr}.activities-table{min-width:680px}.activities-table th:nth-child(6),.activity-summary-row td:nth-child(6){display:none}.activity-details-grid{grid-template-columns:1fr}.activity-details-work{grid-column:auto}}

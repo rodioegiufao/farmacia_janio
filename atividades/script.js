@@ -76,6 +76,7 @@ const btnAgoraTermino = document.getElementById("btnAgoraTermino");
 const btnToggleAtividades = document.getElementById("btnToggleAtividades");
 const recordsArea = document.querySelector("#atividadeSection .records-area");
 const atividadeToast = document.getElementById("atividadeToast");
+const atividadesRecentesLista = document.getElementById("atividadesRecentesLista");
 let atividadeToastTimeout;
 
 const formSemanal = document.getElementById("atividadeSemanalForm");
@@ -282,6 +283,7 @@ async function inicializar() {
   form.addEventListener("submit", salvarAtividade);
   btnCancelarEdicao.addEventListener("click", cancelarEdicao);
   btnRepetirUltimaAtividade?.addEventListener("click", repetirUltimaAtividade);
+  atividadesRecentesLista?.addEventListener("click", (event) => { const botao = event.target.closest("[data-continuar-id]"); if (botao) continuarAtividade(botao.dataset.continuarId); });
   btnAgoraInicio?.addEventListener("click", () => preencherPeriodoAgora("inicio"));
   btnAgoraTermino?.addEventListener("click", () => preencherPeriodoAgora("termino"));
   btnToggleAtividades?.addEventListener("click", alternarAtividadesRegistradas);
@@ -890,13 +892,15 @@ function renderizarTabela() {
   if (atividadesPaginacao) atividadesPaginacao.innerHTML = "";
   
   if (carregando) {
-    tabela.innerHTML = `<tr><td colspan="15" class="empty">Carregando atividades do Supabase...</td></tr>`;
+    tabela.innerHTML = `<tr><td colspan="7" class="empty">Carregando atividades do Supabase...</td></tr>`;
+    renderizarAtividadesRecentes();
     atualizarDashboard();
     return;
   }
 
   if (!listaFiltrada.length) {
-    tabela.innerHTML = `<tr><td colspan="15" class="empty">Nenhuma atividade encontrada.</td></tr>`;
+    tabela.innerHTML = `<tr><td colspan="7" class="empty">Nenhuma atividade encontrada.</td></tr>`;
+    renderizarAtividadesRecentes();
     atualizarDashboard();
     return;
   }
@@ -916,32 +920,48 @@ function renderizarTabela() {
 
   listaVisivel.forEach((atividade) => {
     const tr = document.createElement("tr");
+    tr.className = "activity-summary-row";
+    tr.dataset.detailsId = atividade.id;
+    const classificacoes = globalThis.CLASSIFICACOES_ATIVIDADE.obterClassificacoesAtividade(atividade);
+    const horas = globalThis.CLASSIFICACOES_ATIVIDADE.horasAtividade(atividade);
+    const rateio = classificacoes.map((item) => `${escapeHtml(item.fase)} › ${escapeHtml(item.item)} — ${formatarHoras(item.minutosDedicados / 60)}`).join("<br>") || "—";
     tr.innerHTML = `
+      <td>${formatarData(atividade.dataInicio)}</td>
       <td>${escapeHtml(atividade.colaborador)}</td>
-      <td>${escapeHtml(atividade.obra)}</td>
-      <td><span class="badge ${classePrioridade(atividade.prioridade)}">${escapeHtml(atividade.prioridade)}</span></td>
-      <td>${escapeHtml(atividade.projeto)}</td>
-      <td>${escapeHtml(atividade.trabalhos)}</td>
-      <td>${escapeHtml(atividade.fase || "-")}</td>
-      <td>${escapeHtml(atividade.item || "-")}</td>
-      <td>${escapeHtml(atividade.etapa)}</td>
-      <td>${formatarDataHora(atividade.dataInicio, atividade.horaInicio)}</td>
-      <td>${formatarDataHora(atividade.dataTermino, atividade.horaTermino)}</td>
-      <td>${formatarData(atividade.dataPrevista)}</td>
-      <td>${formatarDataHoraCadastro(atividade.criadoEm)}</td>
+      <td><strong>${escapeHtml([atividade.obraCodigo, atividade.obra].filter(Boolean).join(" — "))}</strong><small>${escapeHtml(atividade.projeto)}</small></td>
+      <td><span class="activity-work" title="${escapeHtml(atividade.trabalhos)}">${escapeHtml(atividade.trabalhos)}</span></td>
+      <td class="activity-hours">${formatarHoras(horas)}</td>
       <td><span class="badge ${classeStatus(atividade.status)}">${escapeHtml(atividade.status)}</span></td>
-      <td>${escapeHtml(atividade.observacoes || "-")}</td>
       <td>
-        <div class="actions">
-          ${podeAlterar(atividade) ? `<button type="button" class="secondary" onclick="editarAtividade('${atividade.id}')">Editar</button>` : ""}
-          ${podeAlterar(atividade) ? `<button type="button" class="ghost" onclick="excluirAtividade('${atividade.id}')">Excluir</button>` : ""}
-        </div>
+        <details class="activity-actions"><summary aria-label="Ações da atividade">⋮</summary><div>
+          <button type="button" onclick="alternarDetalhesAtividade('${atividade.id}')">Ver detalhes</button>
+          ${podeAlterar(atividade) ? `<button type="button" onclick="editarAtividade('${atividade.id}')">Editar</button>` : ""}
+          <button type="button" onclick="continuarAtividade('${atividade.id}')">Continuar atividade</button>
+          ${podeAlterar(atividade) ? `<button type="button" class="danger" onclick="excluirAtividade('${atividade.id}')">Excluir</button>` : ""}
+        </div></details>
       </td>
     `;
     tabela.appendChild(tr);
+    const detalhes = document.createElement("tr");
+    detalhes.className = "activity-details-row"; detalhes.dataset.detailsFor = atividade.id; detalhes.hidden = true;
+    detalhes.innerHTML = `<td colspan="7"><div class="activity-details-grid">
+      <dl><dt>Fases e itens / rateio</dt><dd>${rateio}</dd></dl><dl><dt>Etapa</dt><dd>${escapeHtml(atividade.etapa || "—")}</dd><dt>Prioridade</dt><dd><span class="badge ${classePrioridade(atividade.prioridade)}">${escapeHtml(atividade.prioridade || "—")}</span></dd></dl>
+      <dl><dt>Horário</dt><dd>${formatarDataHora(atividade.dataInicio, atividade.horaInicio)} – ${formatarDataHora(atividade.dataTermino, atividade.horaTermino)}</dd><dt>Entrega</dt><dd>${formatarData(atividade.dataPrevista)}</dd></dl>
+      <dl><dt>Observações</dt><dd>${escapeHtml(atividade.observacoes || "—")}</dd><dt>Cadastro</dt><dd>${formatarDataHoraCadastro(atividade.criadoEm)}</dd></dl>
+      <dl class="activity-details-work"><dt>Trabalho executado</dt><dd>${escapeHtml(atividade.trabalhos || "—")}</dd></dl></div></td>`;
+    tabela.appendChild(detalhes);
   });
-
+  renderizarAtividadesRecentes();
   atualizarDashboard();
+}
+
+function alternarDetalhesAtividade(id) { const linha = tabela.querySelector(`[data-details-for="${CSS.escape(String(id))}"]`); if (linha) linha.hidden = !linha.hidden; }
+
+function renderizarAtividadesRecentes() {
+  if (!atividadesRecentesLista || !usuarioAtual) return;
+  const nome = normalizarTexto(colaboradorDoUsuario());
+  const recentes = atividades.filter((atividade) => atividade.usuarioId ? atividade.usuarioId === usuarioAtual.id : normalizarTexto(atividade.colaborador) === nome).slice(0, 5);
+  atividadesRecentesLista.innerHTML = recentes.length ? recentes.map((atividade) => { const classificacoes = globalThis.CLASSIFICACOES_ATIVIDADE.obterClassificacoesAtividade(atividade); const resumo = classificacoes.map((item) => `${item.fase} › ${item.item}`).join(" · ") || [atividade.fase, atividade.item].filter(Boolean).join(" › "); return `<article><div><strong>${escapeHtml(atividade.obra)}</strong><span>${escapeHtml(atividade.projeto)}</span><small>${escapeHtml(resumo || atividade.etapa || "Sem classificação")}</small></div><button type="button" class="secondary" data-continuar-id="${escapeHtml(atividade.id)}">Continuar</button></article>`; }).join("") : `<p class="recent-activities-empty">Nenhuma atividade recente.</p>`;
 }
 
 function renderizarPaginacaoAtividades(totalPaginas) {
@@ -1054,7 +1074,7 @@ function preencherFormularioComAtividade(atividade, { limparHorarios = false } =
   }
 }
 
-function repetirUltimaAtividade() {
+function obterUltimaAtividadeDoUsuario() {
   const colaboradorAtual = colaboradorDoUsuario();
   const atividadesDoUsuario = atividades.filter((atividade) => atividade.usuarioId
     ? atividade.usuarioId === usuarioAtual?.id
@@ -1066,16 +1086,26 @@ function repetirUltimaAtividade() {
     return cadastroAtual > cadastroMaisRecente ? atividade : maisRecente;
   }, null);
 
-  if (!ultimaAtividade) {
-    alert("Nenhuma atividade anterior cadastrada por você foi encontrada.");
-    return;
-  }
+  return ultimaAtividade;
+}
 
-  preencherFormularioComAtividade(ultimaAtividade, { limparHorarios: true });
-  btnCancelarEdicao.style.display = "none";
-  document.getElementById("btnSalvar").textContent = "Salvar atividade";
-  campos.horaInicio.focus();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+function continuarAtividade(id) {
+  const original = atividades.find((atividade) => String(atividade.id) === String(id));
+  if (!original) return alert("A atividade selecionada não foi encontrada.");
+  const nova = globalThis.ATIVIDADE_CONTINUACAO.prepararContinuacaoAtividade(original, { dataAtual: obterDataIsoLocal(new Date()), colaborador: colaboradorDoUsuario(), statusInicial: "Em progresso" });
+  preencherFormularioComAtividade(nova);
+  campos.dataInicio.value = nova.dataInicio;
+  campos.dataTermino.value = ""; campos.horaInicio.value = ""; campos.horaTermino.value = "";
+  campos.trabalhos.value = ""; campos.observacoes.value = ""; campos.status.value = nova.status; campos.dataPrevista.value = "";
+  campos.id.value = ""; btnCancelarEdicao.style.display = "none"; document.getElementById("btnSalvar").textContent = "Salvar atividade";
+  atualizarRestricoesDatasAtividade(); campos.horaInicio.focus(); window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function repetirUltimaAtividade() {
+  const ultimaAtividade = obterUltimaAtividadeDoUsuario();
+  if (!ultimaAtividade) return alert("Nenhuma atividade anterior cadastrada por você foi encontrada.");
+
+  continuarAtividade(ultimaAtividade.id);
 }
 
 async function excluirAtividade(id) {

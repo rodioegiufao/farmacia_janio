@@ -243,6 +243,10 @@
         </div>
       </form>
       <div id="atividadeToast" class="atividade-toast" role="status" aria-live="polite" hidden>✓ Atividade salva com sucesso</div>
+      <aside class="recent-activities" aria-labelledby="atividadesRecentesTitulo">
+        <header><div><h3 id="atividadesRecentesTitulo">Atividades recentes</h3><p>Retome uma classificação utilizada por você.</p></div></header>
+        <div id="atividadesRecentesLista" class="recent-activities-list"></div>
+      </aside>
       <div class="records-area">
         <button type="button" class="records-mobile-toggle" id="btnToggleAtividades" aria-expanded="false" aria-controls="atividadesRegistradasConteudo">
           <span><i class="fas fa-list" aria-hidden="true"></i> Ver atividades registradas</span>
@@ -281,23 +285,15 @@
         </div>
 
         <div class="table-wrapper">
-          <table>
+          <table class="activities-table">
             <thead>
               <tr>
+                <th>Data</th>
                 <th>Colaborador</th>
-                <th>Obra</th>
-                <th>Prioridade</th>
-                <th>Projeto</th>
-                <th>Trabalhos</th>
-                <th>Fase</th>
-                <th>Item</th>
-                <th>Etapa</th>
-                <th>Início</th>
-                <th>Término</th>
-                <th>Entrega</th>
-                <th>Cadastro</th>
+                <th>Obra / Projeto</th>
+                <th>Trabalho executado</th>
+                <th>Horas</th>
                 <th>Status</th>
-                <th>Observações</th>
                 <th>Ações</th>
               </tr>
             </thead>
@@ -634,6 +630,7 @@
   </main>
   <script src="/atividades/fase-item.js"></script>
   <script src="/atividades/classificacoes.js"></script>
+  <script src="/atividades/atividade-continuacao.js"></script>
   <script src="/atividades/classificacoes-ui.js"></script>
   <script src="/atividades/planner-modelos.js"></script>
   <script src="/atividades/planner-gantt.js"></script>

@@ -1,9 +1,10 @@
 (function (root, factory) {
-  const api = factory();
+  const classificacoes = root?.CLASSIFICACOES_ATIVIDADE || (typeof require === "function" ? require("./classificacoes") : null);
+  const api = factory(classificacoes);
 
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) root.ATIVIDADE_AGRUPAMENTO = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (CLASSIFICACOES) {
   function normalizarCampoAgrupamento(valor) {
     return String(valor ?? "")
       .normalize("NFD")
@@ -41,11 +42,7 @@
   }
 
   function calcularHorasRegistro(atividade = {}) {
-    const inicio = obterData(atividade);
-    const fim = obterData(atividade, true);
-    if (inicio && fim && fim > inicio) return (fim - inicio) / 36e5;
-    const horas = Number(atividade.horas);
-    return Number.isFinite(horas) ? horas : 0;
+    return CLASSIFICACOES.horasAtividade(atividade);
   }
 
   function obterStatusConsolidado(registros = []) {

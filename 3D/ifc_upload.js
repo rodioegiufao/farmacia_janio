@@ -755,7 +755,9 @@ if (!bridge) {
             })
         );
 
-        const annotations = window.userAnnotationsController?.exportAnnotations?.() || [];
+        const annotationsController = window.userAnnotationsController
+            || await bridge.ensureAnnotationsFeature?.();
+        const annotations = annotationsController?.exportAnnotations?.() || [];
         const payloadBody = JSON.stringify({ files: serializedFiles, annotations });
         const payloadSize = new TextEncoder().encode(payloadBody).length;
 
@@ -826,7 +828,11 @@ if (!bridge) {
         registerShareableFiles(restoredFiles);
         bridge.setUploadStatus(`Carregando ${restoredFiles.length} arquivo(s) compartilhado(s)...`);
         await processSelectedFiles(restoredFiles);
-        window.userAnnotationsController?.importAnnotations?.(sharedAnnotations);
+        if (sharedAnnotations.length) {
+            const annotationsController = window.userAnnotationsController
+                || await bridge.ensureAnnotationsFeature?.();
+            annotationsController?.importAnnotations?.(sharedAnnotations);
+        }
     }
 
     async function tryLoadSharedModelsFromUrl() {

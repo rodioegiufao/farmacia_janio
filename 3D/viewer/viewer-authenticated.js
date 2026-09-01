@@ -4,10 +4,6 @@ import {
     Viewer,
     LocaleService,
     XKTLoaderPlugin,
-    AngleMeasurementsPlugin,
-    AngleMeasurementsMouseControl,
-    DistanceMeasurementsPlugin,
-    DistanceMeasurementsMouseControl,
     ContextMenu,
     PointerLens,
     NavCubePlugin,
@@ -40,6 +36,8 @@ import { setupEletrodutoAssociationExportShortcut } from "../eletroduto-associat
 import { createUserAnnotationsController } from "../annotations.js";
 import { getProjectConfig, hasProjectConfig } from "./project-config.js";
 
+const viewerUser = window.__VIEWER_AUTH_USER__;
+const isClientProfile = viewerUser?.perfil === "cliente";
 const { jsPDF } = window.jspdf;
 
 let treeView;
@@ -214,7 +212,23 @@ setupEletrodutoAssociationExportShortcut({ viewer, setSearchStatus, requestRende
 // 1.1 Anotações fixas
 // -----------------------------------------------------------------------------
 
-const userAnnotationsController = createUserAnnotationsController({ viewer, requestRenderFrame });
+let userAnnotationsController = null;
+let annotationsFeaturePromise = null;
+function ensureAnnotationsFeature() {
+    annotationsFeaturePromise ||= import("./features/annotations.js")
+        .then(({ createAnnotationsController }) => {
+            userAnnotationsController ||= createAnnotationsController({ viewer, requestRenderFrame });
+            window.userAnnotationsController = userAnnotationsController;
+            return userAnnotationsController;
+        })
+        .catch((error) => {
+            annotationsFeaturePromise = null;
+            console.error("[viewer] Falha ao carregar anotações:", error);
+            setSearchStatus?.("Não foi possível carregar a ferramenta de anotações.", true);
+            throw error;
+        });
+    return annotationsFeaturePromise;
+}
 let annotationClickModeEnabled = false;
 let annotationClickModeButton = null;
 
@@ -258,7 +272,7 @@ function setupAnnotationClickTool() {
 }
 
 function setupAnnotationClickCreation() {
-    viewer.scene.input.on("mouseclicked", (coords) => {
+    viewer.scene.input.on("mouseclicked", async (coords) => {
         if (!annotationClickModeEnabled) {
             return;
         }
@@ -278,7 +292,8 @@ function setupAnnotationClickCreation() {
             return;
         }
 
-        const record = userAnnotationsController.addAnnotationFromPickResult(pickResult, text);
+        const controller = await ensureAnnotationsFeature();
+        const record = controller.addAnnotationFromPickResult(pickResult, text);
         if (record) {
             setAnnotationClickMode(false);
         }
@@ -513,6 +528,8 @@ const rotationShortcutKey = "j";
 const rotatedEntityAliases = new Map();
 const hiddenOriginalEntityIds = new Set();
 const loadedModels = new Map();
+const modelLoadPromises = new Map();
+const MODEL_LOAD_CONCURRENCY = 2;
 const originalTransforms = new Map();
 let currentModelTransforms = {};
 
@@ -555,6 +572,7 @@ let explorerTabLists = new Map();
 let explorerRefreshHandle = null;
 let explorerSceneMetaObjectsCache = null;
 let explorerMetaInfoCache = new Map();
+const explorerLoadedTabs = new Set();
 let objectModelIdLookup = new Map();
 let normalizedSceneObjectIdLookup = new Map();
 const EXPLORER_HOVER_THROTTLE_MS = 40;
@@ -605,13 +623,15 @@ const budgetTableBody = document.getElementById("budgetTableBody");
 const budgetTableLoadedProjects = new Set();
 const shareUploadPanel = document.getElementById("shareUploadPanel");
 
-setupExplorerPanel();
+
 setupAccessGate();
 setupHelpPanel();
-setupTransformPanelControls();
-setupCollisionPanelControls();
 setupRestrictedViewerFeaturesAccessGate();
-setupMaterialsPanelControls();
+if (!isClientProfile) {
+    setupTransformPanelControls();
+    setupCollisionPanelControls();
+    setupMaterialsPanelControls();
+}
 setupSearchControls();
 setupDraggablePanels();
 performanceModeToggleButton?.addEventListener("click", () => togglePerformanceMode());
@@ -732,7 +752,9 @@ function setActiveExplorerTab(tabId) {
 
     updateExplorerHeader();
     updateTreeViewSelectionButtonState();
-    scheduleExplorerRefresh(0);
+    if (!explorerLoadedTabs.has(activeExplorerTab)) {
+        scheduleExplorerRefresh(0);
+    }
 }
 
 function scheduleExplorerRefresh(delay = 160) {
@@ -749,6 +771,7 @@ function scheduleExplorerRefresh(delay = 160) {
 function invalidateExplorerCaches() {
     explorerSceneMetaObjectsCache = null;
     explorerMetaInfoCache.clear();
+    explorerLoadedTabs.clear();
 }
 
 function getExplorerSceneMetaObjects() {
@@ -2012,7 +2035,9 @@ function refreshExplorerPanels() {
     if (!explorerTabsInitialized) {
         return;
     }
-
+    if (explorerLoadedTabs.has(activeExplorerTab)) {
+        return;
+    }
     switch (activeExplorerTab) {
         case "objects":
             renderExplorerObjectsTab();
@@ -2034,6 +2059,7 @@ function refreshExplorerPanels() {
             renderExplorerModelsTab();
             break;
     }
+    explorerLoadedTabs.add(activeExplorerTab);
 }
 
 function requestRenderFrame() {
@@ -2375,14 +2401,20 @@ function registerModelTransform(model) {
         });
     }
 
-    ensureModelOption(model.id);
-    ensureCollisionOptions(model.id);
+    if (transformFeatureAllowed) {
+        ensureModelOption(model.id);
+    }
+    if (collisionFeatureAllowed) {
+        ensureCollisionOptions(model.id);
+    }
 
     if (transformModelSelect && !transformModelSelect.value) {
         transformModelSelect.value = model.id;
     }
 
-    setDefaultCollisionSelection();
+    if (collisionFeatureAllowed) {
+        setDefaultCollisionSelection();
+    }
 
     if (transformModelSelect) {
         syncTransformInputs(transformModelSelect.value);
@@ -3493,16 +3525,12 @@ function setupDraggablePanels() {
 function finalizeInitialSetup() {
     setTimeout(() => {
         viewer.cameraFlight.jumpTo(viewer.scene);
-        console.log("Todos os modelos carregados e câmera ajustada para o zoom correto.");
         setMeasurementMode('none');
-        setupModelIsolateController();
     }, 300);
 }
 
 function maybeFinalizeInitialization() {
-    if (defaultModelChecksDone === currentModels.length && modelsLoadedCount >= expectedModels) {
-        finalizeInitialSetup();
-    }
+    // A câmera é liberada pelo primeiro modelo útil; a fila continua em background.
 }
 
 function adjustCameraOnLoad() {
@@ -3510,43 +3538,91 @@ function adjustCameraOnLoad() {
     maybeFinalizeInitialization();
 }
 
-async function loadDefaultModel({ id, src }) {
+function loadDefaultModel({ id, src }) {
+    if (loadedModels.has(id)) {
+        return Promise.resolve(loadedModels.get(id));
+    }
+    if (modelLoadPromises.has(id)) {
+        return modelLoadPromises.get(id);
+    }
     defaultModelChecksDone++;
     expectedModels++;
 
-    const model = xktLoader.load({
-        id,
-        src,
-        edges: performanceModeEnabled ? false : defaultRenderProfile.edgesEnabled,
-        saoEnabled: performanceModeEnabled ? false : defaultRenderProfile.saoEnabled,
-        dtxEnabled: viewerCompatibility.enableDataTextures
-    });
-    
-    model.uploadDateSrc = src;
-
-    model.on("loaded", () => {
-        const transform = currentModelTransforms[id];
-
-        if (transform?.position) {
-            model.position = [...transform.position];
+    const promise = new Promise((resolve, reject) => {
+        let model;
+        try {
+            model = xktLoader.load({
+                id, src,
+                edges: performanceModeEnabled ? false : defaultRenderProfile.edgesEnabled,
+                saoEnabled: performanceModeEnabled ? false : defaultRenderProfile.saoEnabled,
+                dtxEnabled: viewerCompatibility.enableDataTextures
+            });
+        } catch (error) {
+            reject(error);
+            return;
         }
+        model.uploadDateSrc = src;
+        model.on("loaded", () => {
+            const transform = currentModelTransforms[id];
+            if (transform?.position) model.position = [...transform.position];
+            if (transform?.rotation) model.rotation = [...transform.rotation];
+            adjustCameraOnLoad();
+            registerModelTransform(model);
+            resolve(model);
+        });
+        model.on("error", reject);
+    }).finally(() => modelLoadPromises.delete(id));
+    modelLoadPromises.set(id, promise);
+    return promise;
+}
+function getProgressiveLoadingIndicator() {
+    let indicator = document.getElementById("viewerModelLoadProgress");
+    if (!indicator) {
+        indicator = document.createElement("div");
+        indicator.id = "viewerModelLoadProgress";
+        indicator.setAttribute("role", "status");
+        Object.assign(indicator.style, { position: "fixed", left: "16px", bottom: "16px", zIndex: "9000", padding: "8px 12px", borderRadius: "8px", background: "rgba(20,28,38,.82)", color: "white", fontSize: "13px", pointerEvents: "none" });
+        document.body.appendChild(indicator);
+    }
+    return indicator;
+}
 
-        if (transform?.rotation) {
-            model.rotation = [...transform.rotation];
+async function loadModelsWithConcurrency(models, concurrency = MODEL_LOAD_CONCURRENCY) {
+    const uniqueModels = models.filter((model, index, list) =>
+        model?.id && list.findIndex((candidate) => candidate?.id === model.id) === index
+    );
+    const progress = getProgressiveLoadingIndicator();
+    let nextIndex = 0;
+    let loaded = 0;
+    let failed = 0;
+    let firstVisible = false;
+    const updateProgress = () => {
+        progress.textContent = `${loaded} de ${uniqueModels.length} modelos carregados${failed ? ` • ${failed} ${failed > 1 ? "falharam" : "falhou"}` : ""}`;
+    };
+    updateProgress();
+
+    const worker = async () => {
+        while (nextIndex < uniqueModels.length) {
+            const model = uniqueModels[nextIndex++];
+            try {
+                await loadDefaultModel(model);
+                loaded++;
+                if (!firstVisible) {
+                    firstVisible = true;
+                    finalizeInitialSetup();
+                }
+            } catch (error) {
+                failed++;
+                adjustCameraOnLoad();
+                console.warn(`[viewer] Falha ao carregar ${model.id}`, error);
+            }
+            updateProgress();
+            await new Promise((resolve) => requestAnimationFrame(resolve));
         }
-
-        //if (id === "IFC_ARQ") {
-            //model.xrayed = true;
-        //}
-
-        adjustCameraOnLoad();
-        registerModelTransform(model);
-    });
-
-    model.on("error", (err) => {
-        console.error(`Erro ao carregar ${src}:`, err);
-        adjustCameraOnLoad();
-    });
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, uniqueModels.length) }, worker));
+    window.setTimeout(() => { if (!failed) progress.remove(); }, 2500);
+    return { loaded, failed };
 }
 
 function loadModelGroup(models, transforms) {
@@ -3556,7 +3632,7 @@ function loadModelGroup(models, transforms) {
     expectedModels = 0;
     defaultModelChecksDone = 0;
 
-    currentModels.forEach(loadDefaultModel);
+    void loadModelsWithConcurrency(currentModels, MODEL_LOAD_CONCURRENCY);
 }
 
 const modelSelectionOverlay = document.getElementById("modelSelection");
@@ -4040,6 +4116,7 @@ const ifcUploadBridge = {
     viewerCompatibility,
     normalizeBlobUrl,
     requestRenderFrame,
+    ensureAnnotationsFeature,
     adjustCameraOnLoad,
     registerModelTransform,
     applyModelRenderProfile,
@@ -4142,15 +4219,15 @@ if (projectFromDataset && hasProjectConfig(projectFromDataset)) {
     handleModelSelection(models, transforms, projectFromDataset, { replaceUrl: true });
 }
 
-if (transformModelSelect) {
+if (!isClientProfile && transformModelSelect) {
     transformModelSelect.addEventListener("change", (event) => syncTransformInputs(event.target.value));
 }
 
-if (applyTransformButton) {
+if (!isClientProfile && applyTransformButton) {
     applyTransformButton.addEventListener("click", applyTransformFromUI);
 }
 
-if (resetTransformButton) {
+if (!isClientProfile && resetTransformButton) {
     resetTransformButton.addEventListener("click", resetTransformFromUI);
 }
 
@@ -4159,19 +4236,32 @@ if (resetTransformButton) {
 // 3. Plugins de Medição e Função de Troca (MANTIDO)
 // -----------------------------------------------------------------------------
 
-const angleMeasurementsPlugin = new AngleMeasurementsPlugin(viewer, { zIndex: 100000 });
-const angleMeasurementsMouseControl = new AngleMeasurementsMouseControl(angleMeasurementsPlugin, {
-    pointerLens: new PointerLens(viewer),
-    snapping: true
-});
-angleMeasurementsMouseControl.deactivate();
+let angleMeasurementsPlugin = null;
+let angleMeasurementsMouseControl = null;
+let distanceMeasurementsPlugin = null;
+let distanceMeasurementsMouseControl = null;
+let measurementsFeaturePromise = null;
 
-const distanceMeasurementsPlugin = new DistanceMeasurementsPlugin(viewer, { zIndex: 100000 });
-const distanceMeasurementsMouseControl = new DistanceMeasurementsMouseControl(distanceMeasurementsPlugin, {
-    pointerLens: new PointerLens(viewer),
-    snapping: true
-});
-distanceMeasurementsMouseControl.deactivate();
+function ensureMeasurementsInitialized() {
+    measurementsFeaturePromise ||= import("./features/measurements.js")
+        .then(({ createMeasurementTools }) => {
+            const tools = createMeasurementTools({ viewer, PointerLens });
+            angleMeasurementsPlugin = tools.angleMeasurementsPlugin;
+            angleMeasurementsMouseControl = tools.angleMeasurementsMouseControl;
+            distanceMeasurementsPlugin = tools.distanceMeasurementsPlugin;
+            distanceMeasurementsMouseControl = tools.distanceMeasurementsMouseControl;
+            setupMeasurementEvents(angleMeasurementsPlugin);
+            setupMeasurementEvents(distanceMeasurementsPlugin);
+            return tools;
+        })
+        .catch((error) => {
+            measurementsFeaturePromise = null;
+            console.error("[viewer] Falha ao carregar medições:", error);
+            setSearchStatus?.("Não foi possível carregar a ferramenta de medição.", true);
+            throw error;
+        });
+    return measurementsFeaturePromise;
+}
 
 // -----------------------------------------------------------------------------
 // Suporte a toque para medições (ângulo e distância)
@@ -4278,23 +4368,26 @@ function selectEntity(entity) {
         showMaterialProperties(entity);
     }
 }
-function setMeasurementMode(mode, clickedButton) {
-    angleMeasurementsMouseControl.deactivate();
-    distanceMeasurementsMouseControl.deactivate();
+async function setMeasurementMode(mode, clickedButton) {
+    if (mode !== "none") {
+        await ensureMeasurementsInitialized();
+    }
+    angleMeasurementsMouseControl?.deactivate();
+    distanceMeasurementsMouseControl?.deactivate();
     document.querySelectorAll('.tool-button').forEach(btn => btn.classList.remove('active'));
 
     if (mode === 'angle') {
-        angleMeasurementsMouseControl.activate();
+        angleMeasurementsMouseControl?.activate();
     } else if (mode === 'distance') {
-        distanceMeasurementsMouseControl.activate();
+        distanceMeasurementsMouseControl?.activate();
     }
 
     if (clickedButton) {
         clickedButton.classList.add('active');
     }
 
-    angleMeasurementsMouseControl.reset();
-    distanceMeasurementsMouseControl.reset();
+    angleMeasurementsMouseControl?.reset();
+    distanceMeasurementsMouseControl?.reset();
 
     // Garante que o modo de seleção seja desativado ao iniciar uma medição
     clearSelection(false);
@@ -6509,8 +6602,6 @@ function setupMeasurementEvents(plugin) {
     });
 }
 
-setupMeasurementEvents(angleMeasurementsPlugin);
-setupMeasurementEvents(distanceMeasurementsPlugin);
 
 // -----------------------------------------------------------------------------
 // 5. Cubo de Navegação (NavCube) (MANTIDO)
@@ -6535,7 +6626,7 @@ syncNavCubeVisibility();
 
 function setupModelIsolateController() {
 
-    if (!treeViewContainer) {
+    if (!treeViewContainer || treeView) {
         return;
     }
 
@@ -6758,6 +6849,8 @@ function toggleTreeView(button) {
         treeViewContainer.style.display = 'none';
         button?.classList.remove('active');
     } else {
+        setupExplorerPanel();
+        setupModelIsolateController();
         treeViewContainer.style.display = getTreeViewDisplayMode();
         button?.classList.add('active');
     }
@@ -7932,12 +8025,13 @@ const materialContextMenu = new ContextMenu({
             },
             {
                 title: "Add Anotação",
-                doAction: function (context) {
+                doAction: async function (context) {
                     const text = window.prompt("Digite o texto da anotação:");
                     if (!text || !text.trim()) {
                         return;
                     }
-                    userAnnotationsController.addAnnotationFromPickResult(context.pickResult, text);
+                    const controller = await ensureAnnotationsFeature();
+                    controller.addAnnotationFromPickResult(context.pickResult, text);
                 }
             }
         ],

@@ -25,6 +25,9 @@ function getExcelFeature() {
     return excelFeaturePromise;
 }
 async function downloadMaterialsAsExcel(...args) {
+    if (!materialsFeatureAllowed) {
+        return;
+    }
     return (await getExcelFeature()).downloadMaterialsAsExcel(...args);
 }
 async function loadAssociationDefinitionsFromExcel(...args) {
@@ -416,6 +419,9 @@ function setupTransformPanelControls() {
     }
 
     const togglePanel = (forceState) => {
+        if (!transformFeatureAllowed) {
+            return;
+        }
         const shouldOpen = typeof forceState === "boolean" ? forceState : transformPanel.hidden;
         transformPanel.hidden = !shouldOpen;
         transformPanelToggleButton.classList.toggle("active", shouldOpen);
@@ -489,6 +495,12 @@ let materialsAllResults = [];
 let materialsSearchQuery = "";
 let collisionFeatureAllowed = false;
 let materialsFeatureAllowed = false;
+let transformFeatureAllowed = false;
+const VIEWER_PROFILE_PERMISSIONS = Object.freeze({
+    admin: Object.freeze({ collision: true, materials: true, transform: true }),
+    colaborador: Object.freeze({ collision: true, materials: true, transform: true }),
+    cliente: Object.freeze({ collision: false, materials: false, transform: false })
+});
 let activeMaterialFilter = null;
 let webBudgetPanel = null;
 let webBudgetRowsContainer = null;
@@ -2238,6 +2250,9 @@ function getNextCloneId(sourceId) {
 }
 
 function rotateEntityWithCloneAlias(sourceId) {
+    if (!transformFeatureAllowed) {
+        return null;
+    }
     const requestedId = String(sourceId || "").trim();
     const baseAliasEntry = rotatedEntityAliases.get(requestedId);
     const normalizedSourceId = baseAliasEntry?.sourceId || requestedId;
@@ -2375,7 +2390,7 @@ function registerModelTransform(model) {
     scheduleExplorerRefresh();
 }
 function applyTransformFromUI() {
-    if (!transformModelSelect) {
+    if (!transformFeatureAllowed || !transformModelSelect) {
         return;
     }
 
@@ -2403,7 +2418,7 @@ function applyTransformFromUI() {
 }
 
 function resetTransformFromUI() {
-    if (!transformModelSelect) {
+    if (!transformFeatureAllowed || !transformModelSelect) {
         return;
     }
 
@@ -2527,14 +2542,54 @@ function setCollisionFeatureAccess(isAllowed) {
         hideCollisionPanel();
     }
 }
+function setTransformFeatureAccess(isAllowed) {
+    transformFeatureAllowed = Boolean(isAllowed);
 
+    if (transformPanelToggleButton) {
+        transformPanelToggleButton.hidden = !transformFeatureAllowed;
+        transformPanelToggleButton.setAttribute("aria-hidden", String(!transformFeatureAllowed));
+        transformPanelToggleButton.tabIndex = transformFeatureAllowed ? 0 : -1;
+    }
+
+    if (!transformFeatureAllowed) {
+        hidePanelElement(transformPanel, transformPanelToggleButton);
+    }
+}
+
+function getViewerPermissions(user) {
+    const profile = typeof user?.perfil === "string" ? user.perfil.trim().toLowerCase() : "";
+    const permissions = VIEWER_PROFILE_PERMISSIONS[profile];
+
+    return {
+        canUseCollision: Boolean(permissions?.collision),
+        canUseMaterials: Boolean(permissions?.materials),
+        canTransformModels: Boolean(permissions?.transform)
+    };
+}
+
+function updateRestrictedFeatureHelp() {
+    const materialsShortcuts = new Set(["l", "t", "k", "7"]);
+    helpPanel?.querySelectorAll("li").forEach((item) => {
+        const shortcut = item.querySelector("kbd")?.textContent?.trim().toLowerCase();
+        if (materialsShortcuts.has(shortcut)) {
+            item.hidden = !materialsFeatureAllowed;
+        }
+    });
+}
+
+function applyViewerProfilePermissions(user) {
+    const permissions = getViewerPermissions(user);
+    setCollisionFeatureAccess(permissions.canUseCollision);
+    setMaterialsFeatureAccess(permissions.canUseMaterials);
+    setTransformFeatureAccess(permissions.canTransformModels);
+    updateRestrictedFeatureHelp();
+}
 async function setupRestrictedViewerFeaturesAccessGate() {
     setCollisionFeatureAccess(false);
     setMaterialsFeatureAccess(false);
+    setTransformFeatureAccess(false);
     const user = window.__VIEWER_AUTH_USER__ || await fetchViewerUser();
-    const isAllowed = Boolean(user);
-    setCollisionFeatureAccess(isAllowed);
-    setMaterialsFeatureAccess(isAllowed);
+    applyViewerProfilePermissions(user);
 }
 function setupMaterialsPanelControls() {
     if (!materialsPanel || !materialsSummary || !materialsResultsList) {
@@ -3701,6 +3756,9 @@ function getAssociatedMaterialsByBudgetReference({ code = "", description = "" }
 }
 
 function isolateBudgetComposition({ code = "", description = "" } = {}) {
+    if (!materialsFeatureAllowed) {
+        return false;
+    }
     const associatedItems = getAssociatedMaterialsByBudgetReference({ code, description });
     if (!associatedItems.length) {
         return false;
@@ -3832,7 +3890,7 @@ async function renderProjectBudgetTable(projectKey) {
                 const td = document.createElement("td");
                 td.textContent = value;
 
-                if (hasAssociations && (index === 1 || index === 3)) {
+                if (materialsFeatureAllowed && hasAssociations && (index === 1 || index === 3)) {
                     td.classList.add("budget-code-clickable");
                     td.setAttribute("role", "button");
                     td.setAttribute("tabindex", "0");
@@ -5794,7 +5852,7 @@ function isolateAssociatedItemsByNames(materialNames, { modelId = null } = {}) {
 }
 
 function isolateActiveWebBudgetSelection() {
-    if (!activeWebBudgetSelection) {
+    if (!materialsFeatureAllowed || !activeWebBudgetSelection) {
         return false;
     }
 
@@ -5804,6 +5862,9 @@ function isolateActiveWebBudgetSelection() {
 }
 
 function collectQuantitativeMaterials() {
+    if (!materialsFeatureAllowed) {
+        return [];
+    }
     const totals = new Map();
     const allMetaObjects = viewer.metaScene?.metaObjects || {};
     const activeIds = getActiveObjectIdSet();
@@ -5939,6 +6000,9 @@ function renderMaterialsResults(items, options = {}) {
 }
 
 async function generateAndRenderMaterialsList() {
+    if (!materialsFeatureAllowed) {
+        return [];
+    }
     if (materialsGenerationPromise) {
         return materialsGenerationPromise;
     }
@@ -5974,7 +6038,7 @@ async function generateAndRenderMaterialsList() {
 }
 
 async function applyMaterialsSearch({ skipAssociationsLoad = false } = {}) {
-    if (!materialsSummary || !materialsResultsList) {
+    if (!materialsFeatureAllowed || !materialsSummary || !materialsResultsList) {
         return;
     }
 
@@ -6027,8 +6091,7 @@ function getCollisionPosition(objectId) {
 }
 
 async function downloadCollisionsAsPdf() {
-
-    if (!lastCollisionResults.length) {
+    if (!collisionFeatureAllowed || !lastCollisionResults.length) {
         return;
     }
 
@@ -6348,6 +6411,7 @@ document.addEventListener("keydown", async (event) => {
     }
 
     if (key === "7") {
+        if (!materialsFeatureAllowed) return;
         if (isolateActiveWebBudgetSelection()) {
             const { modelId, descricao } = activeWebBudgetSelection;
             if (webBudgetSummary) {
@@ -6365,6 +6429,7 @@ document.addEventListener("keydown", async (event) => {
     }
 
     if (key === rotationShortcutKey) {
+        if (!transformFeatureAllowed) return;
         const selectedSourceId = resolveRotationTargetId();
 
         if (!selectedSourceId) {

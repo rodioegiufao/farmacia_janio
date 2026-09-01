@@ -37,7 +37,16 @@ async function main() {
   assert.match(fs.readFileSync("api/share-models.js", "utf8"), /await require3DUser\(req\)/);
   const app = fs.readFileSync("3D/app.js", "utf8");
   assert.match(app, /window\.__VIEWER_AUTH_USER__ = user[\s\S]*viewer-authenticated\.js/);
-  assert.match(fs.readFileSync("3D/viewer/viewer-authenticated.js", "utf8"), /if \(window\.__VIEWER_AUTH_USER__\)/);
+  const authenticatedViewer = fs.readFileSync("3D/viewer/viewer-authenticated.js", "utf8");
+  assert.match(authenticatedViewer, /if \(window\.__VIEWER_AUTH_USER__\)/);
+  assert.match(authenticatedViewer, /const VIEWER_PROFILE_PERMISSIONS = Object\.freeze\(\{[\s\S]*cliente: Object\.freeze\(\{ collision: false, materials: false, transform: false \}\)/);
+  assert.match(authenticatedViewer, /const user = window\.__VIEWER_AUTH_USER__ \|\| await fetchViewerUser\(\)/, "deve reutilizar o usuário autenticado antes do fallback");
+  assert.match(authenticatedViewer, /function applyViewerProfilePermissions\(user\)[\s\S]*setCollisionFeatureAccess\(permissions\.canUseCollision\)[\s\S]*setMaterialsFeatureAccess\(permissions\.canUseMaterials\)[\s\S]*setTransformFeatureAccess\(permissions\.canTransformModels\)/);
+  assert.match(authenticatedViewer, /function applyTransformFromUI\(\) \{\s*if \(!transformFeatureAllowed \|\| !transformModelSelect\)/);
+  assert.match(authenticatedViewer, /async function generateAndRenderMaterialsList\(\) \{\s*if \(!materialsFeatureAllowed\)/);
+  assert.match(authenticatedViewer, /function findAndRenderCollisions\(modelId\) \{\s*if \(!collisionFeatureAllowed\)/);
+  assert.match(authenticatedViewer, /if \(key === rotationShortcutKey\) \{\s*if \(!transformFeatureAllowed\) return;/);
+  assert.match(authenticatedViewer, /if \(key === "l"\) \{\s*if \(!materialsFeatureAllowed\) return;/);
   console.log("client profile authorization: ok");
 }
 

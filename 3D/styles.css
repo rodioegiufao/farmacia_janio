@@ -1650,7 +1650,11 @@ html, body {
 
 #collisionModelA,
 #collisionModelB,
-#collisionRadius {
+#collisionRadius,
+#clashPreset,
+#clashMode,
+#clashStatus,
+#clashSearch {
     width: 100%;
     padding: 8px 10px;
     border-radius: 6px;
@@ -1661,6 +1665,13 @@ html, body {
     box-sizing: border-box;
 }
 
+.clash-groups { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: end; }
+.clash-filters { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 12px 0; }
+.clash-navigation { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 10px 0; }
+.clash-detail { padding: 12px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 8px; background: rgba(10,18,27,.72); }
+.clash-detail p { margin: 9px 0; }
+.clash-detail small { overflow-wrap: anywhere; opacity: .78; }
+.collision-results details > summary { cursor: pointer; padding: 8px 2px; font-weight: 700; }
 .collision-actions {
     display: flex;
     flex-direction: column;

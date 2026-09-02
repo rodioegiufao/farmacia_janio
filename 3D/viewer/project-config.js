@@ -43,6 +43,9 @@ export const DISCIPLINE_LABELS = {
     "IFC_ARQ_SESC_GERAL": "Arquitetura geral"
 };
 
+// Cada modelo pode declarar `ifcSrc` para cálculo no IfcClash; `src` permanece o XKT de visualização.
+// A ausência de `ifcSrc` é explícita na interface e nunca aciona o fallback aproximado silenciosamente.
+// Exemplo: { src: "/3D/projeto/modelo.xkt", ifcSrc: "/3D/projeto/ifc/modelo.ifc" }
 // Cada modelo possui valores comuns e overrides explícitos por contexto de autenticação.
 // enabled=false remove o modelo antes do carregamento: o respectivo XKT não é solicitado.
 export const PROJECT_CONFIGS = {

@@ -524,6 +524,7 @@ let webBudgetSourceCacheRef = null;
 let webBudgetAssociationsPromise = null;
 let activeWebBudgetSelection = null;
 let activeCollisionSelection = null;
+let clashFeaturePromise = null;
 const rotationShortcutKey = "j";
 const rotatedEntityAliases = new Map();
 const hiddenOriginalEntityIds = new Set();
@@ -2498,41 +2499,29 @@ function setupCollisionPanelControls() {
         return;
     }
 
-    const togglePanel = (forceState) => {
-        if (!collisionFeatureAllowed) {
-            return;
+    collisionPanelToggleButton?.addEventListener("click", async () => {
+        if (!collisionFeatureAllowed) return;
+        collisionPanel.hidden = false;
+        collisionPanelToggleButton.classList.add("active");
+        if (!clashFeaturePromise) {
+            collisionSummary.textContent = "Carregando módulo de compatibilização…";
+            clashFeaturePromise = import("./features/clash/clash-feature.js").then(({ createClashFeature }) => createClashFeature({
+                viewer,
+                panel: collisionPanel,
+                models: () => currentModels,
+                transforms: () => currentModelTransforms,
+                getAllObjectIds,
+                requestRenderFrame,
+                jsPDF
+            })).catch((error) => {
+                clashFeaturePromise = null;
+                console.error("[clash] Falha ao carregar módulo:", error);
+                collisionSummary.textContent = "Não foi possível carregar a Compatibilização BIM.";
+            });
         }
-        const shouldOpen = typeof forceState === "boolean" ? forceState : collisionPanel.hidden;
-        collisionPanel.hidden = !shouldOpen;
-        collisionPanelToggleButton?.classList.toggle("active", shouldOpen);
-    };
-
-    collisionPanelToggleButton?.addEventListener("click", () => togglePanel());
-    closeCollisionPanelButton?.addEventListener("click", () => togglePanel(false));
-
-    runCollisionCheckButton?.addEventListener("click", () => {
-        const modelId = collisionModelASelect?.value;
-        findAndRenderCollisions(modelId);
+        await clashFeaturePromise;
     });
 
-    collisionRadiusInput?.addEventListener("input", () => {
-        normalizeCollisionRadiusInput();
-    });
-
-    downloadCollisionPdfButton?.addEventListener("click", async () => {
-        const originalLabel = downloadCollisionPdfButton.textContent;
-        downloadCollisionPdfButton.disabled = true;
-        downloadCollisionPdfButton.textContent = "Gerando relatório...";
-
-        try {
-            await downloadCollisionsAsPdf();
-        } finally {
-            downloadCollisionPdfButton.textContent = originalLabel;
-            updateCollisionDownloadButton();
-        }
-    });
-
-    updateCollisionDownloadButton();
 }
 async function fetchViewerUser() {
     try {
@@ -2565,6 +2554,9 @@ function setCollisionFeatureAccess(isAllowed) {
     collisionFeatureAllowed = Boolean(isAllowed);
 
     if (collisionPanelToggleButton) {
+        collisionPanelToggleButton.title = "Compatibilização BIM";
+        const labelNode = Array.from(collisionPanelToggleButton.childNodes).find((node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+        if (labelNode) labelNode.textContent = "\n            ⚡ Compatibilização BIM\n        ";
         collisionPanelToggleButton.hidden = !collisionFeatureAllowed;
         collisionPanelToggleButton.setAttribute("aria-hidden", String(!collisionFeatureAllowed));
         collisionPanelToggleButton.tabIndex = collisionFeatureAllowed ? 0 : -1;

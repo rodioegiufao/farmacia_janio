@@ -48,6 +48,9 @@
     },
     "api/ifc-storage-upload-url.js": {
       "maxDuration": 60
+    },
+    "api/clash.js": {
+      "maxDuration": 300
     }
   }
 }

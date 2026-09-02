@@ -1194,7 +1194,7 @@ if (!bridge) {
             model = bridge.xktLoader.load({
                 id: modelId,
                 src: bridge.normalizeBlobUrl(objectUrl),
-                cacheBuster: false,
+                readableGeometryEnabled: true,
                 edges: performanceModeEnabled ? false : renderProfile.edgesEnabled,
                 saoEnabled: performanceModeEnabled ? false : renderProfile.saoEnabled,
                 dtxEnabled: bridge.viewerCompatibility.enableDataTextures

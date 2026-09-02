@@ -79,7 +79,7 @@ export function filterClashResults(clashes, { query = "", statuses = CLASH_STATU
     const needle = text(query).toLocaleLowerCase("pt-BR");
     return clashes.filter((clash) => accepted.has(clash.status) && (!needle || [
         clash.objectA, clash.objectB
-    ].flatMap((object) => [object.name, object.guid, object.type, object.modelId]).join(" ").toLocaleLowerCase("pt-BR").includes(needle)));
+    ].flatMap((object) => [object.name, object.guid, object.objectId, object.originalSystemId, object.type, object.modelId]).join(" ").toLocaleLowerCase("pt-BR").includes(needle)));
 }
 
 export function groupClashResults(clashes) {
@@ -98,5 +98,5 @@ export function adjacentClashIndex(index, length, direction) {
 }
 
 export function serializeClashViewpoint(clash, viewpoint) {
-    return { version: "2.1", clashId: clash.id, source: clash.source, guids: [clash.objectA.guid, clash.objectB.guid], viewpoint };
+    return { version: "2.1", clashId: clash.id, source: clash.source, guids: [clash.objectA.originalSystemId || clash.objectA.guid, clash.objectB.originalSystemId || clash.objectB.guid].filter(Boolean), objectIds: [clash.objectA.objectId, clash.objectB.objectId].filter(Boolean), viewpoint };
 }

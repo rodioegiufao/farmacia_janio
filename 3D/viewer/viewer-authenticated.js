@@ -2512,7 +2512,8 @@ function setupCollisionPanelControls() {
                 transforms: () => currentModelTransforms,
                 getAllObjectIds,
                 requestRenderFrame,
-                jsPDF
+                jsPDF,
+                xktLoader
             })).catch((error) => {
                 clashFeaturePromise = null;
                 console.error("[clash] Falha ao carregar módulo:", error);

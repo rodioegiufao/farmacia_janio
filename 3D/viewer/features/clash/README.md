@@ -1,34 +1,24 @@
-# Compatibilização BIM — arquitetura e auditoria
+# Compatibilização BIM — XKT Geometry Clash Engine
 
-## Auditoria da implementação substituída
+## Auditoria e decisão
 
-O colisor legado permanece temporariamente em `viewer-authenticated.js`. Ele compara AABBs de objetos XKT no navegador, expande os limites pela tolerância e agrupa os IDs que se sobrepõem. Portanto, uma sobreposição era uma **aproximação**, não evidência de interseção das geometrias IFC. O relatório e o isolamento legados também usavam esse agrupamento por objeto.
+A implementação anterior enviava `ifcSrc` a `/api/clash`, que validava a extensão `.ifc` e encaminhava o pedido ao serviço configurado em `IFC_CLASH_SERVICE_URL`. O XKT servia somente à visualização e o resultado IfcClash era associado à cena por GlobalId. Isso impedia todos os projetos que preservam apenas XKT.
 
-A conversão existente usa `@xeokit/xeokit-convert`/`web-ifc`. Os XKT observados contêm IDs no formato de `IfcRoot.GlobalId`, mas o repositório não contém os IFCs originais correspondentes para uma comparação automatizada elemento a elemento. A resolução foi, por isso, centralizada e testada para ID puro e IDs globalizados com prefixo de modelo. Uma auditoria de produção ainda deve confrontar uma amostra de `IfcBeam`, `IfcPipeSegment`, `IfcCableCarrierSegment` e `IfcDuctSegment` assim que `ifcSrc` for cadastrado.
+O fluxo padrão agora é local: os dois `src` XKT selecionados são abertos em um modelo de análise temporário, com `readableGeometryEnabled` somente durante a preparação. `SceneModelEntity.getGeometryData()` fornece os buffers CPU. O extrator aceita uma geometria ou vários chunks/meshes, normaliza `positions`/`indices` e compara o AABB dos vértices com `entity.aabb`. A transformação configurada só é aplicada quando aproxima os dois AABBs, evitando transformar duas vezes dados que o SDK já devolveu em world space. O helper `validateGeometryCoordinateSpace` permite auditar essa decisão.
 
-## Decisão de execução
+O modelo temporário é invisível e destruído depois da extração. Assim, cliente não importa a feature nem carrega geometria legível; admin e colaborador só duplicam temporariamente os dois XKT escolhidos após clicar em **Executar análise**. O pico estimado é o tamanho dos dois XKT decodificados mais `12 × vértices + 4 × índices` bytes para os buffers normalizados e o clone estruturado do worker. A memória exata depende da repetição de vértices e do XKT.
 
-Vercel já executa funções Node e o conversor XKT usa um processo nativo, mas a instalação Python serverless não fornece garantia de ABI, binários e tempo/memória adequados ao IfcOpenShell. O Pyodide existente serve ao carregamento manual e ocorre na main thread; executar IfcClash ali seria pesado e não há garantia documentada de que todo o módulo clash esteja incluído na wheel WASM.
+## Motor geométrico
 
-Foi escolhida uma integração com serviço especializado: `POST /api/clash` valida referências IFC relativas, classes, modo e tolerância e encaminha ao `IFC_CLASH_SERVICE_URL`, com token opcional em `IFC_CLASH_SERVICE_TOKEN`. Isso mantém binários Python fora do bundle/browser e permite que o serviço execute a API oficial `ifcopenshell.ifcclash.Clasher`. A API é assíncrona do ponto de vista da interface, embora a primeira versão aguarde uma resposta HTTP síncrona. Jobs e cache distribuído devem ser adicionados no serviço para análises que excedam o timeout.
+1. **Broad phase:** sweep-and-prune ordenado no eixo X, seguido por AABB em Y/Z. AABB gera candidatos, nunca clashes.
+2. **Narrow phase:** cada objeto recebe uma BVH binária de triângulos, dividida no maior eixo. Apenas folhas sobrepostas executam triângulo × triângulo.
+3. **Interseção:** testes segmento-triângulo de Möller–Trumbore nos seis lados e fallback coplanar por coordenadas baricêntricas. O epsilon padrão é `0.001 m`.
+4. **Consolidação:** um par de objetos produz um resultado, mesmo que várias faces se interceptem. `intersectionPoints` guarda os pontos e `position` é sua média em world space. `penetrationDepth` permanece `null`.
 
-Referências consultadas: [exemplo de clash detection da xeokit](https://xeokit.io/sdk-v2/examples/coordination#clashDetection) e [documentação oficial IfcClash](https://docs.ifcopenshell.org/ifcclash.html).
+Broad e narrow phase rodam em Web Worker ES module; mensagens de progresso mantêm a UI responsiva e Cancelar/fechar termina o worker. Somente dados simples e typed arrays são enviados, nunca instâncias xeokit. A geometria normalizada fica em cache por sessão (`modelId:objectId`); modelos temporários são descartados. Integrações que substituem modelos podem chamar `clearClashGeometryCache(modelId)`.
 
-## Contrato e coordenadas
+## Viewer, resultados e legado
 
-`src` continua apontando ao XKT de visualização. O novo campo opcional `ifcSrc` aponta ao IFC original usado pelo serviço. Sem `ifcSrc`, a interface não inventa IFC nem mistura o resultado AABB legado.
+Resultados usam `source: "xkt-geometry"`, IDs reais da cena e `originalSystemId` opcional. Foco ainda usa o AABB combinado somente para câmera; marcador recebe diretamente o ponto world-space, sem a antiga transformação de ponto IFC. Isolar, Contexto, navegação, status, PDF e `BCFViewpointsPlugin` continuam independentes do motor. BCF inclui IDs XKT e GUIDs originais quando presentes.
 
-O adaptador normaliza respostas para `{id, setA, setB, objectA, objectB, position, distance, status, source}`. `resolveIfcGuidToSceneObjectId` é o único elo GlobalId → objeto xeokit. `transformClashPointToViewerCoordinates` aplica rotações Euler X/Y/Z em graus e depois a translação configurada do modelo; os modelos não são modificados.
-
-## Viewer e BCF
-
-O módulo inteiro só é importado depois do clique de admin/colaborador. Ele oferece A × B (inclusive A × A), presets, busca/status, agrupamento, anterior/próxima sem reanálise, foco pelo AABB combinado, isolamento, contexto XRayed, marcador e PDF normalizado. O objeto A usa highlight e o B usa selection para permanecerem distinguíveis sem alterar cores permanentemente.
-
-`BCFViewpointsPlugin.getViewpoint()` cria o estado oficial da câmera, seleção, visibilidade e planos suportados pelo SDK. A entrega baixa JSON de **BCF Viewpoint** (`.bcfv`); não afirma criar BCFZIP. “Exportar viewpoints” produz um arquivo por clash e não inclui snapshots por padrão.
-
-## Limitações deliberadas
-
-- É necessário implantar/configurar o serviço IfcClash e cadastrar IFCs originais; nenhum IFC original foi encontrado no repositório.
-- Upload local direto ao serviço, jobs, cache, filtros IFC editáveis, snapshots e BCFZIP ficam para a próxima fase.
-- O fallback AABB permanece isolado no arquivo legado para comparação/regressão, mas a interface nova nunca identifica seu resultado como IfcClash.
-- Um ponto calculado entre IFCs com transformações diferentes precisa ter no contrato a indicação do sistema/modelo de origem; atualmente aplica-se a transformação do Grupo A.
+`api/clash.js` e o adaptador IfcClash foram mantidos isolados como integração legada/opcional, mas o fluxo normal XKT não chama `/api/clash` e não depende de `IFC_CLASH_SERVICE_URL`.

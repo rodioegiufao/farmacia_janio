@@ -252,9 +252,15 @@ async function testarFaseItem() {
 const fs = require("node:fs");
 const api = require("../atividades/fase-item");
 
-assert.deepEqual(api.obterProjetosComFaseItem(), ["CFTV", "Cabeamento", "Telefonia", "Elétrico Baixa Tensão", "Iluminação Externa", "SPDA", "Subestação", "Alimentador", "Mapa Chave/Situação", "Sonorização", "Solar", "Automação", "Lógica", "SDAI", "Média Tensão"]);
+assert.deepEqual(api.obterProjetosComFaseItem(), ["Todos", "CFTV", "Cabeamento", "Telefonia", "Elétrico Baixa Tensão", "Iluminação Externa", "SPDA", "Subestação", "Alimentador", "Mapa Chave/Situação", "Sonorização", "Solar", "Automação", "Lógica", "SDAI", "Média Tensão"]);
 api.obterProjetosComFaseItem().forEach((projeto) => assert.equal(api.projetoExigeFaseItem(projeto), true));
-["", "Site", "Todos", "Outros"].forEach((projeto) => assert.equal(api.projetoExigeFaseItem(projeto), false));
+["", "Site", "Outros"].forEach((projeto) => assert.equal(api.projetoExigeFaseItem(projeto), false));
+
+const disciplinasTodos = ["Iluminação", "Tomadas", "CFTV", "Som", "Lógica", "Cabeamento", "Tomadas de Uso Específico", "HVAC", "SPDA", "SDAI", "Automação", "Alimentadores", "Subestação", "Iluminação Externa", "Telefonia", "Solar", "Média Tensão", "Mapa Chave/Situação", "Outros"];
+assert.deepEqual(api.obterFasesDoProjeto("Todos"), ["Link", "Plotagem", "Assinaturas", "Fiscalização", "Outros"]);
+["Link", "Plotagem", "Assinaturas", "Fiscalização"].forEach((fase) => {
+  assert.deepEqual(api.obterItensDoProjetoFase("Todos", fase), disciplinasTodos);
+});
 
 assert.deepEqual(api.obterFasesDoProjeto("CFTV"), ["Estudos", "Lançamento", "Distribuição", "Circuitos", "Plotagem", "Compatibilização", "Documentos", "Fiscalização", "Outros"]);
 assert.deepEqual(api.obterItensDoProjetoFase("CFTV", "Lançamento"), ["Câmeras Bullet", "Câmeras Dome", "Câmera IP/Wi-fi", "Switch", "Patch Panel", "Conectores", "Rack", "NVR/DVR", "Outros"]);
@@ -262,7 +268,7 @@ assert.deepEqual(api.obterItensDoProjetoFase("SPDA", "Distribuição"), ["Caixas
 assert.ok(!api.obterFasesDoProjeto("SPDA").includes("Circuitos"));
 assert.deepEqual(api.obterFasesDoProjeto("Subestação"), ["Estudos", "Análise de Projeto", "Desenhos", "Distribuição", "Plotagem", "Compatibilização", "Documentos", "Fiscalização", "Outros"]);
 assert.deepEqual(api.obterFasesDoProjeto("Mapa Chave/Situação"), ["Análise de Projeto", "Desenhos", "Distribuição", "Plotagem", "Documentos", "Fiscalização", "Outros"]);
-api.obterProjetosComFaseItem().forEach((projeto) => {
+api.obterProjetosComFaseItem().filter((projeto) => projeto !== "Todos").forEach((projeto) => {
   assert.ok(api.obterFasesDoProjeto(projeto).includes("Fiscalização"));
   assert.deepEqual(api.obterItensDoProjetoFase(projeto, "Fiscalização"), ["ART", "Relatório", "Quadros", "Cabos", "Outros"]);
 });

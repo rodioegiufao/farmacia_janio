@@ -28,7 +28,7 @@ const coresPrioridade = {
   P2: "#ed8936",
   P3: "#f56565"
 };
-const projetos = ["Site", "Todos", ...obterProjetosComFaseItem(), "Outros"];
+const projetos = ["Site", ...obterProjetosComFaseItem(), "Outros"];
 const etapas = [
   "Orçamento",
   "QI Builder",

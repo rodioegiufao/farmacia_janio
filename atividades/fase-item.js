@@ -4,9 +4,21 @@
   if (root) root.FASE_ITEM_ATIVIDADE = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
+  const disciplinasProjetoTodos = [
+    "Iluminação", "Tomadas", "CFTV", "Som", "Lógica", "Cabeamento",
+    "Tomadas de Uso Específico", "HVAC", "SPDA", "SDAI", "Automação",
+    "Alimentadores", "Subestação", "Iluminação Externa", "Telefonia",
+    "Solar", "Média Tensão", "Mapa Chave/Situação"
+  ];
 
   // Fonte canônica da classificação usada pelo formulário e pelo Planner.
   const taxonomiaPorProjeto = {
+    "Todos": {
+      "Link": disciplinasProjetoTodos,
+      "Plotagem": disciplinasProjetoTodos,
+      "Assinaturas": disciplinasProjetoTodos,
+      "Fiscalização": disciplinasProjetoTodos
+    },
     "CFTV": {
       "Estudos": ["ABNT NBR IEC 62676", "ABNT NBR 16264", "ABNT NBR 5410", "ABNT NBR 14565"],
       "Lançamento": ["Câmeras Bullet", "Câmeras Dome", "Câmera IP/Wi-fi", "Switch", "Patch Panel", "Conectores", "Rack", "NVR/DVR"],

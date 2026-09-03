@@ -6,9 +6,12 @@ api.obterProjetosComFaseItem().forEach((projeto) => assert.equal(api.projetoExig
 ["", "Site", "Outros"].forEach((projeto) => assert.equal(api.projetoExigeFaseItem(projeto), false));
 
 const disciplinasTodos = ["Iluminação", "Tomadas", "CFTV", "Som", "Lógica", "Cabeamento", "Tomadas de Uso Específico", "HVAC", "SPDA", "SDAI", "Automação", "Alimentadores", "Subestação", "Iluminação Externa", "Telefonia", "Solar", "Média Tensão", "Mapa Chave/Situação", "Outros"];
-assert.deepEqual(api.obterFasesDoProjeto("Todos"), ["Link", "Plotagem", "Assinaturas", "Fiscalização", "Outros"]);
+assert.deepEqual(api.obterFasesDoProjeto("Todos"), ["Link", "Plotagem", "Assinaturas", "Fiscalização", "ART", "Demanda", "Outros"]);
 ["Link", "Plotagem", "Assinaturas", "Fiscalização"].forEach((fase) => {
   assert.deepEqual(api.obterItensDoProjetoFase("Todos", fase), disciplinasTodos);
+});
+["ART", "Demanda"].forEach((fase) => {
+  assert.deepEqual(api.obterItensDoProjetoFase("Todos", fase), ["Outros"]);
 });
 
 assert.deepEqual(api.obterFasesDoProjeto("CFTV"), ["Estudos", "Lançamento", "Distribuição", "Circuitos", "Plotagem", "Compatibilização", "Documentos", "Fiscalização", "Outros"]);

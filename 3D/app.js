@@ -1,25 +1,5 @@
-// Bootstrap mínimo: autentica antes de baixar qualquer implementação do visualizador.
-const AUTH_TIMEOUT_MS = 4000;
-
-async function checkAuthentication() {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
-    try {
-        const response = await fetch("/api/auth", {
-            credentials: "same-origin",
-            signal: controller.signal,
-            headers: { Accept: "application/json" }
-        });
-        if (!response.ok) return null;
-        const payload = await response.json();
-        return payload?.user || null;
-    } catch (error) {
-        console.warn("Autenticação indisponível; iniciando visualização pública segura.", error);
-        return null;
-    } finally {
-        clearTimeout(timeout);
-    }
-}
+// Bootstrap mínimo: valida o cookie HttpOnly antes de baixar o viewer autenticado.
+import { getViewerSession } from "./viewer/core/auth-session.js";
 
 function loadClassicScript(src) {
     return new Promise((resolve, reject) => {
@@ -32,7 +12,10 @@ function loadClassicScript(src) {
 }
 
 async function start() {
-    const user = await checkAuthentication();
+    const user = await getViewerSession().catch((error) => {
+        console.warn("Autenticação indisponível; iniciando visualização pública segura.", error);
+        return null;
+    });
     if (!user) {
         const { startPublicViewer } = await import("./viewer/viewer-public.js");
         startPublicViewer();

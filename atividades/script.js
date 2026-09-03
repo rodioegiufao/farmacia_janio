@@ -12,6 +12,8 @@ const {
   obterLabelItemDashboard,
   ordenarTopHorasDashboard
 } = globalThis.DASHBOARD_CLASSIFICACAO || {};
+const { obterIntervaloAtividade, calcularHorasAtividade, calcularHorasTrabalhadas, formatarHoras } = globalThis.ATIVIDADE_TEMPO;
+const atividadesApi = globalThis.ATIVIDADES_API;
 const colaboradores = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const prioridades = ["P0", "P1", "P2", "P3"];
 const plannerStatusLista = ["Não iniciado", "Em andamento", "Concluído", "Atrasado", "Pausado"];
@@ -1499,11 +1501,7 @@ function limparFormularioSemanal() {
 }
 
 async function apiRequestSemanal(method, atividadeSemanal) {
-  return fetch(API_SEMANA_URL, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(atividadeSemanal)
-  }).then(validarResposta);
+  return atividadesApi.request(API_SEMANA_URL, { method, body: atividadeSemanal });
 }
 
 function setFormSemanalDisabled(disabled) {
@@ -2470,25 +2468,11 @@ async function carregarAtividades() {
 }
 
 async function apiRequest(method, atividade) {
-  return fetch(API_URL, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(atividade)
-  }).then(validarResposta);
+  return atividadesApi.request(API_URL, { method, body: atividade });
 }
 
 async function validarResposta(response) {
-  const contentType = response.headers.get("content-type") || "";
-  let data = null;
-  if (contentType.includes("application/json")) data = await response.json().catch(() => null);
-  else {
-    const texto = await response.text();
-    data = texto ? { mensagem: texto } : null;
-  }
-  if (!response.ok) {
-    throw new Error(data?.mensagem || data?.message || data?.erro || data?.error || `Erro HTTP ${response.status}`);
-  }
-  return data;
+  return atividadesApi.parseResponse(response);
 }
 
 function setFormDisabled(disabled) {
@@ -2509,31 +2493,6 @@ function escapeHtml(valor) {
     "'": "&#39;",
     '"': "&quot;"
   })[caractere]);
-}
-function obterIntervaloAtividade(atividade) {
-  if (!atividade.dataInicio || !atividade.horaInicio || !atividade.dataTermino || !atividade.horaTermino) return null;
-
-  const inicio = new Date(`${atividade.dataInicio}T${atividade.horaInicio}`);
-  const fim = new Date(`${atividade.dataTermino}T${atividade.horaTermino}`);
-  if (Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime()) || fim <= inicio) return null;
-
-  return { inicio, fim };
-}
-
-function calcularHorasAtividade(atividade) {
-  if (atividade?.consolidada && Number.isFinite(Number(atividade.horasConsolidadas))) return Number(atividade.horasConsolidadas);
-  const intervalo = obterIntervaloAtividade(atividade);
-  if (!intervalo) return 0;
-  return (intervalo.fim - intervalo.inicio) / 36e5;
-}
-
-function calcularHorasTrabalhadas(lista) {
-  return lista.reduce((total, atividade) => total + calcularHorasAtividade(atividade), 0);
-}
-
-function formatarHoras(horas) {
-  const horasSeguras = Number.isFinite(horas) ? horas : 0;
-  return `${horasSeguras.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}h`;
 }
 
 function encontrarConflitoHorario(atividade, lista) {

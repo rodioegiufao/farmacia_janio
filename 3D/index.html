@@ -173,18 +173,9 @@
 <body>
     <main class="selector-card" aria-labelledby="tituloPagina">
         <h1 id="tituloPagina">Visualizador 3D</h1>
-        <p class="subtitle">Informe a senha para liberar o acesso à seleção de projetos.</p>
+        <p class="subtitle">A seleção de projetos utiliza a sessão segura do sistema.</p>
 
         <div class="grid">
-            <section id="accessPanel" class="access-panel" aria-labelledby="tituloAcesso">
-                <h2 id="tituloAcesso">Acesso inicial</h2>
-                <div class="inline-controls">
-                    <input id="accessPassword" type="password" placeholder="Digite a senha" autocomplete="current-password" />
-                    <button id="unlockAccess" type="button">Entrar</button>
-                </div>
-                <p id="accessMessage" class="message" aria-live="polite"></p>
-            </section>
-
             <section class="section hidden" id="projectSection" aria-labelledby="tituloEscolha">
                 <h2 id="tituloEscolha">Escolha o tipo de projeto</h2>
                 <p class="helper-text">Depois de liberar o acesso, escolha entre projetos públicos e privados.</p>
@@ -206,8 +197,6 @@
     </main>
 
     <script>
-        const ACCESS_PASSWORD = "ribeiro2026";
-
         const PUBLIC_PROJECTS = [
             { label: "Escola Canaã", href: "/3D/esc_canaa.html" },
             { label: "sebrae-rr", href: "/3D/sebrae-rr.html" },
@@ -225,10 +214,6 @@
 
         const selectProjeto = document.getElementById("pagina3d");
         const botaoIr = document.getElementById("irProjeto");
-        const inputSenha = document.getElementById("accessPassword");
-        const botaoDesbloquear = document.getElementById("unlockAccess");
-        const mensagemAcesso = document.getElementById("accessMessage");
-        const accessPanel = document.getElementById("accessPanel");
         const projectSection = document.getElementById("projectSection");
         const btnPublico = document.getElementById("btnPublico");
         const btnPrivado = document.getElementById("btnPrivado");
@@ -260,18 +245,12 @@
             botaoIr.textContent = "Abrir projeto";
         }
 
-        function setAccessMessage(text, isError = false) {
-            mensagemAcesso.textContent = text;
-            mensagemAcesso.className = `message ${text ? (isError ? "error" : "success") : ""}`;
-        }
-
         function updateProjectTypeButtons() {
             btnPublico.classList.toggle("active", selectedType === "public");
             btnPrivado.classList.toggle("active", selectedType === "private");
         }
 
         function updateAccessState() {
-            accessPanel.classList.toggle("hidden", accessUnlocked);
             projectSection.classList.toggle("hidden", !accessUnlocked);
             renderSelectOptions();
             updateProjectTypeButtons();
@@ -280,31 +259,20 @@
         async function unlockForAuthenticatedUser() {
             try {
                 const response = await fetch("/api/auth", { credentials: "same-origin", headers: { Accept: "application/json" } });
-                if (!response.ok) return;
-                const user = (await response.json())?.user;
-                if (!user || !["admin", "colaborador", "cliente"].includes(user.perfil)) return;
+                const user = response.ok ? (await response.json())?.user : null;
+                if (!user || !["admin", "colaborador", "cliente"].includes(user.perfil)) {
+                    const redirect = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+                    window.location.replace(`/?login=necessario&redirect=${encodeURIComponent(redirect)}`);
+                    return;
+                }
                 accessUnlocked = true;
                 authenticatedModelUpload.classList.remove("hidden");
                 updateAccessState();
             } catch (_error) {
-                // Visitantes preservam o gate público legado quando a autenticação não estiver disponível.
+                const redirect = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+                window.location.replace(`/?login=necessario&redirect=${encodeURIComponent(redirect)}`);
             }
         }
-
-        botaoDesbloquear.addEventListener("click", () => {
-            const password = inputSenha.value.trim();
-            if (password === ACCESS_PASSWORD) {
-                accessUnlocked = true;
-                inputSenha.value = "";
-                setAccessMessage("Acesso liberado. Agora escolha o tipo de projeto.");
-                updateAccessState();
-                return;
-            }
-            setAccessMessage("Senha incorreta. Tente novamente.", true);
-            inputSenha.focus();
-            inputSenha.select();
-});
-
         btnPublico.addEventListener("click", () => {
             selectedType = "public";
             updateProjectTypeButtons();
@@ -316,13 +284,6 @@
             selectedType = "private";
             updateProjectTypeButtons();
             renderSelectOptions();
-        });
-
-        inputSenha.addEventListener("keydown", (event) => {
-            if (event.key === "Enter") {
-                event.preventDefault();
-                botaoDesbloquear.click();
-            }
         });
 
         botaoIr.addEventListener("click", () => {

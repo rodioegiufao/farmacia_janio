@@ -33,8 +33,8 @@ async function loadAssociaUnitsFromExcel(...args) {
     return (await getExcelFeature()).loadAssociaUnitsFromExcel(...args);
 }
 import { setupEletrodutoAssociationExportShortcut } from "../eletroduto-association-export.js";
-import { createUserAnnotationsController } from "../annotations.js";
 import { getProjectConfig, hasProjectConfig } from "./project-config.js";
+import { getViewerPermissions } from "./core/viewer-permissions.js";
 
 const viewerUser = window.__VIEWER_AUTH_USER__;
 const isClientProfile = viewerUser?.perfil === "cliente";
@@ -50,8 +50,6 @@ let lastPickedEntity = null; // NOVO: Variável para rastrear a entidade selecio
 let lastSelectedEntity = null; // NOVO: Guarda a entidade selecionada pelo duplo clique
 let lastCollisionResults = [];
 let lastCollisionModelId = null;
-const ACCESS_PASSWORD = "ribeiro2026";
-const ACCESS_STORAGE_KEY = "farmacia_access_granted";
 const PERFORMANCE_MODE_STORAGE_KEY = "viewer_performance_mode_enabled";
 let explicitLinearMaterials = new Set();
 let explicitLinearMaterialsLoadPromise = null;
@@ -355,79 +353,6 @@ function injectMeasurementShortcutHelp() {
     generalHelpList.appendChild(screenshotShortcutItem);
     generalHelpList.appendChild(eletrodutoShortcutItem);
 }
-function setupAccessGate() {
-    if (!accessGate || !accessForm || !accessInput) {
-        return;
-    }
-
-    const modelSelectionOverlay = document.getElementById("modelSelection");
-    const accessToggleButton = document.getElementById("accessGateToggle");
-    
-    if (window.__VIEWER_AUTH_USER__) {
-        accessGate.hidden = true;
-        if (modelSelectionOverlay) modelSelectionOverlay.hidden = false;
-        return;
-    }
-
-    if (sessionStorage.getItem(ACCESS_STORAGE_KEY) === "true") {
-        accessGate.hidden = true;
-        if (modelSelectionOverlay) {
-            modelSelectionOverlay.hidden = false;
-        }
-        return;
-    }
-
-    accessGate.hidden = false;
-    if (modelSelectionOverlay) {
-        modelSelectionOverlay.hidden = true;
-    }
-    accessInput.focus();
-
-    accessInput.addEventListener("input", () => {
-        setAccessMessage("");
-    });
-
-    if (accessToggleButton) {
-        accessToggleButton.addEventListener("click", () => {
-            const isVisible = accessInput.type === "text";
-            accessInput.type = isVisible ? "password" : "text";
-            accessToggleButton.classList.toggle("is-visible", !isVisible);
-            accessToggleButton.setAttribute("aria-pressed", (!isVisible).toString());
-            accessToggleButton.setAttribute("aria-label", !isVisible ? "Ocultar senha" : "Mostrar senha");
-            accessInput.focus();
-        });
-    }
-
-    accessForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-
-        const password = accessInput.value.trim();
-
-        if (password === ACCESS_PASSWORD) {
-            sessionStorage.setItem(ACCESS_STORAGE_KEY, "true");
-            accessGate.hidden = true;
-            accessInput.value = "";
-            setAccessMessage("");
-            if (modelSelectionOverlay) {
-                modelSelectionOverlay.hidden = false;
-            }
-            return;
-        }
-
-        setAccessMessage("Senha incorreta. Tente novamente.", true);
-        accessInput.focus();
-        accessInput.select();
-    });
-}
-
-function setAccessMessage(message, isError = false) {
-    if (!accessMessage) {
-        return;
-    }
-
-    accessMessage.textContent = message;
-    accessMessage.style.color = isError ? "#ff9b9b" : "#b4f5c2";
-}
 function setupTransformPanelControls() {
     if (!transformPanel || !transformPanelToggleButton || !closeTransformPanelButton) {
         return;
@@ -511,11 +436,6 @@ let materialsSearchQuery = "";
 let collisionFeatureAllowed = false;
 let materialsFeatureAllowed = false;
 let transformFeatureAllowed = false;
-const VIEWER_PROFILE_PERMISSIONS = Object.freeze({
-    admin: Object.freeze({ collision: true, materials: true, transform: true }),
-    colaborador: Object.freeze({ collision: true, materials: true, transform: true }),
-    cliente: Object.freeze({ collision: false, materials: false, transform: false })
-});
 let activeMaterialFilter = null;
 let webBudgetPanel = null;
 let webBudgetRowsContainer = null;
@@ -534,10 +454,6 @@ const MODEL_LOAD_CONCURRENCY = 2;
 const originalTransforms = new Map();
 let currentModelTransforms = {};
 
-const accessGate = document.getElementById("accessGate");
-const accessForm = document.getElementById("accessGateForm");
-const accessInput = document.getElementById("accessGatePassword");
-const accessMessage = document.getElementById("accessGateMessage");
 const helpPanel = document.getElementById("helpPanel");
 const helpPanelToggleButton = document.getElementById("btnHelp");
 const closeHelpPanelButton = document.getElementById("closeHelpPanel");
@@ -624,8 +540,6 @@ const budgetTableBody = document.getElementById("budgetTableBody");
 const budgetTableLoadedProjects = new Set();
 const shareUploadPanel = document.getElementById("shareUploadPanel");
 
-
-setupAccessGate();
 setupHelpPanel();
 setupRestrictedViewerFeaturesAccessGate();
 if (!isClientProfile) {
@@ -2579,17 +2493,6 @@ function setTransformFeatureAccess(isAllowed) {
     if (!transformFeatureAllowed) {
         hidePanelElement(transformPanel, transformPanelToggleButton);
     }
-}
-
-function getViewerPermissions(user) {
-    const profile = typeof user?.perfil === "string" ? user.perfil.trim().toLowerCase() : "";
-    const permissions = VIEWER_PROFILE_PERMISSIONS[profile];
-
-    return {
-        canUseCollision: Boolean(permissions?.collision),
-        canUseMaterials: Boolean(permissions?.materials),
-        canTransformModels: Boolean(permissions?.transform)
-    };
 }
 
 function updateRestrictedFeatureHelp() {

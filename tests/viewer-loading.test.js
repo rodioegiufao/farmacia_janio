@@ -11,8 +11,8 @@ const authenticated = read("3D/viewer/viewer-authenticated.js");
 const measurementsFeature = read("3D/viewer/features/measurements.js");
 const annotationsFeature = read("3D/viewer/features/annotations.js");
 
-assert.match(bootstrap, /fetch\("\/api\/auth"/);
-assert.ok(bootstrap.indexOf("/api/auth") < bootstrap.indexOf("viewer-authenticated.js"));
+assert.match(bootstrap, /getViewerSession\(\)/);
+assert.ok(bootstrap.indexOf("getViewerSession") < bootstrap.indexOf("viewer-authenticated.js"));
 assert.match(publicViewer, /class="public-viewer-login"/);
 assert.match(publicViewer, /class="public-login-modal"/);
 assert.match(publicViewer, /method: "POST"/);
@@ -34,6 +34,8 @@ assert.match(authenticated, /const explorerLoadedTabs = new Set\(\)/);
 assert.match(authenticated, /explorerLoadedTabs\.clear\(\)/);
 assert.match(measurementsFeature, /new AngleMeasurementsPlugin/);
 assert.match(annotationsFeature, /createUserAnnotationsController/);
+assert.doesNotMatch(authenticated, /ACCESS_PASSWORD|accessGatePassword|farmacia_access_granted/);
+assert.ok(!fs.existsSync(path.join(root, "3D/annotations.js")), "implementação legada de annotations deve ser removida");
 
 for (const html of fs.readdirSync(path.join(root, "3D")).filter((name) => name.endsWith(".html"))) {
     const contents = read(`3D/${html}`);

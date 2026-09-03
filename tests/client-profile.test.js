@@ -38,8 +38,8 @@ async function main() {
   const app = fs.readFileSync("3D/app.js", "utf8");
   assert.match(app, /window\.__VIEWER_AUTH_USER__ = user[\s\S]*viewer-authenticated\.js/);
   const authenticatedViewer = fs.readFileSync("3D/viewer/viewer-authenticated.js", "utf8");
-  assert.match(authenticatedViewer, /if \(window\.__VIEWER_AUTH_USER__\)/);
-  assert.match(authenticatedViewer, /const VIEWER_PROFILE_PERMISSIONS = Object\.freeze\(\{[\s\S]*cliente: Object\.freeze\(\{ collision: false, materials: false, transform: false \}\)/);
+  const viewerPermissions = fs.readFileSync("3D/viewer/core/viewer-permissions.js", "utf8");
+  assert.match(viewerPermissions, /cliente: Object\.freeze\(\{ collision: false, materials: false, transform: false \}\)/);
   assert.match(authenticatedViewer, /const user = window\.__VIEWER_AUTH_USER__ \|\| await fetchViewerUser\(\)/, "deve reutilizar o usuário autenticado antes do fallback");
   assert.match(authenticatedViewer, /function applyViewerProfilePermissions\(user\)[\s\S]*setCollisionFeatureAccess\(permissions\.canUseCollision\)[\s\S]*setMaterialsFeatureAccess\(permissions\.canUseMaterials\)[\s\S]*setTransformFeatureAccess\(permissions\.canTransformModels\)/);
   assert.match(authenticatedViewer, /function applyTransformFromUI\(\) \{\s*if \(!transformFeatureAllowed \|\| !transformModelSelect\)/);

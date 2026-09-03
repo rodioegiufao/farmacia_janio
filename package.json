@@ -10,7 +10,9 @@
     "test:system": "node tests/sistema.test.js",
     "test:client-profile": "node tests/client-profile.test.js",
     "test:carimbo": "node carimbo/js/pdf-processor.test.js",
-    "test": "npm run check && npm run test:clash && npm run test:viewer && npm run test:project-config && npm run test:materials && npm run test:client-profile && npm run test:system && npm run test:carimbo",
+    "test:security": "node tests/security-viewer.test.js",
+    "test:activities": "node tests/atividade-tempo.test.js && node atividades/fase-item.test.js",
+    "test": "npm run check && npm run test:security && npm run test:activities && npm run test:clash && npm run test:viewer && npm run test:project-config && npm run test:materials && npm run test:client-profile && npm run test:system && npm run test:carimbo",
     "test:ifc-tools": "node ifc-tools/test.js",
     "test:clash": "node tests/clash-core.test.js"
   },

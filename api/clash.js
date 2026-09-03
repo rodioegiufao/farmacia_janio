@@ -1,4 +1,5 @@
 const ALLOWED_MODES = new Set(["intersection", "collision", "clearance"]);
+const { requireInternalUser } = require("./_auth");
 
 function validIfcReference(value) {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return false;
@@ -15,8 +16,13 @@ function validateSet(set) {
     && (!set.classes || (Array.isArray(set.classes) && set.classes.every((value) => /^Ifc[A-Za-z0-9_]+$/.test(value))));
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido." });
+  try {
+    await requireInternalUser(req);
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ error: error.message });
+  }
   const serviceUrl = process.env.IFC_CLASH_SERVICE_URL;
   if (!serviceUrl) return res.status(503).json({ error: "Serviço IfcClash não configurado (IFC_CLASH_SERVICE_URL)." });
 

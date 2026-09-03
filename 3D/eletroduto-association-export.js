@@ -1,4 +1,4 @@
-import { createOccupancyLimitAnnotationsController } from "./annotations.js";
+import { createOccupancyLimitAnnotationsController } from "./viewer/features/annotations.js";
 
 export function setupEletrodutoAssociationExportShortcut({ viewer, setSearchStatus, requestRenderFrame, focusObjectById } = {}) {
     if (!viewer) {

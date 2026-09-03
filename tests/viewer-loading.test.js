@@ -10,6 +10,7 @@ const core = read("3D/viewer/viewer-core.js");
 const authenticated = read("3D/viewer/viewer-authenticated.js");
 const measurementsFeature = read("3D/viewer/features/measurements.js");
 const annotationsFeature = read("3D/viewer/features/annotations.js");
+const eletrodutoAssociationExport = read("3D/eletroduto-association-export.js");
 
 assert.match(bootstrap, /getViewerSession\(\)/);
 assert.ok(bootstrap.indexOf("getViewerSession") < bootstrap.indexOf("viewer-authenticated.js"));
@@ -34,6 +35,8 @@ assert.match(authenticated, /const explorerLoadedTabs = new Set\(\)/);
 assert.match(authenticated, /explorerLoadedTabs\.clear\(\)/);
 assert.match(measurementsFeature, /new AngleMeasurementsPlugin/);
 assert.match(annotationsFeature, /createUserAnnotationsController/);
+assert.match(eletrodutoAssociationExport, /from "\.\/viewer\/features\/annotations\.js"/);
+assert.ok(fs.existsSync(path.join(root, "3D/viewer/features/annotations.js")), "módulo de anotações deve existir no caminho importado");
 assert.doesNotMatch(authenticated, /ACCESS_PASSWORD|accessGatePassword|farmacia_access_granted/);
 assert.ok(!fs.existsSync(path.join(root, "3D/annotations.js")), "implementação legada de annotations deve ser removida");
 

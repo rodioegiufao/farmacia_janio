@@ -8,6 +8,7 @@ import {
 import { Plan2D } from "./plan2d.js";
 import { Scene3D } from "./scene3d.js";
 import { IFC_EXPORTER_VERSION, exportFamilyToIfc } from "./ifc-exporter.js";
+import { exportToGlb, exportToObj } from "./mesh-exporter.js";
 console.info(`IFC exporter loaded: ${IFC_EXPORTER_VERSION}`);
 const $ = (selector) => document.querySelector(selector);
 const store = new Store();
@@ -68,6 +69,24 @@ function exportIfc(schema) {
     const ifc = exportFamilyToIfc(store.snapshot(), schema);
     download(`${store.state.name}.${schema}.ifc`, ifc, "application/x-step");
     toast(`IFC ${schema} exportado.`);
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+async function exportGltf() {
+  try {
+    const glb = await exportToGlb(store.state);
+    download(`${store.state.name}.glb`, glb, "model/gltf-binary");
+    toast("glTF (.glb) exportado.");
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+function exportObj() {
+  try {
+    const obj = exportToObj(store.state);
+    download(`${store.state.name}.obj`, obj, "text/plain");
+    toast("OBJ exportado.");
   } catch (err) {
     toast(err.message, "error");
   }
@@ -605,6 +624,8 @@ $("#exportJson").onclick = () =>
   );
 $("#exportIfc2x3").onclick = () => exportIfc("IFC2X3");
 $("#exportIfc4").onclick = () => exportIfc("IFC4");
+$("#exportGltf").onclick = () => exportGltf();
+$("#exportObj").onclick = () => exportObj();
 $("#importJson").onchange = async (e) => {
   try {
     const f = e.target.files[0];

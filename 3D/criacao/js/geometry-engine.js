@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { MM_TO_SCENE, evalValue, parameterMap } from "./state.js";
-import { collectVoidCutters } from "./csg-engine.js";
+import { collectVoidCutters, boundsOverlap, subtractGeometry } from "./csg-engine.js";
 
 const EPS = 1e-6;
 export const SOLID_KINDS = ["extrusion", "blend", "revolve", "sweep", "sweptBlend"];
@@ -49,9 +49,9 @@ function shapeFromLoop(points, holes = []) {
   holes.forEach((hole) => shape.holes.push(new THREE.Path(normalizedLoop(hole, false).map(v2))));
   return shape;
 }
-function extrusion(profile, form, params, holes = []) {
+function extrusion(profile, form, params) {
   const depth = Math.max(evalValue(form.depth ?? form.end ?? "Profundidade", params), 1) * MM_TO_SCENE;
-  return new THREE.ExtrudeGeometry(shapeFromLoop(profile.points, [...(profile.holes || []), ...holes]), { depth, bevelEnabled: false });
+  return new THREE.ExtrudeGeometry(shapeFromLoop(profile.points, profile.holes || []), { depth, bevelEnabled: false });
 }
 function blend(profileA, profileB, form, params) {
   const n = Math.max(profileA.points.length, profileB.points.length, 12);
@@ -129,21 +129,20 @@ function loftSections(sections, zs, path = null) {
   for (let i = 1; i < n-1; i++) indices.push(0, i, i+1, (sections.length-1)*n, (sections.length-1)*n+i+1, (sections.length-1)*n+i);
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3)); g.setIndex(indices); g.computeVertexNormals(); return g;
 }
+function buildBaseGeometry(form, p1, p2, path, params) {
+  if (form.kind.includes("Blend") || form.kind === "blend" || form.kind === "voidBlend") return blend(p1, p2, form, params);
+  if (form.kind.includes("Revolve") || form.kind === "revolve" || form.kind === "voidRevolve") return revolve(p1, form, path);
+  if (form.kind.includes("SweptBlend") || form.kind === "sweptBlend" || form.kind === "voidSweptBlend") return sweptBlend(p1, p2, path);
+  if (form.kind.includes("Sweep") || form.kind === "sweep" || form.kind === "voidSweep") return sweep(p1, path);
+  return extrusion(p1, form, params);
+}
 export function buildGeometry(state, form) {
   const params = parameterMap(state), profiles = state.profiles;
   const p1 = profiles.find((p) => p.id === form.profileId);
   const p2 = profiles.find((p) => p.id === form.endProfileId) || p1;
   const path = state.paths?.find((p) => p.id === form.pathId);
   if (!p1) return null;
-  let geometry;
-  if (form.kind.includes("Blend") || form.kind === "blend" || form.kind === "voidBlend") geometry = blend(p1, p2, form, params);
-  else if (form.kind.includes("Revolve") || form.kind === "revolve" || form.kind === "voidRevolve") geometry = revolve(p1, form, path);
-  else if (form.kind.includes("SweptBlend") || form.kind === "sweptBlend" || form.kind === "voidSweptBlend") geometry = sweptBlend(p1, p2, path);
-  else if (form.kind.includes("Sweep") || form.kind === "sweep" || form.kind === "voidSweep") geometry = sweep(p1, path);
-  else {
-    const holes = collectVoidCutters(state, form).map((f) => profiles.find((p) => p.id === f.profileId)?.points).filter(Boolean);
-    geometry = extrusion(p1, form, params, isVoidKind(form.kind) ? [] : holes);
-  }
+  let geometry = buildBaseGeometry(form, p1, p2, path, params);
   geometry = transformGeometryToWorkView(geometry, form.workPlane || p1.view, form.offset);
   const position = form.position || {};
   geometry.translate(
@@ -153,6 +152,22 @@ export function buildGeometry(state, form) {
   );
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
+
+  if (form.operation !== "void") {
+    for (const cutterForm of collectVoidCutters(state, form)) {
+      let cutterGeometry;
+      try {
+        cutterGeometry = buildGeometryCached(state, cutterForm);
+      } catch (err) {
+        console.warn(`Vazio "${cutterForm.name || cutterForm.id}" não pôde ser construído e foi ignorado ao cortar "${form.name || form.id}":`, err);
+        continue;
+      }
+      if (!cutterGeometry || !boundsOverlap(geometry.boundingBox, cutterGeometry.boundingBox)) continue;
+      geometry = subtractGeometry(geometry, cutterGeometry);
+      geometry.computeBoundingBox();
+      geometry.computeBoundingSphere();
+    }
+  }
   return geometry;
 }
 
@@ -166,15 +181,15 @@ export function buildGeometry(state, form) {
 // rebuilding it, letting callers share one instance instead of each building
 // (and disposing) their own throwaway copy.
 const geometryCache = new Map();
-function geometrySignature(state, form) {
+// Everything a single form's own base geometry depends on - reused both for the
+// form itself and (recursively, one level deep) for each void cutter, since a
+// cutter's shape can now be any kind (revolve, sweep, ...), not just an extrusion.
+function formSnapshot(state, form) {
   const profiles = state.profiles;
   const p1 = profiles.find((p) => p.id === form.profileId);
   const p2 = profiles.find((p) => p.id === form.endProfileId);
   const path = state.paths?.find((p) => p.id === form.pathId);
-  const voidCutterPoints = collectVoidCutters(state, form)
-    .map((f) => profiles.find((p) => p.id === f.profileId)?.points)
-    .filter(Boolean);
-  return JSON.stringify({
+  return {
     kind: form.kind,
     depth: form.depth,
     distance: form.distance,
@@ -187,9 +202,11 @@ function geometrySignature(state, form) {
     p1: p1 ? { points: p1.points, holes: p1.holes, view: p1.view } : null,
     p2: p2 ? { points: p2.points, holes: p2.holes, view: p2.view } : null,
     path: path ? path.points : null,
-    voidCutterPoints,
-    params: parameterMap(state),
-  });
+  };
+}
+function geometrySignature(state, form) {
+  const cutters = collectVoidCutters(state, form).map((f) => formSnapshot(state, f));
+  return JSON.stringify({ self: formSnapshot(state, form), cutters, params: parameterMap(state) });
 }
 export function buildGeometryCached(state, form) {
   const signature = geometrySignature(state, form);

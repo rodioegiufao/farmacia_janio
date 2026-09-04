@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { buildGeometry, isVoidKind } from "./geometry-engine.js";
+import { buildGeometryCached, disposeCachedGeometry, isVoidKind } from "./geometry-engine.js";
 import { MM_TO_SCENE } from "./state.js";
 
 const DRAW_TOOL_MODES = {
@@ -302,12 +302,13 @@ export class Scene3D {
     const visibleForms = (this.s.forms || this.s.extrusions || []).filter((e) => e.visible !== false);
     const valid = new Set(visibleForms.map((e) => e.id));
     for (const [id, m] of this.meshes) if (!valid.has(id)) {
-      m.geometry.dispose(); m.material.dispose(); this.scene.remove(m); this.meshes.delete(id);
+      m.material.dispose(); this.scene.remove(m); this.meshes.delete(id);
+      disposeCachedGeometry(id);
     }
     for (const form of visibleForms) {
       let geom = null;
       try {
-        geom = buildGeometry(this.s, form);
+        geom = buildGeometryCached(this.s, form);
         this.geometryErrors.delete(form.id);
       } catch (err) {
         if (!this.geometryErrors.has(form.id)) {
@@ -321,11 +322,14 @@ export class Scene3D {
       let m = this.meshes.get(form.id);
       const isVoid = isVoidKind(form.kind);
       if (!m) {
-        m = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ roughness: 0.72, metalness: 0.02, side: THREE.DoubleSide, transparent: isVoid, opacity: isVoid ? 0.28 : 1 }));
+        m = new THREE.Mesh(geom, new THREE.MeshStandardMaterial({ roughness: 0.72, metalness: 0.02, side: THREE.DoubleSide, transparent: isVoid, opacity: isVoid ? 0.28 : 1 }));
         this.scene.add(m); this.meshes.set(form.id, m);
+      } else if (m.geometry !== geom) {
+        // The cache already disposed the superseded geometry when it rebuilt;
+        // just swap the reference here instead of disposing it again.
+        m.geometry = geom;
       }
       m.userData.id = form.id;
-      m.geometry.dispose(); m.geometry = geom;
       m.material.transparent = isVoid; m.material.opacity = isVoid ? 0.28 : 1; m.material.wireframe = isVoid;
       m.material.color.set(form.id === this.s.selectedElementId ? (isVoid ? 0xff7a2b : 0x54a7e8) : form.material?.color || (isVoid ? 0xf36b2d : 0x4aa3df));
       m.material.emissive.set(form.id === this.s.selectedElementId ? 0x123650 : 0x000000);

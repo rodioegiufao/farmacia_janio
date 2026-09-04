@@ -1,5 +1,5 @@
 import { MM_TO_SCENE } from "./state.js";
-import { buildGeometry, isVoidKind } from "./geometry-engine.js";
+import { buildGeometryCached, isVoidKind } from "./geometry-engine.js";
 
 const DRAW_TOOL_MODES = {
   "polygon-inscribed": "polygon",
@@ -335,7 +335,7 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
   projectedSegments(form) {
     let geom = null;
     try {
-      geom = buildGeometry(this.s, form);
+      geom = buildGeometryCached(this.s, form);
       this.geometryErrors.delete(form.id);
     } catch (err) {
       if (!this.geometryErrors.has(form.id)) {
@@ -359,7 +359,9 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     };
     if (index) for (let i = 0; i < index.length; i += 3) { add(index[i], index[i + 1]); add(index[i + 1], index[i + 2]); add(index[i + 2], index[i]); }
     else for (let i = 0; i < pos.count; i += 3) { add(i, i + 1); add(i + 1, i + 2); add(i + 2, i); }
-    geom.dispose();
+    // `geom` is a shared, cached instance (also used by Scene3D for the live
+    // mesh) - it must not be disposed here; the cache disposes it centrally
+    // once it's actually superseded or the form is deleted.
     return segments;
   }
   drawProjection(form) {

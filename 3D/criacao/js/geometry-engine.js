@@ -155,3 +155,55 @@ export function buildGeometry(state, form) {
   geometry.computeBoundingSphere();
   return geometry;
 }
+
+// Both the 2D projection (plan2d.js, redrawn on every pointermove) and the 3D
+// mesh (scene3d.js, resynced on every store emit) call buildGeometry() for
+// every visible form on every frame of an interaction - dragging one element
+// used to rebuild the full extrusion/lathe/loft of every *other* form too.
+// This cache keys a form's last-built geometry to a signature of everything
+// buildGeometry() actually reads, so unrelated forms are skipped entirely and
+// unchanged forms reuse the same THREE.BufferGeometry instance instead of
+// rebuilding it, letting callers share one instance instead of each building
+// (and disposing) their own throwaway copy.
+const geometryCache = new Map();
+function geometrySignature(state, form) {
+  const profiles = state.profiles;
+  const p1 = profiles.find((p) => p.id === form.profileId);
+  const p2 = profiles.find((p) => p.id === form.endProfileId);
+  const path = state.paths?.find((p) => p.id === form.pathId);
+  const voidCutterPoints = collectVoidCutters(state, form)
+    .map((f) => profiles.find((p) => p.id === f.profileId)?.points)
+    .filter(Boolean);
+  return JSON.stringify({
+    kind: form.kind,
+    depth: form.depth,
+    distance: form.distance,
+    offset: form.offset,
+    workPlane: form.workPlane,
+    startAngle: form.startAngle,
+    endAngle: form.endAngle,
+    segments: form.segments,
+    position: form.position,
+    p1: p1 ? { points: p1.points, holes: p1.holes, view: p1.view } : null,
+    p2: p2 ? { points: p2.points, holes: p2.holes, view: p2.view } : null,
+    path: path ? path.points : null,
+    voidCutterPoints,
+    params: parameterMap(state),
+  });
+}
+export function buildGeometryCached(state, form) {
+  const signature = geometrySignature(state, form);
+  const cached = geometryCache.get(form.id);
+  if (cached && cached.signature === signature) return cached.geometry;
+  const geometry = buildGeometry(state, form);
+  if (cached) cached.geometry?.dispose();
+  if (geometry) geometryCache.set(form.id, { signature, geometry });
+  else geometryCache.delete(form.id);
+  return geometry;
+}
+export function disposeCachedGeometry(formId) {
+  const cached = geometryCache.get(formId);
+  if (!cached) return;
+  cached.geometry?.dispose();
+  geometryCache.delete(formId);
+}

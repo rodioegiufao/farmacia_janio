@@ -630,6 +630,7 @@ window.addEventListener("keydown", (e) => {
   const edit = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
   if (
     !store.state.creationSession?.active &&
+    store.state.editMode !== "profileEdit" &&
     !edit &&
     (e.key === "Delete" || e.key === "Backspace")
   )

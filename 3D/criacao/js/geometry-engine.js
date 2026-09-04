@@ -65,6 +65,7 @@ function axisPointsFromPath(path) {
   return points.length >= 2 ? [points[0], points[points.length - 1]] : [{ x: 0, y: 0, z: 0 }, { x: 0, y: 1000, z: 0 }];
 }
 function revolve(profile, form, path) {
+  if (!path?.points?.length) throw new Error("Eixo de revolução não definido para esta forma.");
   const [a, b] = axisPointsFromPath(path);
   const axis = new THREE.Vector2(b.x - a.x, b.y - a.y);
   if (axis.lengthSq() < EPS) axis.set(0, 1);
@@ -130,7 +131,7 @@ function loftSections(sections, zs, path = null) {
 }
 export function buildGeometry(state, form) {
   const params = parameterMap(state), profiles = state.profiles;
-  const p1 = profiles.find((p) => p.id === form.profileId) || profiles[0];
+  const p1 = profiles.find((p) => p.id === form.profileId);
   const p2 = profiles.find((p) => p.id === form.endProfileId) || p1;
   const path = state.paths?.find((p) => p.id === form.pathId);
   if (!p1) return null;

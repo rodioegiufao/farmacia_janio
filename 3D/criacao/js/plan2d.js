@@ -25,7 +25,7 @@ const projectionPoint = (view, x, y, z) => {
 };
 export class Plan2D {
   constructor(canvas, store, { onStatus, onError }) {
-Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, onError, scale: 0.7, off: { x: 0, y: 0 }, points: [], completedLoops: [], preview: null, primitiveStart: 0, awaitingLineEndpoint: false, selectedSegment: null, lastTool: null, drag: null, editVertexDrag: null, moveDrag: null, typedDistance: "" });
+Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, onError, scale: 0.7, off: { x: 0, y: 0 }, points: [], completedLoops: [], preview: null, primitiveStart: 0, awaitingLineEndpoint: false, selectedSegment: null, lastTool: null, lastEditingProfileId: null, drag: null, editVertexDrag: null, moveDrag: null, typedDistance: "", geometryErrors: new Set() });
     new ResizeObserver(() => this.resize()).observe(canvas);
     canvas.addEventListener("wheel", (e) => this.wheel(e), { passive: false });
     canvas.addEventListener("pointerdown", (e) => this.down(e));
@@ -34,7 +34,11 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     canvas.addEventListener("contextmenu", (e) => { e.preventDefault(); this.cancelCurrentPrimitive(); });
     window.addEventListener("keydown", (e) => this.key(e));
     store.subscribe((s) => {
-      const previousEditId = this.s?.editingProfileId;
+      // `s` is the Store's single mutable state object, reused (not replaced) across
+      // ordinary updates, so `this.s?.editingProfileId` here would already reflect the
+      // *new* value by the time this listener runs. Track the previously-seen id in a
+      // plain instance field instead - same pattern as `lastTool` below.
+      const previousEditId = this.lastEditingProfileId;
       const previousTool = this.lastTool;
       this.s = s;
       const currentTool = this.activeTool();
@@ -52,6 +56,7 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
         this.preview = null;
         this.awaitingLineEndpoint = false;
       }
+      this.lastEditingProfileId = s.editingProfileId || null;
       this.draw();
     });
   }
@@ -75,6 +80,7 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || this.s?.view === "three") return;
     if ((e.key === "Delete" || e.key === "Backspace") && this.selectedSegment) {
       e.preventDefault();
+      e.stopImmediatePropagation();
       this.deleteSelectedSegment();
       return;
     }
@@ -327,7 +333,18 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
   }
   drawPoly(points, close, color, selected = false, stroke = null) { const ctx=this.ctx; if(!points.length) return; ctx.beginPath(); points.map((p)=>this.screen(p)).forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); if(close) ctx.closePath(); ctx.fillStyle=color; ctx.strokeStyle=stroke || (selected ? "#0a5fb4" : "#2d4b55"); ctx.lineWidth=selected?3:2; if(close) ctx.fill(); ctx.stroke(); }
   projectedSegments(form) {
-    const geom = buildGeometry(this.s, form);
+    let geom = null;
+    try {
+      geom = buildGeometry(this.s, form);
+      this.geometryErrors.delete(form.id);
+    } catch (err) {
+      if (!this.geometryErrors.has(form.id)) {
+        this.geometryErrors.add(form.id);
+        console.error(`Falha ao construir geometria de "${form.name || form.id}":`, err);
+        this.onError?.(`Não foi possível gerar a geometria de "${form.name || "forma"}": ${err.message}`);
+      }
+      return [];
+    }
     const pos = geom?.attributes?.position;
     if (!pos) return [];
     const index = geom.index?.array;

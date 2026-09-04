@@ -40,6 +40,7 @@ export class Scene3D {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.target.set(0.25, 0.25, 0);
     this.meshes = new Map();
+    this.geometryErrors = new Set();
     this.points = [];
     this.preview = null;
     this.raycaster = new THREE.Raycaster();
@@ -304,7 +305,18 @@ export class Scene3D {
       m.geometry.dispose(); m.material.dispose(); this.scene.remove(m); this.meshes.delete(id);
     }
     for (const form of visibleForms) {
-      const geom = buildGeometry(this.s, form);
+      let geom = null;
+      try {
+        geom = buildGeometry(this.s, form);
+        this.geometryErrors.delete(form.id);
+      } catch (err) {
+        if (!this.geometryErrors.has(form.id)) {
+          this.geometryErrors.add(form.id);
+          console.error(`Falha ao construir geometria de "${form.name || form.id}":`, err);
+          this.onError(`Não foi possível gerar a geometria de "${form.name || "forma"}": ${err.message}`);
+        }
+        continue;
+      }
       if (!geom) continue;
       let m = this.meshes.get(form.id);
       const isVoid = isVoidKind(form.kind);

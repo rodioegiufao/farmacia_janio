@@ -17,7 +17,9 @@
       "Link": disciplinasProjetoTodos,
       "Plotagem": disciplinasProjetoTodos,
       "Assinaturas": disciplinasProjetoTodos,
-      "Fiscalização": disciplinasProjetoTodos
+      "Fiscalização": disciplinasProjetoTodos,
+      "ART": [],
+      "Demanda": []
     },
     "CFTV": {
       "Estudos": ["ABNT NBR IEC 62676", "ABNT NBR 16264", "ABNT NBR 5410", "ABNT NBR 14565"],

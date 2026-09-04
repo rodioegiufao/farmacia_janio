@@ -181,6 +181,17 @@ export class Store {
     this.emit();
     return item;
   }
+  // Merges pre-built profile/form objects (already carrying their own ids and
+  // full field sets, e.g. from ifc-importer.js) into the current family as one
+  // undoable step - unlike addProfile/addForm, which build a single new item
+  // from scratch and auto-select it.
+  importGeometry(profiles, forms) {
+    if (!profiles.length && !forms.length) return;
+    this.pushHistory();
+    this.state.profiles.push(...profiles);
+    this.state.forms.push(...forms);
+    this.emit();
+  }
   addForm(kind, options = {}) {
     const solid = options.operation ? options.operation === "solid" : !String(kind).startsWith("void");
     const profile = this.state.profiles.find((p) => p.id === (options.profileId || this.state.selectedElementId)) || this.state.profiles[0];

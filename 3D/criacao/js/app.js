@@ -638,6 +638,36 @@ $("#importJson").onchange = async (e) => {
     e.target.value = "";
   }
 };
+$("#importIfc").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    toast("Lendo IFC…");
+    const { importIfc, toStoreGeometry } = await import("./ifc-importer.js");
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    const result = await importIfc(bytes);
+    scene3d.setReferenceGroup(result.referenceGroup);
+    $("#clearIfcReference").classList.remove("hidden");
+    const { profiles, forms } = toStoreGeometry(result.reconstructed);
+    store.importGeometry(profiles, forms);
+    const { totalProducts, reconstructedCount } = result.stats;
+    const referenceOnly = totalProducts - reconstructedCount;
+    toast(
+      reconstructedCount
+        ? `IFC carregado: ${reconstructedCount} forma(s) reconstruída(s) como perfis editáveis${referenceOnly ? `, ${referenceOnly} exibida(s) só como referência visual` : ""}.`
+        : `IFC carregado como referência visual (${totalProducts} elemento(s)) — nenhuma forma pôde ser reconstruída como editável.`,
+    );
+  } catch (err) {
+    console.error(err);
+    toast(`Falha ao importar IFC: ${err.message}`, "error");
+  } finally {
+    e.target.value = "";
+  }
+};
+$("#clearIfcReference").onclick = () => {
+  scene3d.setReferenceGroup(null);
+  $("#clearIfcReference").classList.add("hidden");
+};
 window.addEventListener("keydown", (e) => {
   const edit = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
   if (

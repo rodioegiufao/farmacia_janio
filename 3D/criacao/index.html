@@ -32,7 +32,14 @@
                 type="file"
                 accept="application/json,.json"
             /></label>
-            <button id="exportJson">Exportar JSON</button
+            <label class="button file"
+              >Importar IFC<input
+                id="importIfc"
+                type="file"
+                accept=".ifc"
+            /></label>
+            <button id="clearIfcReference" class="hidden">Remover referência IFC</button
+            ><button id="exportJson">Exportar JSON</button
             ><button id="exportIfc2x3">Exportar IFC2x3</button
             ><button id="exportIfc4">Exportar IFC4</button
             ><button id="exportGltf">Exportar glTF</button

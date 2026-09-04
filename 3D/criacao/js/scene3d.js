@@ -42,6 +42,7 @@ export class Scene3D {
     this.viewCubeStage = null;
     this.moveDrag = null;
     this.typedDistance = "";
+    this.referenceGroup = null;
     this.init();
     this.initViewCube();
     new ResizeObserver(() => this.resize()).observe(canvas);
@@ -65,6 +66,25 @@ export class Scene3D {
     this.scene.add(new THREE.GridHelper(2, 20, 0x8aa0a0, 0xd2dddd));
     this.scene.add(new THREE.AxesHelper(0.5));
     this.scene.add(this.draftLine);
+  }
+  // Shows imported-IFC geometry as a non-editable, non-store-tracked visual
+  // backdrop (kept out of Store state entirely - it's a tracing aid, not
+  // family data, so it doesn't participate in undo/redo or JSON export).
+  // Pass `null` to remove it.
+  setReferenceGroup(group) {
+    if (this.referenceGroup) {
+      this.scene.remove(this.referenceGroup);
+      const disposedMaterials = new Set();
+      this.referenceGroup.traverse((obj) => {
+        obj.geometry?.dispose();
+        if (obj.material && !disposedMaterials.has(obj.material)) {
+          disposedMaterials.add(obj.material);
+          obj.material.dispose();
+        }
+      });
+    }
+    this.referenceGroup = group;
+    if (group) this.scene.add(group);
   }
   initViewCube() {
     const host = document.getElementById("viewCube");

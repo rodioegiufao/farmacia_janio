@@ -316,19 +316,20 @@ function addSurfaceColorStyle(writer, itemId, form) {
 function addExtrusion(writer, state, extrusion, profile, params, context, ownerHistory) {
   const depth = Math.max(evalValue(extrusion.depth, params), 0.001);
   const offset = Number(extrusion.offset) || 0;
-  const points3d = profile.points.map((point) => pointTo3D(point, extrusion.workPlane || profile.view, offset));
-  const min = points3d.reduce(
-    (acc, point) => ({
-      x: Math.min(acc.x, point.x),
-      y: Math.min(acc.y, point.y),
-      z: Math.min(acc.z, point.z),
-    }),
-    { x: Infinity, y: Infinity, z: Infinity },
-  );
-  const elementOrigin = writer.add("IFCCARTESIANPOINT", [`(${num(min.x)},${num(min.y)},${num(min.z)})`]);
+  const position = extrusion.position || {};
+  // The extrusion's world offset (form.position, e.g. from dragging the
+  // element) is the LOCAL PLACEMENT's translation; the solid's own Position
+  // stays at the origin of that same frame. Profile points and the offset
+  // (extrusion start height) are stored raw/unshifted, so this is the only
+  // translation applied - giving each element exactly one placement, not two
+  // stacked ones (which previously double-counted a translation and also
+  // silently dropped form.position from the export entirely).
+  const origin = writer.add("IFCCARTESIANPOINT", [
+    `(${num(Number(position.x) || 0)},${num(Number(position.y) || 0)},${num(Number(position.z) || 0)})`,
+  ]);
   const axisZ = writer.add("IFCDIRECTION", ["(0.,0.,1.)"]);
   const axisX = writer.add("IFCDIRECTION", ["(1.,0.,0.)"]);
-  const placement3d = writer.add("IFCAXIS2PLACEMENT3D", [writer.ref(elementOrigin), writer.ref(axisZ), writer.ref(axisX)]);
+  const placement3d = writer.add("IFCAXIS2PLACEMENT3D", [writer.ref(origin), writer.ref(axisZ), writer.ref(axisX)]);
   const localPlacement = writer.add("IFCLOCALPLACEMENT", [writer.ref(context.storeyPlacement), writer.ref(placement3d)]);
   const pointIds = profile.points.map((point) =>
     writer.add("IFCCARTESIANPOINT", [`(${num(point.x)},${num(point.y)})`]),
@@ -343,7 +344,8 @@ function addExtrusion(writer, state, extrusion, profile, params, context, ownerH
   const profileDef = innerCurves.length
     ? writer.add("IFCARBITRARYPROFILEDEFWITHVOIDS", [".AREA.", optStr(profile.name), writer.ref(polyline), writer.refs(innerCurves)])
     : writer.add("IFCARBITRARYCLOSEDPROFILEDEF", [".AREA.", optStr(profile.name), writer.ref(polyline)]);
-  const solidPlacement = writer.add("IFCAXIS2PLACEMENT3D", [writer.ref(elementOrigin), writer.ref(axisZ), writer.ref(axisX)]);
+  const solidOrigin = writer.add("IFCCARTESIANPOINT", [`(0.,0.,${num(offset)})`]);
+  const solidPlacement = writer.add("IFCAXIS2PLACEMENT3D", [writer.ref(solidOrigin), writer.ref(axisZ), writer.ref(axisX)]);
   const direction = writer.add("IFCDIRECTION", ["(0.,0.,1.)"]);
   const solid = writer.add("IFCEXTRUDEDAREASOLID", [writer.ref(profileDef), writer.ref(solidPlacement), writer.ref(direction), num(depth)]);
   addSurfaceColorStyle(writer, solid, extrusion);

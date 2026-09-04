@@ -1,20 +1,9 @@
 import { MM_TO_SCENE } from "./state.js";
 import { buildGeometryCached, isVoidKind } from "./geometry-engine.js";
+import { makeShapePoints, TWO_POINT_TOOLS, THREE_POINT_TOOLS } from "./draw-primitives.js";
 
 const DRAW_TOOL_MODES = {
-  "polygon-inscribed": "polygon",
-  "polygon-circumscribed": "polygon",
-  "start-end-radius-arc": "arc3",
-  "center-end-arc": "arc3",
-  "tangent-end-arc": "arc3",
-  "fillet-arc": "arc3",
-  spline: "line",
-  ellipse: "circle",
-  "partial-ellipse": "arc3",
   "pick-lines": "select-segment",
-  "pick-walls": "line",
-  "point-element": "line",
-  "pick-supports": "line",
 };
 const drawingMode = (tool) => DRAW_TOOL_MODES[tool] || tool;
 
@@ -75,7 +64,7 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     return { point: q, kind };
   }
   wheel(e) { e.preventDefault(); const b = this.world(e); this.scale = Math.min(3, Math.max(0.15, this.scale * (e.deltaY < 0 ? 1.1 : 0.9))); const a = this.world(e); this.off.x += (a.x - b.x) * this.scale; this.off.y -= (a.y - b.y) * this.scale; this.draw(); }
-  isDrawing() { return this.s?.creationSession?.active || this.s?.editMode === "profileEdit" || ["line", "rectangle", "circle", "polygon", "arc3"].includes(this.activeTool()); }
+  isDrawing() { return this.s?.creationSession?.active || this.s?.editMode === "profileEdit" || ["line", "spline", ...TWO_POINT_TOOLS, ...THREE_POINT_TOOLS].includes(this.activeTool()); }
   key(e) {
     if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || this.s?.view === "three") return;
     if ((e.key === "Delete" || e.key === "Backspace") && this.selectedSegment) {
@@ -128,8 +117,8 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     const tool = this.activeTool();
     const primitiveCount = this.points.length - this.primitiveStart;
     const canKeepComposing = this.s.creationSession?.active || this.s.editMode === "profileEdit";
-    if (["rectangle", "circle", "polygon"].includes(tool) && primitiveCount === 2) return canKeepComposing ? this.commitPrimitive() : this.finish();
-    if (tool === "arc3" && primitiveCount === 3) return canKeepComposing ? this.commitPrimitive() : this.finish();
+    if (TWO_POINT_TOOLS.includes(tool) && primitiveCount === 2) return canKeepComposing ? this.commitPrimitive() : this.finish();
+    if (THREE_POINT_TOOLS.includes(tool) && primitiveCount === 3) return canKeepComposing ? this.commitPrimitive() : this.finish();
     if (this.s.creationSession?.active) this.store.setTemporaryPoints(this.currentDraft());
     this.draw();
   }
@@ -178,8 +167,15 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
       return;
     }
     if (this.points.length > 2 && Math.hypot(point.x - this.points[0].x, point.y - this.points[0].y) < 15 / this.scale) {
-      this.validate(this.points, true);
-      this.completedLoops.push(this.points.map((pt) => ({ ...pt })));
+      // For open-ended tools like "spline" the raw clicked points are only
+      // control points - the actual shape is the smoothed curve through them
+      // (matching the live preview drawn while composing it), so smooth here
+      // too rather than closing the loop with straight segments between raw
+      // clicks. Fixed-point-count tools (rectangle/circle/arc3/...) never
+      // reach this branch - they auto-commit at their point count instead.
+      const closedLoop = this.makePrimitive(this.points, { closed: true }) || this.points;
+      this.validate(closedLoop, true);
+      this.completedLoops.push(closedLoop.map((pt) => ({ ...pt })));
       this.points = [];
       this.preview = null;
       this.primitiveStart = 0;
@@ -192,12 +188,12 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     this.points.push(point); this.preview = null; this.typedDistance = "";
     const primitiveCount = this.points.length - this.primitiveStart;
     const canKeepComposing = this.s.creationSession?.active || this.s.editMode === "profileEdit";
-    if (["rectangle", "circle", "polygon"].includes(tool) && primitiveCount === 2) {
+    if (TWO_POINT_TOOLS.includes(tool) && primitiveCount === 2) {
       if (canKeepComposing) this.commitPrimitive();
       else this.finish();
       return;
     }
-    if (tool === "arc3" && primitiveCount === 3) {
+    if (THREE_POINT_TOOLS.includes(tool) && primitiveCount === 3) {
       if (canKeepComposing) this.commitPrimitive();
       else this.finish();
       return;
@@ -281,10 +277,10 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     return { x: delta.x, y: delta.y, z: 0 };
   }
   currentDraft() { const pts = [...this.points]; if (this.preview) pts.push(this.preview); return this.composePrimitive(pts); }
-  composePrimitive(pts) {
+  composePrimitive(pts, extra = {}) {
     const start = Math.min(this.primitiveStart || 0, pts.length);
     const head = pts.slice(0, start), tail = pts.slice(start);
-    const primitive = this.makePrimitive(tail);
+    const primitive = this.makePrimitive(tail, extra);
     return primitive ? head.concat(primitive) : pts;
   }
   commitPrimitive() {
@@ -308,17 +304,14 @@ Object.assign(this, { c: canvas, ctx: canvas.getContext("2d"), store, onStatus, 
     if (this.s?.creationSession?.active) this.store.setTemporaryPoints(this.currentDraft());
     this.draw();
   }
-  makePrimitive(pts) {
-    const tool = this.activeTool(); if (pts.length < 2) return null; const a = pts[0], b = pts[1];
-    if (tool === "rectangle") return [{ x:a.x,y:a.y },{ x:b.x,y:a.y },{ x:b.x,y:b.y },{ x:a.x,y:b.y }];
-    if (tool === "circle" || tool === "polygon") { const n = tool === "circle" ? 48 : Number(document.querySelector("#polygonSides")?.value) || 6, r = Math.hypot(b.x-a.x,b.y-a.y); return Array.from({ length: Math.max(3,n) }, (_, i) => ({ x: a.x + Math.cos(i/n*Math.PI*2)*r, y: a.y + Math.sin(i/n*Math.PI*2)*r })); }
-    if (tool === "arc3" && pts.length >= 3) return this.arcPoints(pts[0], pts[1], pts[2]);
-    return null;
+  makePrimitive(pts, extra = {}) {
+    const tool = this.activeTool();
+    const sides = Number(document.querySelector("#polygonSides")?.value) || 6;
+    return makeShapePoints(tool, pts, { sides, ...extra });
   }
-  arcPoints(a,b,c){ const d=2*(a.x*(b.y-c.y)+b.x*(c.y-a.y)+c.x*(a.y-b.y)); if(Math.abs(d)<1e-6) return [a,b,c]; const ux=((a.x*a.x+a.y*a.y)*(b.y-c.y)+(b.x*b.x+b.y*b.y)*(c.y-a.y)+(c.x*c.x+c.y*c.y)*(a.y-b.y))/d, uy=((a.x*a.x+a.y*a.y)*(c.x-b.x)+(b.x*b.x+b.y*b.y)*(a.x-c.x)+(c.x*c.x+c.y*c.y)*(b.x-a.x))/d; const aa=Math.atan2(a.y-uy,a.x-ux), cc=Math.atan2(c.y-uy,c.x-ux), bb=Math.atan2(b.y-uy,b.x-ux); let end=cc; const between=(x,s,e)=>s<e?x>s&&x<e:x>s||x<e; if(!between(bb,aa,end)) end += end<aa ? Math.PI*2 : -Math.PI*2; return Array.from({length:24},(_,i)=>{const t=i/23, ang=aa+(end-aa)*t, r=Math.hypot(a.x-ux,a.y-uy); return {x:ux+Math.cos(ang)*r,y:uy+Math.sin(ang)*r};}); }
   validate(points, closed) { if (points.length < (closed ? 3 : 2)) throw new Error(closed ? "Crie ao menos três pontos." : "Crie ao menos dois pontos."); for (let i=1;i<points.length;i++) if (Math.hypot(points[i].x-points[i-1].x, points[i].y-points[i-1].y) < 1e-6) throw new Error("Remova pontos consecutivos duplicados."); if (closed) for (let i=0;i<points.length;i++) for (let j=i+1;j<points.length;j++) { if (Math.abs(i-j)<2 || (i===0 && j===points.length-1)) continue; if (this.intersects(points[i], points[(i+1)%points.length], points[j], points[(j+1)%points.length])) throw new Error("Perfil com auto-interseção."); } }
   intersects(a,b,c,d){ const ccw=(p,q,r)=>(r.y-p.y)*(q.x-p.x)>(q.y-p.y)*(r.x-p.x); return ccw(a,c,d)!==ccw(b,c,d)&&ccw(a,b,c)!==ccw(a,b,d); }
-  finish() { try { const cs = this.s.creationSession, step = cs?.step; const tool = this.activeTool(); let pts = this.composePrimitive(this.points); const closed = !cs || !["path","axis"].includes(step); const loops = closed ? [...this.completedLoops, ...(pts.length ? [pts] : [])] : []; if (closed) { if (!loops.length) throw new Error("Crie ao menos três pontos."); loops.forEach((loop) => this.validate(loop, true)); loops.sort((a, b) => Math.abs(this.loopArea(b)) - Math.abs(this.loopArea(a))); pts = loops[0]; } else this.validate(pts, false); const holes = closed ? loops.slice(1) : []; if (this.s.editMode === "profileEdit") { this.store.finishProfileEdit(pts, holes); this.resetDraft(); this.draw(); return; } if (cs?.active) { const color = cs.operation === "void" ? "#f36b2d" : "#ff00cc"; if (step === "path" || step === "axis") { const path=this.store.addPath(pts.map((p)=>({...p,z:0})),{name: step === "axis" ? "Eixo de revolução" : "Caminho"}); this.store.advanceCreationStep(step === "axis" ? {axisId:path.id,pathId:path.id}:{pathId:path.id}); } else { this.store.addProfile(pts,{holes,name:"Perfil de criação",material:{color}}); try { this.store.advanceCreationStep({profileId:this.store.state.selectedElementId}); } catch (err) { this.onError(err.message); } } } else if (tool === "line") this.store.addPath(pts.map((p)=>({...p,z:0}))); else this.store.addProfile(pts,{holes}); this.resetDraft(); this.draw(); } catch (err) { this.onError(err.message); } }
+  finish() { try { const cs = this.s.creationSession, step = cs?.step; const tool = this.activeTool(); const closed = !cs || !["path","axis"].includes(step); let pts = this.composePrimitive(this.points, { closed }); const loops = closed ? [...this.completedLoops, ...(pts.length ? [pts] : [])] : []; if (closed) { if (!loops.length) throw new Error("Crie ao menos três pontos."); loops.forEach((loop) => this.validate(loop, true)); loops.sort((a, b) => Math.abs(this.loopArea(b)) - Math.abs(this.loopArea(a))); pts = loops[0]; } else this.validate(pts, false); const holes = closed ? loops.slice(1) : []; if (this.s.editMode === "profileEdit") { this.store.finishProfileEdit(pts, holes); this.resetDraft(); this.draw(); return; } if (cs?.active) { const color = cs.operation === "void" ? "#f36b2d" : "#ff00cc"; if (step === "path" || step === "axis") { const path=this.store.addPath(pts.map((p)=>({...p,z:0})),{name: step === "axis" ? "Eixo de revolução" : "Caminho"}); this.store.advanceCreationStep(step === "axis" ? {axisId:path.id,pathId:path.id}:{pathId:path.id}); } else { this.store.addProfile(pts,{holes,name:"Perfil de criação",material:{color}}); try { this.store.advanceCreationStep({profileId:this.store.state.selectedElementId}); } catch (err) { this.onError(err.message); } } } else if (tool === "line") this.store.addPath(pts.map((p)=>({...p,z:0}))); else this.store.addProfile(pts,{holes}); this.resetDraft(); this.draw(); } catch (err) { this.onError(err.message); } }
   loopArea(points) { return points.reduce((sum, p, i) => { const q = points[(i + 1) % points.length]; return sum + p.x * q.y - q.x * p.y; }, 0) / 2; }
   resetDraft() { this.points=[]; this.completedLoops=[]; this.preview=null; this.primitiveStart=0; this.awaitingLineEndpoint=false; this.selectedSegment=null; this.typedDistance=""; }
   cancel() { this.resetDraft(); this.editVertexDrag = null; if (this.s?.editMode === "profileEdit") this.store.cancelProfileEdit(); if (this.s?.creationSession?.active) this.store.cancelCreationSession(); this.draw(); }

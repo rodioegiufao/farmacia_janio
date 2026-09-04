@@ -2,21 +2,14 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { buildGeometryCached, disposeCachedGeometry, isVoidKind } from "./geometry-engine.js";
 import { MM_TO_SCENE } from "./state.js";
+import { makeShapePoints, TWO_POINT_TOOLS, THREE_POINT_TOOLS } from "./draw-primitives.js";
 
+// Segment-selection ("Selecionar linhas") is a 2D-canvas concept (it edits an
+// existing profile's vertex chain via screen-space hit-testing in plan2d.js);
+// the 3D view has no equivalent interaction, so it falls back to plain point
+// placement there instead of doing nothing.
 const DRAW_TOOL_MODES = {
-  "polygon-inscribed": "polygon",
-  "polygon-circumscribed": "polygon",
-  "start-end-radius-arc": "arc3",
-  "center-end-arc": "arc3",
-  "tangent-end-arc": "arc3",
-  "fillet-arc": "arc3",
-  spline: "line",
-  ellipse: "circle",
-  "partial-ellipse": "arc3",
   "pick-lines": "line",
-  "pick-walls": "line",
-  "point-element": "line",
-  "pick-supports": "line",
 };
 
 const drawingMode = (tool) => DRAW_TOOL_MODES[tool] || tool;
@@ -213,8 +206,8 @@ export class Scene3D {
     this.preview = null;
     this.typedDistance = "";
     const tool = this.activeTool();
-    if (["rectangle", "circle", "polygon"].includes(tool) && this.points.length === 2) this.finish();
-    if (tool === "arc3" && this.points.length === 3) this.finish();
+    if (TWO_POINT_TOOLS.includes(tool) && this.points.length === 2) this.finish();
+    if (THREE_POINT_TOOLS.includes(tool) && this.points.length === 3) this.finish();
     this.store.setTemporaryPoints(this.currentDraft());
     this.syncDraft();
   }
@@ -243,8 +236,8 @@ export class Scene3D {
     if (!point) return;
     if (this.points.length > 2 && Math.hypot(point.x - this.points[0].x, point.y - this.points[0].y) < 15) return this.finish();
     this.points.push(point); this.preview = null; this.typedDistance = "";
-    if (["rectangle", "circle", "polygon"].includes(tool) && this.points.length === 2) this.finish();
-    if (tool === "arc3" && this.points.length === 3) this.finish();
+    if (TWO_POINT_TOOLS.includes(tool) && this.points.length === 2) this.finish();
+    if (THREE_POINT_TOOLS.includes(tool) && this.points.length === 3) this.finish();
     this.store.setTemporaryPoints(this.currentDraft());
     this.syncDraft();
   }
@@ -269,14 +262,13 @@ export class Scene3D {
   }
   hasDraft() { return this.points.length > 0 || !!this.preview; }
   currentDraft() { const pts = [...this.points]; if (this.preview) pts.push(this.preview); return this.makePrimitive(pts) || pts; }
-  makePrimitive(pts) {
-    const tool = this.activeTool(); if (pts.length < 2) return null; const a = pts[0], b = pts[1];
-    if (tool === "rectangle") return [{ x:a.x,y:a.y },{ x:b.x,y:a.y },{ x:b.x,y:b.y },{ x:a.x,y:b.y }];
-    if (tool === "circle" || tool === "polygon") { const n = tool === "circle" ? 48 : Number(document.querySelector("#polygonSides")?.value) || 6, r = Math.hypot(b.x-a.x,b.y-a.y); return Array.from({ length: Math.max(3,n) }, (_, i) => ({ x: a.x + Math.cos(i/n*Math.PI*2)*r, y: a.y + Math.sin(i/n*Math.PI*2)*r })); }
-    return null;
+  makePrimitive(pts, extra = {}) {
+    const tool = this.activeTool();
+    const sides = Number(document.querySelector("#polygonSides")?.value) || 6;
+    return makeShapePoints(tool, pts, { sides, ...extra });
   }
   validate(points, closed) { if (points.length < (closed ? 3 : 2)) throw new Error(closed ? "Crie ao menos três pontos." : "Crie ao menos dois pontos."); }
-  finish() { try { const cs = this.s.creationSession, step = cs?.step; if (!cs?.active) return; let pts = this.makePrimitive(this.points) || [...this.points]; const closed = !["path","axis"].includes(step); this.validate(pts, closed); if (step === "path" || step === "axis") { const path=this.store.addPath(pts.map((p)=>({...p,z:0})),{name: step === "axis" ? "Eixo de revolução" : "Caminho"}); this.store.advanceCreationStep(step === "axis" ? {axisId:path.id,pathId:path.id}:{pathId:path.id}); } else { const color = cs.operation === "void" ? "#f36b2d" : "#ff00cc"; this.store.addProfile(pts,{name:"Perfil de criação",material:{color}}); this.store.advanceCreationStep({profileId:this.store.state.selectedElementId}); } this.points=[]; this.preview=null; this.typedDistance=""; this.syncDraft(); } catch (err) { this.onError(err.message); } }
+  finish() { try { const cs = this.s.creationSession, step = cs?.step; if (!cs?.active) return; const closed = !["path","axis"].includes(step); let pts = this.makePrimitive(this.points, { closed }) || [...this.points]; this.validate(pts, closed); if (step === "path" || step === "axis") { const path=this.store.addPath(pts.map((p)=>({...p,z:0})),{name: step === "axis" ? "Eixo de revolução" : "Caminho"}); this.store.advanceCreationStep(step === "axis" ? {axisId:path.id,pathId:path.id}:{pathId:path.id}); } else { const color = cs.operation === "void" ? "#f36b2d" : "#ff00cc"; this.store.addProfile(pts,{name:"Perfil de criação",material:{color}}); this.store.advanceCreationStep({profileId:this.store.state.selectedElementId}); } this.points=[]; this.preview=null; this.typedDistance=""; this.syncDraft(); } catch (err) { this.onError(err.message); } }
   cancel() { this.points = []; this.preview = null; this.typedDistance = ""; this.syncDraft(); }
   cancelCurrentPrimitive() {
     this.points = [];

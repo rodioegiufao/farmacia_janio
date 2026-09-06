@@ -715,6 +715,7 @@ export const PROJECT_CONFIGS = {
             IFC_ARQ: {
                 src: "/3D/psb/XKT-ARQ-PSB.xkt",
                 label: "Arquitetura",
+                transform: {"position":[5.85876,0,-3.7959]},
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
@@ -733,6 +734,7 @@ export const PROJECT_CONFIGS = {
             IFC_EST: {
                 src: "/3D/psb/XKT-EST-PSB.xkt",
                 label: "Estrutura",
+                transform: {"position":[5.85876,0.14,-3.7959]},
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },

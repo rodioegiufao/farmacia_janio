@@ -41,7 +41,8 @@ export const DISCIPLINE_LABELS = {
     "IFC_ALI_220": "Alimentadores 220 V",
     "IFC_ALI_380": "Alimentadores 380 V",
     "IFC_ARQ_SESC_GERAL": "Arquitetura geral",
-    "IFC_TANQUE": "Tanque"
+    "IFC_TANQUE": "Tanque",
+    "IFC_SDO": "Instalações de drenagem oleosa"
 };
 
 // `src` é a única fonte necessária à compatibilização geométrica XKT.
@@ -771,6 +772,12 @@ export const PROJECT_CONFIGS = {
             IFC_SAN: {
                 src: "/3D/psb/XKT-SAN-PSB.xkt",
                 label: "Instalações sanitárias",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SDO: {
+                src: "/3D/psb/XKT-SDO-PSB.xkt",
+                label: "Instalações de drenagem oleosa",
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },

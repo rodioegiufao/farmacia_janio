@@ -40,7 +40,8 @@ export const DISCIPLINE_LABELS = {
     "IFC_ELE_A_220": "Elétrica 220 V — ar-condicionado",
     "IFC_ALI_220": "Alimentadores 220 V",
     "IFC_ALI_380": "Alimentadores 380 V",
-    "IFC_ARQ_SESC_GERAL": "Arquitetura geral"
+    "IFC_ARQ_SESC_GERAL": "Arquitetura geral",
+    "IFC_TANQUE": "Tanque"
 };
 
 // `src` é a única fonte necessária à compatibilização geométrica XKT.
@@ -703,6 +704,77 @@ export const PROJECT_CONFIGS = {
             IFC_IRRI: {
                 src: "/3D/esc_canaa/modelo-19.xkt",
                 label: "Irrigação",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+        }
+    },
+    psb: {
+        name: "Posto São Bento",
+        models: {
+            IFC_ARQ: {
+                src: "/3D/psb/XKT-ARQ-PSB.xkt",
+                label: "Arquitetura",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_CLI: {
+                src: "/3D/psb/XKT-CLI-PSB.xkt",
+                label: "Climatização",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ELE: {
+                src: "/3D/psb/XKT-ELE-PSB.xkt",
+                label: "Instalações elétricas",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST: {
+                src: "/3D/psb/XKT-EST-PSB.xkt",
+                label: "Estrutura",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EXA: {
+                src: "/3D/psb/XKT-EXA-PSB.xkt",
+                label: "Exaustão",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_HID: {
+                src: "/3D/psb/XKT-HID-PSB.xkt",
+                label: "Instalações hidráulicas",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_INC: {
+                src: "/3D/psb/XKT-INC-PSB.xkt",
+                label: "Prevenção e combate a incêndio",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_LOG: {
+                src: "/3D/psb/XKT-LOG-PSB.xkt",
+                label: "Cabeamento estruturado",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_PLU: {
+                src: "/3D/psb/XKT-PLU-PSB.xkt",
+                label: "Águas pluviais",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SAN: {
+                src: "/3D/psb/XKT-SAN-PSB.xkt",
+                label: "Instalações sanitárias",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_TANQUE: {
+                src: "/3D/psb/XKT-TANQUE-PSB.xkt",
+                label: "Tanque",
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },

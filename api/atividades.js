@@ -9,6 +9,20 @@ const SUPABASE_TABLE = "atividades_colaboradores";
 const CLASSIFICACOES_TABLE = "atividade_classificacoes";
 
 const COLABORADORES = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
+const CLASSIFICACOES_BATCH_SIZE = 75;
+
+async function carregarClassificacoesEmLotes(ids, request = supabaseRequest) {
+  const idsValidos = [...new Set((ids || []).filter(Boolean))];
+  const lotes = [];
+  for (let inicio = 0; inicio < idsValidos.length; inicio += CLASSIFICACOES_BATCH_SIZE) {
+    const lote = idsValidos.slice(inicio, inicio + CLASSIFICACOES_BATCH_SIZE);
+    lotes.push(request(
+      CLASSIFICACOES_TABLE,
+      `?atividade_id=in.(${lote.map(encodeURIComponent).join(",")})&select=*`
+    ));
+  }
+  return (await Promise.all(lotes)).flatMap((resultado) => Array.isArray(resultado) ? resultado : []);
+}
 
 function isValidActivityDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return false;
@@ -271,7 +285,7 @@ module.exports = async function atividadesHandler(req, res) {
       const user = await requireInternalUser(req);
       const data = await supabaseRequest(SUPABASE_TABLE, "?select=*&order=criado_em.desc");
       const ids = (data || []).map((a) => a.id);
-      const classificacoes = ids.length ? await supabaseRequest(CLASSIFICACOES_TABLE, `?atividade_id=in.(${ids.map(encodeURIComponent).join(",")})&select=*`) : [];
+      const classificacoes = await carregarClassificacoesEmLotes(ids);
       sendJson(res, 200, Array.isArray(data) ? await Promise.all(data.map((a) => fromDatabaseRecordComObra(a, classificacoes.filter((c) => c.atividade_id === a.id)))) : []);
       return;
     }
@@ -403,6 +417,7 @@ async function sincronizarComResposta(record, user, checklistId) {
 }
 module.exports._test = {
   activityUpdateOptions,
+  carregarClassificacoesEmLotes,
   atividadeEstruturadaEquivalente,
   classificarAtividadeParaFinalizacao,
   conjuntoItensNormalizado,

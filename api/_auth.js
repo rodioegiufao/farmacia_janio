@@ -76,7 +76,17 @@ async function supabaseRequest(table, path = "", options = {}) {
   });
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch (_error) {
+      // Gateways can return plain text (for example, "Bad Request") instead of
+      // PostgREST JSON. Preserve that response so the original HTTP status and
+      // useful message reach the client rather than turning it into a JSON 500.
+      data = { message: text.trim() || "Resposta inválida do Supabase." };
+    }
+  }
 
   if (!response.ok) {
     const message = data?.message || data?.error || "Erro ao acessar o Supabase.";

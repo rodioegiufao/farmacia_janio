@@ -74,6 +74,18 @@ assert.equal(_test.fromDatabaseRecord({}).fase, "");
 assert.equal(_test.fromDatabaseRecord({}).item, "");
 assert.deepEqual(_test.validarClassificacoes({ projeto: "Site", classificacoes: [] }), []);
 assert.throws(() => _test.validarClassificacoes({ projeto: "CFTV", classificacoes: [] }), /Selecione pelo menos/);
+const idsClassificacoes = Array.from({ length: 151 }, (_, indice) => `atividade-${indice}`);
+const chamadasClassificacoes = [];
+const classificacoesEmLotes = await _test.carregarClassificacoesEmLotes(idsClassificacoes, async (tabela, query) => {
+  chamadasClassificacoes.push({ tabela, query });
+  return [{ atividade_id: query.match(/atividade-(\d+)/)[0] }];
+});
+assert.equal(chamadasClassificacoes.length, 3, "consultas extensas devem ser divididas para não exceder o limite da URL");
+assert.equal(chamadasClassificacoes[0].tabela, "atividade_classificacoes");
+assert.equal((chamadasClassificacoes[0].query.match(/atividade-/g) || []).length, 75);
+assert.equal((chamadasClassificacoes[1].query.match(/atividade-/g) || []).length, 75);
+assert.equal((chamadasClassificacoes[2].query.match(/atividade-/g) || []).length, 1);
+assert.equal(classificacoesEmLotes.length, 3);
 const unicaApi = _test.validarClassificacoes({ projeto: "CFTV", dataInicio: "2026-08-20", horaInicio: "08:00", dataTermino: "2026-08-20", horaTermino: "09:29", classificacoes: [{ fase: "Estudos", item: "ABNT NBR 5410", minutosDedicados: 1 }] });
 assert.equal(unicaApi[0].minutosDedicados, 89, "a API deve atribuir toda a duração à classificação única");
 assert.throws(() => _test.validarClassificacoes({ projeto: "CFTV", dataInicio: "2026-08-20", horaInicio: "08:00", dataTermino: "2026-08-20", horaTermino: "10:00", classificacoes: [{ fase: "Estudos", item: "A", minutosDedicados: 50 }, { fase: "Estudos", item: "B", minutosDedicados: 50 }] }), /rateio \(100 min\)/);

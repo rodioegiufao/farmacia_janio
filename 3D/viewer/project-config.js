@@ -153,7 +153,7 @@ export const PROJECT_CONFIGS = {
             IFC_FOT: {
                 src: "/3D/iper/modelo-15.xkt",
                 label: "Sistema fotovoltaico",
-                transform: {"position":[13,94,0,0],"rotation":[0,90,0]},
+                transform: {"position":[0,0,13.94],"rotation":[0,90,0]},
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
@@ -181,7 +181,7 @@ export const PROJECT_CONFIGS = {
             IFC_SPDA: {
                 src: "/3D/iper/modelo-19.xkt",
                 label: "SPDA",
-                transform: {"position":[13,94,0,-0.2],"rotation":[0,90,0]},
+                transform: {"position":[0.2,0,13.94],"rotation":[0,90,0]},
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },

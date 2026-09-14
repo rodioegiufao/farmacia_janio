@@ -47,8 +47,8 @@ function normalizeSupabaseRestUrl(rawUrl) {
 }
 
 function getSupabaseConfig(table) {
-  const url = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = String(process.env.SUPABASE_URL || "").trim();
+  const serviceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
   if (!url || !serviceRoleKey) {
     throw new Error("As variáveis SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY precisam estar configuradas na Vercel.");
@@ -64,16 +64,58 @@ function getSupabaseConfig(table) {
     }
   };
 }
+const RETRYABLE_SUPABASE_STATUS = new Set([502, 503, 504]);
+const SUPABASE_RETRY_DELAYS_MS = [150, 450];
+
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function supabaseError(response, data) {
+  const upstreamMessage = data?.message || data?.error || "Erro ao acessar o Supabase.";
+  const apiKeyFailure = /failed to get api key info/i.test(upstreamMessage);
+  const error = new Error(apiKeyFailure
+    ? "O Supabase recusou a chave da aplicação. Verifique SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY na Vercel e faça um novo deploy."
+    : upstreamMessage);
+
+  // Um gateway indisponível é uma falha temporária do serviço, não uma resposta
+  // inválida enviada pelo navegador. Retornar 503 também permite que proxies e
+  // monitores classifiquem corretamente a indisponibilidade.
+  error.statusCode = RETRYABLE_SUPABASE_STATUS.has(response.status) ? 503 : response.status;
+  error.upstreamStatus = response.status;
+  return error;
+}
 
 async function supabaseRequest(table, path = "", options = {}) {
   const { baseUrl, headers } = getSupabaseConfig(table);
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...options,
-    headers: {
-      ...headers,
-      ...(options.headers || {})
+  const method = String(options.method || "GET").toUpperCase();
+  const retries = method === "GET" || method === "HEAD" ? SUPABASE_RETRY_DELAYS_MS.length : 0;
+
+  let response;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      response = await fetch(`${baseUrl}${path}`, {
+        ...options,
+        headers: {
+          ...headers,
+          ...(options.headers || {})
+        }
+      });
+    } catch (error) {
+      if (attempt === retries) {
+        const unavailable = new Error("Não foi possível conectar ao Supabase. Tente novamente em alguns instantes.");
+        unavailable.statusCode = 503;
+        unavailable.cause = error;
+        throw unavailable;
+      }
+      await wait(SUPABASE_RETRY_DELAYS_MS[attempt]);
+      continue;
     }
-  });
+
+    if (!RETRYABLE_SUPABASE_STATUS.has(response.status) || attempt === retries) break;
+    await response.text(); // libera a conexão antes da nova tentativa
+    await wait(SUPABASE_RETRY_DELAYS_MS[attempt]);
+  }
 
   const text = await response.text();
   let data = null;
@@ -89,12 +131,8 @@ async function supabaseRequest(table, path = "", options = {}) {
   }
 
   if (!response.ok) {
-    const message = data?.message || data?.error || "Erro ao acessar o Supabase.";
-    const error = new Error(message);
-    error.statusCode = response.status;
-    throw error;
+    throw supabaseError(response, data);
   }
-
   return data;
 }
 

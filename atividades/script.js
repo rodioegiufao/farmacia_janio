@@ -1376,6 +1376,7 @@ function agruparAtividadesPorSemana(lista) {
 function criarBlocoSemana(semana, atividadesDaSemana, podeGerenciarAtividadesSemanais) {
   const detalhes = obterDetalhesSemana(semana);
   const ultimaAtualizacao = obterUltimaAtualizacaoSemanal(atividadesDaSemana);
+  const atividadesOrdenadas = ATIVIDADE_SEMANAL_ORDENACAO.ordenarAtividadesSemanais(atividadesDaSemana);
 
   return `
     <article class="weekly-week-card">
@@ -1393,7 +1394,7 @@ function criarBlocoSemana(semana, atividadesDaSemana, podeGerenciarAtividadesSem
         <span><i class="fas fa-clock" aria-hidden="true"></i> Última atualização: ${escapeHtml(ultimaAtualizacao)}</span>
       </div>
       <div class="weekly-activity-list">
-        ${atividadesDaSemana.map((atividadeSemanal) => criarItemAtividadeSemanal(atividadeSemanal, podeGerenciarAtividadesSemanais)).join("")}
+        ${atividadesOrdenadas.map((atividadeSemanal) => criarItemAtividadeSemanal(atividadeSemanal, podeGerenciarAtividadesSemanais)).join("")}
       </div>
     </article>
   `;

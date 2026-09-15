@@ -12,6 +12,7 @@ const arquivos = [
   "atividades/dashboard-classificacao.js",
   "atividades/atividades-api.js",
   "atividades/atividade-tempo.js",
+  "atividades/atividade-semanal-ordenacao.js",
   "atividades/planner-gantt.js",
   "api/_auth.js",
   "api/_obras.js",

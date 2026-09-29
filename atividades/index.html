@@ -636,7 +636,7 @@
   </main>
   <div class="delivery-report-modal" id="relatorioObraModal" hidden>
     <section class="delivery-report-card" role="dialog" aria-modal="true" aria-labelledby="relatorioObraTitulo">
-      <header><div><h2 id="relatorioObraTitulo">Relatório de Entrega da Obra</h2><p>O relatório considera todo o histórico da obra, sem utilizar os filtros do Dashboard.</p></div><button type="button" id="btnFecharRelatorioObra" aria-label="Fechar">&times;</button></header>
+      <header><div><h2 id="relatorioObraTitulo">Relatório de Entrega da Obra</h2><p>Snapshot das atividades reais no período escolhido para esta revisão.</p></div><button type="button" id="btnFecharRelatorioObra" aria-label="Fechar">&times;</button></header>
       <form id="relatorioObraForm">
         <input type="hidden" id="relatorioObraEntregaId">
         <div class="delivery-report-grid">
@@ -644,13 +644,16 @@
           <label>Data da entrega<input type="date" id="relatorioObraData" required></label>
           <fieldset><legend>Tipo da emissão</legend><label><input type="radio" name="relatorioObraTipo" value="entrega_inicial" checked> Entrega inicial</label><label><input type="radio" name="relatorioObraTipo" value="revisao"> Revisão</label></fieldset>
           <label>Revisão geral<input type="text" id="relatorioObraRevisao" value="REV00" required></label>
+          <section class="delivery-period span-2" aria-labelledby="relatorioPeriodoTitulo"><div class="delivery-report-section-title"><h3 id="relatorioPeriodoTitulo">Período desta entrega</h3><button type="button" class="secondary" id="btnPeriodoCompleto">Usar período completo</button></div><div class="delivery-period-fields"><label>Início<input type="date" id="relatorioObraPeriodoInicio" required></label><label>Fim<input type="date" id="relatorioObraPeriodoFim" required></label><button type="button" class="secondary" id="btnAtualizarPeriodo">Atualizar análise</button></div><small id="relatorioObraPeriodoHistorico">Histórico completo da obra: —</small></section>
           <label class="span-2">Link do processo / documentação<input type="url" id="relatorioObraLink" pattern="https?://.*" placeholder="https://..." required></label>
           <label class="span-2">Observações gerais<textarea id="relatorioObraObservacoes" rows="3"></textarea></label>
         </div>
-        <section id="relatorioObraPreview" class="delivery-report-preview" hidden></section>
-        <section class="delivery-report-disciplines" id="relatorioObraDisciplinas" hidden><div class="delivery-report-section-title"><h3>Disciplinas da obra</h3><button type="button" class="secondary" id="btnAplicarRevisaoDisciplinas">Aplicar revisão a todas</button></div><div class="table-wrapper"><table><thead><tr><th>Disciplina</th><th>Emissão</th><th>Revisão</th><th>Horas</th><th>Atividades</th><th>Link opcional</th></tr></thead><tbody id="relatorioObraDisciplinasBody"></tbody></table></div></section>
-        <section id="relatorioObraPendencias" class="delivery-report-checks" hidden></section>
-        <section id="relatorioObraHistorico" class="delivery-report-history" hidden></section>
+        <nav class="delivery-report-tabs" id="relatorioObraTabs" hidden><button type="button" data-tab="resumo" class="active">Resumo</button><button type="button" data-tab="disciplinas">Disciplinas</button><button type="button" data-tab="atividades">Atividades</button><button type="button" data-tab="pendencias">Pendências</button><button type="button" data-tab="historico">Histórico</button></nav>
+        <section id="relatorioObraPreview" data-panel="resumo" class="delivery-report-preview" hidden></section>
+        <section class="delivery-report-disciplines" data-panel="disciplinas" id="relatorioObraDisciplinas" hidden><div class="delivery-report-section-title"><h3>Disciplinas da obra</h3><button type="button" class="secondary" id="btnAplicarRevisaoDisciplinas">Aplicar revisão a todas</button></div><div class="table-wrapper"><table><thead><tr><th>Disciplina</th><th>Emissão</th><th>Revisão</th><th>Horas</th><th>Atividades</th><th>Link opcional</th></tr></thead><tbody id="relatorioObraDisciplinasBody"></tbody></table></div></section>
+        <section class="delivery-report-activities" data-panel="atividades" id="relatorioObraAtividades" hidden><div class="delivery-report-section-title"><h3>Atividades da entrega</h3><span id="relatorioObraAtividadesContagem"></span></div><div class="delivery-activity-filters" role="group" aria-label="Filtrar atividades"><button type="button" class="active" data-activity-filter="todos">Todos</button><button type="button" data-activity-filter="nao-finalizados">Não finalizados</button><button type="button" data-activity-filter="finalizado">Finalizados</button><button type="button" data-activity-filter="em progresso">Em progresso</button><button type="button" data-activity-filter="atrasado">Atrasados</button><button type="button" data-activity-filter="pausado">Pausados</button></div><div class="table-wrapper"><table class="delivery-activities-table"><thead><tr><th>Data</th><th>Colaborador</th><th>Projeto</th><th>Trabalho executado</th><th>Fase / Item</th><th>Horas</th><th>Status</th><th>Ação</th></tr></thead><tbody id="relatorioObraAtividadesBody"></tbody></table></div></section>
+        <section id="relatorioObraPendencias" data-panel="pendencias" class="delivery-report-checks" hidden></section>
+        <section id="relatorioObraHistorico" data-panel="historico" class="delivery-report-history" hidden></section>
         <p id="relatorioObraStatus" role="status" aria-live="polite"></p>
         <footer><button type="button" class="secondary" id="btnCancelarRelatorioObra">Cancelar</button><button type="submit" class="primary" id="btnSalvarGerarRelatorioObra">Salvar entrega e gerar Word</button></footer>
       </form>

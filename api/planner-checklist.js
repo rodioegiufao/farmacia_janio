@@ -6,6 +6,7 @@ const {
   localizarModeloPlanner
 } = require("../atividades/planner-modelos");
 const { agregarAtividadesDosItens, configurarPlannerAutomatico } = require("./_planner-sync");
+const { horasAtividade, obterClassificacoesAtividade } = require("../atividades/classificacoes");
 
 const CHECKLISTS_TABLE = "planner_checklists";
 const ITEMS_TABLE = "planner_checklist_itens";
@@ -130,6 +131,34 @@ function fromDatabaseRecord(record) {
     chaveSincronizacao: record.chave_sincronizacao || "",
     configuracaoAutomaticaConcluida: Boolean(record.configuracao_automatica_concluida)
   };
+  function incorporarAtividadesReais(checklists, atividades) {
+  const saida = (checklists || []).map((c) => ({ ...c, itens: (c.itens || []).map((i) => ({ ...i, atividadesVinculadas: [...(i.atividadesVinculadas || [])] })) }));
+  const vinculadas = new Set(saida.flatMap((c) => c.itens.flatMap((i) => i.atividadesVinculadas.map((a) => String(a.id || "")).filter(Boolean))));
+  const localizarProjeto = (atividade) => saida.find((c) => String(c.obraId) === String(atividade.obra_id || atividade.obraId) && normalizarChavePlanner(c.projeto) === normalizarChavePlanner(atividade.projeto));
+  const criarProjetoVirtual = (atividade) => {
+    const obraId = atividade.obra_id || atividade.obraId || atividade.obra || "sem-obra", projeto = texto(atividade.projeto) || "Sem projeto";
+    const existente = saida.find((c) => c.somenteLeitura && String(c.obraId) === String(obraId) && normalizarChavePlanner(c.projeto) === normalizarChavePlanner(projeto));
+    if (existente) return existente;
+    const virtual = { id: `execucao:${obraId}:${normalizarChavePlanner(projeto)}`, obraId, obra: atividade.obra || "Sem obra", projeto, nomeTarefa: projeto, codigoProjeto: "", origem: "execucao", somenteLeitura: true, itens: [] };
+    saida.push(virtual); return virtual;
+  };
+  const itemNaoVinculado = (checklist, fase = "Atividades não vinculadas") => {
+    let item = checklist.itens.find((i) => i.somenteLeitura && i.etapa === fase);
+    if (!item) { item = { id: `${checklist.id}:nao-vinculadas:${normalizarChavePlanner(fase)}`, etapa: fase, estagio: "Atividades não vinculadas", atividade: "Atividades não vinculadas", texto: "Atividades não vinculadas", somenteLeitura: true, atividadesVinculadas: [] }; checklist.itens.push(item); }
+    return item;
+  };
+  for (const atividade of atividades || []) {
+    if (!atividade?.id || vinculadas.has(String(atividade.id))) continue;
+    const checklist = localizarProjeto(atividade) || criarProjetoVirtual(atividade), classificacoes = obterClassificacoesAtividade(atividade);
+    if (!classificacoes.length) { itemNaoVinculado(checklist).atividadesVinculadas.push({ ...atividade, minutosRateados: horasAtividade(atividade) * 60 }); continue; }
+    for (const classificacao of classificacoes) {
+      const item = checklist.itens.find((i) => normalizarChavePlanner(i.etapa) === normalizarChavePlanner(classificacao.fase) && normalizarChavePlanner(i.estagio || i.atividade) === normalizarChavePlanner(classificacao.item));
+      const destino = item || itemNaoVinculado(checklist, classificacao.fase || "Atividades não vinculadas");
+      destino.atividadesVinculadas.push({ ...atividade, plannerItemId: destino.id, minutosRateados: classificacao.minutosDedicados });
+    }
+  }
+  return saida;
+}
 }
 async function migrarChecklist(record) {
   const modelo = localizarModeloPlanner(record.projeto, record.tipo);
@@ -170,7 +199,13 @@ module.exports = async function plannerChecklistHandler(req, res) {
       const enriched = await enriquecerRegistrosComObras(visiveis);
       const metadados = await agregarAtividadesDosItens(enriched.map((item) => item.id));
       enriched.forEach((checklist) => (checklist.planner_checklist_itens || []).forEach((item) => Object.assign(item, metadados.get(item.id) || {})));
-      return sendJson(res, 200, { modelos: PLANNER_MODELOS, checklists: enriched.map(fromDatabaseRecord) });
+      let checklists = enriched.map(fromDatabaseRecord);
+      const obraIds = [...new Set([obraId, ...checklists.map((c) => c.obraId)].filter(Boolean))];
+      if (obraIds.length) {
+        const atividades = await supabaseRequest("atividades_colaboradores", `?obra_id=in.(${obraIds.map(encodeURIComponent).join(",")})&select=*,atividade_classificacoes(*)`);
+        checklists = incorporarAtividadesReais(checklists, atividades || []);
+      }
+      return sendJson(res, 200, { modelos: PLANNER_MODELOS, checklists });
     }
 
     if (req.method === "POST") {
@@ -275,4 +310,4 @@ module.exports = async function plannerChecklistHandler(req, res) {
     sendJson(res, error.statusCode || 500, { mensagem: error.message || "Erro interno ao processar o Planner." });
   }
 };
-module.exports._test = { requireAdmin };
+module.exports._test = { incorporarAtividadesReais, requireAdmin };

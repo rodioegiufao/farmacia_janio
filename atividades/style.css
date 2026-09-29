@@ -423,7 +423,7 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
 .completed-activities-list ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .completed-activities-list li { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid rgba(99, 179, 237, 0.22); border-radius: 10px; background: rgba(99, 179, 237, 0.08); }
 .completed-activities-list strong { color: var(--text-lighter); line-height: 1.3; }
-.completed-activities-list small { color: var(--text-secondary); line-height: 1.35; }
+.completed-activities-list small { color: var(--text-light); line-height: 1.35; }
 .completed-activities-empty { margin: 0; padding: 16px; }
 .dashboard-empty { grid-column: 1 / -1; border: 1px dashed var(--border-color); border-radius: 12px; }
 
@@ -1047,26 +1047,26 @@ tr:hover td { background: rgba(99, 179, 237, 0.08); }
   padding: 24px;
   border: 1px solid rgba(226, 232, 240, 0.14);
   border-radius: 20px;
-  background: var(--card-bg);
-  color: var(--text-primary);
+  background: var(--bg-card);
+  color: var(--text-light);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
 }
 .profile-modal-card h2 { margin: 0 0 8px; }
-.profile-modal-help { margin: 0 0 18px; color: var(--text-secondary); }
+.profile-modal-help { margin: 0 0 18px; color: var(--text-light); }
 .profile-form { display: grid; gap: 14px; }
 .profile-form label { display: grid; gap: 6px; font-weight: 600; }
-.profile-form small { color: var(--text-secondary); font-weight: 400; }
-.profile-form input { width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); background: var(--input-bg); }
+.profile-form small { color: var(--text-light); font-weight: 400; }
+.profile-form input { width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-light); background: var(--primary-dark); }
 .profile-password-field { position: relative; display: block; }
 .profile-password-field input { padding-right: 44px; }
-.profile-password-toggle { position: absolute; top: 50%; right: 8px; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 999px; color: var(--text-secondary); background: transparent; cursor: pointer; transform: translateY(-50%); }
-.profile-password-toggle:hover, .profile-password-toggle:focus-visible { color: var(--text-primary); background: var(--hover-bg); }
+.profile-password-toggle { position: absolute; top: 50%; right: 8px; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 999px; color: var(--text-light); background: transparent; cursor: pointer; transform: translateY(-50%); }
+.profile-password-toggle:hover, .profile-password-toggle:focus-visible { color: var(--text-light); background: var(--primary-medium); }
 .profile-password-icon { width: 18px; height: 18px; display: block; fill: currentColor; }
 .profile-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
 .profile-modal-actions button, .profile-modal-close { cursor: pointer; }
 .profile-modal-actions button { padding: 10px 14px; border: 0; border-radius: 10px; font-weight: 700; }
 .profile-modal-actions button[type="submit"] { color: #ffffff; background: #2563eb; }
-.profile-modal-close { position: absolute; top: 12px; right: 14px; border: 0; color: var(--text-primary); background: transparent; font-size: 1.6rem; }
+.profile-modal-close { position: absolute; top: 12px; right: 14px; border: 0; color: var(--text-light); background: transparent; font-size: 1.6rem; }
 .profile-modal[hidden] { display: none; }
 
 .dashboard-header { align-items: flex-start; }
@@ -2214,23 +2214,24 @@ label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margi
 .activity-details-row td { padding: 0 14px 16px!important; background: rgba(99,179,237,.035); }.activity-details-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; padding: 16px; border-left: 3px solid var(--accent-light); }.activity-details-grid dl{margin:0}.activity-details-grid dt{margin-top:8px;color:var(--text-muted);font-size:.72rem;font-weight:800;text-transform:uppercase}.activity-details-grid dt:first-child{margin-top:0}.activity-details-grid dd{margin:3px 0 0;overflow-wrap:anywhere}.activity-details-work{grid-column:1/-1}
 @media(max-width:1100px){.recent-activities-list{grid-template-columns:repeat(2,minmax(0,1fr))}.activities-table th:nth-child(2),.activities-table td:nth-child(2){display:none}.activity-details-row td{display:table-cell!important}.activity-details-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){.recent-activities-list{grid-template-columns:1fr}.activities-table{min-width:680px}.activities-table th:nth-child(6),.activity-summary-row td:nth-child(6){display:none}.activity-details-grid{grid-template-columns:1fr}.activity-details-work{grid-column:auto}}
-.report-menu { position: relative; }
-.report-menu-options { position: absolute; z-index: 50; top: calc(100% + 7px); right: 0; min-width: 260px; padding: 6px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--card-bg); box-shadow: 0 14px 35px rgba(0,0,0,.25); }
+.report-menu { position: relative; z-index: 100; }
+.report-menu-options { position: absolute; z-index: 110; top: calc(100% + 7px); right: 0; min-width: 290px; padding: 7px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card); box-shadow: 0 14px 35px rgba(0,0,0,.45); }
 .report-menu-options[hidden] { display: none; }
-.report-menu-options button { display: block; width: 100%; padding: 10px 12px; border: 0; background: transparent; color: var(--text-primary); text-align: left; box-shadow: none; }
-.report-menu-options button:hover { background: rgba(37,99,235,.13); transform: none; }
-.delivery-report-modal { position: fixed; inset: 0; z-index: 2500; display: grid; place-items: center; padding: 18px; background: rgba(0,0,0,.62); }
+.report-menu-options button { display: flex; align-items: center; width: 100%; min-height: 44px; padding: 10px 13px; border: 0; border-radius: 7px; background: var(--bg-card); color: var(--text-light); line-height: 1.35; text-align: left; white-space: normal; box-shadow: none; }
+.report-menu-options button:hover, .report-menu-options button:focus-visible { background: var(--primary-medium); color: #fff; transform: none; outline: 2px solid var(--text-lighter); outline-offset: -2px; }
+.delivery-report-modal { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 18px; background: rgba(0,0,0,.78); overflow: hidden; isolation: isolate; }
 .delivery-report-modal[hidden] { display: none; }
-.delivery-report-card { width: min(1120px, 100%); max-height: calc(100vh - 36px); overflow: auto; border-radius: 16px; background: var(--card-bg); color: var(--text-primary); box-shadow: 0 24px 70px rgba(0,0,0,.4); }
-.delivery-report-card > header, .delivery-report-card footer { display: flex; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--border-color); }
+.delivery-report-card { position: relative; z-index: 2010; display: flex; flex-direction: column; width: min(1240px, 100%); max-height: calc(100vh - 36px); overflow: hidden; border: 1px solid var(--border-color); border-radius: 16px; background: var(--bg-card); color: var(--text-light); box-shadow: 0 24px 70px rgba(0,0,0,.65); }
+.delivery-report-card > header, .delivery-report-card footer { display: flex; flex: 0 0 auto; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--border-color); background: var(--primary-dark); color: var(--text-light); }
 .delivery-report-card > header h2, .delivery-report-card > header p { margin: 0 0 5px; }
 .delivery-report-card > header button { border: 0; background: transparent; color: inherit; font-size: 1.8rem; box-shadow: none; }
-.delivery-report-card form { padding: 22px 24px; }
+.delivery-report-card form { padding: 22px 24px 0; overflow-y: auto; background: var(--bg-card); }
+.delivery-report-card input, .delivery-report-card select, .delivery-report-card textarea { background: var(--primary-dark); color: var(--text-light); border-color: var(--border-color); }
 .delivery-report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .delivery-report-grid .span-2 { grid-column: 1 / -1; }
-.delivery-report-grid fieldset { display: flex; align-items: center; gap: 15px; border: 1px solid var(--border-color); border-radius: 9px; }
+.delivery-report-grid fieldset { display: flex; align-items: center; gap: 15px; border: 1px solid var(--border-color); border-radius: 9px; background: var(--primary-dark); }
 .delivery-report-grid fieldset label { flex-direction: row; }
-.delivery-report-preview, .delivery-report-disciplines, .delivery-report-checks, .delivery-report-history { margin-top: 22px; padding: 18px; border: 1px solid var(--border-color); border-radius: 12px; }
+.delivery-report-preview, .delivery-report-disciplines, .delivery-report-activities, .delivery-report-checks, .delivery-report-history, .delivery-period { margin-top: 22px; padding: 18px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--primary-dark); color: var(--text-light); }
 .delivery-report-preview dl { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .delivery-report-preview dl div { padding: 10px; border-radius: 8px; background: rgba(37,99,235,.08); }
 .delivery-report-preview dt { font-size: .78rem; opacity: .75; }.delivery-report-preview dd { margin: 3px 0 0; font-weight: 700; }
@@ -2238,5 +2239,13 @@ label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margi
 .delivery-report-disciplines table input, .delivery-report-disciplines table select { min-width: 100px; }
 .delivery-report-disciplines small { display: block; }.delivery-warning { color: #d97706; }.delivery-ok { color: #16a34a; }
 .delivery-report-history article { padding: 10px 0; border-bottom: 1px solid var(--border-color); }.delivery-report-history article button { margin-left: 8px; padding: 6px 9px; }
-.delivery-report-card footer { justify-content: flex-end; margin: 22px -24px -22px; border-top: 1px solid var(--border-color); border-bottom: 0; }
-@media (max-width: 760px) { .delivery-report-grid, .delivery-report-preview dl { grid-template-columns: 1fr; }.delivery-report-grid .span-2 { grid-column: auto; }.delivery-report-modal { padding: 0; }.delivery-report-card { max-height: 100vh; border-radius: 0; } }
+.delivery-report-card footer { position: sticky; z-index: 5; bottom: 0; justify-content: flex-end; margin: 22px -24px 0; border-top: 1px solid var(--border-color); border-bottom: 0; }
+.delivery-report-tabs { position: sticky; z-index: 4; top: -22px; display: flex; gap: 5px; margin: 22px -24px 0; padding: 10px 24px; overflow-x: auto; border-block: 1px solid var(--border-color); background: var(--bg-card); }
+.delivery-report-tabs button, .delivery-activity-filters button { padding: 8px 12px; background: var(--primary-dark); color: var(--text-lighter); border: 1px solid var(--border-color); box-shadow: none; white-space: nowrap; }
+.delivery-report-tabs button.active, .delivery-activity-filters button.active { background: var(--primary-medium); color: #fff; }
+.delivery-period { margin-top: 0; }.delivery-period-fields { display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; gap: 12px; }.delivery-period small { display: block; margin-top: 10px; color: var(--text-lighter); }
+.delivery-activity-filters { display: flex; gap: 6px; margin: 12px 0; overflow-x: auto; }
+.delivery-activities-table { table-layout: fixed; min-width: 980px; }.delivery-activities-table th:nth-child(4), .delivery-activities-table th:nth-child(5) { width: 21%; }.delivery-ellipsis { display: block; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.delivery-finish { padding: 6px 9px; }
+.delivery-check-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 9px 0; border-bottom: 1px solid var(--border-color); }.delivery-report-history article small { color: var(--text-lighter); }
+body.delivery-report-open { overflow: hidden; }
+@media (max-width: 760px) { .delivery-report-grid, .delivery-report-preview dl, .delivery-period-fields { grid-template-columns: 1fr; }.delivery-report-grid .span-2 { grid-column: auto; }.delivery-report-modal { padding: 0; }.delivery-report-card { max-height: 100vh; border-radius: 0; }.delivery-report-card > header, .delivery-report-card form { padding-inline: 14px; }.delivery-report-tabs { margin-inline: -14px; padding-inline: 14px; }.delivery-report-card footer { margin-inline: -14px; }.delivery-check-row { align-items: flex-start; flex-direction: column; } }

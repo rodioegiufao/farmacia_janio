@@ -14,7 +14,7 @@ module.exports = async function gerarRelatorioObraWord(req, res) {
     const user = await requireUser(req); if (user.perfil !== "admin") return sendJson(res, 403, { error: "Apenas administradores podem gerar relatórios de entrega." });
     const { obraId, entregaId } = parseRequestBody(req); if (!obraId || !entregaId) return sendJson(res, 400, { error: "Informe obraId e entregaId." });
     if (!fs.existsSync(TEMPLATE_PATH)) return sendJson(res, 404, { error: "Modelo Relatorio-Obra.docx não encontrado em /atividades/template." });
-    const dados = await carregarDadosObra(obraId, supabaseRequest, localizarObraPorId, entregaId); const analise = analisarObra(dados); const entrega = { ...dados.entrega, projetos: dados.projetosEntrega };
+    const dados = await carregarDadosObra(obraId, supabaseRequest, localizarObraPorId, entregaId); const analise = analisarObra({ ...dados, periodoInicio: dados.entrega.periodo_inicio, periodoFim: dados.entrega.periodo_fim }); const entrega = { ...dados.entrega, projetos: dados.projetosEntrega };
     const zip = new PizZip(fs.readFileSync(TEMPLATE_PATH)); prepararTemplate(zip); const valores = montarXmlRelatorio({ analise, entrega, zip });
     const doc = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true }); doc.render(valores); validarDocumento(doc.getZip());
     const buffer = doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" }); const arquivo = nomeArquivo(dados.obra, entrega.revisao);

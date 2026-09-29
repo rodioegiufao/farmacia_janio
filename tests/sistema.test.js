@@ -202,6 +202,21 @@ await (async () => {
   assert.match(execution.calls[0].query, /projeto=eq.El%C3%A9trico/);
   assert.match(execution.calls[0].query, /etapa=eq.QI%20Builder/);
 
+  const original = { ...base, id: "finalizar-1", status: "Em progresso", trabalhos: "Preservar", observacoes: "Não apagar" };
+  const chamadasFinalizar = [];
+  const requestFinalizar = async (table, query, options) => {
+    chamadasFinalizar.push({ table, query, options });
+    if (table === "atividade_classificacoes") return [];
+    if (options?.method === "PATCH") return [{ ...original, status: "Finalizado" }];
+    if (query.includes("status=neq.Finalizado")) return [];
+    return [original];
+  };
+  const resultadoFinalizar = await _test.finalizarAtividadePorId("finalizar-1", { id:"admin", perfil:"admin" }, requestFinalizar, async () => ({ status:"sincronizado" }));
+  const alteracao = chamadasFinalizar.find((c) => c.options?.method === "PATCH");
+  assert.deepEqual(JSON.parse(alteracao.options.body), { status:"Finalizado" }, "a ação específica altera somente o status");
+  assert.equal(resultadoFinalizar.atividade.observacoes, "Não apagar", "demais campos são preservados");
+  assert.equal(resultadoFinalizar.plannerSync.status, "sincronizado", "a sincronização oficial do Planner é executada");
+
 })();
 }
 
@@ -473,6 +488,17 @@ async function testarPlannerChecklist() {
 const { _test } = require("../api/planner-checklist");
 assert.doesNotThrow(() => _test.requireAdmin({ perfil: "admin" }));
 assert.throws(() => _test.requireAdmin({ perfil: "colaborador" }), (erro) => erro.statusCode === 403);
+const atividadeBase = { id:"real-1", obra_id:"o1", obra:"IPER", projeto:"Elétrico BT", data_inicio:"2026-09-01", hora_inicio:"08:00", data_termino:"2026-09-01", hora_termino:"12:00", atividade_classificacoes:[{ fase:"Lançamento", item:"Iluminação", minutos_dedicados:240 }] };
+const plannerBase = [{ id:"p1", obraId:"o1", obra:"IPER", projeto:"Elétrico BT", itens:[{ id:"i1", etapa:"Lançamento", estagio:"Iluminação", atividadesVinculadas:[] }] }];
+const fallback = _test.incorporarAtividadesReais(plannerBase, [atividadeBase]);
+assert.equal(fallback[0].itens[0].atividadesVinculadas[0].id, "real-1", "classificação associa atividade sem vínculo explícito");
+assert.equal(fallback[0].itens[0].atividadesVinculadas[0].minutosRateados, 240);
+const naoClassificada = _test.incorporarAtividadesReais(plannerBase, [{ ...atividadeBase, id:"real-2", atividade_classificacoes:[], fase:"", item:"" }]);
+assert.ok(naoClassificada[0].itens.some((i) => i.atividade === "Atividades não vinculadas"), "atividade sem classificação permanece visível");
+const projetoVirtual = _test.incorporarAtividadesReais([], [{ ...atividadeBase, id:"real-3", projeto:"Solar", atividade_classificacoes:[] }]);
+assert.equal(projetoVirtual[0].projeto, "Solar", "projeto sem checklist ganha representação somente de leitura");
+const explicita = _test.incorporarAtividadesReais([{ ...plannerBase[0], itens:[{ ...plannerBase[0].itens[0], atividadesVinculadas:[atividadeBase] }] }], [atividadeBase]);
+assert.equal(explicita[0].itens[0].atividadesVinculadas.length, 1, "vínculo explícito não é duplicado pelo fallback");
 }
 
 // ========================================================

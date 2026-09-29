@@ -11,6 +11,8 @@ const atividade = (id, projeto, inicio, fim = inicio, status = "Finalizado", ext
 
 const base = { obra, projetosFicha: [{ projeto: "Elétrico", projeto_chave: "eletrico" }, { projeto: "CFTV", projeto_chave: "cftv" }, { projeto: "SPDA", projeto_chave: "spda" }], atividades: [atividade("1", "Elétrico", "2026-03-03"), atividade("2", "CFTV", "2026-09-28")], planner: [{ projeto: "SPDA" }, { projeto: "Cabeamento" }], entregas: [], projetosEntrega: [] };
 
+const cssAtividades = fs.readFileSync(path.join(__dirname, "..", "atividades", "style.css"), "utf8");
+assert.doesNotMatch(cssAtividades, /var\(--(?:card-bg|text-primary)\)/, "o relatório não pode depender de variáveis CSS inexistentes");
 // 1 e 2 — união das três fontes e disciplina sem atividade.
 const uniao = unirDisciplinas(base);
 assert.deepEqual(uniao.map((d) => d.projeto), ["Elétrico", "CFTV", "SPDA", "Cabeamento"]);
@@ -30,6 +32,12 @@ const quatroHoras = atividade("5", "Elétrico", "2026-05-01", "2026-05-01", "Fin
 const analiseHoras = analisarObra({ obra, projetosFicha: [], atividades: [quatroHoras], planner: [], entregas: [], projetosEntrega: [] });
 assert.equal(analiseHoras.horasTotais, 4); assert.equal(analiseHoras.disciplinas[0].horas, 4);
 
+// Período da revisão filtra indicadores sem apagar o histórico ou as disciplinas oficiais.
+const periodoRevisao = analisarObra({ ...base, periodoInicio: "2026-08-20", periodoFim: "2026-09-29" });
+assert.equal(periodoRevisao.periodoHistorico.inicio, "2026-03-03");
+assert.equal(periodoRevisao.periodoEntrega.inicio, "2026-08-20");
+assert.equal(periodoRevisao.resumo.lancamentos, 1, "atividade anterior à revisão não entra nos totais");
+assert.equal(periodoRevisao.disciplinas.find((d) => d.projeto === "Elétrico").situacao, "Sem atividade no período");
 // 8 — URL segura e relacionamento OpenXML externo sem colisão.
 assert.equal(validarUrl("https://exemplo.com/processo"), "https://exemplo.com/processo"); assert.throws(() => validarUrl("javascript:alert(1)", true), /http/);
 const templatePath = path.join(__dirname, "..", "atividades", "template", "Relatorio-Obra.docx");

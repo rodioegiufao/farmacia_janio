@@ -278,6 +278,18 @@ async function finalizarAtividadesRelacionadas(record, request = supabaseRequest
     body: JSON.stringify({ status: "Finalizado" })
   });
 }
+async function finalizarAtividadePorId(id, user, request = supabaseRequest, sincronizar = sincronizarAtividadeComPlanner) {
+  const rows = await request(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(id)}&select=*`);
+  const atividade = rows?.[0];
+  if (!atividade) throw Object.assign(new Error("Atividade não encontrada."), { statusCode: 404 });
+  if (user?.perfil !== "admin" && atividade.usuario_id !== user?.id) throw Object.assign(new Error("Você só pode finalizar atividades criadas por você."), { statusCode: 403 });
+  atividade.classificacoes = await request(CLASSIFICACOES_TABLE, `?atividade_id=eq.${encodeURIComponent(id)}&select=*`);
+  const salvas = await request(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ status: "Finalizado" }) });
+  const finalizada = { ...atividade, ...(salvas?.[0] || {}), status: "Finalizado" };
+  const relacionadas = await finalizarAtividadesRelacionadas(finalizada, request);
+  const plannerSync = await sincronizar(finalizada, { user });
+  return { atividade: finalizada, atividadesFinalizadas: [id, ...(relacionadas || []).map((item) => item.id)].filter(Boolean), plannerSync };
+}
 module.exports = async function atividadesHandler(req, res) {
   try {
     if (req.method === "GET") {
@@ -294,6 +306,10 @@ module.exports = async function atividadesHandler(req, res) {
     if (req.method === "POST") {
       const user = await requireInternalUser(req);
       const body = parseRequestBody(req);
+      if (body.acao === "finalizarAtividade") {
+        if (!body.id) return sendJson(res, 400, { error: "ID da atividade não informado." });
+        return sendJson(res, 200, await finalizarAtividadePorId(body.id, user));
+      }
       if (body.acao === "sincronizarPlanner") {
         const rows = await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(body.id)}&select=*`);
         const atividade = rows?.[0];
@@ -425,6 +441,7 @@ module.exports._test = {
   classificarAtividadeParaFinalizacao,
   conjuntoItensNormalizado,
   finalizarAtividadesRelacionadas,
+  finalizarAtividadePorId,
   filtroAtividadesRelacionadas,
   fromDatabaseRecord,
   idsPlannerPorAtividade,

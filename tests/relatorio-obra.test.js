@@ -17,7 +17,13 @@ assert.doesNotMatch(cssAtividades, /var\(--(?:card-bg|text-primary)\)/, "o relat
 const uniao = unirDisciplinas(base);
 assert.deepEqual(uniao.map((d) => d.projeto), ["Elétrico", "CFTV", "SPDA", "Cabeamento"]);
 const analise = analisarObra(base), spda = analise.disciplinas.find((d) => d.projeto === "SPDA");
-assert.equal(spda.atividades, 0); assert.equal(spda.horas, 0); assert.equal(spda.situacao, "Sem atividade registrada"); assert.ok(analise.pendencias.some((p) => p.tipo === "disciplina_sem_atividade"));
+assert.equal(spda.atividades, 0); assert.equal(spda.horas, 0); assert.equal(spda.situacao, "Sem atividade registrada");
+assert.deepEqual(analise.disciplinasRelatorio.map((d) => d.projeto), ["CFTV", "Elétrico"]);
+assert.equal(analise.resumo.disciplinas, 2);
+assert.ok(!analise.pendencias.some((p) => p.tipo === "disciplina_sem_atividade"));
+const duplicada = analisarObra({ obra, projetosFicha: [{ projeto: "SPDA", projeto_chave: "spda" }], atividades: [atividade("dup", "SPDA", "2026-09-01")], planner: [{ projeto: "SPDA" }], entregas: [], projetosEntrega: [] });
+assert.equal(duplicada.disciplinasRelatorio.length, 1, "fontes distintas devem consolidar uma única disciplina");
+assert.equal(duplicada.disciplinasRelatorio[0].horas, 4);
 
 // 3 e 4 — período integral e incremento estritamente REV + dígitos.
 assert.deepEqual(obterPeriodo(base.atividades), { inicio: "2026-03-03", fim: "2026-09-28", texto: "03/03/2026 a 28/09/2026", competencia: "MARÇO/2026 — SETEMBRO/2026" });
@@ -45,6 +51,11 @@ const zip = new PizZip(fs.readFileSync(templatePath)); prepararTemplate(zip);
 const entrega = { id: "entrega-1", obra_id: obra.id, tipo_emissao: "entrega_inicial", revisao: "REV00", data_entrega: "2026-09-29", link_processo: "https://exemplo.com/processo", observacoes: "", projetos: [] };
 const valores = montarXmlRelatorio({ analise, entrega, zip });
 const rels = zip.file("word/_rels/document.xml.rels").asText(); assert.match(rels, /relationships\/hyperlink/); assert.match(rels, /TargetMode="External"/); assert.match(rels, /https:\/\/exemplo.com\/processo/);
+assert.match(valores.CCCC, />https:\/\/exemplo.com\/processo<\/w:t>/, "a URL deve estar visível no documento impresso");
+assert.match(valores.EEEE, /<w:tblHeader\/>/); assert.match(valores.EEEE, /<w:tblLayout w:type="fixed"\/>/);
+assert.match(valores.EEEE, /<w:gridCol w:w="2708"\/>/); assert.doesNotMatch(valores.EEEE, /Situação/);
+assert.doesNotMatch(valores.EEEE + valores.GGGG + valores.KKKK + valores.LLLL, /SPDA|Cabeamento/);
+assert.doesNotMatch(valores.JJJJ, /disciplina cadastrada sem atividade/i);
 
 // 9 e 10 — Gantt usa apenas meses com atividade e blocos de até 12.
 assert.equal(blocosGantt(base.atividades, analise.periodo).length, 1); assert.equal(analise.competencias.some((c) => c.mes === "2026-05"), false);

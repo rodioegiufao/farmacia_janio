@@ -1,5 +1,5 @@
 const { parseRequestBody, requireInternalUser, sendJson, supabaseRequest } = require("./_auth");
-const { enriquecerRegistroComObra, resolverOuCriarObra } = require("./_obras");
+const { enriquecerRegistrosComObras, resolverOuCriarObra } = require("./_obras");
 const {
   PLANNER_MODELOS,
   normalizarChavePlanner,
@@ -160,12 +160,14 @@ module.exports = async function plannerChecklistHandler(req, res) {
       const url = new URL(req.url, "http://localhost");
       const analiseTemporal = url.searchParams.get("analiseTemporal") === "1";
       const obraId = texto(url.searchParams.get("obraId"));
+      const checklistId = texto(url.searchParams.get("checklistId"));
       if (analiseTemporal) requireAdmin(user);
       const filtroObra = obraId ? `obra_id=eq.${encodeURIComponent(obraId)}&` : "";
-      const rows = await supabaseRequest(CHECKLISTS_TABLE, `?${filtroObra}select=*,planner_checklist_itens(*)&order=criado_em.desc`);
+      const filtroChecklist = checklistId ? `id=eq.${encodeURIComponent(checklistId)}&` : "";
+      const rows = await supabaseRequest(CHECKLISTS_TABLE, `?${filtroObra}${filtroChecklist}select=*,planner_checklist_itens(*)&order=criado_em.desc`);
       const migrated = await Promise.all((Array.isArray(rows) ? rows : []).map(migrarChecklist));
       const visiveis = migrated.filter((record) => checklistVisivelParaUsuario(record, user));
-      const enriched = await Promise.all(visiveis.map(enriquecerRegistroComObra));
+      const enriched = await enriquecerRegistrosComObras(visiveis);
       const metadados = await agregarAtividadesDosItens(enriched.map((item) => item.id));
       enriched.forEach((checklist) => (checklist.planner_checklist_itens || []).forEach((item) => Object.assign(item, metadados.get(item.id) || {})));
       return sendJson(res, 200, { modelos: PLANNER_MODELOS, checklists: enriched.map(fromDatabaseRecord) });

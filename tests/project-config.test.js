@@ -20,7 +20,7 @@ async function loadProjectConfig() {
     }
     const psbConfig = getProjectConfig("psb", "public");
     assert.strictEqual(psbConfig.name, "Posto São Bento");
-    assert.strictEqual(psbConfig.models.length, 11);
+    assert.strictEqual(psbConfig.models.length, 12);
     assert.ok(psbConfig.models.every(({ src }) => src.startsWith("/3D/psb/") && src.endsWith(".xkt")));
     const definition = PROJECT_CONFIGS.iper.models.IFC_ARQ;
     const snapshot = structuredClone(definition);

@@ -104,6 +104,8 @@ let semanaVisivelIndex = 0;
 let plannerModelos = [];
 let plannerChecklists = [];
 let carregandoPlanner = false;
+let plannerPrecisaRecarregar = false;
+const sincronizacoesPlanner = new Map();
 let plannerDetalheAtualId = null;
 let plannerFocoAnterior = null;
 let plannerArrastandoId = null;
@@ -359,7 +361,7 @@ function alternarSecao(event) {
   if (targetId === "dashboardSection") atualizarDashboard();
   if (targetId === "calendarioSection") renderizarCalendario();
   if (targetId === "semanaSection" && usuarioAtual && !atividadesSemanais.length) carregarAtividadesSemanais();
-  if (targetId === "plannerSection" && !plannerChecklists.length) carregarPlanner();
+  if (targetId === "plannerSection" && (!plannerChecklists.length || plannerPrecisaRecarregar)) carregarPlanner();
 }
 
 function salvarSecaoAtiva(targetId) {
@@ -787,31 +789,25 @@ async function salvarAtividade(event) {
   try {
     setFormDisabled(true);
     const atividadeSalva = await apiRequest(campos.id.value ? "PUT" : "POST", atividade);
-    await carregarObras();
-    if (atividade.status === "Finalizado") {
-      // O servidor também conclui os lançamentos da mesma frente; recarregar
-      // mantém tabela, calendário e dashboard sincronizados com essa alteração.
-      await carregarAtividades();
-    } else {
-      const indice = atividades.findIndex((item) => item.id === atividade.id);
-      if (indice >= 0) atividades[indice] = atividadeSalva;
-      else atividades.unshift(atividadeSalva);
+    if (atividadeSalva.obraId && !obrasCadastradas.some((obra) => String(obra.id) === String(atividadeSalva.obraId))) {
+      obrasCadastradas.push({ id: atividadeSalva.obraId, codigo: atividadeSalva.obraCodigo, nome: atividadeSalva.obra, ativo: true });
     }
+    const indice = atividades.findIndex((item) => item.id === atividadeSalva.id);
+    if (indice >= 0) atividades[indice] = atividadeSalva;
+    else atividades.unshift(atividadeSalva);
+    const finalizadas = new Set((atividadeSalva.atividadesFinalizadas || []).map(String));
+    atividades.forEach((item) => { if (finalizadas.has(String(item.id))) item.status = "Finalizado"; });
 
     atualizarOpcoesDashboard();
     renderizarTabela();
     renderizarCalendario();
     // O Planner recebe uma fotografia da resposta salva, sem depender do estado
     // mutável do formulário que será limpo em seguida.
-    const atividadeParaPlanner = JSON.parse(JSON.stringify(atividadeSalva));
-    try {
-      await tratarResultadoPlanner(atividadeParaPlanner);
-    } catch (erroPlanner) {
-      console.error("Atividade salva, mas a sincronização com o Planner falhou:", erroPlanner);
-      alert("Atividade salva, mas não foi possível concluir a sincronização com o Planner.");
-    }
     resetarFormularioAtividade();
     mostrarFeedbackAtividadeSalva();
+    setFormDisabled(false);
+    preencherColaboradoresPermitidos();
+    sincronizarPlannerEmSegundoPlano(JSON.parse(JSON.stringify(atividadeSalva)));
   } catch (erro) {
     alert(`Não foi possível salvar no Supabase: ${erro.message}`);
   } finally {
@@ -2721,7 +2717,7 @@ async function carregarPlanner() {
     carregandoPlanner = true; renderizarPlanner();
     const data = await fetch(API_PLANNER_URL).then(validarResposta);
     plannerModelos = Array.isArray(data.modelos) && data.modelos.length ? data.modelos : PLANNER_MODELOS;
-    plannerChecklists = Array.isArray(data.checklists) ? data.checklists : [];
+    plannerPrecisaRecarregar = false;
     atualizarProjetosPlanner(); atualizarFiltrosPlanner();
   } catch (erro) {
     plannerEls.status.textContent = `Não foi possível carregar o Planner: ${erro.message}`;
@@ -2830,8 +2826,36 @@ async function escolherPlannerAmbiguo(atividade, sync) {
   if (acao.acao) await repetirSincronizacaoPlanner(atividade.id, acao.acao || acao.candidato);
 }
 async function repetirSincronizacaoPlanner(id, checklistId = "") {
-  try { const resposta = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "sincronizarPlanner", id, checklistId }) }).then(validarResposta); await tratarResultadoPlanner(resposta); }
+  try { const resposta = await executarSincronizacaoPlanner(id, checklistId); await tratarResultadoPlanner(resposta); }
   catch (erro) { console.error("Falha ao sincronizar Planner:", erro); alert("Não foi possível atualizar o Planner."); }
+}
+function executarSincronizacaoPlanner(id, checklistId = "") {
+  const chave = String(id);
+  if (sincronizacoesPlanner.has(chave)) return sincronizacoesPlanner.get(chave);
+  const requisicao = fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "sincronizarPlanner", id, checklistId }) })
+    .then(validarResposta)
+    .finally(() => sincronizacoesPlanner.delete(chave));
+  sincronizacoesPlanner.set(chave, requisicao);
+  return requisicao;
+}
+function sincronizarPlannerEmSegundoPlano(atividade) {
+  if (plannerEls.status) plannerEls.status.textContent = "Sincronizando Planner…";
+  executarSincronizacaoPlanner(atividade.id).then(tratarResultadoPlanner).catch(async (erro) => {
+    console.error("Atividade salva, mas a sincronização com o Planner falhou:", erro);
+    await tratarResultadoPlanner({ ...atividade, plannerSync: { status: "erro" } });
+  });
+}
+async function atualizarChecklistPlanner(checklistId) {
+  if (!checklistId) return;
+  if (plannerPanel?.hidden) { plannerPrecisaRecarregar = true; return; }
+  const data = await fetch(`${API_PLANNER_URL}?checklistId=${encodeURIComponent(checklistId)}`).then(validarResposta);
+  if (Array.isArray(data.modelos) && data.modelos.length) plannerModelos = data.modelos;
+  const atualizado = data.checklists?.[0];
+  if (atualizado) {
+    const indice = plannerChecklists.findIndex((item) => String(item.id) === String(checklistId));
+    if (indice >= 0) plannerChecklists[indice] = atualizado; else plannerChecklists.unshift(atualizado);
+    atualizarFiltrosPlanner(); renderizarPlanner();
+  }
 }
 async function confirmarConclusaoPlanner(atividade, sync) {
   if (normalizarTexto(atividade.status) !== "finalizado" || !sync.itens?.length) return;
@@ -2846,8 +2870,9 @@ async function tratarResultadoPlanner(atividade) {
   if (sync.status !== "sincronizado") return;
   if (sync.precisaConfigurar) await configurarPlannerAutomatico(sync, atividade);
   else { plannerEls.status.innerHTML = `✓ Planner atualizado: ${escapeHtml(sync.itens?.map((i) => `${i.fase} → ${i.item}`).join(", ") || "atividade vinculada")}. <button type="button" class="link-button" onclick="abrirPlannerPorId('${escapeHtml(sync.checklistId)}')">Abrir Planner</button>`; }
-  await carregarPlanner();
+  await atualizarChecklistPlanner(sync.checklistId);
   await confirmarConclusaoPlanner(atividade, sync);
+  await atualizarChecklistPlanner(sync.checklistId);
 }
 async function abrirPlannerPorId(checklistId) {
   alternarAba("planner");

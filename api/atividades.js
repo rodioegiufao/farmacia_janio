@@ -1,5 +1,5 @@
 const { parseRequestBody, requireInternalUser, sendJson, supabaseRequest } = require("./_auth");
-const { enriquecerRegistroComObra, resolverOuCriarObra } = require("./_obras");
+const { enriquecerRegistrosComObras, resolverOuCriarObra } = require("./_obras");
 const { limparItensOrfaos, normalizarItemPlanner, removerVinculosAtividade, sincronizarAtividadeComPlanner } = require("./_planner-sync");
 const { projetoExigeFaseItem, separarItens } = require("../atividades/fase-item");
 const { normalizarChavePlanner } = require("../atividades/planner-modelos");
@@ -122,7 +122,7 @@ async function ensureNoScheduleOverlap(record) {
   const interval = getActivityInterval(record);
   if (!interval || !record.colaborador) return;
 
-  const query = `?colaborador=eq.${encodeURIComponent(record.colaborador)}&select=id,trabalhos,data_inicio,hora_inicio,data_termino,hora_termino`;
+  const query = `?colaborador=eq.${encodeURIComponent(record.colaborador)}&data_inicio=lte.${encodeURIComponent(record.data_termino)}&data_termino=gte.${encodeURIComponent(record.data_inicio)}&select=id,trabalhos,data_inicio,hora_inicio,data_termino,hora_termino`;
   const existingRecords = await supabaseRequest(SUPABASE_TABLE, query);
   const conflict = (Array.isArray(existingRecords) ? existingRecords : []).find((existing) => {
     if (existing.id === record.id) return false;
@@ -161,8 +161,7 @@ function fromDatabaseRecord(record) {
   }, {});
 }
 
-async function fromDatabaseRecordComObra(record, classificacoes = []) {
-  const enriched = await enriquecerRegistroComObra(record);
+function fromDatabaseRecordComObra(enriched, classificacoes = []) {
   return { ...fromDatabaseRecord(enriched), obraId: enriched.obra_id || "", obraCodigo: enriched.obraCodigo || "", obra: enriched.obra || "", classificacoes: obterClassificacoesAtividade({ ...enriched, classificacoes }) };
 }
 function validarClassificacoes(body) {
@@ -285,8 +284,10 @@ module.exports = async function atividadesHandler(req, res) {
       const user = await requireInternalUser(req);
       const data = await supabaseRequest(SUPABASE_TABLE, "?select=*&order=criado_em.desc");
       const ids = (data || []).map((a) => a.id);
-      const classificacoes = await carregarClassificacoesEmLotes(ids);
-      sendJson(res, 200, Array.isArray(data) ? await Promise.all(data.map((a) => fromDatabaseRecordComObra(a, classificacoes.filter((c) => c.atividade_id === a.id)))) : []);
+      const [classificacoes, enriched] = await Promise.all([carregarClassificacoesEmLotes(ids), enriquecerRegistrosComObras(data)]);
+      const porAtividade = new Map();
+      classificacoes.forEach((item) => { const lista = porAtividade.get(item.atividade_id) || []; lista.push(item); porAtividade.set(item.atividade_id, lista); });
+      sendJson(res, 200, enriched.map((a) => fromDatabaseRecordComObra(a, porAtividade.get(a.id) || [])));
       return;
     }
 
@@ -304,25 +305,26 @@ module.exports = async function atividadesHandler(req, res) {
       validateActivityDates(body);
       const classificacoes = validarClassificacoes(body);
       if (!projetoExigeFaseItem(body.projeto)) { body.classificacoes = []; body.fase = ""; body.item = ""; }
-      const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id, origemCriacao: "nova_atividade" });
-      body.obraId = obra.id;
-      body.obra = obra.nome;
       const record = toDatabaseRecord(body);
       record.usuario_id = user.id;
       record.criado_por_nome = user.nome;
       enforceCollaboratorPermission(record, user);
       record.colaborador = record.colaborador || user.nome;
-      await ensureNoScheduleOverlap(record);
+      const [obra] = await Promise.all([
+        resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id, origemCriacao: "nova_atividade" }),
+        ensureNoScheduleOverlap(record)
+      ]);
+      body.obraId = obra.id; body.obra = obra.nome; record.obra_id = obra.id; record.obra = obra.nome;
       const data = await supabaseRequest(SUPABASE_TABLE, "", {
         method: "POST",
         body: JSON.stringify(record)
       });
-      await finalizarAtividadesRelacionadas(record);
       const salvo = data[0] || { ...record, id: body.id };
-      try { if (Array.isArray(body.classificacoes)) await substituirClassificacoes(salvo.id, classificacoes); }
+      let finalizadas;
+      try { [finalizadas] = await Promise.all([finalizarAtividadesRelacionadas({ ...record, id: salvo.id }), Array.isArray(body.classificacoes) ? substituirClassificacoes(salvo.id, classificacoes) : Promise.resolve()]); }
       catch (error) { await supabaseRequest(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(salvo.id)}`, { method: "DELETE" }); throw Object.assign(new Error(`A atividade não foi salva porque o rateio falhou: ${error.message}`), { statusCode: 500 }); }
       salvo.classificacoes = classificacoes;
-      sendJson(res, 201, { ...fromDatabaseRecord(salvo), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome, plannerSync: await sincronizarComResposta(salvo, user) });
+      sendJson(res, 201, { ...fromDatabaseRecord(salvo), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome, plannerSync: { status: projetoExigeFaseItem(body.projeto) ? "pendente" : "ignorado" }, atividadesFinalizadas: (finalizadas || []).map((item) => item.id).filter(Boolean) });
       return;
     }
 
@@ -349,23 +351,24 @@ module.exports = async function atividadesHandler(req, res) {
         return;
       }
 
-      const obra = await resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id });
-      body.obraId = obra.id;
-      body.obra = obra.nome;
       const record = toDatabaseRecord(body);
       enforceCollaboratorPermission(record, user);
       delete record.usuario_id;
       delete record.criado_por_nome;
+      const [obra] = await Promise.all([
+        resolverOuCriarObra({ obraId: body.obraId, nomeObra: body.obra, usuarioId: user.id }),
+        ensureNoScheduleOverlap(record)
+      ]);
+      body.obraId = obra.id; body.obra = obra.nome; record.obra_id = obra.id; record.obra = obra.nome;
       const data = await supabaseRequest(
         SUPABASE_TABLE,
         `?id=eq.${encodeURIComponent(body.id)}`,
         activityUpdateOptions(record)
       );
-      await finalizarAtividadesRelacionadas(record);
       const salvo = data[0] || record;
-      if (Array.isArray(body.classificacoes)) await substituirClassificacoes(body.id, classificacoes);
+      const [finalizadas] = await Promise.all([finalizarAtividadesRelacionadas({ ...record, id: body.id }), Array.isArray(body.classificacoes) ? substituirClassificacoes(body.id, classificacoes) : Promise.resolve()]);
       salvo.classificacoes = classificacoes;
-      sendJson(res, 200, { ...fromDatabaseRecord(salvo), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome, plannerSync: await sincronizarComResposta(salvo, user) });
+      sendJson(res, 200, { ...fromDatabaseRecord(salvo), obraId: obra.id, obraCodigo: obra.codigo, obra: obra.nome, plannerSync: { status: projetoExigeFaseItem(body.projeto) ? "pendente" : "ignorado" }, atividadesFinalizadas: (finalizadas || []).map((item) => item.id).filter(Boolean) });
       return;
     }
 

@@ -42,6 +42,20 @@ async function executarGrupo(nome, teste) {
 
 async function testarAtividadesApi() {
 const { _test } = require("../api/atividades");
+const { enriquecerRegistrosComObras } = require("../api/_obras");
+
+const consultasObras = [];
+const enriquecidosEmLote = await enriquecerRegistrosComObras([
+  { id: "a", obra_id: "10000000-0000-0000-0000-000000000001", obra: "Legado" },
+  { id: "b", obra: "Obra sem acento" }
+], async (_tabela, query) => {
+  consultasObras.push(query);
+  return query.includes("nome_normalizado=in.")
+    ? [{ id: "obra-b", codigo: "OBR-2", nome: "Obra sem acento", nome_normalizado: "obra sem acento", ativo: true }]
+    : [{ id: "10000000-0000-0000-0000-000000000001", codigo: "OBR-1", nome: "Obra canônica", nome_normalizado: "obra canonica", ativo: true }];
+});
+assert.equal(consultasObras.length, 2, "obras devem ser consultadas em lote por ID e nome legado");
+assert.deepEqual(enriquecidosEmLote.map((item) => item.obraCodigo), ["OBR-1", "OBR-2"]);
 
 assert.equal(
   _test.filtroAtividadesRelacionadas({
@@ -269,7 +283,7 @@ api.obterProjetosComFaseItem().forEach((projeto) => assert.equal(api.projetoExig
 ["", "Site", "Outros"].forEach((projeto) => assert.equal(api.projetoExigeFaseItem(projeto), false));
 
 const disciplinasTodos = ["Iluminação", "Tomadas", "CFTV", "Som", "Lógica", "Cabeamento", "Tomadas de Uso Específico", "HVAC", "SPDA", "SDAI", "Automação", "Alimentadores", "Subestação", "Iluminação Externa", "Telefonia", "Solar", "Média Tensão", "Mapa Chave/Situação", "Outros"];
-assert.deepEqual(api.obterFasesDoProjeto("Todos"), ["Link", "Plotagem", "Assinaturas", "Fiscalização", "Outros"]);
+assert.deepEqual(api.obterFasesDoProjeto("Todos"), ["Link", "Plotagem", "Assinaturas", "Fiscalização", "ART", "Demanda", "Outros"]);
 ["Link", "Plotagem", "Assinaturas", "Fiscalização"].forEach((fase) => {
   assert.deepEqual(api.obterItensDoProjetoFase("Todos", fase), disciplinasTodos);
 });
@@ -358,7 +372,7 @@ assert.match(fonteClassificacoesUi, /fases\.clear\(\);\s*estado\.clear\(\);\s*pe
 assert.match(fonteClassificacoesUi, /limpar: resetarClassificacoesAtividade/, "as entradas públicas devem reutilizar o mesmo reset");
 
 const fonteFormulario = fs.readFileSync(require.resolve("../atividades/script.js"), "utf8");
-assert.match(fonteFormulario, /atividadeParaPlanner = JSON\.parse[\s\S]*?await tratarResultadoPlanner\(atividadeParaPlanner\);[\s\S]*?resetarFormularioAtividade/, "o reset deve ocorrer após o save e após o Planner consumir uma cópia da atividade salva");
+assert.match(fonteFormulario, /resetarFormularioAtividade\(\);[\s\S]*?mostrarFeedbackAtividadeSalva\(\);[\s\S]*?sincronizarPlannerEmSegundoPlano\(JSON\.parse/, "o formulário deve ser liberado antes de iniciar a sincronização do Planner em segundo plano");
 assert.match(fonteFormulario, /function renderizarTabela[\s\S]*?Object\.values\(filtros\)|Object\.values\(filtros\)[\s\S]*?function renderizarTabela/, "a tabela compacta deve continuar ligada aos filtros existentes");
 assert.match(fonteFormulario, /Ver detalhes[\s\S]*?Editar[\s\S]*?Continuar atividade[\s\S]*?Excluir/, "o menu compacto deve preservar todas as ações");
 assert.match(fonteFormulario, /activity-details-grid[\s\S]*?Fases e itens \/ rateio[\s\S]*?Observações[\s\S]*?Cadastro/, "os detalhes expansíveis devem preservar classificação, rateio e metadados");
@@ -417,6 +431,7 @@ assert.equal(sync.obterCodigoProjetoDaAtividade("Site"), "");
 assert.equal(sync.gerarChavePlanner("obra-1", "PRJ-SDAI"), "obra-1::PRJ-SDAI");
 assert.equal(sync.gerarChaveItemPlanner("Distribuição", "Eletrocalhas"), "distribuicao::eletrocalha");
 assert.equal(sync.gerarChaveItemPlanner("Distribuição", "Eletrocalha"), "distribuicao::eletrocalha");
+assert.equal(sync.itemPorChave([{ id: "item-1", etapa: "Distribuição", atividade: "Eletrocalhas" }]).get("distribuicao::eletrocalha").id, "item-1");
 assert.equal(sync.normalizarItemPlanner("Tomadas de Uso Específico"), "tomada de uso especifico");
 assert.deepEqual(sync.itensDaAtividade({ item: "Eletrocalha · Leito · Perfilado" }), ["Eletrocalha", "Leito", "Perfilado"]);
 assert.equal(sync.minutosDaAtividade({ data_inicio: "2026-08-14", hora_inicio: "08:00", data_termino: "2026-08-14", hora_termino: "11:57" }), 237);

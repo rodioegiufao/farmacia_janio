@@ -83,4 +83,25 @@ async function enriquecerRegistroComObra(record) {
   return { ...record, obra_id: obra?.id || record?.obra_id || null, obra: obra?.nome || record?.obra || "", obraCodigo: obra?.codigo || "" };
 }
 
-module.exports = { OBRAS_TABLE, enriquecerRegistroComObra, listarObras, localizarObraPorId, localizarObraPorNome, mapearObra, normalizarNomeObra, resolverOuCriarObra };
+function filtroIn(campo, valores) {
+  const unicos = [...new Set(valores.filter(Boolean))];
+  return unicos.length ? `${campo}=in.(${unicos.map(encodeURIComponent).join(",")})` : "";
+}
+
+async function enriquecerRegistrosComObras(records, request = supabaseRequest) {
+  const lista = Array.isArray(records) ? records : [];
+  const ids = lista.map((record) => record?.obra_id).filter(Boolean);
+  const nomes = lista.filter((record) => !record?.obra_id).map((record) => normalizarNomeObra(record?.obra)).filter(Boolean);
+  const consultas = [];
+  if (ids.length) consultas.push(request(OBRAS_TABLE, `?${filtroIn("id", ids)}&select=id,codigo,nome,nome_normalizado,ativo,origem_criacao,criado_por,criado_em`));
+  if (nomes.length) consultas.push(request(OBRAS_TABLE, `?${filtroIn("nome_normalizado", nomes)}&select=id,codigo,nome,nome_normalizado,ativo,origem_criacao,criado_por,criado_em`));
+  const obras = (await Promise.all(consultas)).flat().map(mapearObra);
+  const porId = new Map(obras.map((obra) => [String(obra.id), obra]));
+  const porNome = new Map(obras.map((obra) => [obra.nomeNormalizado, obra]));
+  return lista.map((record) => {
+    const obra = porId.get(String(record?.obra_id || "")) || porNome.get(normalizarNomeObra(record?.obra));
+    return { ...record, obra_id: obra?.id || record?.obra_id || null, obra: obra?.nome || record?.obra || "", obraCodigo: obra?.codigo || "" };
+  });
+}
+
+module.exports = { OBRAS_TABLE, enriquecerRegistroComObra, enriquecerRegistrosComObras, listarObras, localizarObraPorId, localizarObraPorNome, mapearObra, normalizarNomeObra, resolverOuCriarObra };

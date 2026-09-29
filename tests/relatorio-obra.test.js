@@ -53,11 +53,19 @@ const valores = montarXmlRelatorio({ analise, entrega, zip });
 const rels = zip.file("word/_rels/document.xml.rels").asText(); assert.match(rels, /relationships\/hyperlink/); assert.match(rels, /TargetMode="External"/); assert.match(rels, /https:\/\/exemplo.com\/processo/);
 assert.match(valores.CCCC, />https:\/\/exemplo.com\/processo<\/w:t>/, "a URL deve estar visível no documento impresso");
 assert.match(valores.EEEE, /<w:tblHeader\/>/); assert.match(valores.EEEE, /<w:tblLayout w:type="fixed"\/>/);
-assert.match(valores.EEEE, /<w:gridCol w:w="2708"\/>/); assert.doesNotMatch(valores.EEEE, /Situação/);
-assert.match(valores.KKKK, /<w:shd w:val="clear" w:color="auto" w:fill="1F4E78"\/>/, "a primeira coluna do Anexo A deve ter fundo azul");
+assert.match(valores.EEEE, /<w:gridCol w:w="2500"\/>/); assert.doesNotMatch(valores.EEEE, /Situação/);
+assert.match(valores.KKKK, /<w:shd w:fill="1F4E78"\/>/, "a primeira coluna do Anexo A deve ter fundo azul");
 assert.match(valores.KKKK, /<w:color w:val="FFFFFF"\/>/, "os rótulos do Anexo A devem usar texto branco");
-assert.match(valores.KKKK, /<w:shd w:val="clear" w:color="auto" w:fill="EAF2F8"\/>/, "a segunda coluna do Anexo A deve ter fundo claro");
+assert.match(valores.KKKK, /<w:shd w:fill="EAF2F8"\/>/, "a segunda coluna do Anexo A deve ter fundo claro");
 assert.match(valores.KKKK, /<w:jc w:val="left"\/>/); assert.match(valores.KKKK, /<w:noWrap\/>/); assert.match(valores.KKKK, /<w:vAlign w:val="center"\/>/);
+assert.match(valores.KKKK, /<w:tblW w:w="13750" w:type="dxa"\/>/);
+for (const rotulo of ["OBRA", "DISCIPLINA / ETAPA", "SITUAÇÃO", "RESUMO"]) assert.match(valores.KKKK, new RegExp(`>${rotulo}<`));
+assert.match(valores.LLLL, /w:fill="286D9F"/); assert.doesNotMatch(valores.LLLL, /■/);
+for (const trecho of Object.values(valores).filter((valor) => typeof valor === "string")) {
+  for (const celula of trecho.match(/<w:tc>[\s\S]*?<\/w:tc>/g) || []) assert.match(celula, /<w:ind w:left="0" w:right="0" w:firstLine="0"\/>/, "toda célula deve neutralizar o recuo do estilo Normal");
+}
+for (const tbl of valores.CCCC.match(/<w:tbl>[\s\S]*?<\/w:tbl>/g) || []) assert.doesNotMatch(tbl, /Documentação da entrega/);
+assert.match(valores.CCCC, /Documentação da entrega:<\/w:t>/);
 assert.doesNotMatch(valores.EEEE + valores.GGGG + valores.KKKK + valores.LLLL, /SPDA|Cabeamento/);
 assert.doesNotMatch(valores.JJJJ, /disciplina cadastrada sem atividade/i);
 
@@ -68,6 +76,10 @@ assert.deepEqual(blocosGantt([], { inicio: "2025-01-01", fim: "2026-08-01" }).ma
 // 11 e 12 — pendência altera a conclusão factual.
 const comPendente = analisarObra({ ...base, atividades: [atividade("6", "Elétrico", "2026-09-01", "2026-09-01", "Em progresso")] }); assert.ok(comPendente.pendencias.some((p) => p.tipo === "status"));
 const zipPendente = new PizZip(fs.readFileSync(templatePath)); prepararTemplate(zipPendente); const xmlPendente = montarXmlRelatorio({ analise: comPendente, entrega, zip: zipPendente }); assert.match(xmlPendente.MMMM, /pendências registradas no item 9/); assert.doesNotMatch(xmlPendente.MMMM, /concluída definitivamente/);
+const docPendente = new Docxtemplater(zipPendente, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true }); docPendente.render(xmlPendente);
+const finalPendente = docPendente.getZip().file("word/document.xml").asText();
+assert.equal((finalPendente.match(/atividade\(s\) ainda está\(ão\) Em progresso\./g) || []).length, 1, "pendências não podem ser duplicadas na conclusão");
+assert.match(finalPendente, /A presente emissão da obra/); assert.doesNotMatch(finalPendente, /\[MMMM\]/);
 
 // 13 — renderização elimina todos os marcadores e mantém tabelas OpenXML.
 const doc = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true }); doc.render(valores); assert.equal(validarDocumento(doc.getZip()), true);

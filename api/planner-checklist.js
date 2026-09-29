@@ -131,7 +131,9 @@ function fromDatabaseRecord(record) {
     chaveSincronizacao: record.chave_sincronizacao || "",
     configuracaoAutomaticaConcluida: Boolean(record.configuracao_automatica_concluida)
   };
-  function incorporarAtividadesReais(checklists, atividades) {
+}
+
+function incorporarAtividadesReais(checklists, atividades) {
   const saida = (checklists || []).map((c) => ({ ...c, itens: (c.itens || []).map((i) => ({ ...i, atividadesVinculadas: [...(i.atividadesVinculadas || [])] })) }));
   const vinculadas = new Set(saida.flatMap((c) => c.itens.flatMap((i) => i.atividadesVinculadas.map((a) => String(a.id || "")).filter(Boolean))));
   const localizarProjeto = (atividade) => saida.find((c) => String(c.obraId) === String(atividade.obra_id || atividade.obraId) && normalizarChavePlanner(c.projeto) === normalizarChavePlanner(atividade.projeto));
@@ -158,7 +160,6 @@ function fromDatabaseRecord(record) {
     }
   }
   return saida;
-}
 }
 async function migrarChecklist(record) {
   const modelo = localizarModeloPlanner(record.projeto, record.tipo);
@@ -200,11 +201,18 @@ module.exports = async function plannerChecklistHandler(req, res) {
       const metadados = await agregarAtividadesDosItens(enriched.map((item) => item.id));
       enriched.forEach((checklist) => (checklist.planner_checklist_itens || []).forEach((item) => Object.assign(item, metadados.get(item.id) || {})));
       let checklists = enriched.map(fromDatabaseRecord);
-      const obraIds = [...new Set([obraId, ...checklists.map((c) => c.obraId)].filter(Boolean))];
-      if (obraIds.length) {
-        const atividades = await supabaseRequest("atividades_colaboradores", `?obra_id=in.(${obraIds.map(encodeURIComponent).join(",")})&select=*,atividade_classificacoes(*)`);
-        checklists = incorporarAtividadesReais(checklists, atividades || []);
-      }
+      const obraIds = new Set([obraId, ...checklists.map((c) => c.obraId)].filter(Boolean).map(String));
+      // A execução real é uma fonte do Planner, inclusive quando ainda não há
+      // checklist para o projeto. Colaboradores recebem as obras às quais já
+      // têm acesso no Planner e as próprias atividades; administradores podem
+      // montar também projetos virtuais de obras que ainda não têm checklist.
+      const atividadesRows = await supabaseRequest("atividades_colaboradores", "?select=*,atividade_classificacoes(*)");
+      const atividadesVisiveis = (Array.isArray(atividadesRows) ? atividadesRows : []).filter((atividade) =>
+        user?.perfil === "admin"
+        || obraIds.has(String(atividade.obra_id || ""))
+        || String(atividade.usuario_id || "") === String(user?.id || "")
+      );
+      checklists = incorporarAtividadesReais(checklists, atividadesVisiveis);
       return sendJson(res, 200, { modelos: PLANNER_MODELOS, checklists });
     }
 

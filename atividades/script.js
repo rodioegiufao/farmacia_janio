@@ -104,6 +104,8 @@ let semanaVisivelIndex = 0;
 let plannerModelos = [];
 let plannerChecklists = [];
 let carregandoPlanner = false;
+let erroPlanner = null;
+let plannerRequestId = 0;
 let plannerPrecisaRecarregar = false;
 const sincronizacoesPlanner = new Map();
 let plannerDetalheAtualId = null;
@@ -2715,17 +2717,22 @@ function selecionarResponsaveisPlanner(select, valor) { const selecionados = new
 function nomesResponsaveisPlanner(checklist) { return listarResponsaveisPlanner(checklist?.responsaveis?.length ? checklist.responsaveis : checklist?.responsavel); }
 async function carregarPlanner() {
   if (!plannerEls.board) return;
+  const requestId = ++plannerRequestId;
   try {
-    carregandoPlanner = true; renderizarPlanner();
+    carregandoPlanner = true; erroPlanner = null; renderizarPlanner();
     const data = await fetch(API_PLANNER_URL).then(validarResposta);
+    if (requestId !== plannerRequestId) return;
     plannerModelos = Array.isArray(data.modelos) && data.modelos.length ? data.modelos : PLANNER_MODELOS;
+    plannerChecklists = Array.isArray(data.checklists) ? data.checklists : [];
     plannerPrecisaRecarregar = false;
     atualizarProjetosPlanner(); atualizarFiltrosPlanner();
   } catch (erro) {
-    plannerEls.status.textContent = `Não foi possível carregar o Planner: ${erro.message}`;
+    if (requestId !== plannerRequestId) return;
+    console.error("Não foi possível carregar os dados do Planner:", erro);
+    erroPlanner = erro;
     plannerModelos = PLANNER_MODELOS; plannerChecklists = [];
     atualizarProjetosPlanner(); atualizarFiltrosPlanner();
-  } finally { carregandoPlanner = false; renderizarPlanner(); }
+  } finally { if (requestId === plannerRequestId) { carregandoPlanner = false; renderizarPlanner(); } }
 }
 
 function atualizarProjetosPlanner() {
@@ -2908,11 +2915,19 @@ function renderizarPlanner() {
   if (!plannerEls.board) return;
   plannerEls.board.hidden = plannerViewMode !== "quadro";
   if (plannerEls.gantt) plannerEls.gantt.hidden = plannerViewMode !== "gantt";
-  if (carregandoPlanner) { plannerEls.status.textContent = "Carregando modelos e tarefas salvas..."; plannerEls.board.innerHTML = ""; if (plannerEls.gantt) plannerEls.gantt.innerHTML = ""; return; }
+  if (carregandoPlanner) { plannerEls.status.textContent = "Carregando Planner..."; plannerEls.board.innerHTML = ""; if (plannerEls.gantt) plannerEls.gantt.innerHTML = ""; return; }
+  if (erroPlanner) {
+    plannerEls.status.textContent = "Não foi possível carregar os dados do Planner.";
+    const mensagem = '<div class="planner-empty planner-load-error"><strong>Não foi possível carregar o Planner.</strong><button type="button" class="secondary" data-planner-retry>Tentar novamente</button></div>';
+    plannerEls.board.innerHTML = mensagem;
+    if (plannerEls.gantt) plannerEls.gantt.innerHTML = mensagem;
+    (plannerViewMode === "gantt" ? plannerEls.gantt : plannerEls.board)?.querySelector("[data-planner-retry]")?.addEventListener("click", carregarPlanner);
+    return;
+  }
   plannerEls.status.textContent = plannerModelos.length ? `${plannerModelos.length} combinação(ões) Projeto + Tipo disponíveis.` : "Nenhum modelo foi retornado pela API.";
   const filtrados = checklistsPlannerFiltrados();
   if (plannerViewMode === "gantt") { renderizarPlannerGantt(filtrados); return; }
-  if (!filtrados.length && plannerChecklists.length) { plannerEls.board.innerHTML = '<div class="planner-empty">Nenhuma tarefa corresponde à busca e aos filtros.</div>'; return; }
+  if (!filtrados.length) { plannerEls.board.innerHTML = `<div class="planner-empty">${plannerChecklists.length ? "Nenhuma tarefa corresponde à busca e aos filtros." : "Nenhuma tarefa encontrada."}</div>`; return; }
   plannerEls.board.innerHTML = gruposPlanner(filtrados).map(criarBucketPlanner).join("");
 }
 function intervaloVisivelPlannerGantt(global) {

@@ -5,6 +5,7 @@
 // ========================================================
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 
 const ESTADO_GLOBAL = ["fetch", "window", "document", "Date"];
 
@@ -499,6 +500,14 @@ const projetoVirtual = _test.incorporarAtividadesReais([], [{ ...atividadeBase, 
 assert.equal(projetoVirtual[0].projeto, "Solar", "projeto sem checklist ganha representação somente de leitura");
 const explicita = _test.incorporarAtividadesReais([{ ...plannerBase[0], itens:[{ ...plannerBase[0].itens[0], atividadesVinculadas:[atividadeBase] }] }], [atividadeBase]);
 assert.equal(explicita[0].itens[0].atividadesVinculadas.length, 1, "vínculo explícito não é duplicado pelo fallback");
+const tresVinculos = [1, 2, 3].map((numero) => ({ ...atividadeBase, id:`vinculo-${numero}` }));
+const respostaComVinculos = _test.incorporarAtividadesReais([{ ...plannerBase[0], itens:[{ ...plannerBase[0].itens[0], atividadesVinculadas:tresVinculos }] }], tresVinculos);
+assert.equal(respostaComVinculos.length, 1);
+assert.equal(respostaComVinculos[0].itens[0].atividadesVinculadas.length, 3, "um checklist preserva suas três atividades explicitamente vinculadas");
+const fontePlanner = fs.readFileSync(require.resolve("../atividades/script.js"), "utf8");
+assert.match(fontePlanner, /plannerChecklists\s*=\s*Array\.isArray\(data\.checklists\)/, "o carregamento deve armazenar os checklists retornados pela API");
+assert.match(fontePlanner, /Não foi possível carregar os dados do Planner\./, "erro da API não pode ser apresentado como estado vazio");
+assert.match(fontePlanner, /data-planner-retry/, "o erro oferece nova tentativa sem recarregar a página");
 }
 
 // ========================================================

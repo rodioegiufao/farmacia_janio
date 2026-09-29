@@ -24,7 +24,14 @@ module.exports = async function obraEntregasHandler(req, res) {
       const analise = analisarObra({ ...dados, periodoInicio, periodoFim });
       return sendJson(res, 200, { ...serializarAnalise(analise), entrega: dados.entrega ? { ...dados.entrega, projetos: dados.projetosEntrega } : null });
     }
-    if (!["POST", "PATCH"].includes(req.method)) return sendJson(res, 405, { error: "Método não suportado." }, { Allow: "GET, POST, PATCH" });
+    if (req.method === "DELETE") {
+      const body = parseRequestBody(req); const obraId = texto(body.obraId); const entregaId = texto(body.entregaId);
+      if (!obraId || !entregaId) throw Object.assign(new Error("Informe a obra e a revisão que será apagada."), { statusCode: 422 });
+      const removidas = await supabaseRequest("obra_entregas", `?id=eq.${encodeURIComponent(entregaId)}&obra_id=eq.${encodeURIComponent(obraId)}`, { method: "DELETE" });
+      if (!removidas?.length) throw Object.assign(new Error("Revisão não encontrada para a obra informada."), { statusCode: 404 });
+      return sendJson(res, 200, { mensagem: "Revisão apagada com sucesso." });
+    }
+    if (!["POST", "PATCH"].includes(req.method)) return sendJson(res, 405, { error: "Método não suportado." }, { Allow: "GET, POST, PATCH, DELETE" });
     const body = parseRequestBody(req); const obraId = texto(body.obraId); const existenteId = req.method === "PATCH" ? texto(body.entregaId) : "";
     const periodoInicio = validarData(body.periodoInicio, "data inicial"), periodoFim = validarData(body.periodoFim, "data final");
     if (periodoInicio > periodoFim) throw Object.assign(new Error("O início do período não pode ser posterior ao fim."), { statusCode: 422 });

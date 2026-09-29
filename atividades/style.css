@@ -2239,6 +2239,7 @@ label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margi
 .delivery-report-disciplines table input, .delivery-report-disciplines table select { min-width: 100px; }
 .delivery-report-disciplines small { display: block; }.delivery-warning { color: #d97706; }.delivery-ok { color: #16a34a; }
 .delivery-report-history article { padding: 10px 0; border-bottom: 1px solid var(--border-color); }.delivery-report-history article button { margin-left: 8px; padding: 6px 9px; }
+.delivery-report-history article .delivery-delete { border-color: #dc2626; background: #991b1b; color: #fff; }.delivery-report-history article .delivery-delete:hover { background: #b91c1c; }
 .delivery-report-card footer { position: sticky; z-index: 5; bottom: 0; justify-content: flex-end; margin: 22px -24px 0; border-top: 1px solid var(--border-color); border-bottom: 0; }
 .delivery-report-tabs { position: sticky; z-index: 4; top: -22px; display: flex; gap: 5px; margin: 22px -24px 0; padding: 10px 24px; overflow-x: auto; border-block: 1px solid var(--border-color); background: var(--bg-card); }
 .delivery-report-tabs button, .delivery-activity-filters button { padding: 8px 12px; background: var(--primary-dark); color: var(--text-lighter); border: 1px solid var(--border-color); box-shadow: none; white-space: nowrap; }

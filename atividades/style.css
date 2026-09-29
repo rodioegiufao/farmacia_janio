@@ -2214,3 +2214,29 @@ label small[id$="ObraIdentificacao"], #obraIdentificacao { display: block; margi
 .activity-details-row td { padding: 0 14px 16px!important; background: rgba(99,179,237,.035); }.activity-details-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; padding: 16px; border-left: 3px solid var(--accent-light); }.activity-details-grid dl{margin:0}.activity-details-grid dt{margin-top:8px;color:var(--text-muted);font-size:.72rem;font-weight:800;text-transform:uppercase}.activity-details-grid dt:first-child{margin-top:0}.activity-details-grid dd{margin:3px 0 0;overflow-wrap:anywhere}.activity-details-work{grid-column:1/-1}
 @media(max-width:1100px){.recent-activities-list{grid-template-columns:repeat(2,minmax(0,1fr))}.activities-table th:nth-child(2),.activities-table td:nth-child(2){display:none}.activity-details-row td{display:table-cell!important}.activity-details-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){.recent-activities-list{grid-template-columns:1fr}.activities-table{min-width:680px}.activities-table th:nth-child(6),.activity-summary-row td:nth-child(6){display:none}.activity-details-grid{grid-template-columns:1fr}.activity-details-work{grid-column:auto}}
+.report-menu { position: relative; }
+.report-menu-options { position: absolute; z-index: 50; top: calc(100% + 7px); right: 0; min-width: 260px; padding: 6px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--card-bg); box-shadow: 0 14px 35px rgba(0,0,0,.25); }
+.report-menu-options[hidden] { display: none; }
+.report-menu-options button { display: block; width: 100%; padding: 10px 12px; border: 0; background: transparent; color: var(--text-primary); text-align: left; box-shadow: none; }
+.report-menu-options button:hover { background: rgba(37,99,235,.13); transform: none; }
+.delivery-report-modal { position: fixed; inset: 0; z-index: 2500; display: grid; place-items: center; padding: 18px; background: rgba(0,0,0,.62); }
+.delivery-report-modal[hidden] { display: none; }
+.delivery-report-card { width: min(1120px, 100%); max-height: calc(100vh - 36px); overflow: auto; border-radius: 16px; background: var(--card-bg); color: var(--text-primary); box-shadow: 0 24px 70px rgba(0,0,0,.4); }
+.delivery-report-card > header, .delivery-report-card footer { display: flex; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--border-color); }
+.delivery-report-card > header h2, .delivery-report-card > header p { margin: 0 0 5px; }
+.delivery-report-card > header button { border: 0; background: transparent; color: inherit; font-size: 1.8rem; box-shadow: none; }
+.delivery-report-card form { padding: 22px 24px; }
+.delivery-report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.delivery-report-grid .span-2 { grid-column: 1 / -1; }
+.delivery-report-grid fieldset { display: flex; align-items: center; gap: 15px; border: 1px solid var(--border-color); border-radius: 9px; }
+.delivery-report-grid fieldset label { flex-direction: row; }
+.delivery-report-preview, .delivery-report-disciplines, .delivery-report-checks, .delivery-report-history { margin-top: 22px; padding: 18px; border: 1px solid var(--border-color); border-radius: 12px; }
+.delivery-report-preview dl { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.delivery-report-preview dl div { padding: 10px; border-radius: 8px; background: rgba(37,99,235,.08); }
+.delivery-report-preview dt { font-size: .78rem; opacity: .75; }.delivery-report-preview dd { margin: 3px 0 0; font-weight: 700; }
+.delivery-report-section-title, .delivery-report-history article { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.delivery-report-disciplines table input, .delivery-report-disciplines table select { min-width: 100px; }
+.delivery-report-disciplines small { display: block; }.delivery-warning { color: #d97706; }.delivery-ok { color: #16a34a; }
+.delivery-report-history article { padding: 10px 0; border-bottom: 1px solid var(--border-color); }.delivery-report-history article button { margin-left: 8px; padding: 6px 9px; }
+.delivery-report-card footer { justify-content: flex-end; margin: 22px -24px -22px; border-top: 1px solid var(--border-color); border-bottom: 0; }
+@media (max-width: 760px) { .delivery-report-grid, .delivery-report-preview dl { grid-template-columns: 1fr; }.delivery-report-grid .span-2 { grid-column: auto; }.delivery-report-modal { padding: 0; }.delivery-report-card { max-height: 100vh; border-radius: 0; } }

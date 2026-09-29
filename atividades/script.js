@@ -426,6 +426,8 @@ function aplicarPermissaoRelatorioWord() {
   if (!btnGerarRelatorioWord) return;
 
   const podeGerarRelatorioWord = usuarioAtualEhAdmin();
+  const menuRelatorios = document.getElementById("relatoriosMenu");
+  if (menuRelatorios) menuRelatorios.hidden = !podeGerarRelatorioWord;
   btnGerarRelatorioWord.hidden = !podeGerarRelatorioWord;
   btnGerarRelatorioWord.disabled = !podeGerarRelatorioWord;
 }

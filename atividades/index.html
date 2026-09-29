@@ -314,9 +314,15 @@
           <h2>Dashboard</h2>
           <p>Indicadores e gráficos de produtividade individual e coletiva da equipe.</p>
         </div>
-        <button type="button" class="primary report-button" id="btnGerarRelatorioWord">
-          <i class="fas fa-file-word" aria-hidden="true"></i> Gerar relatório Word
-        </button>
+        <div class="report-menu" id="relatoriosMenu">
+          <button type="button" class="primary report-button" id="btnRelatorios" aria-expanded="false" aria-controls="relatoriosOpcoes">
+            <i class="fas fa-file-word" aria-hidden="true"></i> Relatórios <span aria-hidden="true">▼</span>
+          </button>
+          <div class="report-menu-options" id="relatoriosOpcoes" hidden>
+            <button type="button" id="btnGerarRelatorioWord">Relatório de acompanhamento</button>
+            <button type="button" id="btnAbrirRelatorioObra">Relatório de entrega da obra</button>
+          </div>
+        </div>
       </div>
 
       <div class="dashboard-filters">
@@ -628,6 +634,28 @@
     </section>
       </div>
   </main>
+  <div class="delivery-report-modal" id="relatorioObraModal" hidden>
+    <section class="delivery-report-card" role="dialog" aria-modal="true" aria-labelledby="relatorioObraTitulo">
+      <header><div><h2 id="relatorioObraTitulo">Relatório de Entrega da Obra</h2><p>O relatório considera todo o histórico da obra, sem utilizar os filtros do Dashboard.</p></div><button type="button" id="btnFecharRelatorioObra" aria-label="Fechar">&times;</button></header>
+      <form id="relatorioObraForm">
+        <input type="hidden" id="relatorioObraEntregaId">
+        <div class="delivery-report-grid">
+          <label class="span-2">Obra<select id="relatorioObraSelect" required><option value="">Selecione uma obra</option></select></label>
+          <label>Data da entrega<input type="date" id="relatorioObraData" required></label>
+          <fieldset><legend>Tipo da emissão</legend><label><input type="radio" name="relatorioObraTipo" value="entrega_inicial" checked> Entrega inicial</label><label><input type="radio" name="relatorioObraTipo" value="revisao"> Revisão</label></fieldset>
+          <label>Revisão geral<input type="text" id="relatorioObraRevisao" value="REV00" required></label>
+          <label class="span-2">Link do processo / documentação<input type="url" id="relatorioObraLink" pattern="https?://.*" placeholder="https://..." required></label>
+          <label class="span-2">Observações gerais<textarea id="relatorioObraObservacoes" rows="3"></textarea></label>
+        </div>
+        <section id="relatorioObraPreview" class="delivery-report-preview" hidden></section>
+        <section class="delivery-report-disciplines" id="relatorioObraDisciplinas" hidden><div class="delivery-report-section-title"><h3>Disciplinas da obra</h3><button type="button" class="secondary" id="btnAplicarRevisaoDisciplinas">Aplicar revisão a todas</button></div><div class="table-wrapper"><table><thead><tr><th>Disciplina</th><th>Emissão</th><th>Revisão</th><th>Horas</th><th>Atividades</th><th>Link opcional</th></tr></thead><tbody id="relatorioObraDisciplinasBody"></tbody></table></div></section>
+        <section id="relatorioObraPendencias" class="delivery-report-checks" hidden></section>
+        <section id="relatorioObraHistorico" class="delivery-report-history" hidden></section>
+        <p id="relatorioObraStatus" role="status" aria-live="polite"></p>
+        <footer><button type="button" class="secondary" id="btnCancelarRelatorioObra">Cancelar</button><button type="submit" class="primary" id="btnSalvarGerarRelatorioObra">Salvar entrega e gerar Word</button></footer>
+      </form>
+    </section>
+  </div>
   <script src="/atividades/fase-item.js"></script>
   <script src="/atividades/classificacoes.js"></script>
   <script src="/atividades/atividade-continuacao.js"></script>
@@ -643,6 +671,7 @@
   <script src="/atividades/atividades-api.js"></script>
   <script src="/atividades/atividade-tempo.js"></script>
   <script src="/atividades/atividade-semanal-ordenacao.js"></script>
+  <script src="/atividades/relatorio-obra.js"></script>
   <script src="/atividades/script.js"></script>
 </body>
 </html>

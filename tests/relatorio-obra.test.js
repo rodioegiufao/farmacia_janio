@@ -54,6 +54,10 @@ const rels = zip.file("word/_rels/document.xml.rels").asText(); assert.match(rel
 assert.match(valores.CCCC, />https:\/\/exemplo.com\/processo<\/w:t>/, "a URL deve estar visível no documento impresso");
 assert.match(valores.EEEE, /<w:tblHeader\/>/); assert.match(valores.EEEE, /<w:tblLayout w:type="fixed"\/>/);
 assert.match(valores.EEEE, /<w:gridCol w:w="2708"\/>/); assert.doesNotMatch(valores.EEEE, /Situação/);
+assert.match(valores.KKKK, /<w:shd w:val="clear" w:color="auto" w:fill="1F4E78"\/>/, "a primeira coluna do Anexo A deve ter fundo azul");
+assert.match(valores.KKKK, /<w:color w:val="FFFFFF"\/>/, "os rótulos do Anexo A devem usar texto branco");
+assert.match(valores.KKKK, /<w:shd w:val="clear" w:color="auto" w:fill="EAF2F8"\/>/, "a segunda coluna do Anexo A deve ter fundo claro");
+assert.match(valores.KKKK, /<w:jc w:val="left"\/>/); assert.match(valores.KKKK, /<w:noWrap\/>/); assert.match(valores.KKKK, /<w:vAlign w:val="center"\/>/);
 assert.doesNotMatch(valores.EEEE + valores.GGGG + valores.KKKK + valores.LLLL, /SPDA|Cabeamento/);
 assert.doesNotMatch(valores.JJJJ, /disciplina cadastrada sem atividade/i);
 

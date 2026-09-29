@@ -25,6 +25,8 @@ const arquivos = [
   "api/atividades-semanais.js",
   "api/planner-checklist.js",
   "api/gerar-relatorio-word.js",
+  "api/_relatorio-obra.js",
+  "api/gerar-relatorio-obra-word.js",
   "api/gerar-memorando-word.js",
   "api/ifc-to-xkt.js",
   "api/ifc-storage-upload-url.js",

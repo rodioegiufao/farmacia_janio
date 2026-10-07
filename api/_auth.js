@@ -83,6 +83,7 @@ function supabaseError(response, data) {
   // monitores classifiquem corretamente a indisponibilidade.
   error.statusCode = RETRYABLE_SUPABASE_STATUS.has(response.status) ? 503 : response.status;
   error.upstreamStatus = response.status;
+  error.contentRange = response.headers?.get("content-range") || "";
   return error;
 }
 
@@ -133,9 +134,38 @@ async function supabaseRequest(table, path = "", options = {}) {
   if (!response.ok) {
     throw supabaseError(response, data);
   }
+  if (method === "GET" && process.env.NODE_ENV === "development" && Array.isArray(data) && data.length === 1000) {
+    console.warn(`Supabase GET ${table} retornou 1000 linhas; verifique paginação para evitar truncamento.`);
+  }
   return data;
 }
-
+async function supabaseRequestTodos(table, path = "", options = {}) {
+  if (String(options.method || "GET").toUpperCase() !== "GET") {
+    throw new Error("supabaseRequestTodos aceita apenas leituras GET.");
+  }
+  const query = new URLSearchParams(path.replace(/^\?/, ""));
+  if (!query.get("order")?.trim()) query.set("order", "id.asc");
+  const orderedPath = `?${query.toString()}`;
+  const pageSize = 1000;
+  const rows = [];
+  for (let start = 0; ; start += pageSize) {
+    let page;
+    try {
+      page = await supabaseRequest(table, orderedPath, {
+        ...options,
+        headers: { ...(options.headers || {}), "Range-Unit": "items", Range: `${start}-${start + pageSize - 1}` }
+      });
+    } catch (error) {
+      // count=exact pode responder 416 no fim de um múltiplo exato de páginas.
+      // Só trate como fim quando o total informado confirmar todos os itens lidos.
+      if (start > 0 && error.statusCode === 416 && error.contentRange === `*/${rows.length}`) return rows;
+      throw error;
+    }
+    if (!Array.isArray(page)) throw new Error("Resposta de lista inválida do Supabase.");
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
 function requireAuthSecret() {
   const secret = process.env.AUTH_SECRET;
   if (!secret) throw new Error("A variável AUTH_SECRET precisa estar configurada na Vercel.");
@@ -236,7 +266,7 @@ async function require3DUser(req) {
   return requireProfiles(req, VALID_PROFILES);
 }
 async function countUsers() {
-  const users = await supabaseRequest(USERS_TABLE, "?select=id", { headers: { Prefer: "count=exact" } });
+  const users = await supabaseRequestTodos(USERS_TABLE, "?select=id", { headers: { Prefer: "count=exact" } });
   return Array.isArray(users) ? users.length : 0;
 }
 
@@ -256,6 +286,7 @@ module.exports = {
   requireUser,
   sendJson,
   supabaseRequest,
+  supabaseRequestTodos,
   userHasProfile,
   verifyPassword
 };

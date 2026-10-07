@@ -1,4 +1,4 @@
-const { supabaseRequest } = require("./_auth");
+const { supabaseRequest, supabaseRequestTodos } = require("./_auth");
 
 const OBRAS_TABLE = "obras";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -72,7 +72,7 @@ async function resolverOuCriarObra({ obraId, nomeObra, usuarioId, origemCriacao 
 
 async function listarObras({ somenteAtivas = true } = {}) {
   const filtro = somenteAtivas ? "?ativo=eq.true&" : "?";
-  const rows = await supabaseRequest(OBRAS_TABLE, `${filtro}select=id,codigo,nome,nome_normalizado,ativo,origem_criacao,criado_por,criado_em&order=nome.asc`);
+  const rows = await supabaseRequestTodos(OBRAS_TABLE, `${filtro}select=id,codigo,nome,nome_normalizado,ativo,origem_criacao,criado_por,criado_em&order=nome.asc,id.asc`);
   return (rows || []).map(mapearObra);
 }
 
@@ -88,7 +88,7 @@ function filtroIn(campo, valores) {
   return unicos.length ? `${campo}=in.(${unicos.map(encodeURIComponent).join(",")})` : "";
 }
 
-async function enriquecerRegistrosComObras(records, request = supabaseRequest) {
+async function enriquecerRegistrosComObras(records, request = supabaseRequestTodos) {
   const lista = Array.isArray(records) ? records : [];
   const ids = lista.map((record) => record?.obra_id).filter(Boolean);
   const nomes = lista.filter((record) => !record?.obra_id).map((record) => normalizarNomeObra(record?.obra)).filter(Boolean);

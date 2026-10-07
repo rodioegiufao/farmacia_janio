@@ -1,4 +1,4 @@
-const { parseRequestBody, requireInternalUser, sendJson, supabaseRequest } = require("./_auth");
+const { parseRequestBody, requireInternalUser, sendJson, supabaseRequest, supabaseRequestTodos } = require("./_auth");
 const { enriquecerRegistrosComObras, resolverOuCriarObra } = require("./_obras");
 const { limparItensOrfaos, normalizarItemPlanner, removerVinculosAtividade, sincronizarAtividadeComPlanner } = require("./_planner-sync");
 const { projetoExigeFaseItem, separarItens } = require("../atividades/fase-item");
@@ -11,7 +11,7 @@ const CLASSIFICACOES_TABLE = "atividade_classificacoes";
 const COLABORADORES = ["Rodrigo", "Hellen", "Bruno", "Rian", "Geovanna"];
 const CLASSIFICACOES_BATCH_SIZE = 75;
 
-async function carregarClassificacoesEmLotes(ids, request = supabaseRequest) {
+async function carregarClassificacoesEmLotes(ids, request = supabaseRequestTodos) {
   const idsValidos = [...new Set((ids || []).filter(Boolean))];
   const lotes = [];
   for (let inicio = 0; inicio < idsValidos.length; inicio += CLASSIFICACOES_BATCH_SIZE) {
@@ -123,7 +123,7 @@ async function ensureNoScheduleOverlap(record) {
   if (!interval || !record.colaborador) return;
 
   const query = `?colaborador=eq.${encodeURIComponent(record.colaborador)}&data_inicio=lte.${encodeURIComponent(record.data_termino)}&data_termino=gte.${encodeURIComponent(record.data_inicio)}&select=id,trabalhos,data_inicio,hora_inicio,data_termino,hora_termino`;
-  const existingRecords = await supabaseRequest(SUPABASE_TABLE, query);
+  const existingRecords = await supabaseRequestTodos(SUPABASE_TABLE, query);
   const conflict = (Array.isArray(existingRecords) ? existingRecords : []).find((existing) => {
     if (existing.id === record.id) return false;
     const existingInterval = getActivityInterval(existing);
@@ -246,19 +246,20 @@ async function finalizarAtividadesRelacionadas(record, request = supabaseRequest
     return [];
   }
 
-  const candidates = await request(SUPABASE_TABLE, `${filtro}&status=neq.Finalizado&select=id,fase,item`);
+  const read = request === supabaseRequest ? supabaseRequestTodos : request;
+  const candidates = await read(SUPABASE_TABLE, `${filtro}&status=neq.Finalizado&select=id,fase,item`);
   let related = (Array.isArray(candidates) ? candidates : []).filter((candidate) => candidate.id !== record.id);
   if (classificacao === "legada") {
     related = related.filter((candidate) => classificarAtividadeParaFinalizacao(candidate) === "legada");
   } else {
     const sourceLinks = record.id
-      ? await request("atividade_planner_itens", `?atividade_id=eq.${encodeURIComponent(record.id)}&select=atividade_id,item_id`)
+      ? await read("atividade_planner_itens", `?atividade_id=eq.${encodeURIComponent(record.id)}&select=atividade_id,item_id&order=atividade_id.asc,item_id.asc`)
       : [];
     const sourceItemIds = new Set((sourceLinks || []).map((link) => String(link.item_id)).filter(Boolean));
     if (sourceItemIds.size) {
       const candidateIds = [...new Set(related.map((candidate) => candidate.id).filter(Boolean))];
       const links = candidateIds.length
-        ? await request("atividade_planner_itens", `?atividade_id=in.(${candidateIds.map(encodeURIComponent).join(",")})&select=atividade_id,item_id`)
+         ? await read("atividade_planner_itens", `?atividade_id=in.(${candidateIds.map(encodeURIComponent).join(",")})&select=atividade_id,item_id&order=atividade_id.asc,item_id.asc`)
         : [];
       const plannerIds = idsPlannerPorAtividade(links);
       related = related.filter((candidate) => {
@@ -283,7 +284,8 @@ async function finalizarAtividadePorId(id, user, request = supabaseRequest, sinc
   const atividade = rows?.[0];
   if (!atividade) throw Object.assign(new Error("Atividade não encontrada."), { statusCode: 404 });
   if (user?.perfil !== "admin" && atividade.usuario_id !== user?.id) throw Object.assign(new Error("Você só pode finalizar atividades criadas por você."), { statusCode: 403 });
-  atividade.classificacoes = await request(CLASSIFICACOES_TABLE, `?atividade_id=eq.${encodeURIComponent(id)}&select=*`);
+  const read = request === supabaseRequest ? supabaseRequestTodos : request;
+  atividade.classificacoes = await read(CLASSIFICACOES_TABLE, `?atividade_id=eq.${encodeURIComponent(id)}&select=*`);
   const salvas = await request(SUPABASE_TABLE, `?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ status: "Finalizado" }) });
   const finalizada = { ...atividade, ...(salvas?.[0] || {}), status: "Finalizado" };
   const relacionadas = await finalizarAtividadesRelacionadas(finalizada, request);
@@ -294,7 +296,7 @@ module.exports = async function atividadesHandler(req, res) {
   try {
     if (req.method === "GET") {
       const user = await requireInternalUser(req);
-      const data = await supabaseRequest(SUPABASE_TABLE, "?select=*&order=criado_em.desc");
+      const data = await supabaseRequestTodos(SUPABASE_TABLE, "?select=*&order=criado_em.desc,id.asc");
       const ids = (data || []).map((a) => a.id);
       const [classificacoes, enriched] = await Promise.all([carregarClassificacoesEmLotes(ids), enriquecerRegistrosComObras(data)]);
       const porAtividade = new Map();
@@ -315,7 +317,7 @@ module.exports = async function atividadesHandler(req, res) {
         const atividade = rows?.[0];
         if (!atividade) return sendJson(res, 404, { error: "Atividade não encontrada." });
         if (user.perfil !== "admin" && atividade.usuario_id !== user.id) return sendJson(res, 403, { error: "Você só pode sincronizar suas próprias atividades." });
-        atividade.classificacoes = await supabaseRequest(CLASSIFICACOES_TABLE, `?atividade_id=eq.${encodeURIComponent(atividade.id)}&select=*`);
+        atividade.classificacoes = await supabaseRequestTodos(CLASSIFICACOES_TABLE, `?atividade_id=eq.${encodeURIComponent(atividade.id)}&select=*`);
         return sendJson(res, 200, { ...fromDatabaseRecord(atividade), classificacoes: obterClassificacoesAtividade(atividade), plannerSync: await sincronizarComResposta(atividade, user, body.checklistId) });
       }
       validateActivityDates(body);

@@ -6,7 +6,8 @@ const {
   parseRequestBody,
   requireUser,
   sendJson,
-  supabaseRequest
+  supabaseRequest,
+  supabaseRequestTodos
 } = require("./_auth");
 
 function sanitizeUser(user) {
@@ -28,7 +29,7 @@ module.exports = async function usuariosHandler(req, res) {
         return;
       }
 
-      const users = await supabaseRequest(USERS_TABLE, "?select=id,nome,usuario,perfil,ativo&order=nome.asc");
+      const users = await supabaseRequestTodos(USERS_TABLE, "?select=id,nome,usuario,perfil,ativo&order=nome.asc,id.asc");
       sendJson(res, 200, Array.isArray(users) ? users.map(sanitizeUser) : []);
       return;
     }

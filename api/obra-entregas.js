@@ -1,4 +1,4 @@
-const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
+const { parseRequestBody, requireUser, sendJson, supabaseRequest, supabaseRequestTodos } = require("./_auth");
 const { localizarObraPorId } = require("./_obras");
 const { chaveProjeto } = require("./_obra-ficha");
 const { analisarObra, carregarDadosObra, proximaRevisao, validarUrl } = require("./_relatorio-obra");
@@ -16,7 +16,7 @@ module.exports = async function obraEntregasHandler(req, res) {
     const user = await requireUser(req); exigirAdmin(user);
     if (req.method === "GET") {
       const obraId = texto(req.query?.obraId); const entregaId = texto(req.query?.entregaId);
-      const dados = await carregarDadosObra(obraId, supabaseRequest, localizarObraPorId, entregaId);
+      const dados = await carregarDadosObra(obraId, supabaseRequestTodos, localizarObraPorId, entregaId);
       let periodoInicio = texto(req.query?.periodoInicio), periodoFim = texto(req.query?.periodoFim);
       if (periodoInicio) periodoInicio = validarData(periodoInicio, "data inicial"); if (periodoFim) periodoFim = validarData(periodoFim, "data final");
       if (periodoInicio && periodoFim && periodoInicio > periodoFim) throw Object.assign(new Error("O início do período não pode ser posterior ao fim."), { statusCode: 422 });
@@ -35,7 +35,7 @@ module.exports = async function obraEntregasHandler(req, res) {
     const body = parseRequestBody(req); const obraId = texto(body.obraId); const existenteId = req.method === "PATCH" ? texto(body.entregaId) : "";
     const periodoInicio = validarData(body.periodoInicio, "data inicial"), periodoFim = validarData(body.periodoFim, "data final");
     if (periodoInicio > periodoFim) throw Object.assign(new Error("O início do período não pode ser posterior ao fim."), { statusCode: 422 });
-    const dados = await carregarDadosObra(obraId, supabaseRequest, localizarObraPorId, existenteId); const analise = analisarObra({ ...dados, periodoInicio, periodoFim });
+    const dados = await carregarDadosObra(obraId, supabaseRequestTodos, localizarObraPorId, existenteId); const analise = analisarObra({ ...dados, periodoInicio, periodoFim });
     const tipo = validarEmissao(body.tipoEmissao), revisao = validarRevisao(body.revisao, tipo === "revisao"); const agora = new Date().toISOString();
     const registro = { obra_id: dados.obra.id, tipo_emissao: tipo, revisao: revisao || "REV00", data_entrega: validarData(body.dataEntrega), link_processo: validarUrl(body.linkProcesso, true), observacoes: texto(body.observacoes) || null, periodo_inicio: periodoInicio, periodo_fim: periodoFim, resumo_json: analise.resumo, atualizado_em: agora };
     let entrega;

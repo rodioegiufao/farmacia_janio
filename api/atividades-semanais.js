@@ -1,4 +1,4 @@
-const { parseRequestBody, requireInternalUser, sendJson, supabaseRequest } = require("./_auth");
+const { parseRequestBody, requireInternalUser, sendJson, supabaseRequest, supabaseRequestTodos } = require("./_auth");
 const { enriquecerRegistroComObra, resolverOuCriarObra } = require("./_obras");
 
 const SUPABASE_TABLE = "atividades_semanais";
@@ -55,7 +55,7 @@ module.exports = async function atividadesSemanaisHandler(req, res) {
   try {
     if (req.method === "GET") {
       await requireInternalUser(req);
-      const data = await supabaseRequest(SUPABASE_TABLE, "?select=*&order=criado_em.desc");
+      const data = await supabaseRequestTodos(SUPABASE_TABLE, "?select=*&order=criado_em.desc,id.asc");
       sendJson(res, 200, Array.isArray(data) ? await Promise.all(data.map(fromDatabaseRecordComObra)) : []);
       return;
     }

@@ -1,3 +1,4 @@
+const { supabaseRequestTodos } = require("./_auth");
 const { chaveProjeto } = require("./_obra-ficha");
 const { consolidarAtividades, obterChaveAtividadeConsolidada } = require("../atividades/atividade-agrupamento");
 const { criarCelulaTabelaXml, criarTabelaXml, criarEspacoAposTabelaXml, criarParagrafoXml } = require("./_docx-tabelas");
@@ -132,14 +133,14 @@ function prepararTemplate(zip) { const arquivo = zip.file("word/document.xml"); 
 function validarDocumento(zip) { const doc = zip.file("word/document.xml").asText(); const restantes = ["AAAA", "ENTREGA", "REVISAO", "DATA_ENTREGA", "PERIODO_RELATORIO", ...MARCADORES_OBRA].filter((m) => doc.includes(`[${m}]`) || doc.includes(`[@${m}]`)); if (restantes.length) throw Object.assign(new Error(`Marcadores não substituídos no documento: ${restantes.join(", ")}.`), { statusCode: 500 }); if (doc.includes("&lt;w:tbl")) throw Object.assign(new Error("Uma tabela OpenXML foi inserida como texto escapado."), { statusCode: 500 }); if ((doc.match(/<w:tbl>/g) || []).length < 2) throw Object.assign(new Error("Os anexos não contêm tabelas OpenXML reais."), { statusCode: 500 }); return true; }
 function nomeArquivo(obra, revisao) { const slug = `${obra.codigo}-${obra.nome}-${revisao}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, ""); return `relatorio-entrega-${slug}.docx`; }
 
-async function carregarDadosObra(obraId, request, localizarObra, entregaId = "") {
+async function carregarDadosObra(obraId, request = supabaseRequestTodos, localizarObra, entregaId = "") {
   const obra = await localizarObra(obraId); if (!obra) throw Object.assign(new Error("Obra não encontrada."), { statusCode: 404 });
   const filtro = encodeURIComponent(obra.id);
   const [projetosFicha, atividadesDb, planner, entregas] = await Promise.all([
-    request("obra_projetos", `?obra_id=eq.${filtro}&select=*&order=projeto.asc`),
-    request("atividades_colaboradores", `?obra_id=eq.${filtro}&select=*&order=data_inicio.asc`),
-    request("planner_checklists", `?obra_id=eq.${filtro}&select=*&order=data_inicio.asc`),
-    request("obra_entregas", `?obra_id=eq.${filtro}&select=*&order=data_entrega.asc,criado_em.asc`)
+    request("obra_projetos", `?obra_id=eq.${filtro}&select=*&order=projeto.asc,id.asc`),
+    request("atividades_colaboradores", `?obra_id=eq.${filtro}&select=*&order=data_inicio.asc,id.asc`),
+    request("planner_checklists", `?obra_id=eq.${filtro}&select=*&order=data_inicio.asc,id.asc`),
+    request("obra_entregas", `?obra_id=eq.${filtro}&select=*&order=data_entrega.asc,criado_em.asc,id.asc`)
   ]);
   const ids = (atividadesDb || []).map((a) => a.id).filter(Boolean); const classificacoes = [];
   for (let i = 0; i < ids.length; i += 75) classificacoes.push(...await request("atividade_classificacoes", `?atividade_id=in.(${ids.slice(i, i + 75).map(encodeURIComponent).join(",")})&select=*`));
@@ -147,7 +148,7 @@ async function carregarDadosObra(obraId, request, localizarObra, entregaId = "")
   const atividades = (atividadesDb || []).map((a) => ({ ...a, classificacoes: porAtividade.get(a.id) || [] }));
   const entrega = entregaId ? (entregas || []).find((x) => String(x.id) === String(entregaId)) : null;
   if (entregaId && !entrega) throw Object.assign(new Error("Entrega não encontrada para a obra informada."), { statusCode: 404 });
-  const projetosEntrega = entrega ? await request("obra_entrega_projetos", `?entrega_id=eq.${encodeURIComponent(entrega.id)}&select=*&order=projeto.asc`) : [];
+  const projetosEntrega = entrega ? await request("obra_entrega_projetos", `?entrega_id=eq.${encodeURIComponent(entrega.id)}&select=*&order=projeto.asc,id.asc`) : [];
   return { obra, projetosFicha: projetosFicha || [], atividades, planner: planner || [], entregas: entregas || [], projetosEntrega, entrega };
 }
 

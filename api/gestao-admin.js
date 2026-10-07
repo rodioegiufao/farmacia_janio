@@ -1,4 +1,4 @@
-const { requireUser, sendJson, supabaseRequest } = require("./_auth");
+const { requireUser, sendJson, supabaseRequestTodos } = require("./_auth");
 const { listarObras } = require("./_obras");
 const { exigirAdmin } = require("./_obra-ficha");
 const G = require("./_gestao");
@@ -17,10 +17,10 @@ module.exports = async function gestaoAdminHandler(req, res) {
     const obras = await listarObras({ somenteAtivas: false }), ids = obras.map((o) => o.id);
     const filtro = ids.length ? `?obra_id=in.(${ids.map(encodeURIComponent).join(",")})&select=*` : "?select=*";
     const [caracteristicas, tipologias, intervencoes, projetos, atividades, checklists, vinculos] = await Promise.all([
-      supabaseRequest("obra_caracteristicas", filtro), supabaseRequest("obra_tipologias", filtro), supabaseRequest("obra_intervencoes", filtro),
-      supabaseRequest("obra_projetos", filtro), supabaseRequest("atividades_colaboradores", filtro),
-      supabaseRequest("planner_checklists", ids.length ? `?obra_id=in.(${ids.map(encodeURIComponent).join(",")})&select=id,obra_id,projeto,codigo_projeto` : "?select=id,obra_id,projeto,codigo_projeto"),
-      supabaseRequest("atividade_planner_itens", "?select=atividade_id,item_id")
+      supabaseRequestTodos("obra_caracteristicas", `${filtro}&order=obra_id.asc`), supabaseRequestTodos("obra_tipologias", filtro), supabaseRequestTodos("obra_intervencoes", filtro),
+      supabaseRequestTodos("obra_projetos", filtro), supabaseRequestTodos("atividades_colaboradores", filtro),
+      supabaseRequestTodos("planner_checklists", ids.length ? `?obra_id=in.(${ids.map(encodeURIComponent).join(",")})&select=id,obra_id,projeto,codigo_projeto` : "?select=id,obra_id,projeto,codigo_projeto"),
+      supabaseRequestTodos("atividade_planner_itens", "?select=atividade_id,item_id&order=atividade_id.asc,item_id.asc")
     ]);
     const idsPlanner = new Set((vinculos || []).map((v) => String(v.atividade_id)));
     const atividadesPeriodo = (atividades || []).filter((a) => noPeriodo(a, inicio, fim));

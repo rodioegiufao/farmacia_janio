@@ -1,4 +1,4 @@
-const { parseRequestBody, requireInternalUser, sendJson, supabaseRequest } = require("./_auth");
+const { parseRequestBody, requireInternalUser, sendJson, supabaseRequest, supabaseRequestTodos } = require("./_auth");
 const { enriquecerRegistrosComObras, resolverOuCriarObra } = require("./_obras");
 const {
   PLANNER_MODELOS,
@@ -161,6 +161,29 @@ function incorporarAtividadesReais(checklists, atividades) {
   }
   return saida;
 }
+// Range pagina apenas a relação raiz; os itens precisam de leitura própria.
+async function carregarChecklistsComItens(path, request = supabaseRequestTodos) {
+  const rows = await request(CHECKLISTS_TABLE, path);
+  const porChecklist = new Map(rows.map((row) => [String(row.id), []]));
+  for (let start = 0; start < rows.length; start += 75) {
+    const ids = rows.slice(start, start + 75).map((row) => encodeURIComponent(row.id));
+    const itens = await request(ITEMS_TABLE, `?checklist_id=in.(${ids.join(",")})&select=*&order=ordem.asc,id.asc`);
+    for (const item of itens) porChecklist.get(String(item.checklist_id))?.push(item);
+  }
+  return rows.map((row) => ({ ...row, planner_checklist_itens: porChecklist.get(String(row.id)) }));
+}
+
+function consultaAtividadesReais(user, obraIds, limitarObras = false) {
+  const ids = [...obraIds].map(encodeURIComponent);
+  if (limitarObras && !ids.length) return null;
+  const filtros = [];
+  if (limitarObras) filtros.push(`obra_id=in.(${ids.join(",")})`);
+  if (user?.perfil !== "admin") {
+    const propria = `usuario_id.eq.${encodeURIComponent(user.id)}`;
+    filtros.push(ids.length ? `or=(obra_id.in.(${ids.join(",")}),${propria})` : `usuario_id=eq.${encodeURIComponent(user.id)}`);
+  }
+  return `?select=*,atividade_classificacoes(*)&order=id.asc${filtros.length ? `&${filtros.join("&")}` : ""}`;
+}
 async function migrarChecklist(record) {
   const modelo = localizarModeloPlanner(record.projeto, record.tipo);
   if (!modelo) return record;
@@ -194,7 +217,7 @@ module.exports = async function plannerChecklistHandler(req, res) {
       if (analiseTemporal) requireAdmin(user);
       const filtroObra = obraId ? `obra_id=eq.${encodeURIComponent(obraId)}&` : "";
       const filtroChecklist = checklistId ? `id=eq.${encodeURIComponent(checklistId)}&` : "";
-      const rows = await supabaseRequest(CHECKLISTS_TABLE, `?${filtroObra}${filtroChecklist}select=*,planner_checklist_itens(*)&order=criado_em.desc`);
+       const rows = await carregarChecklistsComItens(`?${filtroObra}${filtroChecklist}select=*&order=criado_em.desc,id.asc`);
       const migrated = await Promise.all((Array.isArray(rows) ? rows : []).map(migrarChecklist));
       const visiveis = migrated.filter((record) => checklistVisivelParaUsuario(record, user));
       const enriched = await enriquecerRegistrosComObras(visiveis);
@@ -206,7 +229,8 @@ module.exports = async function plannerChecklistHandler(req, res) {
       // checklist para o projeto. Colaboradores recebem as obras às quais já
       // têm acesso no Planner e as próprias atividades; administradores podem
       // montar também projetos virtuais de obras que ainda não têm checklist.
-      const atividadesRows = await supabaseRequest("atividades_colaboradores", "?select=*,atividade_classificacoes(*)");
+      const consulta = consultaAtividadesReais(user, obraIds, Boolean(obraId || checklistId));
+      const atividadesRows = consulta ? await supabaseRequestTodos("atividades_colaboradores", consulta) : [];
       const atividadesVisiveis = (Array.isArray(atividadesRows) ? atividadesRows : []).filter((atividade) =>
         user?.perfil === "admin"
         || obraIds.has(String(atividade.obra_id || ""))
@@ -272,7 +296,7 @@ module.exports = async function plannerChecklistHandler(req, res) {
         const checklists = await supabaseRequest(CHECKLISTS_TABLE, `?id=eq.${encodeURIComponent(body.checklistId)}&select=id,responsavel`);
         const checklist = checklists?.[0];
         if (!checklist) return sendJson(res, 404, { mensagem: "Tarefa não encontrada." });
-        const existing = await supabaseRequest(ITEMS_TABLE, `?checklist_id=eq.${encodeURIComponent(body.checklistId)}&id=in.(${itemIds.map(encodeURIComponent).join(",")})&select=id,responsavel`);
+        const existing = await supabaseRequestTodos(ITEMS_TABLE, `?checklist_id=eq.${encodeURIComponent(body.checklistId)}&id=in.(${itemIds.map(encodeURIComponent).join(",")})&select=id,responsavel`);
         if (!Array.isArray(existing) || existing.length !== itemIds.length) return sendJson(res, 422, { mensagem: "Um ou mais itens não pertencem à tarefa informada." });
         if (!existing.every((item) => itemEditavelPeloUsuario(item, checklist, user))) {
           return sendJson(res, 403, { mensagem: "Você só pode marcar os estágios atribuídos a você." });
@@ -318,4 +342,4 @@ module.exports = async function plannerChecklistHandler(req, res) {
     sendJson(res, error.statusCode || 500, { mensagem: error.message || "Erro interno ao processar o Planner." });
   }
 };
-module.exports._test = { incorporarAtividadesReais, requireAdmin };
+module.exports._test = { incorporarAtividadesReais, requireAdmin, carregarChecklistsComItens, consultaAtividadesReais };

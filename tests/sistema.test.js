@@ -504,6 +504,30 @@ const tresVinculos = [1, 2, 3].map((numero) => ({ ...atividadeBase, id:`vinculo-
 const respostaComVinculos = _test.incorporarAtividadesReais([{ ...plannerBase[0], itens:[{ ...plannerBase[0].itens[0], atividadesVinculadas:tresVinculos }] }], tresVinculos);
 assert.equal(respostaComVinculos.length, 1);
 assert.equal(respostaComVinculos[0].itens[0].atividadesVinculadas.length, 3, "um checklist preserva suas três atividades explicitamente vinculadas");
+const fimSemana = ["2026-10-03", "2026-10-04"].map((dia, index) => ({
+  ...atividadeBase, id: `fim-semana-${index}`, data_inicio: dia, data_termino: dia
+}));
+const gantt = require("../atividades/planner-gantt");
+const estruturaFimSemana = gantt.construirEstruturaGantt(_test.incorporarAtividadesReais(plannerBase, fimSemana), {
+  periodo: { inicio: "2026-10-01", fim: "2026-10-07" }
+});
+const obraFimSemana = estruturaFimSemana[0], projetoFimSemana = obraFimSemana.projetos[0], faseFimSemana = projetoFimSemana.fases[0];
+for (const nivel of [obraFimSemana, projetoFimSemana, faseFimSemana, faseFimSemana.itens[0]]) {
+  assert.deepEqual(nivel.segmentosGantt.map((segmento) => segmento.data), ["2026-10-03", "2026-10-04"], "sábado e domingo aparecem em todos os níveis do Gantt");
+  assert.equal(nivel.metricas.minutosNoPeriodo, 480, "rateio dos dois dias preservado");
+}
+const admin = { perfil: "admin", id: "admin" }, colaborador = { perfil: "colaborador", id: "user-1" };
+const consulta = (user, ids, limitar = false) => {
+  const path = _test.consultaAtividadesReais(user, new Set(ids), limitar);
+  return path === null ? null : new URLSearchParams(path.slice(1));
+};
+assert.equal(consulta(admin, ["o1"]).get("or"), null, "admin continua lendo todas as atividades sem filtro de obra");
+assert.equal(consulta(colaborador, ["o1", "o2"]).get("or"), "(obra_id.in.(o1,o2),usuario_id.eq.user-1)");
+assert.equal(consulta(colaborador, []).get("usuario_id"), "eq.user-1", "sem obras visíveis, colaborador lê suas atividades");
+assert.equal(consulta(admin, ["o1"], true).get("obra_id"), "in.(o1)", "obraId/checklistId restringe a consulta à obra envolvida");
+assert.equal(consulta(colaborador, ["o1"], true).get("or"), "(obra_id.in.(o1),usuario_id.eq.user-1)");
+assert.equal(consulta(colaborador, ["o1"], true).get("obra_id"), "in.(o1)");
+assert.equal(consulta(admin, [], true), null, "checklist sem obra visível não baixa a tabela inteira");
 const fontePlanner = fs.readFileSync(require.resolve("../atividades/script.js"), "utf8");
 assert.match(fontePlanner, /plannerChecklists\s*=\s*Array\.isArray\(data\.checklists\)/, "o carregamento deve armazenar os checklists retornados pela API");
 assert.match(fontePlanner, /Não foi possível carregar os dados do Planner\./, "erro da API não pode ser apresentado como estado vazio");
@@ -1039,6 +1063,74 @@ const templateXml = novoZip().file("word/document.xml").asText(); assert.match(t
 // ========================================================
 // EXECUÇÃO
 // ========================================================
+async function testarPaginacaoPlanner() {
+  const { _test } = require("../api/planner-checklist");
+  const { agregarAtividadesDosItens } = require("../api/_planner-sync");
+  const atividades = require("../api/atividades")._test;
+  process.env.SUPABASE_URL = "https://example.supabase.co";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
+  const parents = Array.from({ length: 1001 }, (_, index) => ({ id: `p${index}`, obra_id: "o1", obra: "IPER", projeto: "Site" }));
+  const items = Array.from({ length: 2500 }, (_, index) => ({ id: `item-${index}`, checklist_id: "p0", etapa: "Lançamento", atividade: "Iluminação", ordem: index }));
+  const activity = { id: "a1", obra_id: "o1", obra: "IPER", projeto: "Site", data_inicio: "2026-10-03", hora_inicio: "08:00", data_termino: "2026-10-03", hora_termino: "12:00", fase: "Lançamento", item: "Iluminação" };
+  const links = items.map((item, index) => ({ item_id: item.id, item: { etapa: "Lançamento", atividade: "Iluminação" }, atividade: { ...activity, id: `a${index}` } }));
+  const classifications = Array.from({ length: 1500 }, (_, index) => ({ id: `c${index}`, atividade_id: "a1", fase: "Lançamento", item: `Item ${index}`, minutos_dedicados: 1 }));
+  const calls = [];
+  global.fetch = async (value, options) => {
+    const url = new URL(value), table = url.pathname.split("/").at(-1);
+    const start = Number((options.headers.Range || "0-999").split("-")[0]);
+    calls.push({ table, start, query: url.searchParams });
+    if (table !== "usuarios_setor") assert.equal(options.headers["Range-Unit"], "items");
+    let data;
+    if (table === "planner_checklists") data = url.searchParams.has("id") ? parents.filter((row) => `eq.${row.id}` === url.searchParams.get("id")) : parents;
+    else if (table === "planner_checklist_itens") data = url.searchParams.get("checklist_id").slice(4, -1).split(",").includes("p0") ? items : [];
+    else if (table === "atividade_planner_itens") data = links;
+    else if (table === "atividade_classificacoes") data = url.searchParams.get("atividade_id").slice(4, -1).split(",").includes("a1") ? classifications : [];
+    else if (table === "usuarios_setor") data = [{ id: "admin", nome: "Admin", perfil: "admin" }];
+    else if (table === "obras") data = [{ id: "o1", codigo: "OBR-1", nome: "IPER", nome_normalizado: "iper", ativo: true }];
+    else if (table === "atividades_colaboradores") data = [...links.map((link) => link.atividade), { ...activity, id: "fallback-domingo", data_inicio: "2026-10-04", data_termino: "2026-10-04" }];
+    else throw new Error(`Consulta inesperada: ${table}`);
+    return { ok: true, status: 200, text: async () => JSON.stringify(data.slice(start, start + 1000)) };
+  };
+  const checklists = await _test.carregarChecklistsComItens("?select=*&order=criado_em.desc,id.asc");
+  assert.equal(checklists.length, 1001, "todos os checklists são carregados");
+  assert.equal(checklists[0].planner_checklist_itens.length, 2500, "filhos são paginados independentemente da relação pai");
+  assert.deepEqual(checklists[1].planner_checklist_itens, [], "checklist vazio continua vazio");
+  assert.deepEqual(calls.filter((call) => call.table === "planner_checklists").map((call) => call.start), [0, 1000]);
+  assert.deepEqual(calls.filter((call) => call.table === "planner_checklist_itens" && call.query.get("checklist_id").includes("p0,")).map((call) => call.start), [0, 1000, 2000]);
+  const metadata = await agregarAtividadesDosItens(["p0"]);
+  assert.equal(metadata.size, 2500, "vínculos depois da linha 1000 contribuem para o Planner");
+  assert.equal(metadata.get("item-2499").minutosRegistrados, 240);
+  assert.ok(calls.filter((call) => call.table === "atividade_planner_itens").every((call) => call.query.get("order") === "atividade_id.asc,item_id.asc"));
+  assert.equal((await atividades.carregarClassificacoesEmLotes(["a1"])).length, 1500, "mesmo um lote de poucos IDs pode ter mais de 1000 classificações");
+  process.env.AUTH_SECRET = "test-session-secret";
+  const cookie = require("../api/_auth").createSessionCookie({ id: "admin" });
+  const res = { statusCode: 0, headers: {}, status(code) { this.statusCode = code; return this; }, setHeader(name, value) { this.headers[name] = value; return this; }, send(body) { this.body = JSON.parse(body); return this; } };
+  await require("../api/planner-checklist")({ method: "GET", url: "/api/planner-checklist", headers: { cookie } }, res);
+  assert.equal(res.statusCode, 200);
+  const linked = res.body.checklists.flatMap((checklist) => checklist.itens.flatMap((item) => item.atividadesVinculadas));
+  assert.equal(linked.length, 2501, "GET real preserva todos os vínculos e o fallback recente sem duplicação");
+  assert.equal(new Set(linked.map((row) => row.id)).size, 2501);
+  const estrutura = require("../atividades/planner-gantt").construirEstruturaGantt(res.body.checklists);
+  assert.deepEqual(estrutura[0].segmentosGantt.map((segmento) => segmento.data), ["2026-10-03", "2026-10-04"]);
+  assert.deepEqual(calls.filter((call) => call.table === "atividades_colaboradores").map((call) => call.start), [0, 1000, 2000]);
+  calls.length = 0;
+  await require("../api/planner-checklist")({ method: "GET", url: "/api/planner-checklist?checklistId=p0", headers: { cookie } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.ok(calls.filter((call) => call.table === "atividades_colaboradores").every((call) => call.query.get("obra_id") === "in.(o1)"));
+  calls.length = 0;
+  await require("../api/planner-checklist")({ method: "GET", url: "/api/planner-checklist?checklistId=inexistente", headers: { cookie } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body.checklists, []);
+  assert.equal(calls.some((call) => call.table === "atividades_colaboradores"), false);
+  calls.length = 0;
+  await require("../api/atividades")({ method: "GET", headers: { cookie } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.length, 2501, "GET de atividades não perde registros além da primeira página");
+  assert.equal(res.body.find((row) => row.id === "a1").classificacoes.length, 1500);
+  assert.ok(calls.filter((call) => call.table === "atividades_colaboradores").every((call) => call.query.get("order") === "criado_em.desc,id.asc"));
+
+
+}
 
 async function main() {
   const grupos = [
@@ -1048,6 +1140,7 @@ async function main() {
     ["Planner Modelos", testarPlannerModelos],
     ["Planner Sync", testarPlannerSync],
     ["Planner Checklist", testarPlannerChecklist],
+    ["Paginação do Planner", testarPaginacaoPlanner],
     ["Gantt", testarGantt],
     ["Gantt do relatório", testarGanttRelatorio],
     ["Dashboard", testarDashboard],

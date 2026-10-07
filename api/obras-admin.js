@@ -1,4 +1,4 @@
-const { parseRequestBody, requireUser, sendJson, supabaseRequest } = require("./_auth");
+const { parseRequestBody, requireUser, sendJson, supabaseRequest, supabaseRequestTodos } = require("./_auth");
 const { listarObras, localizarObraPorId, resolverOuCriarObra } = require("./_obras");
 const { chaveProjeto, completudeFicha, exigirAdmin, obterPendenciasFicha, statusFicha, validarFicha } = require("./_obra-ficha");
 
@@ -8,9 +8,9 @@ async function carregarRelacionados(obras) {
   if (!ids.length) return { caracteristicas: [], tipologias: [], intervencoes: [], projetos: [], atividades: [], planner: [] };
   const filtro = `?obra_id=in.(${idsFiltro(ids)})`;
   const [caracteristicas, tipologias, intervencoes, projetos, atividades, planner] = await Promise.all([
-    supabaseRequest("obra_caracteristicas", `${filtro}&select=*`), supabaseRequest("obra_tipologias", `${filtro}&select=*`),
-    supabaseRequest("obra_intervencoes", `${filtro}&select=*`), supabaseRequest("obra_projetos", `${filtro}&select=*`),
-    supabaseRequest("atividades_colaboradores", `${filtro}&select=obra_id,projeto`), supabaseRequest("planner_checklists", `${filtro}&select=obra_id,projeto,codigo_projeto`)
+    supabaseRequestTodos("obra_caracteristicas", `${filtro}&select=*&order=obra_id.asc`), supabaseRequestTodos("obra_tipologias", `${filtro}&select=*`),
+    supabaseRequestTodos("obra_intervencoes", `${filtro}&select=*`), supabaseRequestTodos("obra_projetos", `${filtro}&select=*`),
+    supabaseRequestTodos("atividades_colaboradores", `${filtro}&select=obra_id,projeto`), supabaseRequestTodos("planner_checklists", `${filtro}&select=obra_id,projeto,codigo_projeto`)
   ]);
   return { caracteristicas, tipologias, intervencoes, projetos, atividades, planner };
 }

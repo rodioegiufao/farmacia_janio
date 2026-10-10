@@ -10,7 +10,7 @@ async function loadProjectConfig() {
 (async () => {
     const { PROJECT_CONFIGS, getProjectConfig, hasProjectConfig } = await loadProjectConfig();
 
-    for (const projectKey of ["iper", "lacen", "farmacia", "policlinica", "esc_canaa"]) {
+     for (const projectKey of ["iper", "lacen", "farmacia", "policlinica", "esc_canaa", "tce"]) {
         assert.ok(hasProjectConfig(projectKey), `${projectKey} deve existir`);
         for (const mode of ["public", "authenticated"]) {
             const config = getProjectConfig(projectKey, mode);
@@ -18,6 +18,18 @@ async function loadProjectConfig() {
             assert.deepStrictEqual(Object.keys(config.transforms), config.models.map(({ id }) => id));
         }
     }
+    const tceFiles = fs.readdirSync(path.join(__dirname, "../3D/TCE")).filter((file) => file.endsWith(".xkt")).sort();
+    for (const mode of ["public", "authenticated"]) {
+        const tceConfig = getProjectConfig("tce", mode);
+        assert.strictEqual(tceConfig.name, "TCE");
+        assert.strictEqual(tceConfig.models.length, 7);
+        assert.ok(tceConfig.models.every(({ src }) => src.startsWith("/3D/TCE/")));
+        assert.deepStrictEqual(tceConfig.models.map(({ src }) => path.basename(src)).sort(), tceFiles);
+    }
+    const tceHtml = fs.readFileSync(path.join(__dirname, "../3D/TCE.html"), "utf8");
+    assert.ok(tceHtml.includes('data-project="tce"'));
+    const vercelConfig = JSON.parse(fs.readFileSync(path.join(__dirname, "../vercel.json"), "utf8"));
+    assert.ok(vercelConfig.rewrites.some(({ source, destination }) => source === "/3D/TCE" && destination === "/3D/TCE.html"));
     const psbConfig = getProjectConfig("psb", "public");
     assert.strictEqual(psbConfig.name, "Posto São Bento");
     assert.strictEqual(psbConfig.models.length, 12);

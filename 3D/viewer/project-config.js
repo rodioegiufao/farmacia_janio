@@ -49,6 +49,53 @@ export const DISCIPLINE_LABELS = {
 // Cada modelo possui valores comuns e overrides explícitos por contexto de autenticação.
 // enabled=false remove o modelo antes do carregamento: o respectivo XKT não é solicitado.
 export const PROJECT_CONFIGS = {
+    tce: {
+        name: "TCE",
+        models: {
+            IFC_INC: {
+                src: "/3D/TCE/XKT-INC-TCE.xkt",
+                label: "Prevenção e combate a incêndio",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EMT: {
+                src: "/3D/TCE/XKT-EMT-TCE.xkt",
+                label: "EMT — prédio principal",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EMT_ESTAC: {
+                src: "/3D/TCE/XKT-EMT-TCE-ESTAC.xkt",
+                label: "EMT — estacionamento",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST_PP: {
+                src: "/3D/TCE/XKT-EST-TCE-PP.xkt",
+                label: "Estrutura do prédio principal",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_FOT: {
+                src: "/3D/TCE/XKT-FOT-TCE.xkt",
+                label: "Sistema fotovoltaico",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_HID: {
+                src: "/3D/TCE/XKT-HID-TCE.xkt",
+                label: "Instalações hidráulicas",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ILUX: {
+                src: "/3D/TCE/XKT-ILUX-TCE.xkt",
+                label: "Iluminação externa",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            }
+        }
+    },
     iper: {
         name: "IPER",
         models: {

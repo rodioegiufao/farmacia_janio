@@ -52,6 +52,36 @@ export const PROJECT_CONFIGS = {
     tce: {
         name: "TCE",
         models: {
+            IFC_ARQ: {
+                src: "/3D/TCE/XKT-ARQ-TCE.xkt",
+                label: "Arquitetura",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ELE_380: {
+                src: "/3D/TCE/XKT-ELE-380-TCE.xkt",
+                label: "Instalações elétricas — 380 V",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_LOG: {
+                src: "/3D/TCE/XKT-LOG-TCE.xkt",
+                label: "Cabeamento estruturado",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_PLU: {
+                src: "/3D/TCE/XKT-PLU-TCE.xkt",
+                label: "Águas pluviais",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SPDA: {
+                src: "/3D/TCE/XKT-SPDA-TCE.xkt",
+                label: "SPDA",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
             IFC_INC: {
                 src: "/3D/TCE/XKT-INC-TCE.xkt",
                 label: "Prevenção e combate a incêndio",
@@ -73,6 +103,7 @@ export const PROJECT_CONFIGS = {
             IFC_EST_PP: {
                 src: "/3D/TCE/XKT-EST-TCE-PP.xkt",
                 label: "Estrutura do prédio principal",
+                transform: { position: [0, 0.7, 0] },
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },

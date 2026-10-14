@@ -14,6 +14,10 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/3D/TCE",
+      "destination": "/3D/TCE.html"
+    },
+    {
       "source": "/3D/iper",
       "destination": "/3D/iper.html"
     },

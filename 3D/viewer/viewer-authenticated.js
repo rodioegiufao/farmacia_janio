@@ -3573,6 +3573,7 @@ function applyProjectHiddenIds() {
 const PROJECT_ROUTES = {
     iper: "/3D/iper",
     lacen: "/3D/lacen",
+    tce: "/3D/TCE",
     policlinica: "/3D/policlinica",
     farmacia: "/3D/farmacia",
     fecomercio: "/3D/fecomercio",

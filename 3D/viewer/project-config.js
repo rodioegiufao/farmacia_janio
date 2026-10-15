@@ -187,8 +187,8 @@ export const PROJECT_CONFIGS = {
                 src: "/3D/TCE/XKT-EMT-TCE-D.xkt",
                 label: "EMT — D",
                 transform: { position: [0, 4.0, 0] },
-                public: { enabled: true },
-                authenticated: { enabled: true }
+                public: { enabled: false },
+                authenticated: { enabled: false }
             },
             IFC_EMT_E: {
                 src: "/3D/TCE/XKT-EMT-TCE-E.xkt",
@@ -215,6 +215,24 @@ export const PROJECT_CONFIGS = {
                 src: "/3D/TCE/XKT-EMT-TCE-H.xkt",
                 label: "EMT — H",
                 transform: { position: [0, 4.9, 0] },
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST_SUB: {
+                src: "/3D/TCE/XKT-EST-TCE-SUBESTACAO.xkt",
+                label: "EST — SUB",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST_GUA_1: {
+                src: "/3D/TCE/XKT-EST-TCE-GUARITA01.xkt",
+                label: "EST — GUA 1",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EST_GUA_2: {
+                src: "/3D/TCE/XKT-EST-TCE-GUARITA02.xkt",
+                label: "EST — GUA 2",
                 public: { enabled: true },
                 authenticated: { enabled: true }
             }

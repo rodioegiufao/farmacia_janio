@@ -124,6 +124,96 @@ export const PROJECT_CONFIGS = {
                 label: "Iluminação externa",
                 public: { enabled: true },
                 authenticated: { enabled: true }
+            },
+            IFC_ELE_220_TERREO: {
+                src: "/3D/TCE/XKT-ELE-220-TCE-TERREO.xkt",
+                label: "Elétrica 220 V — térreo",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ELE_220_PAV1: {
+                src: "/3D/TCE/XKT-ELE-220-TCE-PAV1.xkt",
+                label: "Elétrica 220 V — pavimento 1",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ELE_220_PAV2: {
+                src: "/3D/TCE/XKT-ELE-220-TCE-PAV2.xkt",
+                label: "Elétrica 220 V — pavimento 2",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ELE_220_PAV3: {
+                src: "/3D/TCE/XKT-ELE-220-TCE-PAV3.xkt",
+                label: "Elétrica 220 V — pavimento 3",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ELE_220_PAV4: {
+                src: "/3D/TCE/XKT-ELE-220-TCE-PAV4.xkt",
+                label: "Elétrica 220 V — pavimento 4",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ELE_220_PAV5: {
+                src: "/3D/TCE/XKT-ELE-220-TCE-PAV5.xkt",
+                label: "Elétrica 220 V — pavimento 5",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ELE_220_COB: {
+                src: "/3D/TCE/XKT-ELE-220-TCE-COB.xkt",
+                label: "Elétrica 220 V — cobertura",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EMT_A: {
+                src: "/3D/TCE/XKT-EMT-TCE-A.xkt",
+                label: "EMT — A",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EMT_B: {
+                src: "/3D/TCE/XKT-EMT-TCE-B.xkt",
+                label: "EMT — B",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EMT_C: {
+                src: "/3D/TCE/XKT-EMT-TCE-C.xkt",
+                label: "EMT — C",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EMT_D: {
+                src: "/3D/TCE/XKT-EMT-TCE-D.xkt",
+                label: "EMT — D",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EMT_E: {
+                src: "/3D/TCE/XKT-EMT-TCE-E.xkt",
+                label: "EMT — E",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EMT_F: {
+                src: "/3D/TCE/XKT-EMT-TCE-F.xkt",
+                label: "EMT — F",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EMT_G: {
+                src: "/3D/TCE/XKT-EMT-TCE-G.xkt",
+                label: "EMT — G",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EMT_H: {
+                src: "/3D/TCE/XKT-EMT-TCE-H.xkt",
+                label: "EMT — H",
+                public: { enabled: true },
+                authenticated: { enabled: true }
             }
         }
     },

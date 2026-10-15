@@ -235,7 +235,13 @@ export const PROJECT_CONFIGS = {
                 label: "EST — GUA 2",
                 public: { enabled: true },
                 authenticated: { enabled: true }
-            }
+            },
+            IFC_CLI: {
+                src: "/3D/TCE/XKT-CLI-TCE.xkt",
+                label: "CLI",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
         }
     },
     iper: {

@@ -242,6 +242,12 @@ export const PROJECT_CONFIGS = {
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
+            IFC_CLI_DUTOS: {
+                src: "/3D/TCE/XKT-CLI-TCE-DUTOS.xkt",
+                label: "CLI — DUTOS",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
         }
     },
     iper: {

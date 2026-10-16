@@ -248,6 +248,12 @@ export const PROJECT_CONFIGS = {
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
+            IFC_SAN: {
+                src: "/3D/TCE/XKT-SAN-TCE.xkt",
+                label: "SAN",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
         }
     },
     iper: {

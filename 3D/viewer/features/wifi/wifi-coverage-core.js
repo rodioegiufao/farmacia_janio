@@ -412,3 +412,138 @@ export function buildFloorMask(slabs, { bounds, cellSize, cols, rows, floorY, be
     for (const value of mask) count += value;
     return { mask, count, topY: Number.isFinite(topY) ? topY : null };
 }
+
+
+// ---------------------------------------------------------------------------
+// Renderização em alta qualidade
+// ---------------------------------------------------------------------------
+const FLOOR_DBM = -130;            // valor usado no lugar de "sem sinal" para interpolar
+
+export function getSignalBandIndex(rssi) {
+    for (let i = 0; i < SIGNAL_LEVELS.length; i++) {
+        if (rssi >= SIGNAL_LEVELS[i].min) return i;
+    }
+    return SIGNAL_LEVELS.length;
+}
+
+/** Suavização gaussiana 3×3 (remove o serrilhado causado pela grade de raios). */
+export function smoothGrid(grid, cols, rows, passes = 1) {
+    let source = Float32Array.from(grid, (value) => (Number.isFinite(value) ? value : FLOOR_DBM));
+    const kernel = [1, 2, 1];
+    for (let pass = 0; pass < passes; pass++) {
+        const output = new Float32Array(source.length);
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                let sum = 0, weight = 0;
+                for (let dr = -1; dr <= 1; dr++) {
+                    const r = row + dr;
+                    if (r < 0 || r >= rows) continue;
+                    for (let dc = -1; dc <= 1; dc++) {
+                        const c = col + dc;
+                        if (c < 0 || c >= cols) continue;
+                        const w = kernel[dr + 1] * kernel[dc + 1];
+                        sum += source[r * cols + c] * w;
+                        weight += w;
+                    }
+                }
+                output[row * cols + col] = sum / weight;
+            }
+        }
+        source = output;
+    }
+    return source;
+}
+
+/**
+ * Gera a imagem RGBA do mapa: interpolação bilinear entre células, faixas de cor
+ * e uma linha fina de contorno na troca de faixa (como no UniFi Design Center).
+ * Linha 0 da imagem = minZ.
+ */
+export function renderHeatmapPixels(grid, cols, rows, { scale = 8, maxSize = 4096, maxPixels = 8_000_000 } = {}) {
+    const pixelScale = Math.max(1, Math.min(
+        scale,
+        Math.floor(maxSize / Math.max(cols, rows)),
+        Math.floor(Math.sqrt(maxPixels / (cols * rows)))
+    ));
+    const width = cols * pixelScale;
+    const height = rows * pixelScale;
+    const values = new Float32Array(width * height);
+    const bands = new Uint8Array(width * height);
+
+    for (let py = 0; py < height; py++) {
+        const gy = Math.min(rows - 1, Math.max(0, (py + 0.5) / pixelScale - 0.5));
+        const r0 = Math.floor(gy), r1 = Math.min(rows - 1, r0 + 1), fy = gy - r0;
+        for (let px = 0; px < width; px++) {
+            const gx = Math.min(cols - 1, Math.max(0, (px + 0.5) / pixelScale - 0.5));
+            const c0 = Math.floor(gx), c1 = Math.min(cols - 1, c0 + 1), fx = gx - c0;
+            const top = grid[r0 * cols + c0] * (1 - fx) + grid[r0 * cols + c1] * fx;
+            const bottom = grid[r1 * cols + c0] * (1 - fx) + grid[r1 * cols + c1] * fx;
+            const value = top * (1 - fy) + bottom * fy;
+            const index = py * width + px;
+            values[index] = value;
+            bands[index] = getSignalBandIndex(value);
+        }
+    }
+
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let py = 0; py < height; py++) {
+        for (let px = 0; px < width; px++) {
+            const index = py * width + px;
+            const band = bands[index];
+            const color = band < SIGNAL_LEVELS.length ? SIGNAL_LEVELS[band].color : NO_SIGNAL_COLOR;
+
+            // leve variação de tom dentro da faixa: mais claro perto do limite superior
+            let shade = 1;
+            if (band < SIGNAL_LEVELS.length) {
+                const upper = band === 0 ? SIGNAL_LEVELS[0].min + 15 : SIGNAL_LEVELS[band - 1].min;
+                const lower = SIGNAL_LEVELS[band].min;
+                const t = Math.min(1, Math.max(0, (values[index] - lower) / (upper - lower)));
+                shade = 0.88 + 0.12 * t;
+            }
+
+            const isEdge =
+                (px + 1 < width && bands[index + 1] !== band) ||
+                (py + 1 < height && bands[index + width] !== band);
+            const factor = isEdge ? 0.55 : shade;
+
+            data[index * 4] = color[0] * factor;
+            data[index * 4 + 1] = color[1] * factor;
+            data[index * 4 + 2] = color[2] * factor;
+            data[index * 4 + 3] = 255;
+        }
+    }
+    return { data, width, height, pixelScale };
+}
+
+/**
+ * Faces superiores das lajes do pavimento, projetadas em XZ (triângulos: x,z,x,z,x,z).
+ * Usadas como superfície do mapa, para o contorno seguir exatamente a laje.
+ */
+export function collectFloorFaces(slabs, { floorY, below = 0.5, above = 0.6 }) {
+    const faces = [];
+    for (const slab of slabs) {
+        const aabb = slab.aabb;
+        if (aabb && (aabb[4] < floorY - below || aabb[1] > floorY + above)) continue;
+        const p = slab.positions, idx = slab.indices;
+        const horizontal = [];
+        let slabTop = -Infinity;
+        for (let t = 0; t + 2 < idx.length; t += 3) {
+            const a = idx[t] * 3, b = idx[t + 1] * 3, c = idx[t + 2] * 3;
+            const ux = p[b] - p[a], uy = p[b + 1] - p[a + 1], uz = p[b + 2] - p[a + 2];
+            const vx = p[c] - p[a], vy = p[c + 1] - p[a + 1], vz = p[c + 2] - p[a + 2];
+            const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+            const length = Math.hypot(nx, ny, nz);
+            if (!length || Math.abs(ny) / length < 0.9) continue;
+            const faceY = (p[a + 1] + p[b + 1] + p[c + 1]) / 3;
+            if (faceY < floorY - below || faceY > floorY + above) continue;
+            horizontal.push([a, b, c, faceY]);
+            if (faceY > slabTop) slabTop = faceY;
+        }
+        // só a face de cima de cada laje (evita sobrepor a face de baixo)
+        for (const [a, b, c, faceY] of horizontal) {
+            if (faceY < slabTop - 0.02) continue;
+            faces.push(p[a], p[a + 2], p[b], p[b + 2], p[c], p[c + 2]);
+        }
+    }
+    return Float64Array.from(faces);
+}

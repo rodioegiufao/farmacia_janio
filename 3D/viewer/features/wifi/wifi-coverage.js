@@ -26,7 +26,10 @@ import {
     computeSignalGrid,
     colorForSignal,
     summarizeSignalGrid,
-    buildFloorMask
+    buildFloorMask,
+    smoothGrid,
+    renderHeatmapPixels,
+    collectFloorFaces
 } from "./wifi-coverage-core.js";
 
 const WALL_TYPES = new Set(["IfcWall", "IfcWallStandardCase", "IfcWallElementedCase"]);
@@ -123,8 +126,9 @@ export function createWifiCoverageFeature({
         </div>
         <label for="wifiResolution">Resolução do mapa</label>
         <select id="wifiResolution">
-            <option value="0.5">0,5 m (detalhado)</option>
-            <option value="1">1 m (rápido)</option>
+            <option value="0.25">0,25 m (alta qualidade)</option>
+            <option value="0.5">0,5 m (rápido)</option>
+            <option value="1">1 m (rascunho)</option>
         </select>
         <label class="wifi-check"><input type="checkbox" id="wifiClipFloor" checked> Recortar o mapa no piso (IfcSlab)</label>
         <div class="wifi-card" id="wifiModelSpec"></div>
@@ -362,54 +366,44 @@ export function createWifiCoverageFeature({
         requestRenderFrame();
     }
 
-    function drawHeatmap({ grid, cols, rows }, bounds, cellSize, y, mask = null) {
+    function drawHeatmap({ grid, cols, rows }, bounds, cellSize, y, floorFaces = null) {
         destroyHeatmap();
 
+        // Imagem suave: interpolação entre células, faixas de cor e contornos
+        const image = renderHeatmapPixels(smoothGrid(grid, cols, rows), cols, rows);
         const canvas = document.createElement("canvas");
-        canvas.width = cols;
-        canvas.height = rows;
-        const context = canvas.getContext("2d");
-        const image = context.createImageData(cols, rows);
-        for (let i = 0; i < grid.length; i++) {
-            const [r, g, b] = colorForSignal(grid[i]);
-            image.data[i * 4] = r;
-            image.data[i * 4 + 1] = g;
-            image.data[i * 4 + 2] = b;
-            image.data[i * 4 + 3] = 255;
-        }
-        context.putImageData(image, 0, 0);
+        canvas.width = image.width;
+        canvas.height = image.height;
+        canvas.getContext("2d").putImageData(new ImageData(image.data, image.width, image.height), 0, 0);
 
-        // Linha 0 do canvas = minZ (v = 0); flipY desligado para manter essa correspondência.
+        // Linha 0 da imagem = minZ (v = 0); flipY desligado para manter essa correspondência.
         // A textura cobre exatamente cols × rows células, a partir de minX/minZ.
         const minX = bounds[0], minZ = bounds[1];
         const width = cols * cellSize, depth = rows * cellSize;
         const origin = [minX + width / 2, y, minZ + depth / 2];
 
-        // Um retângulo por trecho contínuo de células (por linha). Sem máscara, um retângulo só.
         const positions = [], normals = [], uv = [], indices = [];
-        const addQuad = (x0, z0, x1, z1) => {
-            const base = positions.length / 3;
-            for (const [x, z] of [[x0, z0], [x1, z0], [x1, z1], [x0, z1]]) {
-                positions.push(x - origin[0], 0, z - origin[2]);
-                normals.push(0, 1, 0);
-                uv.push((x - minX) / width, (z - minZ) / depth);
-            }
-            indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+        const addVertex = (x, z) => {
+            positions.push(x - origin[0], 0, z - origin[2]);
+            normals.push(0, 1, 0);
+            uv.push((x - minX) / width, (z - minZ) / depth);
         };
-        if (mask) {
-            for (let row = 0; row < rows; row++) {
-                let start = -1;
-                for (let col = 0; col <= cols; col++) {
-                    const inside = col < cols && mask[row * cols + col];
-                    if (inside && start < 0) start = col;
-                    if (!inside && start >= 0) {
-                        addQuad(minX + start * cellSize, minZ + row * cellSize, minX + col * cellSize, minZ + (row + 1) * cellSize);
-                        start = -1;
-                    }
-                }
+
+        if (floorFaces?.length) {
+            // Superfície = faces superiores das lajes: o contorno do mapa é o contorno do piso
+            for (let i = 0; i < floorFaces.length; i += 6) {
+                const base = positions.length / 3;
+                addVertex(floorFaces[i], floorFaces[i + 1]);
+                addVertex(floorFaces[i + 2], floorFaces[i + 3]);
+                addVertex(floorFaces[i + 4], floorFaces[i + 5]);
+                indices.push(base, base + 1, base + 2);
             }
         } else {
-            addQuad(minX, minZ, minX + width, minZ + depth);
+            addVertex(minX, minZ);
+            addVertex(minX + width, minZ);
+            addVertex(minX + width, minZ + depth);
+            addVertex(minX, minZ + depth);
+            indices.push(0, 1, 2, 0, 2, 3);
         }
 
         const texture = new Texture(scene, { src: canvas.toDataURL("image/png"), flipY: false });
@@ -420,7 +414,7 @@ export function createWifiCoverageFeature({
             specular: [0, 0, 0],
             emissive: [1, 1, 1],
             emissiveMap: texture,
-            alpha: 0.75,
+            alpha: 0.85,
             alphaMode: "blend",
             backfaces: true
         });
@@ -544,20 +538,28 @@ export function createWifiCoverageFeature({
             if (!result || cancelRequested) return;
 
             let mask = null;
+            let floorFaces = null;
             let heatmapY = storey.floorY + HEATMAP_LIFT;
             let floorNote = "";
             if (floorSlabs.length) {
                 const floor = buildFloorMask(floorSlabs, { bounds, cellSize, cols: result.cols, rows: result.rows, floorY: storey.floorY });
                 if (floor.topY !== null) heatmapY = floor.topY + SLAB_LIFT;
                 if (clipFloorCheckbox.checked) {
-                    if (floor.count) mask = floor.mask;
-                    else floorNote = " • Lajes sem face horizontal no nível do piso; mapa sem recorte.";
+                    const faces = collectFloorFaces(floorSlabs, { floorY: storey.floorY });
+                    if (floor.count && faces.length) {
+                        mask = floor.mask;
+                        floorFaces = faces;
+                    } else {
+                        floorNote = " • Lajes sem face horizontal no nível do piso; mapa sem recorte.";
+                    }
                 }
             } else if (clipFloorCheckbox.checked) {
                 floorNote = " • Nenhuma IfcSlab encontrada neste pavimento; mapa sem recorte.";
             }
 
-            drawHeatmap(result, bounds, cellSize, heatmapY, mask);
+            setStatus("Desenhando o mapa…", 1);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            drawHeatmap(result, bounds, cellSize, heatmapY, floorFaces);
             viewer.cameraFlight.flyTo({
                 aabb: [bounds[0], storey.floorY, bounds[1], bounds[2], storey.ceilingY, bounds[3]],
                 duration: 0.8

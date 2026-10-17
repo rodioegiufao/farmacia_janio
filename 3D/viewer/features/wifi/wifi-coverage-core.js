@@ -1,0 +1,341 @@
+// Núcleo de cálculo da cobertura Wi-Fi.
+// Não depende do xeokit: recebe números e devolve números, para poder ser testado isoladamente.
+
+// ---------------------------------------------------------------------------
+// Catálogo de access points (dados do datasheet do fabricante)
+// ---------------------------------------------------------------------------
+export const AP_MODELS = Object.freeze({
+    "U6-LR": Object.freeze({
+        id: "U6-LR",
+        label: "UniFi U6 Long-Range (U6-LR)",
+        mounting: "Parede/teto",
+        mimo: "4x4 (2,4 GHz) • 4x4 (5 GHz)",
+        maxClients: "300+",
+        standards: "Wi-Fi 4/5/6",
+        bands: Object.freeze({
+            "2.4": Object.freeze({ label: "2,4 GHz", freqMHz: 2437, txPowerDbm: 26, antennaGainDbi: 4, throughput: "600 Mbps" }),
+            "5": Object.freeze({ label: "5 GHz", freqMHz: 5500, txPowerDbm: 26, antennaGainDbi: 5.5, throughput: "2400 Mbps" })
+        })
+    })
+});
+
+// Potência configurada no controlador (o datasheet informa a máxima).
+export const TX_POWER_PRESETS = Object.freeze({
+    high: Object.freeze({ label: "Alta (máxima)", offsetDb: 0 }),
+    medium: Object.freeze({ label: "Média (−6 dB)", offsetDb: -6 }),
+    low: Object.freeze({ label: "Baixa (−12 dB)", offsetDb: -12 })
+});
+
+// Itens do projeto que são classificados como access point.
+export const ACCESS_POINT_RULES = Object.freeze([
+    Object.freeze({ match: "Dispositivo de Cabeamento - embutir - S/ placa - 1 módulo -Repetidor", modelId: "U6-LR" })
+]);
+
+// ---------------------------------------------------------------------------
+// Parâmetros de propagação (estimativas; ajuste aqui para calibrar com medições reais)
+// ---------------------------------------------------------------------------
+export const PROPAGATION = Object.freeze({
+    receiverHeight: 1.2,      // altura do celular/notebook acima do piso (m)
+    pathLossExponent: 2.3,    // ambiente interno com as paredes contadas à parte
+    clientAntennaGainDbi: 0
+});
+
+// Tipos IFC que bloqueiam sinal e o tipo de obstáculo padrão de cada um.
+export const OBSTACLE_IFC_TYPES = Object.freeze({
+    IfcWall: "masonry",
+    IfcWallStandardCase: "masonry",
+    IfcWallElementedCase: "masonry",
+    IfcCurtainWall: "glass",
+    IfcWindow: "glass",
+    IfcDoor: "door",
+    IfcColumn: "concrete"
+});
+
+// Perda por obstáculo atravessado (dB). Valores típicos de literatura, aproximados.
+export const OBSTACLE_LOSS_DB = Object.freeze({
+    drywall: Object.freeze({ label: "Drywall/gesso", "2.4": 4, "5": 6 }),
+    glass: Object.freeze({ label: "Vidro", "2.4": 3, "5": 5 }),
+    door: Object.freeze({ label: "Porta", "2.4": 3, "5": 4 }),
+    masonry: Object.freeze({ label: "Alvenaria", "2.4": 8, "5": 12 }),
+    concrete: Object.freeze({ label: "Concreto", "2.4": 12, "5": 20 })
+});
+
+// Faixas de cor do mapa de calor (dBm).
+export const SIGNAL_LEVELS = Object.freeze([
+    Object.freeze({ min: -67, color: [34, 197, 94], label: "≥ −67 dBm • Ótimo (voz e vídeo)" }),
+    Object.freeze({ min: -72, color: [250, 204, 21], label: "−67 a −72 dBm • Bom" }),
+    Object.freeze({ min: -80, color: [245, 140, 30], label: "−72 a −80 dBm • Fraco" }),
+    Object.freeze({ min: -85, color: [220, 38, 38], label: "−80 a −85 dBm • Muito fraco" })
+]);
+export const NO_SIGNAL_COLOR = Object.freeze([63, 63, 70]);
+export const NO_SIGNAL_LABEL = "< −85 dBm • Sem cobertura";
+
+// ---------------------------------------------------------------------------
+// Identificação e classificação
+// ---------------------------------------------------------------------------
+export function normalizeItemLabel(value) {
+    return String(value ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/\s*-\s*/g, "-")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+const NORMALIZED_AP_RULES = ACCESS_POINT_RULES.map((rule) => ({ ...rule, normalized: normalizeItemLabel(rule.match) }));
+
+function* iterateMetaObjectTexts(metaObject) {
+    if (metaObject?.name) yield metaObject.name;
+    for (const pset of metaObject?.propertySets || []) {
+        for (const prop of pset?.properties || []) {
+            if (prop?.name) yield prop.name;
+            if (typeof prop?.value === "string") yield prop.value;
+        }
+    }
+}
+
+/** Retorna o id do modelo de AP quando o objeto é um access point, ou null. */
+export function getAccessPointModelId(metaObject) {
+    for (const text of iterateMetaObjectTexts(metaObject)) {
+        const normalized = normalizeItemLabel(text);
+        const rule = NORMALIZED_AP_RULES.find((candidate) => candidate.normalized === normalized);
+        if (rule) return rule.modelId;
+    }
+    return null;
+}
+
+/** Define o tipo de obstáculo a partir do tipo IFC e, para paredes, do nome/propriedades. */
+export function classifyObstacle(metaObject) {
+    const base = OBSTACLE_IFC_TYPES[metaObject?.type];
+    if (!base) return null;
+    if (base !== "masonry") return base;
+
+    const text = normalizeItemLabel(Array.from(iterateMetaObjectTexts(metaObject)).join(" "));
+    if (/drywall|dry wall|gesso acartonado|placa de gesso/.test(text)) return "drywall";
+    if (/vidro|glass|cortina/.test(text)) return "glass";
+    if (/concreto|concrete/.test(text)) return "concrete";
+    return "masonry";
+}
+
+export function getEirpDbm(modelId, band, powerPreset = "high") {
+    const bandData = AP_MODELS[modelId]?.bands?.[band];
+    if (!bandData) return null;
+    const offset = TX_POWER_PRESETS[powerPreset]?.offsetDb ?? 0;
+    return bandData.txPowerDbm + offset + bandData.antennaGainDbi;
+}
+
+/** Perda em espaço livre a 1 m (dB) para a frequência em MHz. */
+export function freeSpaceLossAt1m(freqMHz) {
+    return 20 * Math.log10(freqMHz) - 27.55;
+}
+
+// ---------------------------------------------------------------------------
+// Geometria: corte horizontal das paredes
+// ---------------------------------------------------------------------------
+/**
+ * Corta os triângulos de cada obstáculo no plano horizontal Y = sliceY.
+ * Retorna segmentos 2D no plano XZ: Float64Array [x1, z1, x2, z2, ...] e o índice do obstáculo de cada segmento.
+ */
+export function sliceObstacles(obstacles, sliceY) {
+    const coords = [];
+    const owners = [];
+
+    obstacles.forEach((obstacle, obstacleIndex) => {
+        const aabb = obstacle.aabb;
+        if (aabb && (aabb[1] > sliceY || aabb[4] < sliceY)) return;
+
+        const p = obstacle.positions;
+        const idx = obstacle.indices;
+        for (let t = 0; t + 2 < idx.length; t += 3) {
+            const a = idx[t] * 3, b = idx[t + 1] * 3, c = idx[t + 2] * 3;
+            const hits = [];
+            for (const [i, j] of [[a, b], [b, c], [c, a]]) {
+                const yi = p[i + 1] - sliceY;
+                const yj = p[j + 1] - sliceY;
+                if ((yi < 0) !== (yj < 0)) {
+                    const k = yi / (yi - yj);
+                    hits.push(p[i] + (p[j] - p[i]) * k, p[i + 2] + (p[j + 2] - p[i + 2]) * k);
+                }
+            }
+            if (hits.length >= 4) {
+                coords.push(hits[0], hits[1], hits[2], hits[3]);
+                owners.push(obstacleIndex);
+            }
+        }
+    });
+
+    return { coords: Float64Array.from(coords), owners: Uint32Array.from(owners) };
+}
+
+export function segmentsBounds(coords) {
+    const bounds = [Infinity, Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < coords.length; i += 2) {
+        bounds[0] = Math.min(bounds[0], coords[i]);
+        bounds[1] = Math.min(bounds[1], coords[i + 1]);
+        bounds[2] = Math.max(bounds[2], coords[i]);
+        bounds[3] = Math.max(bounds[3], coords[i + 1]);
+    }
+    return bounds;
+}
+
+function segmentsIntersect(ax, az, bx, bz, cx, cz, dx, dz) {
+    const rX = bx - ax, rZ = bz - az, sX = dx - cx, sZ = dz - cz;
+    const den = rX * sZ - rZ * sX;
+    if (Math.abs(den) < 1e-12) return false;
+    const qX = cx - ax, qZ = cz - az;
+    const t = (qX * sZ - qZ * sX) / den;
+    const u = (qX * rZ - qZ * rX) / den;
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+}
+
+/** Grade espacial 2D para testar só os segmentos próximos de cada raio. */
+export class SegmentGrid {
+    constructor({ coords, owners }, bounds, cellSize = 1) {
+        this.coords = coords;
+        this.owners = owners;
+        this.minX = bounds[0];
+        this.minZ = bounds[1];
+        this.cellSize = cellSize;
+        this.cols = Math.max(1, Math.ceil((bounds[2] - bounds[0]) / cellSize));
+        this.rows = Math.max(1, Math.ceil((bounds[3] - bounds[1]) / cellSize));
+        this.cells = new Array(this.cols * this.rows);
+        this.segmentStamp = new Uint32Array(owners.length);
+        let maxOwner = -1;
+        for (let i = 0; i < owners.length; i++) if (owners[i] > maxOwner) maxOwner = owners[i];
+        this.ownerStamp = new Uint32Array(maxOwner + 1);
+        this.stamp = 0;
+
+        for (let s = 0; s < owners.length; s++) {
+            const o = s * 4;
+            const c0 = this.#col(Math.min(coords[o], coords[o + 2]));
+            const c1 = this.#col(Math.max(coords[o], coords[o + 2]));
+            const r0 = this.#row(Math.min(coords[o + 1], coords[o + 3]));
+            const r1 = this.#row(Math.max(coords[o + 1], coords[o + 3]));
+            for (let r = r0; r <= r1; r++) {
+                for (let c = c0; c <= c1; c++) {
+                    const key = r * this.cols + c;
+                    (this.cells[key] ||= []).push(s);
+                }
+            }
+        }
+    }
+
+    #col(x) { return Math.min(this.cols - 1, Math.max(0, Math.floor((x - this.minX) / this.cellSize))); }
+    #row(z) { return Math.min(this.rows - 1, Math.max(0, Math.floor((z - this.minZ) / this.cellSize))); }
+
+    /** Soma a perda dos obstáculos atravessados entre A e B (cada obstáculo conta uma vez). */
+    lossAlong(ax, az, bx, bz, ownerLoss) {
+        this.stamp = (this.stamp + 1) >>> 0 || 1;
+        const stamp = this.stamp;
+        let loss = 0;
+
+        let col = this.#col(ax), row = this.#row(az);
+        const endCol = this.#col(bx), endRow = this.#row(bz);
+        const dX = bx - ax, dZ = bz - az;
+        const stepX = dX > 0 ? 1 : -1, stepZ = dZ > 0 ? 1 : -1;
+        const tDeltaX = dX !== 0 ? this.cellSize / Math.abs(dX) : Infinity;
+        const tDeltaZ = dZ !== 0 ? this.cellSize / Math.abs(dZ) : Infinity;
+        let tMaxX = dX !== 0 ? ((this.minX + (col + (stepX > 0 ? 1 : 0)) * this.cellSize) - ax) / dX : Infinity;
+        let tMaxZ = dZ !== 0 ? ((this.minZ + (row + (stepZ > 0 ? 1 : 0)) * this.cellSize) - az) / dZ : Infinity;
+        const maxSteps = this.cols + this.rows + 2;
+
+        for (let step = 0; step <= maxSteps; step++) {
+            const segments = this.cells[row * this.cols + col];
+            if (segments) {
+                for (const s of segments) {
+                    if (this.segmentStamp[s] === stamp) continue;
+                    this.segmentStamp[s] = stamp;
+                    const owner = this.owners[s];
+                    if (this.ownerStamp[owner] === stamp) continue;
+                    const o = s * 4;
+                    if (segmentsIntersect(ax, az, bx, bz, this.coords[o], this.coords[o + 1], this.coords[o + 2], this.coords[o + 3])) {
+                        this.ownerStamp[owner] = stamp;
+                        loss += ownerLoss[owner];
+                    }
+                }
+            }
+            if (col === endCol && row === endRow) break;
+            if (tMaxX < tMaxZ) { col += stepX; tMaxX += tDeltaX; } else { row += stepZ; tMaxZ += tDeltaZ; }
+            if (col < 0 || row < 0 || col >= this.cols || row >= this.rows) break;
+        }
+        return loss;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Mapa de sinal
+// ---------------------------------------------------------------------------
+/**
+ * Calcula o melhor RSSI (dBm) de cada célula da grade.
+ * accessPoints: [{ x, y, z }] em coordenadas do mundo (Y para cima).
+ * Retorna Float32Array com rows*cols valores (linha 0 = minZ).
+ */
+export async function computeSignalGrid({
+    accessPoints,
+    obstacleSlice,
+    obstacleKinds,
+    band,
+    eirpDbm,
+    freqMHz,
+    bounds,
+    cellSize,
+    receiverY,
+    shouldCancel = () => false,
+    onProgress = () => {},
+    yieldEveryMs = 30
+}) {
+    const cols = Math.max(1, Math.ceil((bounds[2] - bounds[0]) / cellSize));
+    const rows = Math.max(1, Math.ceil((bounds[3] - bounds[1]) / cellSize));
+    const grid = new Float32Array(cols * rows).fill(-Infinity);
+    const segmentGrid = new SegmentGrid(obstacleSlice, bounds, 1);
+    const ownerLoss = Float32Array.from(obstacleKinds, (kind) => OBSTACLE_LOSS_DB[kind]?.[band] ?? OBSTACLE_LOSS_DB.masonry[band]);
+    const fspl1m = freeSpaceLossAt1m(freqMHz);
+    const n10 = 10 * PROPAGATION.pathLossExponent;
+    const budget = eirpDbm + PROPAGATION.clientAntennaGainDbi - fspl1m;
+
+    let lastYield = performance.now();
+    for (let row = 0; row < rows; row++) {
+        const z = bounds[1] + (row + 0.5) * cellSize;
+        for (let col = 0; col < cols; col++) {
+            const x = bounds[0] + (col + 0.5) * cellSize;
+            let best = -Infinity;
+            for (const ap of accessPoints) {
+                const dx = x - ap.x, dz = z - ap.z, dy = ap.y - receiverY;
+                const distance = Math.max(1, Math.sqrt(dx * dx + dy * dy + dz * dz));
+                const free = budget - n10 * Math.log10(distance);
+                if (free <= best) continue; // nem sem paredes superaria o melhor AP atual
+                const rssi = free - segmentGrid.lossAlong(ap.x, ap.z, x, z, ownerLoss);
+                if (rssi > best) best = rssi;
+            }
+            grid[row * cols + col] = best;
+        }
+
+        if (performance.now() - lastYield > yieldEveryMs) {
+            if (shouldCancel()) return null;
+            onProgress((row + 1) / rows);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            lastYield = performance.now();
+        }
+    }
+    onProgress(1);
+    return { grid, cols, rows };
+}
+
+export function colorForSignal(rssi) {
+    for (const level of SIGNAL_LEVELS) {
+        if (rssi >= level.min) return level.color;
+    }
+    return NO_SIGNAL_COLOR;
+}
+
+/** Resumo: percentual das células com nível ≥ −67 e ≥ −72 dentro da área medida. */
+export function summarizeSignalGrid(grid) {
+    let good = 0, fair = 0;
+    for (const value of grid) {
+        if (value >= -67) good++;
+        if (value >= -72) fair++;
+    }
+    const total = grid.length || 1;
+    return { goodPercent: (good / total) * 100, fairPercent: (fair / total) * 100 };
+}

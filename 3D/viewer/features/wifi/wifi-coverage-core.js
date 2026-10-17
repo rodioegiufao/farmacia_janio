@@ -51,6 +51,9 @@ export const OBSTACLE_IFC_TYPES = Object.freeze({
     IfcColumn: "concrete"
 });
 
+// Lajes usadas para recortar o mapa no piso (não atenuam dentro do mesmo pavimento).
+export const FLOOR_IFC_TYPES = Object.freeze(["IfcSlab"]);
+
 // Perda por obstáculo atravessado (dB). Valores típicos de literatura, aproximados.
 export const OBSTACLE_LOSS_DB = Object.freeze({
     drywall: Object.freeze({ label: "Drywall/gesso", "2.4": 4, "5": 6 }),
@@ -329,13 +332,83 @@ export function colorForSignal(rssi) {
     return NO_SIGNAL_COLOR;
 }
 
-/** Resumo: percentual das células com nível ≥ −67 e ≥ −72 dentro da área medida. */
-export function summarizeSignalGrid(grid) {
-    let good = 0, fair = 0;
-    for (const value of grid) {
-        if (value >= -67) good++;
-        if (value >= -72) fair++;
+/**
+ * Resumo: percentual das células com nível ≥ −67 e ≥ −72.
+ * Com máscara, conta só as células que estão sobre o piso.
+ */
+export function summarizeSignalGrid(grid, mask = null) {
+    let good = 0, fair = 0, total = 0;
+    for (let i = 0; i < grid.length; i++) {
+        if (mask && !mask[i]) continue;
+        total++;
+        if (grid[i] >= -67) good++;
+        if (grid[i] >= -72) fair++;
     }
-    const total = grid.length || 1;
-    return { goodPercent: (good / total) * 100, fairPercent: (fair / total) * 100 };
+    const divisor = total || 1;
+    return { goodPercent: (good / divisor) * 100, fairPercent: (fair / divisor) * 100, cellCount: total };
+}
+
+// ---------------------------------------------------------------------------
+// Piso: projeção das lajes na grade
+// ---------------------------------------------------------------------------
+/**
+ * Marca as células da grade que estão sobre uma laje do pavimento.
+ * Considera só faces horizontais com altura entre floorY − below e floorY + above.
+ * Retorna { mask, count, topY } — topY é a face superior do piso encontrada (ou null).
+ */
+export function buildFloorMask(slabs, { bounds, cellSize, cols, rows, floorY, below = 0.5, above = 0.6 }) {
+    const mask = new Uint8Array(cols * rows);
+    const minX = bounds[0], minZ = bounds[1];
+    let topY = -Infinity;
+
+    for (const slab of slabs) {
+        const aabb = slab.aabb;
+        if (aabb && (aabb[4] < floorY - below || aabb[1] > floorY + above)) continue;
+
+        const p = slab.positions, idx = slab.indices;
+        for (let t = 0; t + 2 < idx.length; t += 3) {
+            const a = idx[t] * 3, b = idx[t + 1] * 3, c = idx[t + 2] * 3;
+            const ax = p[a], ay = p[a + 1], az = p[a + 2];
+            const bx = p[b], by = p[b + 1], bz = p[b + 2];
+            const cx = p[c], cy = p[c + 1], cz = p[c + 2];
+
+            // só faces horizontais (normal quase vertical)
+            const ux = bx - ax, uy = by - ay, uz = bz - az;
+            const vx = cx - ax, vy = cy - ay, vz = cz - az;
+            const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+            const length = Math.hypot(nx, ny, nz);
+            if (!length || Math.abs(ny) / length < 0.9) continue;
+
+            const faceY = (ay + by + cy) / 3;
+            if (faceY < floorY - below || faceY > floorY + above) continue;
+            if (faceY > topY) topY = faceY;
+
+            // células cujo centro cai dentro do triângulo (projeção XZ)
+            const c0 = Math.max(0, Math.ceil((Math.min(ax, bx, cx) - minX) / cellSize - 0.5));
+            const c1 = Math.min(cols - 1, Math.floor((Math.max(ax, bx, cx) - minX) / cellSize - 0.5));
+            const r0 = Math.max(0, Math.ceil((Math.min(az, bz, cz) - minZ) / cellSize - 0.5));
+            const r1 = Math.min(rows - 1, Math.floor((Math.max(az, bz, cz) - minZ) / cellSize - 0.5));
+            const area = (bx - ax) * (cz - az) - (bz - az) * (cx - ax);
+            if (Math.abs(area) < 1e-9) continue;
+            const sign = area > 0 ? 1 : -1;
+            const eps = -1e-9;
+
+            for (let r = r0; r <= r1; r++) {
+                const z = minZ + (r + 0.5) * cellSize;
+                for (let col = c0; col <= c1; col++) {
+                    const key = r * cols + col;
+                    if (mask[key]) continue;
+                    const x = minX + (col + 0.5) * cellSize;
+                    const w0 = sign * ((bx - ax) * (z - az) - (bz - az) * (x - ax));
+                    const w1 = sign * ((cx - bx) * (z - bz) - (cz - bz) * (x - bx));
+                    const w2 = sign * ((ax - cx) * (z - cz) - (az - cz) * (x - cx));
+                    if (w0 >= eps && w1 >= eps && w2 >= eps) mask[key] = 1;
+                }
+            }
+        }
+    }
+
+    let count = 0;
+    for (const value of mask) count += value;
+    return { mask, count, topY: Number.isFinite(topY) ? topY : null };
 }

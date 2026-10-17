@@ -12,6 +12,7 @@ import {
     AP_MODELS,
     TX_POWER_PRESETS,
     OBSTACLE_IFC_TYPES,
+    FLOOR_IFC_TYPES,
     OBSTACLE_LOSS_DB,
     PROPAGATION,
     SIGNAL_LEVELS,
@@ -24,12 +25,14 @@ import {
     segmentsBounds,
     computeSignalGrid,
     colorForSignal,
-    summarizeSignalGrid
+    summarizeSignalGrid,
+    buildFloorMask
 } from "./wifi-coverage-core.js";
 
 const WALL_TYPES = new Set(["IfcWall", "IfcWallStandardCase", "IfcWallElementedCase"]);
 const HEATMAP_MARGIN = 3;          // metros além das paredes
-const HEATMAP_LIFT = 0.10;         // altura do mapa acima do piso (m)
+const HEATMAP_LIFT = 0.10;         // altura do mapa acima da base das paredes, quando não há laje (m)
+const SLAB_LIFT = 0.02;            // altura do mapa acima da face superior da laje (m)
 const MAX_GRID_CELLS = 250000;
 
 const STYLE = `
@@ -40,6 +43,7 @@ const STYLE = `
 #wifiCoveragePanel .wifi-subtitle{font-size:12px;opacity:.75}
 #wifiCoveragePanel .wifi-close{background:none;border:0;color:#fff;font-size:18px;cursor:pointer}
 #wifiCoveragePanel label{display:block;margin:8px 0 3px;font-size:12px;opacity:.85}
+#wifiCoveragePanel .wifi-check{display:flex;align-items:center;gap:6px;margin-top:10px;opacity:1}
 #wifiCoveragePanel select{width:100%;padding:7px;border-radius:6px;border:1px solid #444;background:#111;color:#fff}
 #wifiCoveragePanel .wifi-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 #wifiCoveragePanel .wifi-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px;margin-top:8px;font-size:12px;line-height:1.5}
@@ -68,7 +72,7 @@ export function createWifiCoverageFeature({
 }) {
     const scene = viewer.scene;
     const metaObjects = () => viewer.metaScene?.metaObjects || {};
-    const obstacleCache = new Map();   // archModelId -> [{ id, kind, aabb, positions, indices }]
+    const archGeometryCache = new Map(); // archModelId -> { obstacles: [...], slabs: [...] }
 
     let heatmap = null;                // { mesh, geometry, material, texture }
     let visibilitySnapshot = null;
@@ -122,6 +126,7 @@ export function createWifiCoverageFeature({
             <option value="0.5">0,5 m (detalhado)</option>
             <option value="1">1 m (rápido)</option>
         </select>
+        <label class="wifi-check"><input type="checkbox" id="wifiClipFloor" checked> Recortar o mapa no piso (IfcSlab)</label>
         <div class="wifi-card" id="wifiModelSpec"></div>
         <div class="wifi-card"><div id="wifiApSummary"></div><ul class="wifi-ap-list" id="wifiApList"></ul></div>
         <div class="wifi-actions">
@@ -141,6 +146,7 @@ export function createWifiCoverageFeature({
     const bandSelect = $("#wifiBand");
     const powerSelect = $("#wifiPower");
     const resolutionSelect = $("#wifiResolution");
+    const clipFloorCheckbox = $("#wifiClipFloor");
     const statusElement = $("#wifiStatus");
     const progressElement = $("#wifiProgress");
     const runButton = $("#wifiRun");
@@ -244,35 +250,38 @@ export function createWifiCoverageFeature({
         return storeys.sort((a, b) => a.floorY - b.floorY);
     }
 
-    async function loadObstacles(archModelId) {
-        if (obstacleCache.has(archModelId)) return obstacleCache.get(archModelId);
+    const GEOMETRY_TYPES = [...Object.keys(OBSTACLE_IFC_TYPES), ...FLOOR_IFC_TYPES];
+    const FLOOR_TYPE_SET = new Set(FLOOR_IFC_TYPES);
+
+    async function loadArchGeometry(archModelId) {
+        if (archGeometryCache.has(archModelId)) return archGeometryCache.get(archModelId);
 
         const liveModel = scene.models[archModelId];
         const transform = {
             position: liveModel?.position ? Array.from(liveModel.position) : [0, 0, 0],
             rotation: liveModel?.rotation ? Array.from(liveModel.rotation) : [0, 0, 0]
         };
-        const isObstacle = (entity) => Boolean(OBSTACLE_IFC_TYPES[metaObjects()[entity.id]?.type]);
+        const isWanted = (entity) => GEOMETRY_TYPES.includes(metaObjects()[entity.id]?.type);
         const extract = (entities) => entities
             .map((entity) => extractEntityGeometry(entity, { modelId: archModelId, transform, metaObjects: metaObjects() }))
             .filter(Boolean);
 
         // 1) tenta ler direto do modelo carregado (funciona se já houver geometria legível em cache)
-        const liveEntities = Object.values(scene.objects).filter((entity) => entity.model?.id === archModelId && isObstacle(entity));
+        const liveEntities = Object.values(scene.objects).filter((entity) => entity.model?.id === archModelId && isWanted(entity));
         let geometries = extract(liveEntities);
 
         // 2) senão, abre uma cópia invisível só com paredes/portas/janelas/pilares, lê a geometria e descarta
         if (!geometries.length && liveEntities.length) {
             const src = getModelSources().find((model) => model.id === archModelId)?.src;
             if (!src) throw new Error(`Arquivo do modelo ${archModelId} não encontrado.`);
-            setStatus("Lendo as paredes da arquitetura…", 0);
+            setStatus("Lendo paredes e lajes da arquitetura…", 0);
             const tempId = `__wifi_${archModelId}_${Date.now()}`;
             const tempModel = xktLoader.load({
                 id: tempId,
                 src,
                 globalizeObjectIds: true,
                 readableGeometryEnabled: true,
-                includeTypes: Object.keys(OBSTACLE_IFC_TYPES),
+                includeTypes: GEOMETRY_TYPES,
                 visible: false,
                 pickable: false,
                 edges: false,
@@ -293,28 +302,32 @@ export function createWifiCoverageFeature({
             }
         }
 
-        const obstacles = geometries.map((geometry) => {
+        const obstacles = [];
+        const slabs = [];
+        for (const geometry of geometries) {
             const liveId = `${archModelId}#${geometry.objectId}`;
-            return {
-                id: liveId,
-                kind: classifyObstacle(metaObjects()[liveId] || { type: geometry.type, name: geometry.name }) || "masonry",
-                aabb: geometry.aabb,
-                positions: geometry.positions,
-                indices: geometry.indices
-            };
-        });
-        obstacleCache.set(archModelId, obstacles);
-        return obstacles;
+            const meta = metaObjects()[liveId] || { type: geometry.type, name: geometry.name };
+            const item = { id: liveId, aabb: geometry.aabb, positions: geometry.positions, indices: geometry.indices };
+            if (FLOOR_TYPE_SET.has(meta.type)) {
+                slabs.push(item);
+            } else {
+                obstacles.push({ ...item, kind: classifyObstacle(meta) || "masonry" });
+            }
+        }
+        const result = { obstacles, slabs };
+        archGeometryCache.set(archModelId, result);
+        return result;
     }
 
     // -----------------------------------------------------------------------
     // Visibilidade: só a arquitetura do pavimento + os APs desse pavimento
     // -----------------------------------------------------------------------
-    function isolateForCoverage(storey, apModelIds) {
+    function isolateForCoverage(storey, apModelIds, extraIds = []) {
         if (!visibilitySnapshot) visibilitySnapshot = scene.visibleObjectIds.slice();
         const minY = storey.floorY - 0.3;
         const maxY = storey.ceilingY + 0.8;
         const show = new Set(storey.sceneIds);
+        extraIds.forEach((id) => { if (scene.objects[id]) show.add(id); });
 
         for (const entity of Object.values(scene.objects)) {
             if (!apModelIds.has(entity.model?.id) || !entity.aabb) continue;
@@ -349,7 +362,7 @@ export function createWifiCoverageFeature({
         requestRenderFrame();
     }
 
-    function drawHeatmap({ grid, cols, rows }, bounds, y) {
+    function drawHeatmap({ grid, cols, rows }, bounds, cellSize, y, mask = null) {
         destroyHeatmap();
 
         const canvas = document.createElement("canvas");
@@ -367,19 +380,40 @@ export function createWifiCoverageFeature({
         context.putImageData(image, 0, 0);
 
         // Linha 0 do canvas = minZ (v = 0); flipY desligado para manter essa correspondência.
-        const [minX, minZ, maxX, maxZ] = bounds;
-        const width = maxX - minX, depth = maxZ - minZ;
+        // A textura cobre exatamente cols × rows células, a partir de minX/minZ.
+        const minX = bounds[0], minZ = bounds[1];
+        const width = cols * cellSize, depth = rows * cellSize;
         const origin = [minX + width / 2, y, minZ + depth / 2];
-        const hw = width / 2, hd = depth / 2;
+
+        // Um retângulo por trecho contínuo de células (por linha). Sem máscara, um retângulo só.
+        const positions = [], normals = [], uv = [], indices = [];
+        const addQuad = (x0, z0, x1, z1) => {
+            const base = positions.length / 3;
+            for (const [x, z] of [[x0, z0], [x1, z0], [x1, z1], [x0, z1]]) {
+                positions.push(x - origin[0], 0, z - origin[2]);
+                normals.push(0, 1, 0);
+                uv.push((x - minX) / width, (z - minZ) / depth);
+            }
+            indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+        };
+        if (mask) {
+            for (let row = 0; row < rows; row++) {
+                let start = -1;
+                for (let col = 0; col <= cols; col++) {
+                    const inside = col < cols && mask[row * cols + col];
+                    if (inside && start < 0) start = col;
+                    if (!inside && start >= 0) {
+                        addQuad(minX + start * cellSize, minZ + row * cellSize, minX + col * cellSize, minZ + (row + 1) * cellSize);
+                        start = -1;
+                    }
+                }
+            }
+        } else {
+            addQuad(minX, minZ, minX + width, minZ + depth);
+        }
 
         const texture = new Texture(scene, { src: canvas.toDataURL("image/png"), flipY: false });
-        const geometry = new ReadableGeometry(scene, {
-            primitive: "triangles",
-            positions: [-hw, 0, -hd, hw, 0, -hd, hw, 0, hd, -hw, 0, hd],
-            normals: [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],
-            uv: [0, 0, 1, 0, 1, 1, 0, 1],
-            indices: [0, 1, 2, 0, 2, 3]
-        });
+        const geometry = new ReadableGeometry(scene, { primitive: "triangles", positions, normals, uv, indices });
         const material = new PhongMaterial(scene, {
             diffuse: [0, 0, 0],
             ambient: [0, 0, 0],
@@ -470,7 +504,7 @@ export function createWifiCoverageFeature({
         cancelRequested = false;
         runButton.disabled = true;
         try {
-            const obstacles = await loadObstacles(archModelId);
+            const { obstacles, slabs } = await loadArchGeometry(archModelId);
             if (cancelRequested) return;
             if (!obstacles.length) { setStatus("Não foi possível ler as paredes deste IFC."); return; }
 
@@ -489,7 +523,9 @@ export function createWifiCoverageFeature({
             const area = (bounds[2] - bounds[0]) * (bounds[3] - bounds[1]);
             if (area / (cellSize * cellSize) > MAX_GRID_CELLS) cellSize = Math.sqrt(area / MAX_GRID_CELLS);
 
-            isolateForCoverage(storey, new Set(accessPoints.map((ap) => ap.sourceModelId)));
+            // Lajes do pavimento: ficam visíveis junto com as paredes
+            const floorSlabs = slabs.filter((slab) => slab.aabb[4] >= storey.floorY - 0.5 && slab.aabb[1] <= storey.floorY + 0.6);
+            isolateForCoverage(storey, new Set(accessPoints.map((ap) => ap.sourceModelId)), floorSlabs.map((slab) => slab.id));
             setStatus(`Calculando sinal de ${accessPoints.length} AP(s)…`, 0);
 
             const result = await computeSignalGrid({
@@ -507,15 +543,32 @@ export function createWifiCoverageFeature({
             });
             if (!result || cancelRequested) return;
 
-            drawHeatmap(result, bounds, storey.floorY + HEATMAP_LIFT);
+            let mask = null;
+            let heatmapY = storey.floorY + HEATMAP_LIFT;
+            let floorNote = "";
+            if (floorSlabs.length) {
+                const floor = buildFloorMask(floorSlabs, { bounds, cellSize, cols: result.cols, rows: result.rows, floorY: storey.floorY });
+                if (floor.topY !== null) heatmapY = floor.topY + SLAB_LIFT;
+                if (clipFloorCheckbox.checked) {
+                    if (floor.count) mask = floor.mask;
+                    else floorNote = " • Lajes sem face horizontal no nível do piso; mapa sem recorte.";
+                }
+            } else if (clipFloorCheckbox.checked) {
+                floorNote = " • Nenhuma IfcSlab encontrada neste pavimento; mapa sem recorte.";
+            }
+
+            drawHeatmap(result, bounds, cellSize, heatmapY, mask);
             viewer.cameraFlight.flyTo({
                 aabb: [bounds[0], storey.floorY, bounds[1], bounds[2], storey.ceilingY, bounds[3]],
                 duration: 0.8
             });
 
-            const summary = summarizeSignalGrid(result.grid);
+            const summary = summarizeSignalGrid(result.grid, mask);
             const fmt = (value) => value.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
-            setStatus(`${storey.name} • ${bandData.label} • ${accessPoints.length} AP(s) • ${fmt(summary.goodPercent)}% da área ≥ −67 dBm (inclui a margem externa).`);
+            const areaText = mask
+                ? `${fmt(summary.goodPercent)}% do piso ≥ −67 dBm (${fmt(summary.cellCount * cellSize * cellSize)} m²)`
+                : `${fmt(summary.goodPercent)}% da área ≥ −67 dBm (inclui a margem externa)`;
+            setStatus(`${storey.name} • ${bandData.label} • ${accessPoints.length} AP(s) • ${areaText}${floorNote}`);
         } catch (error) {
             console.error("[wifi] Falha no cálculo de cobertura:", error);
             setStatus(`Erro: ${error.message || error}`);
@@ -571,7 +624,7 @@ export function createWifiCoverageFeature({
             toolbarButton.hidden = true;
         },
         clearCache(modelId) {
-            if (modelId) obstacleCache.delete(modelId); else obstacleCache.clear();
+            if (modelId) archGeometryCache.delete(modelId); else archGeometryCache.clear();
         }
     };
 }

@@ -34,7 +34,7 @@ async function loadAssociaUnitsFromExcel(...args) {
 }
 import { setupEletrodutoAssociationExportShortcut } from "../eletroduto-association-export.js";
 import { getProjectConfig, hasProjectConfig } from "./project-config.js";
-import { getViewerPermissions } from "./core/viewer-permissions.js";
+import { getViewerPermissions, RESTRICTED_EXPLORER_TABS } from "./core/viewer-permissions.js";
 
 const viewerUser = window.__VIEWER_AUTH_USER__;
 const isClientProfile = viewerUser?.perfil === "cliente";
@@ -481,6 +481,7 @@ const explorerExpandedGroups = {
     parts: new Set()
 };
 let activeExplorerTab = "models";
+let allowedExplorerTabs = new Set(RESTRICTED_EXPLORER_TABS);
 let explorerTabsInitialized = false;
 let explorerTabButtons = new Map();
 let explorerTabPanels = new Map();
@@ -631,6 +632,7 @@ function setupExplorerPanel() {
         button.dataset.explorerTab = tabDefinition.id;
         button.setAttribute("role", "tab");
         button.textContent = tabDefinition.label;
+        button.hidden = !isExplorerTabAllowed(tabDefinition.id);   // NOVO
         button.addEventListener("click", () => setActiveExplorerTab(tabDefinition.id));
         explorerTabButtons.set(tabDefinition.id, button);
         tabsBar.appendChild(button);
@@ -647,12 +649,34 @@ function setupExplorerPanel() {
     setActiveExplorerTab(activeExplorerTab);
 }
 
+function isExplorerTabAllowed(tabId) {
+    return allowedExplorerTabs.has(tabId);
+}
+
+function setExplorerTabsAccess(tabIds) {
+    const knownTabIds = new Set(EXPLORER_TAB_DEFINITIONS.map(({ id }) => id));
+    allowedExplorerTabs = new Set((tabIds || []).filter((id) => knownTabIds.has(id)));
+    allowedExplorerTabs.add("models");
+
+    if (!explorerTabsInitialized) {
+        return;
+    }
+
+    explorerTabButtons.forEach((button, id) => {
+        const isAllowed = isExplorerTabAllowed(id);
+        button.hidden = !isAllowed;
+        button.setAttribute("aria-hidden", String(!isAllowed));
+    });
+
+    setActiveExplorerTab(activeExplorerTab);
+}
+
 function setActiveExplorerTab(tabId) {
     if (!explorerTabsInitialized) {
         return;
     }
 
-    activeExplorerTab = explorerTabButtons.has(tabId) ? tabId : "models";
+    activeExplorerTab = explorerTabButtons.has(tabId) && isExplorerTabAllowed(tabId) ? tabId : "models";
 
     explorerTabButtons.forEach((button, id) => {
         const isActive = id === activeExplorerTab;
@@ -1947,7 +1971,7 @@ function renderExplorerPartsTab() {
 }
 
 function refreshExplorerPanels() {
-    if (!explorerTabsInitialized) {
+    if (!explorerTabsInitialized || !isExplorerTabAllowed(activeExplorerTab)) {
         return;
     }
     if (explorerLoadedTabs.has(activeExplorerTab)) {
@@ -2510,12 +2534,14 @@ function applyViewerProfilePermissions(user) {
     setCollisionFeatureAccess(permissions.canUseCollision);
     setMaterialsFeatureAccess(permissions.canUseMaterials);
     setTransformFeatureAccess(permissions.canTransformModels);
+    setExplorerTabsAccess(permissions.explorerTabs);   
     updateRestrictedFeatureHelp();
 }
 async function setupRestrictedViewerFeaturesAccessGate() {
     setCollisionFeatureAccess(false);
     setMaterialsFeatureAccess(false);
     setTransformFeatureAccess(false);
+    setExplorerTabsAccess(RESTRICTED_EXPLORER_TABS); 
     const user = window.__VIEWER_AUTH_USER__ || await fetchViewerUser();
     applyViewerProfilePermissions(user);
 }

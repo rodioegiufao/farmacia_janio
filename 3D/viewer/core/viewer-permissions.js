@@ -19,6 +19,7 @@ export function getViewerPermissions(user) {
         canUseCollision: Boolean(permissions?.collision),
         canUseMaterials: Boolean(permissions?.materials),
         canTransformModels: Boolean(permissions?.transform),
+        canGenerateQuadro: profile === "admin" || profile === "colaborador",
         explorerTabs: [...(PROFILE_EXPLORER_TABS[profile] || RESTRICTED_EXPLORER_TABS)]
     };
 }

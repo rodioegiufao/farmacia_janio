@@ -3449,6 +3449,8 @@ function loadDefaultModel({ id, src }) {
         try {
             model = xktLoader.load({
                 id, src,
+                // IDs IFC são locais ao arquivo; prefixar evita colisões entre disciplinas.
+                globalizeObjectIds: true,
                 edges: performanceModeEnabled ? false : defaultRenderProfile.edgesEnabled,
                 saoEnabled: performanceModeEnabled ? false : defaultRenderProfile.saoEnabled,
                 dtxEnabled: viewerCompatibility.enableDataTextures
@@ -3560,7 +3562,12 @@ function applyProjectHiddenIds() {
     }
 
     const availableIds = new Set(getAllObjectIds());
-    const idsToHide = hiddenIds.filter((id) => availableIds.has(id));
+    const hiddenSourceIds = new Set(hiddenIds);
+    const idsToHide = Array.from(availableIds).filter((id) =>
+        hiddenSourceIds.has(id) ||
+        hiddenSourceIds.has(viewer.metaScene?.metaObjects?.[id]?.originalSystemId) ||
+        hiddenSourceIds.has(String(id).slice(String(id).lastIndexOf("#") + 1))
+    );
 
     if (!idsToHide.length) {
         return;

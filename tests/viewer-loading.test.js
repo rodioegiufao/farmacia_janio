@@ -49,3 +49,54 @@ for (const html of fs.readdirSync(path.join(root, "3D")).filter((name) => name.e
     }
 }
 console.log("viewer loading architecture: ok");
+// Regressão: IDs IFC repetidos devem permanecer distintos na cena federada.
+const vm = require("node:vm");
+assert.match(authenticated, /xktLoader\.load\(\{\s*id, src,[\s\S]*?globalizeObjectIds: true,/);
+assert.match(core, /loader\.load\(\{ id, src, globalizeObjectIds: true,/);
+assert.match(read("3D/ifc_upload.js"), /bridge\.xktLoader\.load\(\{\s*globalizeObjectIds: true,/);
+const objects = {
+    "220V#peca-1": { visible: true },
+    "380V#peca-1": { visible: true }
+};
+const scene = {
+    objects,
+    get visibleObjectIds() { return Object.keys(objects).filter(id => objects[id].visible); },
+    setObjectsVisible(ids, visible) { ids.forEach(id => { objects[id].visible = visible; }); },
+    setObjectsXRayed() {},
+    setObjectsHighlighted() {}
+};
+const context = vm.createContext({
+    viewer: { scene }, modelIsolateController: scene,
+    loadedModels: new Map([
+        ["220V", { objectIds: ["220V#peca-1"] }],
+        ["380V", { objectIds: ["380V#peca-1"] }]
+    ]),
+    getTreeViewModelCheckbox: () => null,
+    isSceneObjectId: id => !!objects[id], expandHierarchy: ids => ids,
+    scheduleExplorerRefresh() {}, clearSelection() {}, requestRenderFrame() {}
+});
+for (const name of ["getModelObjectIds", "isModelVisible", "setModelVisibility"]) {
+    const start = authenticated.indexOf(`function ${name}(`);
+    const end = authenticated.indexOf("\nfunction ", start + 1);
+    vm.runInContext(authenticated.slice(start, end), context);
+}
+assert.equal(context.setModelVisibility("220V", false), true);
+assert.equal(objects["220V#peca-1"].visible, false);
+assert.equal(context.isModelVisible("380V"), true);
+context.setModelVisibility("380V", false);
+assert.equal(scene.visibleObjectIds.length, 0, "ocultar todos não deve deixar peças residuais");
+context.setModelVisibility("220V", true);
+assert.deepEqual(scene.visibleObjectIds, ["220V#peca-1"]);
+console.log("viewer model visibility with duplicate IFC IDs: ok");
+
+// A lista de ocultação inicial continua aceitando o ID original após o prefixo.
+context.PROJECT_INITIAL_HIDDEN_IDS = { fecomercio: ["peca-1"] };
+context.projectFromDataset = "fecomercio";
+context.getAllObjectIds = () => Object.keys(objects);
+context.console = { log() {} };
+const hiddenStart = authenticated.indexOf("function applyProjectHiddenIds()");
+const hiddenEnd = authenticated.indexOf("\nconst PROJECT_ROUTES", hiddenStart);
+vm.runInContext(authenticated.slice(hiddenStart, hiddenEnd), context);
+context.applyProjectHiddenIds();
+assert.equal(scene.visibleObjectIds.length, 0);
+console.log("viewer initial hidden IDs with duplicate IFC IDs: ok");

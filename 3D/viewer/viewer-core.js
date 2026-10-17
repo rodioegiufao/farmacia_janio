@@ -51,7 +51,7 @@ export function createViewerCore({
     let loaded = 0;
 
     config.models.forEach(({ id, src }) => {
-        const model = loader.load({ id, src, edges: !profile.constrained, saoEnabled: false, dtxEnabled: profile.webgl2 });
+        const model = loader.load({ id, src, globalizeObjectIds: true, edges: !profile.constrained, saoEnabled: false, dtxEnabled: profile.webgl2 });
         models.set(id, model);
         model.on("loaded", () => {
             const transform = config.transforms[id];

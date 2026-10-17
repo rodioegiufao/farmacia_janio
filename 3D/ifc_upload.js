@@ -1192,6 +1192,7 @@ if (!bridge) {
 
         try {
             model = bridge.xktLoader.load({
+                globalizeObjectIds: true,
                 id: modelId,
                 src: bridge.normalizeBlobUrl(objectUrl),
                 readableGeometryEnabled: true,

@@ -437,6 +437,7 @@ let collisionFeatureAllowed = false;
 let materialsFeatureAllowed = false;
 let transformFeatureAllowed = false;
 let quadroFeatureAllowed = false;      // NOVO
+let wifiCoverageFeaturePromise = null; // NOVO
 let activeMaterialFilter = null;
 let webBudgetPanel = null;
 let webBudgetRowsContainer = null;
@@ -2524,7 +2525,6 @@ function setTransformFeatureAccess(isAllowed) {
     }
 }
 // Cobertura Wi-Fi: módulo carregado só para quem tem permissão.
-let wifiCoverageFeaturePromise = null;
 function setWifiCoverageFeatureAccess(isAllowed) {
     if (!isAllowed) {
         wifiCoverageFeaturePromise?.then((feature) => feature?.disable());

@@ -436,6 +436,7 @@ let materialsSearchQuery = "";
 let collisionFeatureAllowed = false;
 let materialsFeatureAllowed = false;
 let transformFeatureAllowed = false;
+let quadroFeatureAllowed = false;      // NOVO
 let activeMaterialFilter = null;
 let webBudgetPanel = null;
 let webBudgetRowsContainer = null;
@@ -2539,6 +2540,7 @@ function applyViewerProfilePermissions(user) {
     setMaterialsFeatureAccess(permissions.canUseMaterials);
     setTransformFeatureAccess(permissions.canTransformModels);
     setExplorerTabsAccess(permissions.explorerTabs);   
+    quadroFeatureAllowed = Boolean(permissions.canGenerateQuadro);   // NOVO
     updateRestrictedFeatureHelp();
 }
 async function setupRestrictedViewerFeaturesAccessGate() {
@@ -2546,6 +2548,7 @@ async function setupRestrictedViewerFeaturesAccessGate() {
     setMaterialsFeatureAccess(false);
     setTransformFeatureAccess(false);
     setExplorerTabsAccess(RESTRICTED_EXPLORER_TABS); 
+    quadroFeatureAllowed = false;                                     // NOVO
     const user = window.__VIEWER_AUTH_USER__ || await fetchViewerUser();
     applyViewerProfilePermissions(user);
 }
@@ -7222,7 +7225,8 @@ function normalizeIfcPropertyLabel(value) {
 }
 
 function isQuadroName(value) {
-    return /^QD\d+$/i.test(String(value || "").trim());
+    // Aceita qualquer nome que comece com QD ou QGBT (QD1, QD-T-3, QGBT, QGBT 220V...)
+    return /^(QD|QGBT)/i.test(String(value || "").trim());
 }
 
 function getMetaObjectPropertySetByName(metaObject, targetName) {
@@ -7818,7 +7822,76 @@ function createQuadroSummaryHtml(result) {
         </div>
     `;
 }
+function escapeQuadroXml(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/^[=+\-@]/, "'$&");
+}
 
+function downloadQuadroScheduleAsExcel(result) {
+    if (!quadroFeatureAllowed || !result?.rows?.length) {
+        return;
+    }
+
+    const divisor = result.electricalConfig?.divisorCorrente;
+    const numberCell = (value) => Number.isFinite(value)
+        ? `<Cell ss:StyleID="Num"><Data ss:Type="Number">${value.toFixed(2)}</Data></Cell>`
+        : `<Cell><Data ss:Type="String">-</Data></Cell>`;
+
+    const rowsXml = result.rows.map((row) => `
+            <Row>
+                <Cell><Data ss:Type="String">${escapeQuadroXml(row.quadro)}</Data></Cell>
+                <Cell><Data ss:Type="String">${escapeQuadroXml(row.pavimento || "-")}</Data></Cell>
+                <Cell><Data ss:Type="String">${escapeQuadroXml(row.circuito)}</Data></Cell>
+                ${numberCell(row.potenciaTotalW)}
+                ${numberCell(divisor ? row.potenciaTotalW / divisor : null)}
+            </Row>`).join("");
+
+    const totalW = result.rows.reduce((sum, row) => sum + row.potenciaTotalW, 0);
+
+    const spreadsheetXml = `<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+    <Styles>
+        <Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#D9E1F2" ss:Pattern="Solid"/></Style>
+        <Style ss:ID="Num"><NumberFormat ss:Format="#,##0.00"/></Style>
+        <Style ss:ID="Total"><Font ss:Bold="1"/><NumberFormat ss:Format="#,##0.00"/></Style>
+    </Styles>
+    <Worksheet ss:Name="Quadro">
+        <Table>
+            <Row>
+                <Cell ss:StyleID="Header"><Data ss:Type="String">Quadro</Data></Cell>
+                <Cell ss:StyleID="Header"><Data ss:Type="String">Pavimento</Data></Cell>
+                <Cell ss:StyleID="Header"><Data ss:Type="String">Circuito</Data></Cell>
+                <Cell ss:StyleID="Header"><Data ss:Type="String">Potência total (VA)</Data></Cell>
+                <Cell ss:StyleID="Header"><Data ss:Type="String">Corrente (A)</Data></Cell>
+            </Row>${rowsXml}
+            <Row>
+                <Cell ss:StyleID="Total"><Data ss:Type="String">Total</Data></Cell>
+                <Cell/><Cell/>
+                <Cell ss:StyleID="Total"><Data ss:Type="Number">${totalW.toFixed(2)}</Data></Cell>
+                ${divisor
+                    ? `<Cell ss:StyleID="Total"><Data ss:Type="Number">${(totalW / divisor).toFixed(2)}</Data></Cell>`
+                    : "<Cell/>"}
+            </Row>
+        </Table>
+    </Worksheet>
+</Workbook>`;
+
+    const blob = new Blob([spreadsheetXml], { type: "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeName = String(result.quadro || "quadro").replace(/[^\w-]+/g, "_");
+    link.href = url;
+    link.download = `quadro_${safeName}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
 function showMaterialProperties(entity) {
     if (!entity?.id) {
         alert("Nenhuma entidade selecionada.");
@@ -7852,7 +7925,7 @@ function showMaterialProperties(entity) {
     }
     // --- Cria bloco de ação do quadro logo abaixo das coordenadas ---
     const quadroName = metaObject?.name || "";
-    const showGenerateQuadroButton = isQuadroName(quadroName);
+    const showGenerateQuadroButton = quadroFeatureAllowed && isQuadroName(quadroName);
     if (showGenerateQuadroButton) {
         propriedades += `
             <div class="property-panel-actions">
@@ -7934,6 +8007,19 @@ function showMaterialProperties(entity) {
                 const electricalConfig = getQuadroElectricalConfig(metaObject);
                 const result = generatePanelScheduleForQuadro(quadroName, electricalConfig);
                 summaryContainer.innerHTML = createQuadroSummaryHtml(result);
+
+                if (result.rows.length) {
+                    const downloadButton = document.createElement("button");
+                    downloadButton.type = "button";
+                    downloadButton.className = "property-panel-generate-button";
+                    downloadButton.textContent = "Baixar Excel";
+                    downloadButton.onclick = () => downloadQuadroScheduleAsExcel(result);
+
+                    const actions = document.createElement("div");
+                    actions.className = "property-panel-actions";
+                    actions.appendChild(downloadButton);
+                    summaryContainer.appendChild(actions);
+                }
             };
         }
     }

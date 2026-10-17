@@ -700,6 +700,10 @@ function scheduleExplorerRefresh(delay = 160) {
     if (!explorerTabsInitialized) {
         return;
     }
+    
+    // Algo mudou (visibilidade, data de upload, grupo expandido...):
+    // as abas já renderizadas ficam desatualizadas e precisam ser redesenhadas.
+    explorerLoadedTabs.clear();
 
     window.clearTimeout(explorerRefreshHandle);
     explorerRefreshHandle = window.setTimeout(() => {

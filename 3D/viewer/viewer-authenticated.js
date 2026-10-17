@@ -2523,7 +2523,32 @@ function setTransformFeatureAccess(isAllowed) {
         hidePanelElement(transformPanel, transformPanelToggleButton);
     }
 }
-
+// Cobertura Wi-Fi: módulo carregado só para quem tem permissão.
+let wifiCoverageFeaturePromise = null;
+function setWifiCoverageFeatureAccess(isAllowed) {
+    if (!isAllowed) {
+        wifiCoverageFeaturePromise?.then((feature) => feature?.disable());
+        return;
+    }
+    if (wifiCoverageFeaturePromise) {
+        wifiCoverageFeaturePromise.then((feature) => feature?.enable());
+        return;
+    }
+    wifiCoverageFeaturePromise = import("./features/wifi/wifi-coverage.js")
+        .then(({ createWifiCoverageFeature }) => createWifiCoverageFeature({
+            viewer,
+            xktLoader,
+            getModelIds: () => Array.from(loadedModels.keys()),
+            getModelSources: () => currentModels,
+            resolveSceneObjectId,
+            requestRenderFrame,
+            onVisibilityChange: () => scheduleExplorerRefresh(0)
+        }))
+        .catch((error) => {
+            wifiCoverageFeaturePromise = null;
+            console.error("[wifi] Falha ao carregar módulo de cobertura:", error);
+        });
+}
 function updateRestrictedFeatureHelp() {
     const materialsShortcuts = new Set(["l", "t", "k", "7"]);
     helpPanel?.querySelectorAll("li").forEach((item) => {
@@ -2541,6 +2566,7 @@ function applyViewerProfilePermissions(user) {
     setTransformFeatureAccess(permissions.canTransformModels);
     setExplorerTabsAccess(permissions.explorerTabs);   
     quadroFeatureAllowed = Boolean(permissions.canGenerateQuadro);   // NOVO
+    setWifiCoverageFeatureAccess(permissions.canUseCoverage);        // NOVO
     updateRestrictedFeatureHelp();
 }
 async function setupRestrictedViewerFeaturesAccessGate() {

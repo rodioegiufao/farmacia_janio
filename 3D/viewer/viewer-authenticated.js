@@ -7225,8 +7225,9 @@ function normalizeIfcPropertyLabel(value) {
 }
 
 function isQuadroName(value) {
-    // Aceita qualquer nome que comece com QD ou QGBT (QD1, QD-T-3, QGBT, QGBT 220V...)
-    return /^(QD|QGBT)/i.test(String(value || "").trim());
+    // Aceita QD ou QGBT no início, com ou sem número na frente
+    // (QD1, QD-T-3, 1QDL-T, 2 QD1, 10-QGBT, QGBT 220V...)
+    return /^\d*[\s._-]*(QD|QGBT)/i.test(String(value || "").trim());
 }
 
 function getMetaObjectPropertySetByName(metaObject, targetName) {

@@ -1,7 +1,9 @@
-const PROFILE_PERMISSIONS = Object.freeze({
-    admin: Object.freeze({ collision: true, materials: true, transform: true }),
-    colaborador: Object.freeze({ collision: true, materials: true, transform: true }),
-    cliente: Object.freeze({ collision: false, materials: false, transform: false })
+export const ALL_EXPLORER_TABS = Object.freeze(["models", "objects", "classes", "storeys", "networks", "parts"]);
+export const RESTRICTED_EXPLORER_TABS = Object.freeze(["models", "storeys", "networks"]);
+const PROFILE_EXPLORER_TABS = Object.freeze({
+    admin: ALL_EXPLORER_TABS,
+    colaborador: ALL_EXPLORER_TABS,
+    cliente: RESTRICTED_EXPLORER_TABS
 });
 
 export function getViewerPermissions(user) {
@@ -11,6 +13,7 @@ export function getViewerPermissions(user) {
         canUseCollision: Boolean(permissions?.collision),
         canUseMaterials: Boolean(permissions?.materials),
         canTransformModels: Boolean(permissions?.transform)
+        explorerTabs: [...(PROFILE_EXPLORER_TABS[profile] || RESTRICTED_EXPLORER_TABS)]   // NOVO
     };
 }
 

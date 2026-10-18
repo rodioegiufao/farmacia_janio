@@ -37,7 +37,7 @@ import {
     getCameraModelId,
     getCameraLevels,
     aimFromTarget,
-    frustumEdgePoints,
+    cameraGizmoLines,
     computeCameraGrid,
     summarizeCameraGrid
 } from "./camera-coverage-core.js";
@@ -566,12 +566,10 @@ export function createWifiCoverageFeature({
             const aimed = withAim(camera);
             if (!aimed) continue;
             const model = CAMERA_MODELS[cameraModelSelect.value] || CAMERA_MODELS[aimed.modelId];
-            const corners = frustumEdgePoints(aimed, model, floorY, model.dori.detect);
+            const gizmo = cameraGizmoLines(aimed, model, floorY + SLAB_LIFT);
             const base = positions.length / 3;
-            positions.push(aimed.x, aimed.y, aimed.z);
-            corners.forEach((point) => positions.push(...point));
-            indices.push(base, base + 1, base, base + 2, base, base + 3, base, base + 4,
-                base + 1, base + 2, base + 2, base + 3, base + 3, base + 4, base + 4, base + 1);
+            positions.push(...gizmo.positions);
+            gizmo.indices.forEach((index) => indices.push(base + index));
         }
         if (!positions.length) return;
         frustumLines = new LineSet(scene, { positions, indices, color: [0.15, 0.39, 0.92], opacity: 0.9 });

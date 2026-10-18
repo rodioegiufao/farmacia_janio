@@ -36,10 +36,10 @@ export const CAMERA_NAME_RULE = Object.freeze({
 export const CAMERA_SETTINGS = Object.freeze({
     targetHeight: 1.6,     // altura do rosto de uma pessoa acima do piso (m) — referência do DORI
     maxTiltDeg: 89,        // 90° (olhando reto para baixo) deixa a orientação indefinida
-    wallClearance: 0.35    // o raio de visão começa um pouco à frente da câmera (câmeras junto à parede)
+    selfClearance: 0.6     // paredes a menos disso da câmera são ignoradas (câmera/caixa embutida na parede)
 });
 
-// Obstáculos que bloqueiam a visão. Vidro (janelas, pele de vidro) não bloqueia.
+// Obstáculos que bloqueiam a visão. Vidro (janelas, pele de vidro, porta de vidro) e gradis não bloqueiam.
 export const CAMERA_BLOCKING_KINDS = Object.freeze(new Set(["masonry", "drywall", "concrete", "door"]));
 
 const DORI_COLORS = Object.freeze({
@@ -125,21 +125,38 @@ export function cameraBasis(azimuthDeg, tiltDeg) {
     return { f, r, u };
 }
 
-/** Pontos das 4 arestas do cone, até o piso ou até a distância máxima. */
-export function frustumEdgePoints(camera, model, floorY, maxDistance) {
-    const { f, r, u } = cameraBasis(camera.azimuthDeg, camera.tiltDeg);
-    const th = Math.tan((model.hFovDeg / 2) * DEG);
-    const tv = Math.tan((model.vFovDeg / 2) * DEG);
-    const points = [];
-    for (const [sx, sy] of [[-1, 1], [1, 1], [1, -1], [-1, -1]]) {
-        const d = [0, 1, 2].map((i) => f[i] + sx * th * r[i] + sy * tv * u[i]);
-        const length = Math.hypot(d[0], d[1], d[2]);
-        d[0] /= length; d[1] /= length; d[2] /= length;
-        let distance = maxDistance;
-        if (d[1] < -1e-6) distance = Math.min(distance, (camera.y - floorY) / -d[1]);
-        points.push([camera.x + d[0] * distance, camera.y + d[1] * distance, camera.z + d[2] * distance]);
+/**
+ * Linhas de indicação da câmera, no estilo do UniFi: linha até o ponto mirado no piso,
+ * as duas bordas do ângulo horizontal e um arco entre elas.
+ * Retorna { positions, indices } prontos para um LineSet.
+ */
+export function cameraGizmoLines(camera, model, floorY, { maxRadius = null, arcSegments = 16 } = {}) {
+    const a = camera.azimuthDeg * DEG;
+    const t = Math.max(1, camera.tiltDeg) * DEG;
+    const height = Math.max(0.1, camera.y - floorY);
+    const limit = maxRadius ?? model.dori.recognize;
+    const radius = Math.min(limit, height / Math.tan(t));   // distância no piso até o ponto mirado
+    const half = (model.hFovDeg / 2) * DEG;
+
+    const positions = [camera.x, camera.y, camera.z];
+    const indices = [];
+    const pointAt = (angle) => [camera.x + Math.cos(angle) * radius, floorY, camera.z + Math.sin(angle) * radius];
+
+    positions.push(...pointAt(a));                 // 1: ponto mirado
+    indices.push(0, 1);
+    positions.push(...pointAt(a - half));          // 2: borda esquerda
+    positions.push(...pointAt(a + half));          // 3: borda direita
+    indices.push(0, 2, 0, 3);
+
+    let previous = 2;
+    for (let i = 1; i <= arcSegments; i++) {
+        const angle = a - half + (2 * half * i) / arcSegments;
+        const index = positions.length / 3;
+        positions.push(...pointAt(angle));
+        indices.push(previous, index);
+        previous = index;
     }
-    return points;
+    return { positions, indices, radius };
 }
 
 // ---------------------------------------------------------------------------
@@ -174,16 +191,13 @@ export async function computeCameraGrid({
     const prepared = cameras.map((camera) => {
         const model = CAMERA_MODELS[camera.modelId];
         const basis = cameraBasis(camera.azimuthDeg, camera.tiltDeg);
-        const horizontal = Math.hypot(basis.f[0], basis.f[2]) || 1;
         const maxRange = nightMode ? Math.min(model.dori.detect, model.irRangeM) : model.dori.detect;
         return {
             ...camera,
             basis,
             tanH: Math.tan((model.hFovDeg / 2) * DEG),
             tanV: Math.tan((model.vFovDeg / 2) * DEG),
-            maxRange,
-            startX: camera.x + (basis.f[0] / horizontal) * CAMERA_SETTINGS.wallClearance,
-            startZ: camera.z + (basis.f[2] / horizontal) * CAMERA_SETTINGS.wallClearance
+            maxRange
         };
     });
 
@@ -202,7 +216,7 @@ export async function computeCameraGrid({
             const up = vx * u[0] + vy * u[1] + vz * u[2];
             if (Math.abs(right) > camera.tanH * forward || Math.abs(up) > camera.tanV * forward) continue;
 
-            if (segmentGrid.lossAlong(camera.startX, camera.startZ, x, z, blocks) > 0) continue;
+            if (segmentGrid.lossAlong(camera.x, camera.z, x, z, blocks, CAMERA_SETTINGS.selfClearance) > 0) continue;
             best = distance;
         }
         return best;

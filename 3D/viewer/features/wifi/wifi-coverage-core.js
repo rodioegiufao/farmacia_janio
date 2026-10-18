@@ -59,6 +59,7 @@ export const OBSTACLE_LOSS_DB = Object.freeze({
     drywall: Object.freeze({ label: "Drywall/gesso", "2.4": 4, "5": 6 }),
     glass: Object.freeze({ label: "Vidro", "2.4": 3, "5": 5 }),
     door: Object.freeze({ label: "Porta", "2.4": 3, "5": 4 }),
+    fence: Object.freeze({ label: "Gradil/grade", "2.4": 2, "5": 3 }),
     masonry: Object.freeze({ label: "Alvenaria", "2.4": 8, "5": 12 }),
     concrete: Object.freeze({ label: "Concreto", "2.4": 12, "5": 20 })
 });
@@ -112,9 +113,14 @@ export function getAccessPointModelId(metaObject) {
 export function classifyObstacle(metaObject) {
     const base = OBSTACLE_IFC_TYPES[metaObject?.type];
     if (!base) return null;
-    if (base !== "masonry") return base;
+    if (base !== "masonry" && base !== "door") return base;
 
     const text = normalizeItemLabel(Array.from(iterateMetaObjectTexts(metaObject)).join(" "));
+    if (base === "door") {
+        // porta de vidro (blindex/temperado) é transparente para câmera
+        return /vidro|glass|blindex|temperado/.test(text) ? "glass" : "door";
+    }
+    if (/\b(gradil|grade|gradeado|guarda-?corpo|alambrado|cerca)\b/.test(text)) return "fence";
     if (/drywall|dry wall|gesso acartonado|placa de gesso/.test(text)) return "drywall";
     if (/vidro|glass|cortina/.test(text)) return "glass";
     if (/concreto|concrete/.test(text)) return "concrete";
@@ -182,14 +188,15 @@ export function segmentsBounds(coords) {
     return bounds;
 }
 
-function segmentsIntersect(ax, az, bx, bz, cx, cz, dx, dz) {
+/** Parâmetro t (0–1) do ponto de cruzamento ao longo de AB, ou −1 se não cruzam. */
+function segmentIntersectionT(ax, az, bx, bz, cx, cz, dx, dz) {
     const rX = bx - ax, rZ = bz - az, sX = dx - cx, sZ = dz - cz;
     const den = rX * sZ - rZ * sX;
-    if (Math.abs(den) < 1e-12) return false;
+    if (Math.abs(den) < 1e-12) return -1;
     const qX = cx - ax, qZ = cz - az;
     const t = (qX * sZ - qZ * sX) / den;
     const u = (qX * rZ - qZ * rX) / den;
-    return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? t : -1;
 }
 
 /** Grade espacial 2D para testar só os segmentos próximos de cada raio. */
@@ -227,8 +234,12 @@ export class SegmentGrid {
     #col(x) { return Math.min(this.cols - 1, Math.max(0, Math.floor((x - this.minX) / this.cellSize))); }
     #row(z) { return Math.min(this.rows - 1, Math.max(0, Math.floor((z - this.minZ) / this.cellSize))); }
 
-    /** Soma a perda dos obstáculos atravessados entre A e B (cada obstáculo conta uma vez). */
-    lossAlong(ax, az, bx, bz, ownerLoss) {
+    /**
+     * Soma a perda dos obstáculos atravessados entre A e B (cada obstáculo conta uma vez).
+     * ignoreNear: cruzamentos a menos dessa distância de A são ignorados
+     * (dispositivo encostado ou embutido na própria parede/laje).
+     */
+    lossAlong(ax, az, bx, bz, ownerLoss, ignoreNear = 0) {
         this.stamp = (this.stamp + 1) >>> 0 || 1;
         const stamp = this.stamp;
         let loss = 0;
@@ -236,6 +247,8 @@ export class SegmentGrid {
         let col = this.#col(ax), row = this.#row(az);
         const endCol = this.#col(bx), endRow = this.#row(bz);
         const dX = bx - ax, dZ = bz - az;
+        const length = Math.hypot(dX, dZ);
+        const minT = length > 0 ? ignoreNear / length : 0;
         const stepX = dX > 0 ? 1 : -1, stepZ = dZ > 0 ? 1 : -1;
         const tDeltaX = dX !== 0 ? this.cellSize / Math.abs(dX) : Infinity;
         const tDeltaZ = dZ !== 0 ? this.cellSize / Math.abs(dZ) : Infinity;
@@ -250,9 +263,10 @@ export class SegmentGrid {
                     if (this.segmentStamp[s] === stamp) continue;
                     this.segmentStamp[s] = stamp;
                     const owner = this.owners[s];
-                    if (this.ownerStamp[owner] === stamp) continue;
+                    if (this.ownerStamp[owner] === stamp || !ownerLoss[owner]) continue;
                     const o = s * 4;
-                    if (segmentsIntersect(ax, az, bx, bz, this.coords[o], this.coords[o + 1], this.coords[o + 2], this.coords[o + 3])) {
+                    const t = segmentIntersectionT(ax, az, bx, bz, this.coords[o], this.coords[o + 1], this.coords[o + 2], this.coords[o + 3]);
+                    if (t >= 0 && t >= minT) {
                         this.ownerStamp[owner] = stamp;
                         loss += ownerLoss[owner];
                     }

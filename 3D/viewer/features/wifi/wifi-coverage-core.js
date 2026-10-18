@@ -88,7 +88,7 @@ export function normalizeItemLabel(value) {
 
 const NORMALIZED_AP_RULES = ACCESS_POINT_RULES.map((rule) => ({ ...rule, normalized: normalizeItemLabel(rule.match) }));
 
-function* iterateMetaObjectTexts(metaObject) {
+export function* iterateMetaObjectTexts(metaObject) {
     if (metaObject?.name) yield metaObject.name;
     for (const pset of metaObject?.propertySets || []) {
         for (const prop of pset?.properties || []) {
@@ -419,11 +419,11 @@ export function buildFloorMask(slabs, { bounds, cellSize, cols, rows, floorY, be
 // ---------------------------------------------------------------------------
 const FLOOR_DBM = -130;            // valor usado no lugar de "sem sinal" para interpolar
 
-export function getSignalBandIndex(rssi) {
-    for (let i = 0; i < SIGNAL_LEVELS.length; i++) {
-        if (rssi >= SIGNAL_LEVELS[i].min) return i;
+export function getSignalBandIndex(value, levels = SIGNAL_LEVELS) {
+    for (let i = 0; i < levels.length; i++) {
+        if (value >= levels[i].min) return i;
     }
-    return SIGNAL_LEVELS.length;
+    return levels.length;
 }
 
 /** Suavização gaussiana 3×3 (remove o serrilhado causado pela grade de raios). */
@@ -457,9 +457,21 @@ export function smoothGrid(grid, cols, rows, passes = 1) {
 /**
  * Gera a imagem RGBA do mapa: interpolação bilinear entre células, faixas de cor
  * e uma linha fina de contorno na troca de faixa (como no UniFi Design Center).
+ * Opções:
+ *  - levels: faixas { min, color } em ordem decrescente (valor maior = melhor)
+ *  - noneColor: cor abaixo da última faixa
+ *  - visibility: Uint8Array 0/1 por célula; onde é 0 o pixel fica transparente
  * Linha 0 da imagem = minZ.
  */
-export function renderHeatmapPixels(grid, cols, rows, { scale = 8, maxSize = 4096, maxPixels = 8_000_000 } = {}) {
+export function renderHeatmapPixels(grid, cols, rows, {
+    scale = 8,
+    maxSize = 4096,
+    maxPixels = 8_000_000,
+    levels = SIGNAL_LEVELS,
+    noneColor = NO_SIGNAL_COLOR,
+    visibility = null,
+    shadeRange = 15
+} = {}) {
     const pixelScale = Math.max(1, Math.min(
         scale,
         Math.floor(maxSize / Math.max(cols, rows)),
@@ -469,6 +481,7 @@ export function renderHeatmapPixels(grid, cols, rows, { scale = 8, maxSize = 409
     const height = rows * pixelScale;
     const values = new Float32Array(width * height);
     const bands = new Uint8Array(width * height);
+    const visible = visibility ? new Uint8Array(width * height) : null;
 
     for (let py = 0; py < height; py++) {
         const gy = Math.min(rows - 1, Math.max(0, (py + 0.5) / pixelScale - 0.5));
@@ -476,34 +489,50 @@ export function renderHeatmapPixels(grid, cols, rows, { scale = 8, maxSize = 409
         for (let px = 0; px < width; px++) {
             const gx = Math.min(cols - 1, Math.max(0, (px + 0.5) / pixelScale - 0.5));
             const c0 = Math.floor(gx), c1 = Math.min(cols - 1, c0 + 1), fx = gx - c0;
-            const top = grid[r0 * cols + c0] * (1 - fx) + grid[r0 * cols + c1] * fx;
-            const bottom = grid[r1 * cols + c0] * (1 - fx) + grid[r1 * cols + c1] * fx;
-            const value = top * (1 - fy) + bottom * fy;
+            const i00 = r0 * cols + c0, i01 = r0 * cols + c1, i10 = r1 * cols + c0, i11 = r1 * cols + c1;
+            const w00 = (1 - fx) * (1 - fy), w01 = fx * (1 - fy), w10 = (1 - fx) * fy, w11 = fx * fy;
+            const value = grid[i00] * w00 + grid[i01] * w01 + grid[i10] * w10 + grid[i11] * w11;
             const index = py * width + px;
             values[index] = value;
-            bands[index] = getSignalBandIndex(value);
+            bands[index] = getSignalBandIndex(value, levels);
+            if (visible) {
+                const v = visibility[i00] * w00 + visibility[i01] * w01 + visibility[i10] * w10 + visibility[i11] * w11;
+                visible[index] = v >= 0.5 ? 1 : 0;
+            }
         }
     }
 
     const data = new Uint8ClampedArray(width * height * 4);
+    const lastColor = levels[levels.length - 1]?.color || noneColor;
     for (let py = 0; py < height; py++) {
         for (let px = 0; px < width; px++) {
             const index = py * width + px;
+            if (visible && !visible[index]) {
+                // transparente; a cor evita borda escura na filtragem da textura
+                data[index * 4] = lastColor[0];
+                data[index * 4 + 1] = lastColor[1];
+                data[index * 4 + 2] = lastColor[2];
+                data[index * 4 + 3] = 0;
+                continue;
+            }
             const band = bands[index];
-            const color = band < SIGNAL_LEVELS.length ? SIGNAL_LEVELS[band].color : NO_SIGNAL_COLOR;
+            const color = band < levels.length ? levels[band].color : noneColor;
 
             // leve variação de tom dentro da faixa: mais claro perto do limite superior
             let shade = 1;
-            if (band < SIGNAL_LEVELS.length) {
-                const upper = band === 0 ? SIGNAL_LEVELS[0].min + 15 : SIGNAL_LEVELS[band - 1].min;
-                const lower = SIGNAL_LEVELS[band].min;
+            if (band < levels.length) {
+                const upper = band === 0 ? levels[0].min + shadeRange : levels[band - 1].min;
+                const lower = levels[band].min;
                 const t = Math.min(1, Math.max(0, (values[index] - lower) / (upper - lower)));
                 shade = 0.88 + 0.12 * t;
             }
 
+            const differs = (other) => bands[other] !== band || (visible && !visible[other]);
             const isEdge =
-                (px + 1 < width && bands[index + 1] !== band) ||
-                (py + 1 < height && bands[index + width] !== band);
+                (px + 1 < width && differs(index + 1)) ||
+                (py + 1 < height && differs(index + width)) ||
+                (px > 0 && visible && !visible[index - 1]) ||
+                (py > 0 && visible && !visible[index - width]);
             const factor = isEdge ? 0.55 : shade;
 
             data[index * 4] = color[0] * factor;

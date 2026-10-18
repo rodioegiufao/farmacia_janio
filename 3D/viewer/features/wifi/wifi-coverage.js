@@ -1,11 +1,13 @@
-// Cobertura Wi-Fi: painel, leitura das paredes da arquitetura e mapa de calor no piso.
+// Cobertura (Wi-Fi e câmeras): painel, leitura das paredes/lajes da arquitetura e mapa no piso.
 // Carregado sob demanda pelo viewer-authenticated.js (somente perfis com permissão).
 
 import {
     Mesh,
     ReadableGeometry,
     PhongMaterial,
-    Texture
+    Texture,
+    LineSet,
+    math
 } from "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@2.6.107/dist/xeokit-sdk.min.es.js";
 import { extractEntityGeometry } from "../clash/xkt-geometry.js";
 import {
@@ -13,7 +15,6 @@ import {
     TX_POWER_PRESETS,
     OBSTACLE_IFC_TYPES,
     FLOOR_IFC_TYPES,
-    OBSTACLE_LOSS_DB,
     PROPAGATION,
     SIGNAL_LEVELS,
     NO_SIGNAL_COLOR,
@@ -24,27 +25,41 @@ import {
     sliceObstacles,
     segmentsBounds,
     computeSignalGrid,
-    colorForSignal,
     summarizeSignalGrid,
     buildFloorMask,
     smoothGrid,
     renderHeatmapPixels,
     collectFloorFaces
 } from "./wifi-coverage-core.js";
+import {
+    CAMERA_MODELS,
+    CAMERA_SETTINGS,
+    getCameraModelId,
+    getCameraLevels,
+    aimFromTarget,
+    frustumEdgePoints,
+    computeCameraGrid,
+    summarizeCameraGrid
+} from "./camera-coverage-core.js";
 
 const WALL_TYPES = new Set(["IfcWall", "IfcWallStandardCase", "IfcWallElementedCase"]);
 const HEATMAP_MARGIN = 3;          // metros além das paredes
 const HEATMAP_LIFT = 0.10;         // altura do mapa acima da base das paredes, quando não há laje (m)
 const SLAB_LIFT = 0.02;            // altura do mapa acima da face superior da laje (m)
 const MAX_GRID_CELLS = 250000;
+const AIM_STORAGE_KEY = `cameraAims:${window.location.pathname}`;
 
 const STYLE = `
 #wifiCoveragePanel{position:fixed;top:80px;right:20px;width:360px;max-width:calc(100% - 40px);max-height:calc(100vh - 110px);overflow:auto;background:rgba(33,33,33,.92);color:#f7f7f7;padding:14px;border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,.35);z-index:300001;font-family:Arial,sans-serif;font-size:13px;backdrop-filter:blur(6px)}
 #wifiCoveragePanel[hidden]{display:none}
+#wifiCoveragePanel [hidden]{display:none !important}
 #wifiCoveragePanel .wifi-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
 #wifiCoveragePanel .wifi-title{font-size:16px;font-weight:700}
 #wifiCoveragePanel .wifi-subtitle{font-size:12px;opacity:.75}
 #wifiCoveragePanel .wifi-close{background:none;border:0;color:#fff;font-size:18px;cursor:pointer}
+#wifiCoveragePanel .wifi-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#111;border-radius:8px;padding:3px;margin-bottom:6px}
+#wifiCoveragePanel .wifi-tabs button{border:0;border-radius:6px;padding:7px;background:none;color:#ddd;font-weight:700;cursor:pointer}
+#wifiCoveragePanel .wifi-tabs button.is-active{background:#2563eb;color:#fff}
 #wifiCoveragePanel label{display:block;margin:8px 0 3px;font-size:12px;opacity:.85}
 #wifiCoveragePanel .wifi-check{display:flex;align-items:center;gap:6px;margin-top:10px;opacity:1}
 #wifiCoveragePanel select{width:100%;padding:7px;border-radius:6px;border:1px solid #444;background:#111;color:#fff}
@@ -56,12 +71,18 @@ const STYLE = `
 #wifiCoveragePanel .wifi-run:disabled{opacity:.5;cursor:wait}
 #wifiCoveragePanel .wifi-off{background:#3f3f46;color:#fff}
 #wifiCoveragePanel .wifi-status{margin-top:10px;font-size:12px;min-height:16px}
+#wifiCoveragePanel .wifi-status.is-aiming{color:#93c5fd;font-weight:700}
 #wifiCoveragePanel progress{width:100%;margin-top:6px}
 #wifiCoveragePanel .wifi-legend div{display:flex;align-items:center;gap:8px;margin:3px 0}
 #wifiCoveragePanel .wifi-legend span{display:inline-block;width:14px;height:14px;border-radius:3px;flex:none}
-#wifiCoveragePanel .wifi-ap-list{list-style:none;margin:4px 0 0;padding:0;max-height:120px;overflow:auto}
-#wifiCoveragePanel .wifi-ap-list button{width:100%;text-align:left;background:none;border:0;color:#cfe;padding:3px 0;cursor:pointer;font-size:12px}
-#wifiCoveragePanel .wifi-ap-list button:hover{text-decoration:underline}
+#wifiCoveragePanel .wifi-ap-list{list-style:none;margin:4px 0 0;padding:0;max-height:180px;overflow:auto}
+#wifiCoveragePanel .wifi-ap-list button.wifi-link{width:100%;text-align:left;background:none;border:0;color:#cfe;padding:3px 0;cursor:pointer;font-size:12px}
+#wifiCoveragePanel .wifi-ap-list button.wifi-link:hover{text-decoration:underline}
+#wifiCoveragePanel .wifi-cam-item{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+#wifiCoveragePanel .wifi-cam-item small{display:block;opacity:.7}
+#wifiCoveragePanel .wifi-cam-item .wifi-aim{background:#2563eb;color:#fff;border:0;border-radius:5px;padding:5px 8px;font-weight:700;cursor:pointer}
+#wifiCoveragePanel .wifi-cam-item .wifi-aim.is-aiming{background:#f59e0b}
+#wifiCoveragePanel .wifi-cam-item .wifi-clear{background:none;border:0;color:#aaa;cursor:pointer;font-size:14px}
 `;
 
 export function createWifiCoverageFeature({
@@ -74,14 +95,21 @@ export function createWifiCoverageFeature({
     onVisibilityChange = () => {}
 }) {
     const scene = viewer.scene;
+    const canvas = scene.canvas.canvas;
     const metaObjects = () => viewer.metaScene?.metaObjects || {};
     const archGeometryCache = new Map(); // archModelId -> { obstacles: [...], slabs: [...] }
 
+    let mode = "wifi";                 // "wifi" | "camera"
     let heatmap = null;                // { mesh, geometry, material, texture }
+    let frustumLines = null;           // LineSet dos cones das câmeras
+    let lastRunMode = null;            // modo do mapa atualmente desenhado
     let visibilitySnapshot = null;
     let running = false;
     let cancelRequested = false;
     let enabled = true;
+    let aiming = null;                 // { camera, subscription }
+
+    const cameraAims = loadAims();     // id da câmera -> { azimuthDeg, tiltDeg }
 
     // -----------------------------------------------------------------------
     // UI
@@ -97,8 +125,8 @@ export function createWifiCoverageFeature({
     toolbarButton.id = "btnWifiCoverage";
     toolbarButton.type = "button";
     toolbarButton.className = "tool-button";
-    toolbarButton.title = "Cobertura Wi-Fi";
-    toolbarButton.innerHTML = `<span style="font-size: 1.2em;">📶</span>\n            Wi-Fi`;
+    toolbarButton.title = "Cobertura Wi-Fi e câmeras";
+    toolbarButton.innerHTML = `<span style="font-size: 1.2em;">📶</span>\n            Cobertura`;
     const helpButton = document.getElementById("btnHelp");
     const toolbar = helpButton?.parentElement || document.getElementById("btnMaterialsPanel")?.parentElement;
     if (helpButton) toolbar.insertBefore(toolbarButton, helpButton); else toolbar?.appendChild(toolbarButton);
@@ -109,21 +137,35 @@ export function createWifiCoverageFeature({
     panel.innerHTML = `
         <div class="wifi-header">
             <div>
-                <div class="wifi-title">Cobertura Wi-Fi</div>
-                <div class="wifi-subtitle">Estimativa de sinal dos access points</div>
+                <div class="wifi-title">Cobertura</div>
+                <div class="wifi-subtitle" id="wifiSubtitle">Estimativa de sinal dos access points</div>
             </div>
             <button type="button" class="wifi-close" aria-label="Fechar painel">✕</button>
+        </div>
+        <div class="wifi-tabs" role="tablist">
+            <button type="button" data-mode="wifi" class="is-active">📶 Wi-Fi</button>
+            <button type="button" data-mode="camera">📹 Câmeras</button>
         </div>
         <label for="wifiArchModel">IFC da arquitetura (paredes)</label>
         <select id="wifiArchModel"></select>
         <label for="wifiStorey">Pavimento</label>
         <select id="wifiStorey"></select>
-        <label for="wifiApModel">Modelo do access point</label>
-        <select id="wifiApModel"></select>
-        <div class="wifi-row">
-            <div><label for="wifiBand">Banda</label><select id="wifiBand"></select></div>
-            <div><label for="wifiPower">Potência</label><select id="wifiPower"></select></div>
+
+        <div data-section="wifi">
+            <label for="wifiApModel">Modelo do access point</label>
+            <select id="wifiApModel"></select>
+            <div class="wifi-row">
+                <div><label for="wifiBand">Banda</label><select id="wifiBand"></select></div>
+                <div><label for="wifiPower">Potência</label><select id="wifiPower"></select></div>
+            </div>
         </div>
+
+        <div data-section="camera" hidden>
+            <label for="camModel">Modelo da câmera</label>
+            <select id="camModel"></select>
+            <label class="wifi-check"><input type="checkbox" id="camNight"> Noite (limitar ao alcance do IR)</label>
+        </div>
+
         <label for="wifiResolution">Resolução do mapa</label>
         <select id="wifiResolution">
             <option value="0.25">0,25 m (alta qualidade)</option>
@@ -131,8 +173,9 @@ export function createWifiCoverageFeature({
             <option value="1">1 m (rascunho)</option>
         </select>
         <label class="wifi-check"><input type="checkbox" id="wifiClipFloor" checked> Recortar o mapa no piso (IfcSlab)</label>
+
         <div class="wifi-card" id="wifiModelSpec"></div>
-        <div class="wifi-card"><div id="wifiApSummary"></div><ul class="wifi-ap-list" id="wifiApList"></ul></div>
+        <div class="wifi-card"><div id="wifiDeviceSummary"></div><ul class="wifi-ap-list" id="wifiDeviceList"></ul></div>
         <div class="wifi-actions">
             <button type="button" class="wifi-run" id="wifiRun">Rodar sinal</button>
             <button type="button" class="wifi-off" id="wifiOff">Desligar</button>
@@ -149,6 +192,8 @@ export function createWifiCoverageFeature({
     const apModelSelect = $("#wifiApModel");
     const bandSelect = $("#wifiBand");
     const powerSelect = $("#wifiPower");
+    const cameraModelSelect = $("#camModel");
+    const nightCheckbox = $("#camNight");
     const resolutionSelect = $("#wifiResolution");
     const clipFloorCheckbox = $("#wifiClipFloor");
     const statusElement = $("#wifiStatus");
@@ -161,9 +206,30 @@ export function createWifiCoverageFeature({
         option.textContent = text;
         select.appendChild(option);
     };
+    const fmtNumber = (value, digits = 0) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: digits });
 
     Object.values(AP_MODELS).forEach((model) => addOption(apModelSelect, model.id, model.label));
     Object.entries(TX_POWER_PRESETS).forEach(([key, preset]) => addOption(powerSelect, key, preset.label));
+    Object.values(CAMERA_MODELS).forEach((model) => addOption(cameraModelSelect, model.id, model.label));
+
+    function setMode(nextMode) {
+        if (aiming) stopAim();
+        mode = nextMode;
+        panel.querySelectorAll(".wifi-tabs button").forEach((button) => {
+            button.classList.toggle("is-active", button.dataset.mode === mode);
+        });
+        panel.querySelectorAll("[data-section]").forEach((section) => {
+            section.hidden = section.dataset.section !== mode;
+        });
+        $("#wifiSubtitle").textContent = mode === "wifi"
+            ? "Estimativa de sinal dos access points"
+            : "Área vista pelas câmeras (DORI)";
+        runButton.textContent = mode === "wifi" ? "Rodar sinal" : "Rodar câmeras";
+        renderModelSpec();
+        renderLegend();
+        refreshDeviceList();
+        drawFrustums(currentStorey());
+    }
 
     function refreshBandOptions() {
         const model = AP_MODELS[apModelSelect.value];
@@ -175,26 +241,46 @@ export function createWifiCoverageFeature({
     }
 
     function renderModelSpec() {
+        const spec = $("#wifiModelSpec");
+        if (mode === "camera") {
+            const model = CAMERA_MODELS[cameraModelSelect.value];
+            if (!model) { spec.textContent = ""; return; }
+            const m = (value) => fmtNumber(value, 1);
+            spec.innerHTML = `
+                <b>${model.label}</b><br>
+                Resolução: ${model.resolution} • Lente: ${model.focal}<br>
+                Ângulo de visão: H ${model.hFovDeg}° / V ${model.vFovDeg}° • IR: ${model.irRangeM} m<br>
+                DORI: identificar ${m(model.dori.identify)} m • reconhecer ${m(model.dori.recognize)} m •
+                observar ${m(model.dori.observe)} m • detectar ${m(model.dori.detect)} m`;
+            return;
+        }
         const model = AP_MODELS[apModelSelect.value];
         const band = model?.bands?.[bandSelect.value];
-        if (!model || !band) { $("#wifiModelSpec").textContent = ""; return; }
+        if (!model || !band) { spec.textContent = ""; return; }
         const eirp = getEirpDbm(model.id, bandSelect.value, powerSelect.value);
-        $("#wifiModelSpec").innerHTML = `
+        spec.innerHTML = `
             <b>${model.label}</b><br>
-            Potência máx.: ${band.txPowerDbm} dBm • Ganho: ${String(band.antennaGainDbi).replace(".", ",")} dBi<br>
-            EIRP usada: ${String(eirp).replace(".", ",")} dBm • Taxa: ${band.throughput}<br>
+            Potência máx.: ${band.txPowerDbm} dBm • Ganho: ${fmtNumber(band.antennaGainDbi, 1)} dBi<br>
+            EIRP usada: ${fmtNumber(eirp, 1)} dBm • Taxa: ${band.throughput}<br>
             MIMO: ${model.mimo} • Clientes: ${model.maxClients}`;
     }
 
     function renderLegend() {
         const swatch = (rgb) => `<span style="background:rgb(${rgb.join(",")})"></span>`;
+        if (mode === "camera") {
+            $("#wifiLegend").innerHTML =
+                getCameraLevels(cameraModelSelect.value).map((level) => `<div>${swatch(level.color)}${level.label}</div>`).join("") +
+                `<div><span style="background:transparent;border:1px dashed #777"></span>Fora da visão / bloqueado por parede</div>`;
+            return;
+        }
         $("#wifiLegend").innerHTML =
             SIGNAL_LEVELS.map((level) => `<div>${swatch(level.color)}${level.label}</div>`).join("") +
             `<div>${swatch(NO_SIGNAL_COLOR)}${NO_SIGNAL_LABEL}</div>`;
     }
 
-    function setStatus(text, progress = null) {
+    function setStatus(text, progress = null, { aimingStyle = false } = {}) {
         statusElement.textContent = text;
+        statusElement.classList.toggle("is-aiming", aimingStyle);
         progressElement.hidden = progress === null;
         if (progress !== null) progressElement.value = progress;
     }
@@ -208,11 +294,11 @@ export function createWifiCoverageFeature({
         return scene.objects[metaObjectId] || scene.objects[resolveSceneObjectId(metaObjectId)] || null;
     }
 
-    function findAccessPoints() {
+    function findDevices(getModelId) {
         const result = [];
         for (const metaObject of Object.values(metaObjects())) {
-            const modelId = getAccessPointModelId(metaObject);
-            if (!modelId) continue;
+            const deviceModelId = getModelId(metaObject);
+            if (!deviceModelId) continue;
             const entity = sceneEntityFor(metaObject.id);
             if (!entity?.aabb) continue;
             const a = entity.aabb;
@@ -220,7 +306,7 @@ export function createWifiCoverageFeature({
                 id: metaObject.id,
                 name: metaObject.name || metaObject.id,
                 sourceModelId: entity.model?.id || modelIdOf(metaObject.id),
-                apModelId: modelId,
+                deviceModelId,
                 aabb: Array.from(a),
                 x: (a[0] + a[3]) / 2,
                 y: (a[1] + a[4]) / 2,
@@ -229,6 +315,9 @@ export function createWifiCoverageFeature({
         }
         return result;
     }
+
+    const findAccessPoints = () => findDevices(getAccessPointModelId);
+    const findCameras = () => findDevices(getCameraModelId);
 
     function getArchStoreys(archModelId) {
         const storeys = [];
@@ -249,7 +338,7 @@ export function createWifiCoverageFeature({
                 ceilingY = Math.max(ceilingY, entity.aabb[4]);
             }
             if (!wallCount) continue;
-            storeys.push({ id: metaObject.id, name: metaObject.name || metaObject.id, floorY, ceilingY, sceneIds });
+            storeys.push({ id: metaObject.id, name: metaObject.name || metaObject.id, floorY, ceilingY, sceneIds, floorTopY: null });
         }
         return storeys.sort((a, b) => a.floorY - b.floorY);
     }
@@ -274,7 +363,7 @@ export function createWifiCoverageFeature({
         const liveEntities = Object.values(scene.objects).filter((entity) => entity.model?.id === archModelId && isWanted(entity));
         let geometries = extract(liveEntities);
 
-        // 2) senão, abre uma cópia invisível só com paredes/portas/janelas/pilares, lê a geometria e descarta
+        // 2) senão, abre uma cópia invisível só com paredes/portas/janelas/pilares/lajes, lê a geometria e descarta
         if (!geometries.length && liveEntities.length) {
             const src = getModelSources().find((model) => model.id === archModelId)?.src;
             if (!src) throw new Error(`Arquivo do modelo ${archModelId} não encontrado.`);
@@ -324,9 +413,9 @@ export function createWifiCoverageFeature({
     }
 
     // -----------------------------------------------------------------------
-    // Visibilidade: só a arquitetura do pavimento + os APs desse pavimento
+    // Visibilidade: só a arquitetura do pavimento + os dispositivos desse pavimento
     // -----------------------------------------------------------------------
-    function isolateForCoverage(storey, apModelIds, extraIds = []) {
+    function isolateForCoverage(storey, deviceModelIds, extraIds = []) {
         if (!visibilitySnapshot) visibilitySnapshot = scene.visibleObjectIds.slice();
         const minY = storey.floorY - 0.3;
         const maxY = storey.ceilingY + 0.8;
@@ -334,7 +423,7 @@ export function createWifiCoverageFeature({
         extraIds.forEach((id) => { if (scene.objects[id]) show.add(id); });
 
         for (const entity of Object.values(scene.objects)) {
-            if (!apModelIds.has(entity.model?.id) || !entity.aabb) continue;
+            if (!deviceModelIds.has(entity.model?.id) || !entity.aabb) continue;
             const centerY = (entity.aabb[1] + entity.aabb[4]) / 2;
             if (centerY >= minY && centerY <= maxY) show.add(entity.id);
         }
@@ -354,7 +443,7 @@ export function createWifiCoverageFeature({
     }
 
     // -----------------------------------------------------------------------
-    // Mapa de calor
+    // Mapa no piso
     // -----------------------------------------------------------------------
     function destroyHeatmap() {
         if (!heatmap) return;
@@ -363,18 +452,21 @@ export function createWifiCoverageFeature({
         heatmap.material.destroy();
         heatmap.texture.destroy();
         heatmap = null;
+        lastRunMode = null;
         requestRenderFrame();
     }
 
-    function drawHeatmap({ grid, cols, rows }, bounds, cellSize, y, floorFaces = null) {
+    /**
+     * image: resultado de renderHeatmapPixels. Pixels com alfa 0 ficam transparentes
+     * (usado nas câmeras, para mostrar só a área vista).
+     */
+    function drawHeatmap(image, { cols, rows }, bounds, cellSize, y, floorFaces = null, transparent = false) {
         destroyHeatmap();
 
-        // Imagem suave: interpolação entre células, faixas de cor e contornos
-        const image = renderHeatmapPixels(smoothGrid(grid, cols, rows), cols, rows);
-        const canvas = document.createElement("canvas");
-        canvas.width = image.width;
-        canvas.height = image.height;
-        canvas.getContext("2d").putImageData(new ImageData(image.data, image.width, image.height), 0, 0);
+        const textureCanvas = document.createElement("canvas");
+        textureCanvas.width = image.width;
+        textureCanvas.height = image.height;
+        textureCanvas.getContext("2d").putImageData(new ImageData(image.data, image.width, image.height), 0, 0);
 
         // Linha 0 da imagem = minZ (v = 0); flipY desligado para manter essa correspondência.
         // A textura cobre exatamente cols × rows células, a partir de minX/minZ.
@@ -406,7 +498,7 @@ export function createWifiCoverageFeature({
             indices.push(0, 1, 2, 0, 2, 3);
         }
 
-        const texture = new Texture(scene, { src: canvas.toDataURL("image/png"), flipY: false });
+        const texture = new Texture(scene, { src: textureCanvas.toDataURL("image/png"), flipY: false });
         const geometry = new ReadableGeometry(scene, { primitive: "triangles", positions, normals, uv, indices });
         const material = new PhongMaterial(scene, {
             diffuse: [0, 0, 0],
@@ -414,6 +506,8 @@ export function createWifiCoverageFeature({
             specular: [0, 0, 0],
             emissive: [1, 1, 1],
             emissiveMap: texture,
+            // o diffuseMap não muda a cor (difusa = 0), só fornece o alfa da textura
+            ...(transparent ? { diffuseMap: texture } : {}),
             alpha: 0.85,
             alphaMode: "blend",
             backfaces: true
@@ -432,8 +526,129 @@ export function createWifiCoverageFeature({
     }
 
     // -----------------------------------------------------------------------
-    // Execução
+    // Câmeras: mira e cones
     // -----------------------------------------------------------------------
+    function loadAims() {
+        try {
+            const stored = JSON.parse(window.localStorage.getItem(AIM_STORAGE_KEY) || "{}");
+            return new Map(Object.entries(stored));
+        } catch (_error) {
+            return new Map();
+        }
+    }
+
+    function saveAims() {
+        try {
+            window.localStorage.setItem(AIM_STORAGE_KEY, JSON.stringify(Object.fromEntries(cameraAims)));
+        } catch (_error) {
+            // navegador sem armazenamento: a mira vale só nesta sessão
+        }
+    }
+
+    function withAim(camera) {
+        const aim = cameraAims.get(camera.id);
+        return aim ? { ...camera, ...aim, modelId: camera.deviceModelId } : null;
+    }
+
+    function destroyFrustums() {
+        frustumLines?.destroy();
+        frustumLines = null;
+        requestRenderFrame();
+    }
+
+    function drawFrustums(storey) {
+        destroyFrustums();
+        if (mode !== "camera" || !storey) return;
+        const floorY = storey.floorTopY ?? storey.floorY;
+        const positions = [];
+        const indices = [];
+        for (const camera of getCamerasForStorey(storey)) {
+            const aimed = withAim(camera);
+            if (!aimed) continue;
+            const model = CAMERA_MODELS[cameraModelSelect.value] || CAMERA_MODELS[aimed.modelId];
+            const corners = frustumEdgePoints(aimed, model, floorY, model.dori.detect);
+            const base = positions.length / 3;
+            positions.push(aimed.x, aimed.y, aimed.z);
+            corners.forEach((point) => positions.push(...point));
+            indices.push(base, base + 1, base, base + 2, base, base + 3, base, base + 4,
+                base + 1, base + 2, base + 2, base + 3, base + 3, base + 4, base + 4, base + 1);
+        }
+        if (!positions.length) return;
+        frustumLines = new LineSet(scene, { positions, indices, color: [0.15, 0.39, 0.92], opacity: 0.9 });
+        requestRenderFrame();
+    }
+
+    function startAim(camera) {
+        if (running) return;
+        if (aiming) stopAim();
+        const storey = currentStorey();
+        if (!storey) return;
+
+        // Mostra só o pavimento para facilitar o clique no piso
+        if (!visibilitySnapshot) isolateForCoverage(storey, new Set([camera.sourceModelId]));
+
+        const subscription = scene.input.on("mouseclicked", (canvasPos) => onAimClick(canvasPos));
+        aiming = { camera, subscription };
+        canvas.style.cursor = "crosshair";
+        document.addEventListener("keydown", onAimKey);
+        setStatus(`Clique no piso para onde a câmera deve apontar (Esc cancela). Pode girar e aproximar a vista normalmente.`, null, { aimingStyle: true });
+        refreshDeviceList();
+    }
+
+    function stopAim() {
+        if (!aiming) return;
+        scene.input.off(aiming.subscription);
+        aiming = null;
+        canvas.style.cursor = "";
+        document.removeEventListener("keydown", onAimKey);
+        refreshDeviceList();
+    }
+
+    function onAimKey(event) {
+        if (event.key === "Escape") {
+            stopAim();
+            setStatus("Mira cancelada.");
+        }
+    }
+
+    function onAimClick(canvasPos) {
+        if (!aiming) return;
+        const storey = currentStorey();
+        const camera = aiming.camera;
+        if (!storey) { stopAim(); return; }
+
+        // Raio do clique interceptado com o plano do piso do pavimento
+        const origin = new Float64Array(3);
+        const direction = new Float64Array(3);
+        const cam = scene.camera;
+        math.canvasPosToWorldRay(canvas, cam.viewMatrix, cam.projMatrix, cam.projection, canvasPos, origin, direction);
+        const planeY = storey.floorTopY ?? storey.floorY;
+        if (Math.abs(direction[1]) < 1e-6) return;
+        const t = (planeY - origin[1]) / direction[1];
+        if (t <= 0) return;
+        const target = { x: origin[0] + direction[0] * t, y: planeY, z: origin[2] + direction[2] * t };
+
+        const aim = aimFromTarget(camera, target);
+        if (!aim) {
+            setStatus("Clique um pouco mais longe da câmera.", null, { aimingStyle: true });
+            return;
+        }
+        cameraAims.set(camera.id, aim);
+        saveAims();
+        stopAim();
+        drawFrustums(storey);
+        setStatus(`Câmera direcionada: azimute ${fmtNumber(aim.azimuthDeg)}° • inclinação ${fmtNumber(aim.tiltDeg)}°.`);
+
+        // Se o mapa de câmeras já está na tela, recalcula com a nova mira
+        if (lastRunMode === "camera") run();
+    }
+
+    // -----------------------------------------------------------------------
+    // Listas e seleção
+    // -----------------------------------------------------------------------
+    let storeysCache = [];
+    const currentStorey = () => storeysCache.find((item) => item.id === storeySelect.value) || null;
+
     function refreshModelOptions() {
         const previous = archSelect.value;
         archSelect.innerHTML = "";
@@ -443,7 +658,6 @@ export function createWifiCoverageFeature({
         refreshStoreyOptions();
     }
 
-    let storeysCache = [];
     function refreshStoreyOptions() {
         const previous = storeySelect.value;
         storeySelect.innerHTML = "";
@@ -451,48 +665,110 @@ export function createWifiCoverageFeature({
         storeysCache.forEach((storey) => addOption(storeySelect, storey.id, storey.name));
         if (storeysCache.some((storey) => storey.id === previous)) storeySelect.value = previous;
         if (!storeysCache.length) addOption(storeySelect, "", "Nenhum pavimento com paredes neste IFC");
-        refreshAccessPointList();
+        refreshDeviceList();
     }
 
-    function getAccessPointsForStorey(storey) {
+    function devicesForStorey(devices, storey) {
         if (!storey) return [];
         const archModelId = archSelect.value;
-        return findAccessPoints().filter((ap) =>
-            ap.sourceModelId !== archModelId &&
-            ap.y >= storey.floorY - 0.5 &&
-            ap.y <= storey.ceilingY + 0.8
+        return devices.filter((device) =>
+            device.sourceModelId !== archModelId &&
+            device.y >= storey.floorY - 0.5 &&
+            device.y <= storey.ceilingY + 0.8
         );
     }
 
-    function refreshAccessPointList() {
-        const storey = storeysCache.find((item) => item.id === storeySelect.value);
-        const aps = getAccessPointsForStorey(storey);
-        const total = findAccessPoints().length;
-        $("#wifiApSummary").innerHTML = `<b>${aps.length}</b> access point(s) neste pavimento • ${total} no projeto`;
-        const list = $("#wifiApList");
+    const getAccessPointsForStorey = (storey) => devicesForStorey(findAccessPoints(), storey);
+    const getCamerasForStorey = (storey) => devicesForStorey(findCameras(), storey);
+
+    function refreshDeviceList() {
+        const storey = currentStorey();
+        const list = $("#wifiDeviceList");
         list.innerHTML = "";
-        aps.forEach((ap, index) => {
+
+        if (mode === "wifi") {
+            const aps = getAccessPointsForStorey(storey);
+            $("#wifiDeviceSummary").innerHTML = `<b>${aps.length}</b> access point(s) neste pavimento • ${findAccessPoints().length} no projeto`;
+            aps.forEach((ap, index) => {
+                const item = document.createElement("li");
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = "wifi-link";
+                button.textContent = `AP ${index + 1} • ${ap.sourceModelId} • ${ap.name}`;
+                button.onclick = () => viewer.cameraFlight.flyTo({ aabb: ap.aabb, duration: 0.6 });
+                item.appendChild(button);
+                list.appendChild(item);
+            });
+            return;
+        }
+
+        const cameras = getCamerasForStorey(storey);
+        const aimedCount = cameras.filter((camera) => cameraAims.has(camera.id)).length;
+        $("#wifiDeviceSummary").innerHTML =
+            `<b>${cameras.length}</b> câmera(s) neste pavimento • ${aimedCount} direcionada(s) • ${findCameras().length} no projeto`;
+        cameras.forEach((camera, index) => {
+            const aim = cameraAims.get(camera.id);
             const item = document.createElement("li");
-            const button = document.createElement("button");
-            button.type = "button";
-            button.textContent = `AP ${index + 1} • ${ap.sourceModelId} • ${ap.name}`;
-            button.onclick = () => viewer.cameraFlight.flyTo({ aabb: ap.aabb, duration: 0.6 });
-            item.appendChild(button);
+            item.className = "wifi-cam-item";
+
+            const info = document.createElement("button");
+            info.type = "button";
+            info.className = "wifi-link";
+            info.textContent = `Câmera ${index + 1} • ${camera.name}`;
+            const detail = document.createElement("small");
+            detail.textContent = aim
+                ? `Azimute ${fmtNumber(aim.azimuthDeg)}° • inclinação ${fmtNumber(aim.tiltDeg)}° • altura ${fmtNumber(camera.y - (storey.floorTopY ?? storey.floorY), 2)} m`
+                : "Sem direção — clique em Mirar";
+            info.appendChild(detail);
+            info.onclick = () => viewer.cameraFlight.flyTo({ aabb: camera.aabb, duration: 0.6 });
+
+            const aimButton = document.createElement("button");
+            aimButton.type = "button";
+            const isAiming = aiming?.camera.id === camera.id;
+            aimButton.className = `wifi-aim${isAiming ? " is-aiming" : ""}`;
+            aimButton.textContent = isAiming ? "Cancelar" : "Mirar";
+            aimButton.onclick = () => (isAiming ? stopAim() : startAim(camera));
+
+            const clearButton = document.createElement("button");
+            clearButton.type = "button";
+            clearButton.className = "wifi-clear";
+            clearButton.title = "Apagar direção";
+            clearButton.textContent = "✕";
+            clearButton.hidden = !aim;
+            clearButton.onclick = () => {
+                cameraAims.delete(camera.id);
+                saveAims();
+                drawFrustums(storey);
+                refreshDeviceList();
+                if (lastRunMode === "camera") run();
+            };
+
+            item.append(info, aimButton, clearButton);
             list.appendChild(item);
         });
     }
 
+    // -----------------------------------------------------------------------
+    // Execução
+    // -----------------------------------------------------------------------
     async function run() {
         if (running || !enabled) return;
+        if (aiming) stopAim();
+        const runMode = mode;
         const archModelId = archSelect.value;
-        const storey = storeysCache.find((item) => item.id === storeySelect.value);
-        const apModelId = apModelSelect.value;
-        const band = bandSelect.value;
-        const bandData = AP_MODELS[apModelId]?.bands?.[band];
-
+        const storey = currentStorey();
         if (!archModelId || !storey) { setStatus("Selecione o IFC da arquitetura e o pavimento."); return; }
-        const accessPoints = getAccessPointsForStorey(storey);
-        if (!accessPoints.length) { setStatus("Nenhum access point encontrado neste pavimento."); return; }
+
+        let devices;
+        if (runMode === "wifi") {
+            devices = getAccessPointsForStorey(storey);
+            if (!devices.length) { setStatus("Nenhum access point encontrado neste pavimento."); return; }
+        } else {
+            const cameras = getCamerasForStorey(storey);
+            if (!cameras.length) { setStatus("Nenhuma câmera encontrada neste pavimento."); return; }
+            devices = cameras.map(withAim).filter(Boolean);
+            if (!devices.length) { setStatus("Nenhuma câmera direcionada. Clique em Mirar em pelo menos uma."); return; }
+        }
 
         running = true;
         cancelRequested = false;
@@ -502,48 +778,70 @@ export function createWifiCoverageFeature({
             if (cancelRequested) return;
             if (!obstacles.length) { setStatus("Não foi possível ler as paredes deste IFC."); return; }
 
-            const receiverY = storey.floorY + PROPAGATION.receiverHeight;
-            const slice = sliceObstacles(obstacles, receiverY);
-            if (!slice.owners.length) { setStatus("Nenhuma parede corta a altura de 1,2 m neste pavimento."); return; }
+            // Lajes do pavimento: definem a altura do piso e o recorte do mapa
+            const floorSlabs = slabs.filter((slab) => slab.aabb[4] >= storey.floorY - 0.5 && slab.aabb[1] <= storey.floorY + 0.6);
+            let floor = null;
+
+            const heightAboveFloor = runMode === "wifi" ? PROPAGATION.receiverHeight : CAMERA_SETTINGS.targetHeight;
+            const referenceY = storey.floorY + heightAboveFloor;
+            const slice = sliceObstacles(obstacles, referenceY);
+            if (!slice.owners.length) { setStatus("Nenhuma parede corta a altura de referência neste pavimento."); return; }
 
             const wallBounds = segmentsBounds(slice.coords);
             const bounds = [
-                Math.min(wallBounds[0], ...accessPoints.map((ap) => ap.x)) - HEATMAP_MARGIN,
-                Math.min(wallBounds[1], ...accessPoints.map((ap) => ap.z)) - HEATMAP_MARGIN,
-                Math.max(wallBounds[2], ...accessPoints.map((ap) => ap.x)) + HEATMAP_MARGIN,
-                Math.max(wallBounds[3], ...accessPoints.map((ap) => ap.z)) + HEATMAP_MARGIN
+                Math.min(wallBounds[0], ...devices.map((device) => device.x)) - HEATMAP_MARGIN,
+                Math.min(wallBounds[1], ...devices.map((device) => device.z)) - HEATMAP_MARGIN,
+                Math.max(wallBounds[2], ...devices.map((device) => device.x)) + HEATMAP_MARGIN,
+                Math.max(wallBounds[3], ...devices.map((device) => device.z)) + HEATMAP_MARGIN
             ];
             let cellSize = Number(resolutionSelect.value) || 0.5;
             const area = (bounds[2] - bounds[0]) * (bounds[3] - bounds[1]);
             if (area / (cellSize * cellSize) > MAX_GRID_CELLS) cellSize = Math.sqrt(area / MAX_GRID_CELLS);
 
-            // Lajes do pavimento: ficam visíveis junto com as paredes
-            const floorSlabs = slabs.filter((slab) => slab.aabb[4] >= storey.floorY - 0.5 && slab.aabb[1] <= storey.floorY + 0.6);
-            isolateForCoverage(storey, new Set(accessPoints.map((ap) => ap.sourceModelId)), floorSlabs.map((slab) => slab.id));
-            setStatus(`Calculando sinal de ${accessPoints.length} AP(s)…`, 0);
+            isolateForCoverage(storey, new Set(devices.map((device) => device.sourceModelId)), floorSlabs.map((slab) => slab.id));
+            const label = runMode === "wifi" ? `Calculando sinal de ${devices.length} AP(s)…` : `Calculando visão de ${devices.length} câmera(s)…`;
+            setStatus(label, 0);
 
-            const result = await computeSignalGrid({
-                accessPoints,
+            const common = {
                 obstacleSlice: slice,
                 obstacleKinds: obstacles.map((obstacle) => obstacle.kind),
-                band,
-                eirpDbm: getEirpDbm(apModelId, band, powerSelect.value),
-                freqMHz: bandData.freqMHz,
                 bounds,
                 cellSize,
-                receiverY,
                 shouldCancel: () => cancelRequested,
-                onProgress: (value) => setStatus(`Calculando sinal de ${accessPoints.length} AP(s)…`, value)
-            });
+                onProgress: (value) => setStatus(label, value)
+            };
+            let result;
+            if (runMode === "wifi") {
+                const bandData = AP_MODELS[apModelSelect.value].bands[bandSelect.value];
+                result = await computeSignalGrid({
+                    ...common,
+                    accessPoints: devices,
+                    band: bandSelect.value,
+                    eirpDbm: getEirpDbm(apModelSelect.value, bandSelect.value, powerSelect.value),
+                    freqMHz: bandData.freqMHz,
+                    receiverY: referenceY
+                });
+            } else {
+                result = await computeCameraGrid({
+                    ...common,
+                    cameras: devices.map((device) => ({ ...device, modelId: cameraModelSelect.value })),
+                    targetY: referenceY,
+                    nightMode: nightCheckbox.checked
+                });
+            }
             if (!result || cancelRequested) return;
 
+            // Piso: altura do mapa e recorte
             let mask = null;
             let floorFaces = null;
             let heatmapY = storey.floorY + HEATMAP_LIFT;
             let floorNote = "";
             if (floorSlabs.length) {
-                const floor = buildFloorMask(floorSlabs, { bounds, cellSize, cols: result.cols, rows: result.rows, floorY: storey.floorY });
-                if (floor.topY !== null) heatmapY = floor.topY + SLAB_LIFT;
+                floor = buildFloorMask(floorSlabs, { bounds, cellSize, cols: result.cols, rows: result.rows, floorY: storey.floorY });
+                if (floor.topY !== null) {
+                    heatmapY = floor.topY + SLAB_LIFT;
+                    storey.floorTopY = floor.topY;
+                }
                 if (clipFloorCheckbox.checked) {
                     const faces = collectFloorFaces(floorSlabs, { floorY: storey.floorY });
                     if (floor.count && faces.length) {
@@ -559,20 +857,44 @@ export function createWifiCoverageFeature({
 
             setStatus("Desenhando o mapa…", 1);
             await new Promise((resolve) => setTimeout(resolve, 0));
-            drawHeatmap(result, bounds, cellSize, heatmapY, floorFaces);
+
+            if (runMode === "wifi") {
+                const image = renderHeatmapPixels(smoothGrid(result.grid, result.cols, result.rows), result.cols, result.rows);
+                drawHeatmap(image, result, bounds, cellSize, heatmapY, floorFaces, false);
+                destroyFrustums();
+                const summary = summarizeSignalGrid(result.grid, mask);
+                const bandLabel = AP_MODELS[apModelSelect.value].bands[bandSelect.value].label;
+                const areaText = mask
+                    ? `${fmtNumber(summary.goodPercent)}% do piso ≥ −67 dBm (${fmtNumber(summary.cellCount * cellSize * cellSize)} m²)`
+                    : `${fmtNumber(summary.goodPercent)}% da área ≥ −67 dBm (inclui a margem externa)`;
+                setStatus(`${storey.name} • ${bandLabel} • ${devices.length} AP(s) • ${areaText}${floorNote}`);
+            } else {
+                const image = renderHeatmapPixels(result.grid, result.cols, result.rows, {
+                    levels: getCameraLevels(cameraModelSelect.value),
+                    visibility: result.visibility,
+                    shadeRange: 2
+                });
+                drawHeatmap(image, result, bounds, cellSize, heatmapY, floorFaces, true);
+                drawFrustums(storey);
+                const summary = summarizeCameraGrid(result, cameraModelSelect.value, cellSize, mask);
+                const ignored = getCamerasForStorey(storey).length - devices.length;
+                const pct = (value) => (mask && summary.floor ? ` (${fmtNumber((value / summary.floor) * 100)}% do piso)` : "");
+                setStatus(
+                    `${storey.name} • ${devices.length} câmera(s)` +
+                    `${ignored ? ` • ${ignored} sem direção ignorada(s)` : ""}` +
+                    ` • Identificação: ${fmtNumber(summary.identify)} m²${pct(summary.identify)}` +
+                    ` • Reconhecimento: ${fmtNumber(summary.recognize)} m²${pct(summary.recognize)}` +
+                    ` • Detecção: ${fmtNumber(summary.detect)} m²${pct(summary.detect)}${floorNote}`
+                );
+            }
+            lastRunMode = runMode;
+
             viewer.cameraFlight.flyTo({
                 aabb: [bounds[0], storey.floorY, bounds[1], bounds[2], storey.ceilingY, bounds[3]],
                 duration: 0.8
             });
-
-            const summary = summarizeSignalGrid(result.grid, mask);
-            const fmt = (value) => value.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
-            const areaText = mask
-                ? `${fmt(summary.goodPercent)}% do piso ≥ −67 dBm (${fmt(summary.cellCount * cellSize * cellSize)} m²)`
-                : `${fmt(summary.goodPercent)}% da área ≥ −67 dBm (inclui a margem externa)`;
-            setStatus(`${storey.name} • ${bandData.label} • ${accessPoints.length} AP(s) • ${areaText}${floorNote}`);
         } catch (error) {
-            console.error("[wifi] Falha no cálculo de cobertura:", error);
+            console.error("[cobertura] Falha no cálculo:", error);
             setStatus(`Erro: ${error.message || error}`);
         } finally {
             running = false;
@@ -582,7 +904,9 @@ export function createWifiCoverageFeature({
 
     function turnOff() {
         cancelRequested = true;
+        stopAim();
         destroyHeatmap();
+        destroyFrustums();
         restoreVisibility();
         setStatus("");
     }
@@ -594,6 +918,7 @@ export function createWifiCoverageFeature({
     }
 
     function closePanel() {
+        stopAim();
         panel.hidden = true;
         toolbarButton.classList.remove("active");
     }
@@ -603,16 +928,23 @@ export function createWifiCoverageFeature({
         if (panel.hidden) openPanel(); else closePanel();
     });
     $(".wifi-close").addEventListener("click", closePanel);
+    panel.querySelectorAll(".wifi-tabs button").forEach((button) => {
+        button.addEventListener("click", () => setMode(button.dataset.mode));
+    });
     archSelect.addEventListener("change", refreshStoreyOptions);
-    storeySelect.addEventListener("change", refreshAccessPointList);
+    storeySelect.addEventListener("change", () => {
+        refreshDeviceList();
+        drawFrustums(currentStorey());
+    });
     apModelSelect.addEventListener("change", refreshBandOptions);
     bandSelect.addEventListener("change", renderModelSpec);
     powerSelect.addEventListener("change", renderModelSpec);
+    cameraModelSelect.addEventListener("change", () => { renderModelSpec(); renderLegend(); drawFrustums(currentStorey()); });
     runButton.addEventListener("click", run);
     $("#wifiOff").addEventListener("click", turnOff);
 
     refreshBandOptions();
-    renderLegend();
+    setMode("wifi");
 
     return {
         enable() {

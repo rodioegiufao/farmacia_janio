@@ -28,8 +28,17 @@ export const TX_POWER_PRESETS = Object.freeze({
 
 // Itens do projeto que são classificados como access point.
 export const ACCESS_POINT_RULES = Object.freeze([
-    Object.freeze({ match: "Dispositivo de Cabeamento - embutir - S/ placa - 1 módulo -Repetidor", modelId: "U6-LR" })
+    Object.freeze({ match: "Dispositivo de Cabeamento - embutir - S/ placa - 1 módulo -Repetidor", modelId: "U6-LR" }),
+    Object.freeze({ match: "S.O.S EQUIPAMENTOS DE TELECOMUNICAÇÕES - CABEAMENTO WIFI - Repetidor", modelId: "U6-LR" })
 ]);
+
+// Regra principal: "Nome" do conjunto "Identificação_Elemento" contendo "wifi"/"wi-fi".
+export const ACCESS_POINT_NAME_RULE = Object.freeze({
+    psetName: "Identificação_Elemento",
+    propertyName: "Nome",
+    keywords: Object.freeze(["wifi", "wi-fi", "access point"]),
+    modelId: "U6-LR"
+});
 
 // ---------------------------------------------------------------------------
 // Parâmetros de propagação (estimativas; ajuste aqui para calibrar com medições reais)
@@ -60,6 +69,7 @@ export const OBSTACLE_LOSS_DB = Object.freeze({
     glass: Object.freeze({ label: "Vidro", "2.4": 3, "5": 5 }),
     door: Object.freeze({ label: "Porta", "2.4": 3, "5": 4 }),
     fence: Object.freeze({ label: "Gradil/grade", "2.4": 2, "5": 3 }),
+    lining: Object.freeze({ label: "Revestimento", "2.4": 0, "5": 0 }),  // já contado na parede que reveste
     masonry: Object.freeze({ label: "Alvenaria", "2.4": 8, "5": 12 }),
     concrete: Object.freeze({ label: "Concreto", "2.4": 12, "5": 20 })
 });
@@ -87,7 +97,27 @@ export function normalizeItemLabel(value) {
         .trim();
 }
 
-const NORMALIZED_AP_RULES = ACCESS_POINT_RULES.map((rule) => ({ ...rule, normalized: normalizeItemLabel(rule.match) }));
+/** Normalização tolerante: ignora pontuação no início (".S.O.S") e trata "º" como "°". */
+export function normalizeLooseLabel(value) {
+    return normalizeItemLabel(String(value ?? "").replace(/º/g, "°")).replace(/^[^a-z0-9]+/, "");
+}
+
+/** Verdadeiro se o conjunto/propriedade da regra contém alguma das palavras-chave. */
+export function matchesNameRule(metaObject, rule) {
+    const psetName = normalizeItemLabel(rule.psetName);
+    const propertyName = normalizeItemLabel(rule.propertyName);
+    for (const pset of metaObject?.propertySets || []) {
+        if (normalizeItemLabel(pset?.name) !== psetName) continue;
+        for (const prop of pset.properties || []) {
+            if (normalizeItemLabel(prop?.name) !== propertyName) continue;
+            const value = normalizeItemLabel(prop?.value);
+            if (rule.keywords.some((keyword) => value.includes(keyword))) return true;
+        }
+    }
+    return false;
+}
+
+const NORMALIZED_AP_RULES = ACCESS_POINT_RULES.map((rule) => ({ ...rule, normalized: normalizeLooseLabel(rule.match) }));
 
 export function* iterateMetaObjectTexts(metaObject) {
     if (metaObject?.name) yield metaObject.name;
@@ -101,8 +131,9 @@ export function* iterateMetaObjectTexts(metaObject) {
 
 /** Retorna o id do modelo de AP quando o objeto é um access point, ou null. */
 export function getAccessPointModelId(metaObject) {
+    if (matchesNameRule(metaObject, ACCESS_POINT_NAME_RULE)) return ACCESS_POINT_NAME_RULE.modelId;
     for (const text of iterateMetaObjectTexts(metaObject)) {
-        const normalized = normalizeItemLabel(text);
+        const normalized = normalizeLooseLabel(text);
         const rule = NORMALIZED_AP_RULES.find((candidate) => candidate.normalized === normalized);
         if (rule) return rule.modelId;
     }
@@ -117,11 +148,15 @@ export function classifyObstacle(metaObject) {
 
     const text = normalizeItemLabel(Array.from(iterateMetaObjectTexts(metaObject)).join(" "));
     if (base === "door") {
-        // porta de vidro (blindex/temperado) é transparente para câmera
-        return /vidro|glass|blindex|temperado/.test(text) ? "glass" : "door";
+        // porta de vidro (blindex/temperado) é transparente para câmera; portão costuma ser gradeado
+        if (/vidro|glass|blindex|temperado/.test(text)) return "glass";
+        if (/\bportao\b|\bgrade|gradil/.test(text)) return "fence";
+        return "door";
     }
+    // camada de revestimento sobre outra parede: não é uma parede a mais
+    if (/revestimento|acabamento|reboco|ceramica|porcelanato|pastilha/.test(text)) return "lining";
     if (/\b(gradil|grade|gradeado|guarda-?corpo|alambrado|cerca)\b/.test(text)) return "fence";
-    if (/drywall|dry wall|gesso acartonado|placa de gesso/.test(text)) return "drywall";
+    if (/drywall|dry wall|gesso acartonado|placa de gesso|placa cimenticia|cimenticia/.test(text)) return "drywall";
     if (/vidro|glass|cortina/.test(text)) return "glass";
     if (/concreto|concrete/.test(text)) return "concrete";
     return "masonry";
@@ -577,8 +612,9 @@ export function renderHeatmapPixels(grid, cols, rows, {
 }
 
 /**
- * Faces superiores das lajes do pavimento, projetadas em XZ (triângulos: x,z,x,z,x,z).
- * Usadas como superfície do mapa, para o contorno seguir exatamente a laje.
+ * Faces superiores das lajes do pavimento, com a altura real de cada uma
+ * (triângulos: x,y,z, x,y,z, x,y,z). O mapa é "estendido" sobre elas, então
+ * pisos em cotas diferentes (paver, calçada, cerâmica) ficam todos cobertos.
  */
 export function collectFloorFaces(slabs, { floorY, below = 0.5, above = 0.6 }) {
     const faces = [];
@@ -603,7 +639,7 @@ export function collectFloorFaces(slabs, { floorY, below = 0.5, above = 0.6 }) {
         // só a face de cima de cada laje (evita sobrepor a face de baixo)
         for (const [a, b, c, faceY] of horizontal) {
             if (faceY < slabTop - 0.02) continue;
-            faces.push(p[a], p[a + 2], p[b], p[b + 2], p[c], p[c + 2]);
+            faces.push(p[a], p[a + 1], p[a + 2], p[b], p[b + 1], p[b + 2], p[c], p[c + 1], p[c + 2]);
         }
     }
     return Float64Array.from(faces);
@@ -611,35 +647,45 @@ export function collectFloorFaces(slabs, { floorY, below = 0.5, above = 0.6 }) {
 
 
 /**
- * Altura do piso do pavimento: a face horizontal de laje com maior área
- * entre floorY − below e floorY + above. Retorna null se não houver laje.
+ * Altura do piso onde as pessoas pisam: entre as faces superiores das lajes do pavimento,
+ * a cota que aparece em mais área vista de cima (a laje de cima esconde a de baixo).
+ * Retorna null se não houver laje.
  */
-export function dominantFloorY(slabs, floorY, { below = 0.5, above = 0.6 } = {}) {
-    const areaByLevel = new Map();   // cota em cm -> área (m²)
-    for (const slab of slabs) {
-        const aabb = slab.aabb;
-        if (aabb && (aabb[4] < floorY - below || aabb[1] > floorY + above)) continue;
-        const p = slab.positions, idx = slab.indices;
-        for (let t = 0; t + 2 < idx.length; t += 3) {
-            const a = idx[t] * 3, b = idx[t + 1] * 3, c = idx[t + 2] * 3;
-            const ux = p[b] - p[a], uy = p[b + 1] - p[a + 1], uz = p[b + 2] - p[a + 2];
-            const vx = p[c] - p[a], vy = p[c + 1] - p[a + 1], vz = p[c + 2] - p[a + 2];
-            const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-            const length = Math.hypot(nx, ny, nz);
-            if (!length || Math.abs(ny) / length < 0.9) continue;
-            const faceY = (p[a + 1] + p[b + 1] + p[c + 1]) / 3;
-            if (faceY < floorY - below || faceY > floorY + above) continue;
-            const key = Math.round(faceY * 100);
-            areaByLevel.set(key, (areaByLevel.get(key) || 0) + length / 2);
+export function dominantFloorY(slabs, floorY, { below = 0.5, above = 0.6, cellSize = 0.5 } = {}) {
+    const faces = collectFloorFaces(slabs, { floorY, below, above });
+    if (!faces.length) return null;
+    const top = new Map();   // célula -> maior cota
+    for (let i = 0; i < faces.length; i += 9) {
+        const ax = faces[i], ay = faces[i + 1], az = faces[i + 2];
+        const bx = faces[i + 3], by = faces[i + 4], bz = faces[i + 5];
+        const cx = faces[i + 6], cy = faces[i + 7], cz = faces[i + 8];
+        const faceY = (ay + by + cy) / 3;
+        const area = (bx - ax) * (cz - az) - (bz - az) * (cx - ax);
+        if (Math.abs(area) < 1e-9) continue;
+        const sign = area > 0 ? 1 : -1;
+        const c0 = Math.ceil(Math.min(ax, bx, cx) / cellSize - 0.5), c1 = Math.floor(Math.max(ax, bx, cx) / cellSize - 0.5);
+        const r0 = Math.ceil(Math.min(az, bz, cz) / cellSize - 0.5), r1 = Math.floor(Math.max(az, bz, cz) / cellSize - 0.5);
+        for (let r = r0; r <= r1; r++) {
+            const z = (r + 0.5) * cellSize;
+            for (let col = c0; col <= c1; col++) {
+                const x = (col + 0.5) * cellSize;
+                const w0 = sign * ((bx - ax) * (z - az) - (bz - az) * (x - ax));
+                const w1 = sign * ((cx - bx) * (z - bz) - (cz - bz) * (x - bx));
+                const w2 = sign * ((ax - cx) * (z - cz) - (az - cz) * (x - cx));
+                if (w0 < -1e-9 || w1 < -1e-9 || w2 < -1e-9) continue;
+                const key = `${col},${r}`;
+                if (!top.has(key) || top.get(key) < faceY) top.set(key, faceY);
+            }
         }
     }
-    let bestKey = null, bestArea = 0;
-    for (const [key, area] of areaByLevel) {
-        // entre a face de cima e a de baixo da mesma laje (mesma área), fica a de cima
-        if (area > bestArea * 1.02 || (area >= bestArea * 0.98 && key > bestKey)) {
-            bestKey = key;
-            bestArea = area;
-        }
+    const histogram = new Map();
+    for (const y of top.values()) {
+        const key = Math.round(y * 100);
+        histogram.set(key, (histogram.get(key) || 0) + 1);
+    }
+    let bestKey = null, bestCount = 0;
+    for (const [key, count] of histogram) {
+        if (count > bestCount) { bestKey = key; bestCount = count; }
     }
     return bestKey === null ? null : bestKey / 100;
 }

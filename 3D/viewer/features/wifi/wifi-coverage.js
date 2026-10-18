@@ -49,8 +49,9 @@ import {
 
 const WALL_TYPES = new Set(["IfcWall", "IfcWallStandardCase", "IfcWallElementedCase"]);
 const HEATMAP_MARGIN = 3;          // metros além das paredes
-const HEATMAP_LIFT = 0.10;         // altura do mapa acima da base das paredes, quando não há laje (m)
-const SLAB_LIFT = 0.02;            // altura do mapa acima da face superior da laje (m)
+const SLAB_LIFT = 0.03;            // altura do mapa acima da face superior da laje (m)
+const GROUND_LIFT = 0.01;          // retângulo de fundo (sem recorte), abaixo do mapa sobre as lajes
+const OVERHEAD_CLEARANCE = 2.3;    // objetos que começam acima disso (marquise, forro, laje) são ocultados
 const MAX_GRID_CELLS = 250000;
 const AIM_STORAGE_KEY = `cameraAims:${window.location.pathname}`;
 const IGNORED_STORAGE_KEY = `coverageIgnored:${window.location.pathname}`;
@@ -441,7 +442,13 @@ export function createWifiCoverageFeature({
         if (!visibilitySnapshot) visibilitySnapshot = scene.visibleObjectIds.slice();
         const minY = storey.floorY - 0.3;
         const maxY = storey.ceilingY + 0.8;
-        const show = new Set(storey.sceneIds);
+        // Arquitetura do pavimento, sem o que fica sobre a cabeça (marquise, forro, laje, telhado),
+        // que tamparia o mapa visto de cima
+        const overheadY = (storey.floorTopY ?? storey.floorY) + OVERHEAD_CLEARANCE;
+        const show = new Set(storey.sceneIds.filter((id) => {
+            const aabb = scene.objects[id]?.aabb;
+            return !aabb || aabb[1] < overheadY;
+        }));
         extraIds.forEach((id) => { if (scene.objects[id]) show.add(id); });
 
         for (const entity of Object.values(scene.objects)) {
@@ -482,7 +489,13 @@ export function createWifiCoverageFeature({
      * image: resultado de renderHeatmapPixels. Pixels com alfa 0 ficam transparentes
      * (usado nas câmeras, para mostrar só a área vista).
      */
-    function drawHeatmap(image, { cols, rows }, bounds, cellSize, y, floorFaces = null, transparent = false) {
+    /**
+     * image: resultado de renderHeatmapPixels.
+     * floorFaces: faces das lajes (x,y,z ×3 por triângulo) — o mapa é estendido sobre cada uma, na cota dela.
+     * groundY: se informado, desenha também um retângulo de fundo nessa cota (modo sem recorte).
+     * transparent: pixels com alfa 0 ficam transparentes (câmeras: só a área vista aparece).
+     */
+    function drawHeatmap(image, { cols, rows }, bounds, cellSize, { floorFaces = null, groundY = null, baseY = 0, transparent = false } = {}) {
         destroyHeatmap();
 
         const textureCanvas = document.createElement("canvas");
@@ -494,30 +507,32 @@ export function createWifiCoverageFeature({
         // A textura cobre exatamente cols × rows células, a partir de minX/minZ.
         const minX = bounds[0], minZ = bounds[1];
         const width = cols * cellSize, depth = rows * cellSize;
-        const origin = [minX + width / 2, y, minZ + depth / 2];
+        const origin = [minX + width / 2, baseY, minZ + depth / 2];
 
         const positions = [], normals = [], uv = [], indices = [];
-        const addVertex = (x, z) => {
-            positions.push(x - origin[0], 0, z - origin[2]);
+        const addVertex = (x, y, z) => {
+            positions.push(x - origin[0], y - origin[1], z - origin[2]);
             normals.push(0, 1, 0);
             uv.push((x - minX) / width, (z - minZ) / depth);
         };
 
         if (floorFaces?.length) {
-            // Superfície = faces superiores das lajes: o contorno do mapa é o contorno do piso
-            for (let i = 0; i < floorFaces.length; i += 6) {
+            for (let i = 0; i < floorFaces.length; i += 9) {
                 const base = positions.length / 3;
-                addVertex(floorFaces[i], floorFaces[i + 1]);
-                addVertex(floorFaces[i + 2], floorFaces[i + 3]);
-                addVertex(floorFaces[i + 4], floorFaces[i + 5]);
+                addVertex(floorFaces[i], floorFaces[i + 1] + SLAB_LIFT, floorFaces[i + 2]);
+                addVertex(floorFaces[i + 3], floorFaces[i + 4] + SLAB_LIFT, floorFaces[i + 5]);
+                addVertex(floorFaces[i + 6], floorFaces[i + 7] + SLAB_LIFT, floorFaces[i + 8]);
                 indices.push(base, base + 1, base + 2);
             }
-        } else {
-            addVertex(minX, minZ);
-            addVertex(minX + width, minZ);
-            addVertex(minX + width, minZ + depth);
-            addVertex(minX, minZ + depth);
-            indices.push(0, 1, 2, 0, 2, 3);
+        }
+        if (groundY !== null || !floorFaces?.length) {
+            const y = (groundY ?? baseY) + GROUND_LIFT;
+            const base = positions.length / 3;
+            addVertex(minX, y, minZ);
+            addVertex(minX + width, y, minZ);
+            addVertex(minX + width, y, minZ + depth);
+            addVertex(minX, y, minZ + depth);
+            indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
         }
 
         const texture = new Texture(scene, { src: textureCanvas.toDataURL("image/png"), flipY: false });
@@ -529,9 +544,8 @@ export function createWifiCoverageFeature({
             emissive: [1, 1, 1],
             emissiveMap: texture,
             // o diffuseMap não muda a cor (difusa = 0), só fornece o alfa da textura
-            ...(transparent ? { diffuseMap: texture } : {}),
-            alpha: 0.85,
-            alphaMode: "blend",
+            ...(transparent ? { diffuseMap: texture, alphaMode: "blend" } : { alphaMode: "opaque" }),
+            alpha: 1,
             backfaces: true
         });
         const mesh = new Mesh(scene, {
@@ -1054,25 +1068,25 @@ export function createWifiCoverageFeature({
             }
             if (!result || cancelRequested) return;
 
-            // Piso: altura do mapa e recorte
+            // Piso: o mapa é estendido sobre as faces das lajes (cada uma na sua cota)
             let mask = null;
             let floorFaces = null;
-            let heatmapY = storey.floorTopY !== null && storey.floorTopY !== undefined ? baseY + SLAB_LIFT : storey.floorY + HEATMAP_LIFT;
+            let groundY = null;
             let floorNote = "";
             if (floorSlabs.length) {
-                floor = buildFloorMask(floorSlabs, { bounds, cellSize, cols: result.cols, rows: result.rows, floorY: storey.floorY });
-                if (floor.topY !== null && (storey.floorTopY === null || storey.floorTopY === undefined)) {
-                    heatmapY = floor.topY + SLAB_LIFT;
-                    storey.floorTopY = floor.topY;
-                }
-                if (clipFloorCheckbox.checked) {
-                    const faces = collectFloorFaces(floorSlabs, { floorY: storey.floorY });
-                    if (floor.count && faces.length) {
-                        mask = floor.mask;
-                        floorFaces = faces;
+                const faces = collectFloorFaces(floorSlabs, { floorY: storey.floorY });
+                if (faces.length) {
+                    floorFaces = faces;
+                    let lowest = Infinity;
+                    for (let i = 1; i < faces.length; i += 3) lowest = Math.min(lowest, faces[i]);
+                    if (clipFloorCheckbox.checked) {
+                        floor = buildFloorMask(floorSlabs, { bounds, cellSize, cols: result.cols, rows: result.rows, floorY: storey.floorY });
+                        if (floor.count) mask = floor.mask;
                     } else {
-                        floorNote = " • Lajes sem face horizontal no nível do piso; mapa sem recorte.";
+                        groundY = lowest;   // fora das lajes, um plano de fundo na cota mais baixa
                     }
+                } else {
+                    floorNote = " • Lajes sem face horizontal no nível do piso.";
                 }
             } else if (clipFloorCheckbox.checked) {
                 floorNote = " • Nenhuma IfcSlab encontrada neste pavimento; mapa sem recorte.";
@@ -1083,7 +1097,7 @@ export function createWifiCoverageFeature({
 
             if (runMode === "wifi") {
                 const image = renderHeatmapPixels(smoothGrid(result.grid, result.cols, result.rows), result.cols, result.rows);
-                drawHeatmap(image, result, bounds, cellSize, heatmapY, floorFaces, false);
+                drawHeatmap(image, result, bounds, cellSize, { floorFaces, groundY, baseY, transparent: false });
                 destroyFrustums();
                 const summary = summarizeSignalGrid(result.grid, mask);
                 const bandLabel = AP_MODELS[apModelSelect.value].bands[bandSelect.value].label;
@@ -1097,7 +1111,7 @@ export function createWifiCoverageFeature({
                     visibility: result.visibility,
                     shadeRange: 2
                 });
-                drawHeatmap(image, result, bounds, cellSize, heatmapY, floorFaces, true);
+                drawHeatmap(image, result, bounds, cellSize, { floorFaces, groundY, baseY, transparent: true });
                 drawFrustums(storey);
                 const summary = summarizeCameraGrid(result, cameraModelSelect.value, cellSize, mask);
                 const ignored = getCamerasForStorey(storey).length - devices.length;

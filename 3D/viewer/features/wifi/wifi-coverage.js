@@ -29,11 +29,15 @@ import {
     buildFloorMask,
     smoothGrid,
     renderHeatmapPixels,
-    collectFloorFaces
+    collectFloorFaces,
+    dominantFloorY,
+    SegmentGrid
 } from "./wifi-coverage-core.js";
 import {
     CAMERA_MODELS,
     CAMERA_SETTINGS,
+    CAMERA_BLOCKING_KINDS,
+    explainCameraView,
     getCameraModelId,
     getCameraLevels,
     aimFromTarget,
@@ -49,6 +53,11 @@ const HEATMAP_LIFT = 0.10;         // altura do mapa acima da base das paredes, 
 const SLAB_LIFT = 0.02;            // altura do mapa acima da face superior da laje (m)
 const MAX_GRID_CELLS = 250000;
 const AIM_STORAGE_KEY = `cameraAims:${window.location.pathname}`;
+const IGNORED_STORAGE_KEY = `coverageIgnored:${window.location.pathname}`;
+const KIND_LABELS = Object.freeze({
+    masonry: "alvenaria", drywall: "drywall", concrete: "concreto", door: "porta",
+    glass: "vidro", fence: "gradil", ignored: "ignorado"
+});
 
 const STYLE = `
 #wifiCoveragePanel{position:fixed;top:80px;right:20px;width:360px;max-width:calc(100% - 40px);max-height:calc(100vh - 110px);overflow:auto;background:rgba(33,33,33,.92);color:#f7f7f7;padding:14px;border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,.35);z-index:300001;font-family:Arial,sans-serif;font-size:13px;backdrop-filter:blur(6px)}
@@ -79,7 +88,16 @@ const STYLE = `
 #wifiCoveragePanel .wifi-ap-list{list-style:none;margin:4px 0 0;padding:0;max-height:180px;overflow:auto}
 #wifiCoveragePanel .wifi-ap-list button.wifi-link{width:100%;text-align:left;background:none;border:0;color:#cfe;padding:3px 0;cursor:pointer;font-size:12px}
 #wifiCoveragePanel .wifi-ap-list button.wifi-link:hover{text-decoration:underline}
-#wifiCoveragePanel .wifi-cam-item{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+#wifiCoveragePanel .wifi-diag{display:none}
+#wifiCoveragePanel .wifi-diag.is-visible{display:block}
+#wifiCoveragePanel .wifi-diag ul{list-style:none;margin:4px 0;padding:0}
+#wifiCoveragePanel .wifi-diag li{display:flex;justify-content:space-between;gap:6px;align-items:center;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+#wifiCoveragePanel .wifi-diag .ok{color:#86efac}
+#wifiCoveragePanel .wifi-diag .bad{color:#fca5a5}
+#wifiCoveragePanel .wifi-diag button{background:#3f3f46;color:#fff;border:0;border-radius:5px;padding:3px 7px;cursor:pointer;font-size:11px;flex:none}
+#wifiCoveragePanel .wifi-cam-item .wifi-diag-btn{background:#3f3f46;color:#fff;border:0;border-radius:5px;padding:5px 7px;cursor:pointer}
+#wifiCoveragePanel .wifi-cam-item .wifi-diag-btn.is-aiming{background:#f59e0b}
+#wifiCoveragePanel .wifi-cam-item{display:grid;grid-template-columns:1fr auto auto auto;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)}
 #wifiCoveragePanel .wifi-cam-item small{display:block;opacity:.7}
 #wifiCoveragePanel .wifi-cam-item .wifi-aim{background:#2563eb;color:#fff;border:0;border-radius:5px;padding:5px 8px;font-weight:700;cursor:pointer}
 #wifiCoveragePanel .wifi-cam-item .wifi-aim.is-aiming{background:#f59e0b}
@@ -108,9 +126,11 @@ export function createWifiCoverageFeature({
     let running = false;
     let cancelRequested = false;
     let enabled = true;
-    let aiming = null;                 // { camera, subscription }
+    let aiming = null;                 // { camera, purpose: "aim" | "diagnose", subscription }
+    let highlightedIds = [];
 
     const cameraAims = loadAims();     // id da câmera -> { azimuthDeg, tiltDeg }
+    const ignoredObstacles = loadIgnored(); // ids de paredes/portas que não bloqueiam a câmera
 
     // -----------------------------------------------------------------------
     // UI
@@ -177,6 +197,7 @@ export function createWifiCoverageFeature({
 
         <div class="wifi-card" id="wifiModelSpec"></div>
         <div class="wifi-card"><div id="wifiDeviceSummary"></div><ul class="wifi-ap-list" id="wifiDeviceList"></ul></div>
+        <div class="wifi-card wifi-diag" id="camDiagnostic" data-section="camera"></div>
         <div class="wifi-actions">
             <button type="button" class="wifi-run" id="wifiRun">Rodar sinal</button>
             <button type="button" class="wifi-off" id="wifiOff">Desligar</button>
@@ -546,6 +567,22 @@ export function createWifiCoverageFeature({
         }
     }
 
+    function loadIgnored() {
+        try {
+            return new Set(JSON.parse(window.localStorage.getItem(IGNORED_STORAGE_KEY) || "[]"));
+        } catch (_error) {
+            return new Set();
+        }
+    }
+
+    function saveIgnored() {
+        try {
+            window.localStorage.setItem(IGNORED_STORAGE_KEY, JSON.stringify(Array.from(ignoredObstacles)));
+        } catch (_error) {
+            // sem armazenamento: vale só nesta sessão
+        }
+    }
+
     function withAim(camera) {
         const aim = cameraAims.get(camera.id);
         return aim ? { ...camera, ...aim, modelId: camera.deviceModelId } : null;
@@ -577,7 +614,7 @@ export function createWifiCoverageFeature({
         requestRenderFrame();
     }
 
-    function startAim(camera) {
+    function startAim(camera, purpose = "aim") {
         if (running) return;
         if (aiming) stopAim();
         const storey = currentStorey();
@@ -587,10 +624,16 @@ export function createWifiCoverageFeature({
         if (!visibilitySnapshot) isolateForCoverage(storey, new Set([camera.sourceModelId]));
 
         const subscription = scene.input.on("mouseclicked", (canvasPos) => onAimClick(canvasPos));
-        aiming = { camera, subscription };
+        aiming = { camera, purpose, subscription };
         canvas.style.cursor = "crosshair";
         document.addEventListener("keydown", onAimKey);
-        setStatus(`Clique no piso para onde a câmera deve apontar (Esc cancela). Pode girar e aproximar a vista normalmente.`, null, { aimingStyle: true });
+        setStatus(
+            purpose === "aim"
+                ? "Clique no piso para onde a câmera deve apontar (Esc cancela). Pode girar e aproximar a vista normalmente."
+                : "Clique num ponto do piso que deveria estar coberto por esta câmera (Esc cancela).",
+            null,
+            { aimingStyle: true }
+        );
         refreshDeviceList();
     }
 
@@ -606,8 +649,21 @@ export function createWifiCoverageFeature({
     function onAimKey(event) {
         if (event.key === "Escape") {
             stopAim();
-            setStatus("Mira cancelada.");
+            setStatus("Cancelado.");
         }
+    }
+
+    /** Ponto onde o clique encontra o plano do piso do pavimento (ou null). */
+    function clickToFloor(canvasPos, storey) {
+        const origin = new Float64Array(3);
+        const direction = new Float64Array(3);
+        const cam = scene.camera;
+        math.canvasPosToWorldRay(canvas, cam.viewMatrix, cam.projMatrix, cam.projection, canvasPos, origin, direction);
+        const planeY = storey.floorTopY ?? storey.floorY;
+        if (Math.abs(direction[1]) < 1e-6) return null;
+        const t = (planeY - origin[1]) / direction[1];
+        if (t <= 0) return null;
+        return { x: origin[0] + direction[0] * t, y: planeY, z: origin[2] + direction[2] * t };
     }
 
     function onAimClick(canvasPos) {
@@ -616,16 +672,14 @@ export function createWifiCoverageFeature({
         const camera = aiming.camera;
         if (!storey) { stopAim(); return; }
 
-        // Raio do clique interceptado com o plano do piso do pavimento
-        const origin = new Float64Array(3);
-        const direction = new Float64Array(3);
-        const cam = scene.camera;
-        math.canvasPosToWorldRay(canvas, cam.viewMatrix, cam.projMatrix, cam.projection, canvasPos, origin, direction);
-        const planeY = storey.floorTopY ?? storey.floorY;
-        if (Math.abs(direction[1]) < 1e-6) return;
-        const t = (planeY - origin[1]) / direction[1];
-        if (t <= 0) return;
-        const target = { x: origin[0] + direction[0] * t, y: planeY, z: origin[2] + direction[2] * t };
+        const target = clickToFloor(canvasPos, storey);
+        if (!target) return;
+
+        if (aiming.purpose === "diagnose") {
+            stopAim();
+            runDiagnostic(camera, target);
+            return;
+        }
 
         const aim = aimFromTarget(camera, target);
         if (!aim) {
@@ -639,7 +693,145 @@ export function createWifiCoverageFeature({
         setStatus(`Câmera direcionada: azimute ${fmtNumber(aim.azimuthDeg)}° • inclinação ${fmtNumber(aim.tiltDeg)}°.`);
 
         // Se o mapa de câmeras já está na tela, recalcula com a nova mira
-        if (lastRunMode === "camera") run();
+        if (lastRunMode === "camera") run({ fly: false });
+    }
+
+    // -----------------------------------------------------------------------
+    // Diagnóstico: por que a câmera não vê este ponto?
+    // -----------------------------------------------------------------------
+    function setHighlighted(ids) {
+        if (highlightedIds.length) scene.setObjectsHighlighted(highlightedIds, false);
+        highlightedIds = ids.filter((id) => scene.objects[id]);
+        if (highlightedIds.length) {
+            scene.setObjectsVisible(highlightedIds, true);
+            scene.setObjectsHighlighted(highlightedIds, true);
+        }
+        requestRenderFrame();
+    }
+
+    function clearDiagnostic() {
+        setHighlighted([]);
+        const card = $("#camDiagnostic");
+        card.classList.remove("is-visible");
+        card.innerHTML = "";
+    }
+
+    let lastDiagnostic = null;
+
+    async function runDiagnostic(camera, target) {
+        const storey = currentStorey();
+        const aimed = withAim(camera);
+        if (!storey || !aimed) return;
+        lastDiagnostic = { camera, target };
+        setStatus("Analisando o caminho até o ponto…");
+
+        let prepared;
+        try {
+            prepared = await prepareStorey(storey, "camera");
+        } catch (error) {
+            setStatus(`Erro: ${error.message || error}`);
+            return;
+        }
+        const { obstacles, slice, referenceY } = prepared;
+        const model = CAMERA_MODELS[cameraModelSelect.value];
+        const view = explainCameraView(aimed, model, target, referenceY, nightCheckbox.checked);
+
+        const segBounds = segmentsBounds(slice.coords);
+        const grid = new SegmentGrid(slice, [
+            Math.min(segBounds[0], aimed.x, target.x) - 1, Math.min(segBounds[1], aimed.z, target.z) - 1,
+            Math.max(segBounds[2], aimed.x, target.x) + 1, Math.max(segBounds[3], aimed.z, target.z) + 1
+        ], 1);
+        const crossings = grid.obstaclesAlong(aimed.x, aimed.z, target.x, target.z, CAMERA_SETTINGS.selfClearance)
+            .map(({ owner, distance }) => {
+                const obstacle = obstacles[owner];
+                const meta = metaObjects()[obstacle.id] || {};
+                const ignored = ignoredObstacles.has(obstacle.id);
+                return {
+                    id: obstacle.id,
+                    name: meta.name || obstacle.id,
+                    type: meta.type || "",
+                    kind: ignored ? "ignored" : obstacle.kind,
+                    ignored,
+                    blocks: !ignored && CAMERA_BLOCKING_KINDS.has(obstacle.kind),
+                    distance
+                };
+            });
+        const blockers = crossings.filter((item) => item.blocks);
+        setHighlighted(blockers.map((item) => item.id));
+
+        const index = getCamerasForStorey(storey).findIndex((item) => item.id === camera.id) + 1;
+        const mark = (ok) => `<span class="${ok ? "ok" : "bad"}">${ok ? "✔" : "✖"}</span>`;
+        const n1 = (value) => fmtNumber(value, 1);
+        const card = $("#camDiagnostic");
+        let verticalHint = "";
+        if (!view.inVertical && view.inFront) {
+            verticalHint = view.verticalDeg < 0
+                ? " — ponto abaixo da imagem (perto demais da câmera): mire mais perto dele ou mais para baixo"
+                : " — ponto acima da imagem: mire mais longe (menos inclinação)";
+        }
+        const reasons = [];
+        if (!view.inFront || !view.inHorizontal) reasons.push("fora do ângulo horizontal");
+        if (view.inFront && !view.inVertical) reasons.push("fora do ângulo vertical");
+        if (!view.inRange) reasons.push("além da distância de detecção");
+        if (blockers.length) reasons.push(`bloqueado por ${blockers.length} objeto(s)`);
+
+        card.innerHTML = `
+            <b>Diagnóstico • Câmera ${index}</b><br>
+            ${mark(view.inRange)} Distância: ${n1(view.distance)} m (limite ${n1(view.maxRange)} m)<br>
+            ${mark(view.inFront && view.inHorizontal)} Ângulo horizontal: ${n1(view.horizontalDeg)}° do centro (limite ${n1(view.horizontalLimitDeg)}°)<br>
+            ${mark(view.inFront && view.inVertical)} Ângulo vertical: ${n1(view.verticalDeg)}° (limite ±${n1(view.verticalLimitDeg)}°)${verticalHint}<br>
+            <div style="margin-top:6px"><b>Objetos no caminho</b> (corte a ${n1(CAMERA_SETTINGS.targetHeight)} m do piso)</div>
+            <ul id="camDiagList"></ul>
+            <div style="margin-top:6px"><b>${reasons.length ? `Não vê: ${reasons.join(", ")}.` : "A câmera vê este ponto."}</b></div>
+            <div id="camIgnoredInfo" style="margin-top:6px;opacity:.85"></div>`;
+        const list = card.querySelector("#camDiagList");
+        if (!crossings.length) {
+            const item = document.createElement("li");
+            item.textContent = "Nenhum.";
+            list.appendChild(item);
+        }
+        for (const crossing of crossings) {
+            const item = document.createElement("li");
+            const text = document.createElement("span");
+            text.innerHTML = `${crossing.blocks ? '<span class="bad">■</span>' : '<span class="ok">□</span>'} `;
+            text.appendChild(document.createTextNode(
+                `${crossing.name} (${crossing.type.replace(/^Ifc/, "")} • ${KIND_LABELS[crossing.kind] || crossing.kind}) a ${n1(crossing.distance)} m`
+            ));
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = crossing.ignored ? "Voltar a bloquear" : "Ignorar";
+            button.title = crossing.ignored ? "Este objeto volta a bloquear a câmera" : "Este objeto deixa de bloquear a câmera";
+            button.hidden = !crossing.ignored && !crossing.blocks;
+            button.onclick = () => {
+                if (crossing.ignored) ignoredObstacles.delete(crossing.id); else ignoredObstacles.add(crossing.id);
+                saveIgnored();
+                runDiagnostic(camera, target);
+                if (lastRunMode === "camera") run({ fly: false });
+            };
+            item.append(text, button);
+            list.appendChild(item);
+        }
+        renderIgnoredInfo();
+        card.classList.add("is-visible");
+        setStatus(blockers.length ? "Os objetos que bloqueiam estão destacados no 3D." : "");
+    }
+
+    function renderIgnoredInfo() {
+        const info = $("#camIgnoredInfo");
+        if (!info) return;
+        info.innerHTML = "";
+        if (!ignoredObstacles.size) return;
+        info.appendChild(document.createTextNode(`${ignoredObstacles.size} objeto(s) ignorado(s) pelas câmeras `));
+        const reset = document.createElement("button");
+        reset.type = "button";
+        reset.textContent = "Restaurar todos";
+        reset.onclick = () => {
+            ignoredObstacles.clear();
+            saveIgnored();
+            if (lastDiagnostic) runDiagnostic(lastDiagnostic.camera, lastDiagnostic.target);
+            if (lastRunMode === "camera") run({ fly: false });
+        };
+        info.appendChild(reset);
     }
 
     // -----------------------------------------------------------------------
@@ -723,7 +915,7 @@ export function createWifiCoverageFeature({
 
             const aimButton = document.createElement("button");
             aimButton.type = "button";
-            const isAiming = aiming?.camera.id === camera.id;
+            const isAiming = aiming?.camera.id === camera.id && aiming.purpose === "aim";
             aimButton.className = `wifi-aim${isAiming ? " is-aiming" : ""}`;
             aimButton.textContent = isAiming ? "Cancelar" : "Mirar";
             aimButton.onclick = () => (isAiming ? stopAim() : startAim(camera));
@@ -739,10 +931,19 @@ export function createWifiCoverageFeature({
                 saveAims();
                 drawFrustums(storey);
                 refreshDeviceList();
-                if (lastRunMode === "camera") run();
+                if (lastRunMode === "camera") run({ fly: false });
             };
 
-            item.append(info, aimButton, clearButton);
+            const diagButton = document.createElement("button");
+            diagButton.type = "button";
+            const isDiagnosing = aiming?.camera.id === camera.id && aiming.purpose === "diagnose";
+            diagButton.className = `wifi-diag-btn${isDiagnosing ? " is-aiming" : ""}`;
+            diagButton.title = "Diagnóstico: clique num ponto que deveria estar coberto";
+            diagButton.textContent = "🔍";
+            diagButton.hidden = !aim;
+            diagButton.onclick = () => (isDiagnosing ? stopAim() : startAim(camera, "diagnose"));
+
+            item.append(info, aimButton, diagButton, clearButton);
             list.appendChild(item);
         });
     }
@@ -750,7 +951,27 @@ export function createWifiCoverageFeature({
     // -----------------------------------------------------------------------
     // Execução
     // -----------------------------------------------------------------------
-    async function run() {
+    /** Geometria, piso e corte das paredes do pavimento para o modo informado. */
+    async function prepareStorey(storey, runMode) {
+        const { obstacles, slabs } = await loadArchGeometry(archSelect.value);
+        if (!obstacles.length) throw new Error("Não foi possível ler as paredes deste IFC.");
+
+        // Lajes do pavimento: altura real do piso e recorte do mapa
+        const floorSlabs = slabs.filter((slab) => slab.aabb[4] >= storey.floorY - 0.5 && slab.aabb[1] <= storey.floorY + 0.6);
+        const floorTop = dominantFloorY(floorSlabs, storey.floorY);
+        if (floorTop !== null) storey.floorTopY = floorTop;
+        const baseY = storey.floorTopY ?? storey.floorY;
+
+        const heightAboveFloor = runMode === "wifi" ? PROPAGATION.receiverHeight : CAMERA_SETTINGS.targetHeight;
+        const referenceY = baseY + heightAboveFloor;
+        const slice = sliceObstacles(obstacles, referenceY);
+        const kinds = obstacles.map((obstacle) =>
+            runMode === "camera" && ignoredObstacles.has(obstacle.id) ? "ignored" : obstacle.kind
+        );
+        return { obstacles, slabs, floorSlabs, baseY, referenceY, slice, kinds };
+    }
+
+    async function run({ fly = true } = {}) {
         if (running || !enabled) return;
         if (aiming) stopAim();
         const runMode = mode;
@@ -773,17 +994,9 @@ export function createWifiCoverageFeature({
         cancelRequested = false;
         runButton.disabled = true;
         try {
-            const { obstacles, slabs } = await loadArchGeometry(archModelId);
+            const { floorSlabs, baseY, referenceY, slice, kinds } = await prepareStorey(storey, runMode);
             if (cancelRequested) return;
-            if (!obstacles.length) { setStatus("Não foi possível ler as paredes deste IFC."); return; }
-
-            // Lajes do pavimento: definem a altura do piso e o recorte do mapa
-            const floorSlabs = slabs.filter((slab) => slab.aabb[4] >= storey.floorY - 0.5 && slab.aabb[1] <= storey.floorY + 0.6);
             let floor = null;
-
-            const heightAboveFloor = runMode === "wifi" ? PROPAGATION.receiverHeight : CAMERA_SETTINGS.targetHeight;
-            const referenceY = storey.floorY + heightAboveFloor;
-            const slice = sliceObstacles(obstacles, referenceY);
             if (!slice.owners.length) { setStatus("Nenhuma parede corta a altura de referência neste pavimento."); return; }
 
             const wallBounds = segmentsBounds(slice.coords);
@@ -814,7 +1027,7 @@ export function createWifiCoverageFeature({
 
             const common = {
                 obstacleSlice: slice,
-                obstacleKinds: obstacles.map((obstacle) => obstacle.kind),
+                obstacleKinds: kinds,
                 bounds,
                 cellSize,
                 shouldCancel: () => cancelRequested,
@@ -844,11 +1057,11 @@ export function createWifiCoverageFeature({
             // Piso: altura do mapa e recorte
             let mask = null;
             let floorFaces = null;
-            let heatmapY = storey.floorY + HEATMAP_LIFT;
+            let heatmapY = storey.floorTopY !== null && storey.floorTopY !== undefined ? baseY + SLAB_LIFT : storey.floorY + HEATMAP_LIFT;
             let floorNote = "";
             if (floorSlabs.length) {
                 floor = buildFloorMask(floorSlabs, { bounds, cellSize, cols: result.cols, rows: result.rows, floorY: storey.floorY });
-                if (floor.topY !== null) {
+                if (floor.topY !== null && (storey.floorTopY === null || storey.floorTopY === undefined)) {
                     heatmapY = floor.topY + SLAB_LIFT;
                     storey.floorTopY = floor.topY;
                 }
@@ -899,10 +1112,12 @@ export function createWifiCoverageFeature({
             }
             lastRunMode = runMode;
 
-            viewer.cameraFlight.flyTo({
-                aabb: [bounds[0], storey.floorY, bounds[1], bounds[2], storey.ceilingY, bounds[3]],
-                duration: 0.8
-            });
+            if (fly) {
+                viewer.cameraFlight.flyTo({
+                    aabb: [bounds[0], storey.floorY, bounds[1], bounds[2], storey.ceilingY, bounds[3]],
+                    duration: 0.8
+                });
+            }
         } catch (error) {
             console.error("[cobertura] Falha no cálculo:", error);
             setStatus(`Erro: ${error.message || error}`);
@@ -915,6 +1130,7 @@ export function createWifiCoverageFeature({
     function turnOff() {
         cancelRequested = true;
         stopAim();
+        clearDiagnostic();
         destroyHeatmap();
         destroyFrustums();
         restoreVisibility();
@@ -950,7 +1166,7 @@ export function createWifiCoverageFeature({
     bandSelect.addEventListener("change", renderModelSpec);
     powerSelect.addEventListener("change", renderModelSpec);
     cameraModelSelect.addEventListener("change", () => { renderModelSpec(); renderLegend(); drawFrustums(currentStorey()); });
-    runButton.addEventListener("click", run);
+    runButton.addEventListener("click", () => run());
     $("#wifiOff").addEventListener("click", turnOff);
 
     refreshBandOptions();

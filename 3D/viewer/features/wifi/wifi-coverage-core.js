@@ -235,6 +235,24 @@ export class SegmentGrid {
     #row(z) { return Math.min(this.rows - 1, Math.max(0, Math.floor((z - this.minZ) / this.cellSize))); }
 
     /**
+     * Lista os obstáculos cruzados entre A e B (cada um uma vez), ordenados pela distância a A.
+     * Retorna [{ owner, distance }]. Usado no diagnóstico.
+     */
+    obstaclesAlong(ax, az, bx, bz, ignoreNear = 0) {
+        const length = Math.hypot(bx - ax, bz - az);
+        const found = new Map();
+        for (let s = 0; s < this.owners.length; s++) {
+            const o = s * 4;
+            const t = segmentIntersectionT(ax, az, bx, bz, this.coords[o], this.coords[o + 1], this.coords[o + 2], this.coords[o + 3]);
+            if (t < 0 || t * length < ignoreNear) continue;
+            const owner = this.owners[s];
+            const distance = t * length;
+            if (!found.has(owner) || found.get(owner) > distance) found.set(owner, distance);
+        }
+        return Array.from(found, ([owner, distance]) => ({ owner, distance })).sort((a, b) => a.distance - b.distance);
+    }
+
+    /**
      * Soma a perda dos obstáculos atravessados entre A e B (cada obstáculo conta uma vez).
      * ignoreNear: cruzamentos a menos dessa distância de A são ignorados
      * (dispositivo encostado ou embutido na própria parede/laje).
@@ -589,4 +607,39 @@ export function collectFloorFaces(slabs, { floorY, below = 0.5, above = 0.6 }) {
         }
     }
     return Float64Array.from(faces);
+}
+
+
+/**
+ * Altura do piso do pavimento: a face horizontal de laje com maior área
+ * entre floorY − below e floorY + above. Retorna null se não houver laje.
+ */
+export function dominantFloorY(slabs, floorY, { below = 0.5, above = 0.6 } = {}) {
+    const areaByLevel = new Map();   // cota em cm -> área (m²)
+    for (const slab of slabs) {
+        const aabb = slab.aabb;
+        if (aabb && (aabb[4] < floorY - below || aabb[1] > floorY + above)) continue;
+        const p = slab.positions, idx = slab.indices;
+        for (let t = 0; t + 2 < idx.length; t += 3) {
+            const a = idx[t] * 3, b = idx[t + 1] * 3, c = idx[t + 2] * 3;
+            const ux = p[b] - p[a], uy = p[b + 1] - p[a + 1], uz = p[b + 2] - p[a + 2];
+            const vx = p[c] - p[a], vy = p[c + 1] - p[a + 1], vz = p[c + 2] - p[a + 2];
+            const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+            const length = Math.hypot(nx, ny, nz);
+            if (!length || Math.abs(ny) / length < 0.9) continue;
+            const faceY = (p[a + 1] + p[b + 1] + p[c + 1]) / 3;
+            if (faceY < floorY - below || faceY > floorY + above) continue;
+            const key = Math.round(faceY * 100);
+            areaByLevel.set(key, (areaByLevel.get(key) || 0) + length / 2);
+        }
+    }
+    let bestKey = null, bestArea = 0;
+    for (const [key, area] of areaByLevel) {
+        // entre a face de cima e a de baixo da mesma laje (mesma área), fica a de cima
+        if (area > bestArea * 1.02 || (area >= bestArea * 0.98 && key > bestKey)) {
+            bestKey = key;
+            bestArea = area;
+        }
+    }
+    return bestKey === null ? null : bestKey / 100;
 }

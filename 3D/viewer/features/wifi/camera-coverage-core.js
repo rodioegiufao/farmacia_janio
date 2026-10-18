@@ -39,7 +39,7 @@ export const CAMERA_SETTINGS = Object.freeze({
     selfClearance: 0.6     // paredes a menos disso da câmera são ignoradas (câmera/caixa embutida na parede)
 });
 
-// Obstáculos que bloqueiam a visão. Vidro (janelas, pele de vidro, porta de vidro) e gradis não bloqueiam.
+// Obstáculos que bloqueiam a visão. ("ignored" = marcado pelo usuário para não bloquear) Vidro (janelas, pele de vidro, porta de vidro) e gradis não bloqueiam.
 export const CAMERA_BLOCKING_KINDS = Object.freeze(new Set(["masonry", "drywall", "concrete", "door"]));
 
 const DORI_COLORS = Object.freeze({
@@ -326,4 +326,33 @@ export function summarizeCameraGrid({ grid, visibility }, modelId, cellSize, mas
         if (distance <= dori.detect) result.detect += cellArea;
     }
     return result;
+}
+
+
+/**
+ * Explica se a câmera enxerga o ponto (x, targetY, z), sem considerar paredes.
+ * Usado no diagnóstico.
+ */
+export function explainCameraView(camera, model, point, targetY, nightMode = false) {
+    const { f, r, u } = cameraBasis(camera.azimuthDeg, camera.tiltDeg);
+    const vx = point.x - camera.x, vy = targetY - camera.y, vz = point.z - camera.z;
+    const distance = Math.sqrt(vx * vx + vy * vy + vz * vz);
+    const forward = vx * f[0] + vy * f[1] + vz * f[2];
+    const right = vx * r[0] + vy * r[1] + vz * r[2];
+    const up = vx * u[0] + vy * u[1] + vz * u[2];
+    const maxRange = nightMode ? Math.min(model.dori.detect, model.irRangeM) : model.dori.detect;
+    const horizontalDeg = Math.atan2(Math.abs(right), forward) / DEG;
+    const verticalDeg = Math.atan2(up, forward) / DEG;
+    return {
+        distance,
+        maxRange,
+        inFront: forward > 0,
+        horizontalDeg,
+        horizontalLimitDeg: model.hFovDeg / 2,
+        inHorizontal: forward > 0 && horizontalDeg <= model.hFovDeg / 2,
+        verticalDeg,
+        verticalLimitDeg: model.vFovDeg / 2,
+        inVertical: forward > 0 && Math.abs(verticalDeg) <= model.vFovDeg / 2,
+        inRange: distance <= maxRange
+    };
 }

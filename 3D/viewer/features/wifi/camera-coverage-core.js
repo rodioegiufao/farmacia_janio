@@ -159,6 +159,50 @@ export function cameraGizmoLines(camera, model, floorY, { maxRadius = null, arcS
     return { positions, indices, radius };
 }
 
+/**
+ * Retângulo XZ [minX, minZ, maxX, maxZ] que contém tudo o que a câmera pode ver
+ * na altura targetY (até a distância de detecção, ou do IR à noite).
+ */
+export function cameraFootprintBounds(camera, model, targetY, nightMode = false) {
+    const range = nightMode ? Math.min(model.dori.detect, model.irRangeM) : model.dori.detect;
+    const dy = camera.y - targetY;
+    const reach = Math.sqrt(Math.max(0, range * range - dy * dy));
+    const { f, r, u } = cameraBasis(camera.azimuthDeg, camera.tiltDeg);
+    const th = Math.tan((model.hFovDeg / 2) * DEG);
+    const tv = Math.tan((model.vFovDeg / 2) * DEG);
+    const bounds = [camera.x, camera.z, camera.x, camera.z];
+    const include = (x, z) => {
+        bounds[0] = Math.min(bounds[0], x);
+        bounds[1] = Math.min(bounds[1], z);
+        bounds[2] = Math.max(bounds[2], x);
+        bounds[3] = Math.max(bounds[3], z);
+    };
+
+    // Projeta uma grade de direções da imagem no plano de referência, limitada ao alcance
+    const steps = 20;
+    for (let i = 0; i <= steps; i++) {
+        const sx = -1 + (2 * i) / steps;
+        for (let j = 0; j <= steps; j++) {
+            const sy = -1 + (2 * j) / steps;
+            const d = [0, 1, 2].map((k) => f[k] + sx * th * r[k] + sy * tv * u[k]);
+            const horizontal = Math.hypot(d[0], d[2]);
+            if (horizontal < 1e-9) continue;
+            const hx = d[0] / horizontal, hz = d[2] / horizontal;
+            if (d[1] < 0 && dy > 0) {
+                const length = Math.hypot(d[0], d[1], d[2]);
+                const t = dy / -d[1];                       // até o plano
+                if (t * length <= range) {
+                    include(camera.x + d[0] * t, camera.z + d[2] * t);
+                    continue;
+                }
+            }
+            include(camera.x + hx * reach, camera.z + hz * reach); // limitado pelo alcance
+        }
+    }
+    const pad = 1;
+    return [bounds[0] - pad, bounds[1] - pad, bounds[2] + pad, bounds[3] + pad];
+}
+
 // ---------------------------------------------------------------------------
 // Mapa DORI
 // ---------------------------------------------------------------------------
@@ -197,7 +241,8 @@ export async function computeCameraGrid({
             basis,
             tanH: Math.tan((model.hFovDeg / 2) * DEG),
             tanV: Math.tan((model.vFovDeg / 2) * DEG),
-            maxRange
+            maxRange,
+            box: cameraFootprintBounds(camera, model, targetY, nightMode)
         };
     });
 
@@ -205,6 +250,8 @@ export async function computeCameraGrid({
     const seenDistance = (x, z, limit = Infinity) => {
         let best = limit;
         for (const camera of prepared) {
+            const box = camera.box;
+            if (x < box[0] || x > box[2] || z < box[1] || z > box[3]) continue;
             const vx = x - camera.x, vy = targetY - camera.y, vz = z - camera.z;
             const distance = Math.sqrt(vx * vx + vy * vy + vz * vz);
             if (distance >= best || distance > camera.maxRange) continue;

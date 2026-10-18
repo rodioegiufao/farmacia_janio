@@ -38,6 +38,7 @@ import {
     getCameraLevels,
     aimFromTarget,
     cameraGizmoLines,
+    cameraFootprintBounds,
     computeCameraGrid,
     summarizeCameraGrid
 } from "./camera-coverage-core.js";
@@ -792,6 +793,17 @@ export function createWifiCoverageFeature({
                 Math.max(wallBounds[2], ...devices.map((device) => device.x)) + HEATMAP_MARGIN,
                 Math.max(wallBounds[3], ...devices.map((device) => device.z)) + HEATMAP_MARGIN
             ];
+            if (runMode === "camera") {
+                // A área de cálculo inclui todo o alcance de cada câmera, mesmo fora da edificação
+                const model = CAMERA_MODELS[cameraModelSelect.value];
+                for (const device of devices) {
+                    const reach = cameraFootprintBounds(device, model, referenceY, nightCheckbox.checked);
+                    bounds[0] = Math.min(bounds[0], reach[0]);
+                    bounds[1] = Math.min(bounds[1], reach[1]);
+                    bounds[2] = Math.max(bounds[2], reach[2]);
+                    bounds[3] = Math.max(bounds[3], reach[3]);
+                }
+            }
             let cellSize = Number(resolutionSelect.value) || 0.5;
             const area = (bounds[2] - bounds[0]) * (bounds[3] - bounds[1]);
             if (area / (cellSize * cellSize) > MAX_GRID_CELLS) cellSize = Math.sqrt(area / MAX_GRID_CELLS);

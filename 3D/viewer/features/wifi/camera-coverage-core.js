@@ -25,6 +25,14 @@ export const CAMERA_RULES = Object.freeze([
     Object.freeze({ match: "S.O.S CFTV e Segurança - CFTV - IP/POE - Câmera de Segurança tipo Dome 90° IP66", modelId: "VIP-1230-D-G5" })
 ]);
 
+// Regra principal: "Nome" do conjunto "Identificação_Elemento" contendo "câmera"/"camera".
+export const CAMERA_NAME_RULE = Object.freeze({
+    psetName: "Identificação_Elemento",
+    propertyName: "Nome",
+    keywords: Object.freeze(["camera"]),   // comparado sem acento: cobre "câmera" e "camera"
+    modelId: "VIP-1230-D-G5"
+});
+
 export const CAMERA_SETTINGS = Object.freeze({
     targetHeight: 1.6,     // altura do rosto de uma pessoa acima do piso (m) — referência do DORI
     maxTiltDeg: 89,        // 90° (olhando reto para baixo) deixa a orientação indefinida
@@ -54,12 +62,31 @@ export function getCameraLevels(modelId) {
     ];
 }
 
-const NORMALIZED_CAMERA_RULES = CAMERA_RULES.map((rule) => ({ ...rule, normalized: normalizeItemLabel(rule.match) }));
+// Normalização mais tolerante para nomes de itens: ignora pontuação no início ("." de ".S.O.S")
+// e trata "º" (ordinal) como "°" (grau).
+function normalizeLoose(value) {
+    return normalizeItemLabel(String(value ?? "").replace(/º/g, "°")).replace(/^[^a-z0-9]+/, "");
+}
+
+const NORMALIZED_CAMERA_RULES = CAMERA_RULES.map((rule) => ({ ...rule, normalized: normalizeLoose(rule.match) }));
+const NAME_RULE_PSET = normalizeItemLabel(CAMERA_NAME_RULE.psetName);
+const NAME_RULE_PROPERTY = normalizeItemLabel(CAMERA_NAME_RULE.propertyName);
 
 /** Retorna o id do modelo de câmera quando o objeto é uma câmera, ou null. */
 export function getCameraModelId(metaObject) {
+    // 1) Identificação_Elemento › Nome contém "câmera"
+    for (const pset of metaObject?.propertySets || []) {
+        if (normalizeItemLabel(pset?.name) !== NAME_RULE_PSET) continue;
+        for (const prop of pset.properties || []) {
+            if (normalizeItemLabel(prop?.name) !== NAME_RULE_PROPERTY) continue;
+            const value = normalizeItemLabel(prop?.value);
+            if (CAMERA_NAME_RULE.keywords.some((keyword) => value.includes(keyword))) return CAMERA_NAME_RULE.modelId;
+        }
+    }
+
+    // 2) Item associado com o nome da peça
     for (const text of iterateMetaObjectTexts(metaObject)) {
-        const normalized = normalizeItemLabel(text);
+        const normalized = normalizeLoose(text);
         const rule = NORMALIZED_CAMERA_RULES.find((candidate) => candidate.normalized === normalized);
         if (rule) return rule.modelId;
     }

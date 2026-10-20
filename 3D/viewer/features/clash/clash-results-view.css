@@ -30,3 +30,6 @@
 .clash-type-tools button { flex: 1; border: 0; border-radius: 4px; padding: 4px; background: #454749; color: #fff; cursor: pointer; font: inherit; }
 .clash-type-list { max-height: 170px; overflow: auto; display: grid; gap: 2px; }
 .clash-type-list label { display: flex; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; }
+/* Áreas clicáveis dentro do painel arrastável: cursor normal em vez da "mãozinha" */
+.clash-type-filters, .clash-type-filters *, .collision-results, .collision-results * { cursor: auto; }
+.clash-type-filter summary, .clash-type-list label, .clash-type-tools button, .collision-results summary, .collision-results button { cursor: pointer; }

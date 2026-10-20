@@ -59,6 +59,7 @@ export function createClashResultsView({viewer, onNavigate, onShowAll, onExport}
             }
             card.querySelector('small').textContent = `${clash.mode === 'clearance' ? 'Elementos dentro da distância mínima' : 'Elementos em colisão'} • Posição (m): ${clash.position.map(n => Number(n).toFixed(3)).join(', ')}`;
             position();
-        },
+        },        
         destroy() { viewer.scene.off(tick); footer.remove(); annotation.remove(); stylesheet.remove(); }
     };
+}

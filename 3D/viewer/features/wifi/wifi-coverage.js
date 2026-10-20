@@ -867,12 +867,19 @@ export function createWifiCoverageFeature({
     let storeysCache = [];
     const currentStorey = () => storeysCache.find((item) => item.id === storeySelect.value) || null;
 
+    // Nome do modelo como no Explorer (nome do arquivo nos uploads), não o id interno
+    const modelLabel = (id) => String(scene.models?.[id]?.displayName || id || "").trim() || String(id);
+
     function refreshModelOptions() {
         const previous = archSelect.value;
         archSelect.innerHTML = "";
-        const ids = getModelIds().filter((id) => !String(id).startsWith("__"));
-        ids.forEach((id) => addOption(archSelect, id, id));
-        archSelect.value = ids.includes(previous) ? previous : (ids.find((id) => /ARQ/i.test(id)) || ids[0] || "");
+        const ids = getModelIds()
+            .filter((id) => !String(id).startsWith("__"))
+            .sort((a, b) => modelLabel(a).localeCompare(modelLabel(b), "pt-BR"));
+        ids.forEach((id) => addOption(archSelect, id, modelLabel(id)));
+        // Arquitetura pré-selecionada: procura "ARQ" no nome (ex.: XKT-ARQ-TCE), não só no id
+        const guess = ids.find((id) => /(^|[^a-z])arq/i.test(modelLabel(id))) || ids.find((id) => /ARQ/i.test(id));
+        archSelect.value = ids.includes(previous) ? previous : (guess || ids[0] || "");
         refreshStoreyOptions();
     }
 
@@ -882,7 +889,7 @@ export function createWifiCoverageFeature({
         storeysCache = archSelect.value ? getArchStoreys(archSelect.value) : [];
         storeysCache.forEach((storey) => addOption(storeySelect, storey.id, storey.name));
         if (storeysCache.some((storey) => storey.id === previous)) storeySelect.value = previous;
-        if (!storeysCache.length) addOption(storeySelect, "", "Nenhum pavimento com paredes neste IFC");
+        if (!storeysCache.length) addOption(storeySelect, "", "Nenhum pavimento com paredes neste modelo — escolha a arquitetura");
         refreshDeviceList();
     }
 
@@ -912,7 +919,7 @@ export function createWifiCoverageFeature({
                 const button = document.createElement("button");
                 button.type = "button";
                 button.className = "wifi-link";
-                button.textContent = `AP ${index + 1} • ${ap.sourceModelId} • ${ap.name}`;
+                button.textContent = `AP ${index + 1} • ${modelLabel(ap.sourceModelId)} • ${ap.name}`;
                 button.onclick = () => viewer.cameraFlight.flyTo({ aabb: ap.aabb, duration: 0.6 });
                 item.appendChild(button);
                 list.appendChild(item);

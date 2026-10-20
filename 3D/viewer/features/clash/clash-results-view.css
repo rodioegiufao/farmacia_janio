@@ -15,3 +15,8 @@
 .clash-world-card .clash-note-b { color: #ce350c; }
 .clash-world-card small { color: #555; }
 @media (max-width: 700px) { .clash-results-footer { width: calc(100vw - 40px); flex-wrap: wrap; gap: 6px; padding: 8px; border-radius: 14px; bottom: max(10px, env(safe-area-inset-bottom)); } .clash-results-footer button { padding: 6px 8px; } }
+.clash-results-footer button.is-active { background: #e53935; }
+.clash-results-footer button.is-active:hover { background: #f05350; }
+/* Botões do detalhe da interferência no painel: em grade, não empilhados */
+.clash-detail .collision-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+.clash-detail .collision-actions button { width: 100%; margin: 0; }

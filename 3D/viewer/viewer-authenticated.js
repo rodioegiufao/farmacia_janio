@@ -711,6 +711,9 @@ function scheduleExplorerRefresh(delay = 160) {
 
     window.clearTimeout(explorerRefreshHandle);
     explorerRefreshHandle = window.setTimeout(() => {
+        // Limpa de novo na hora de redesenhar: se o pedido veio de dentro de um redesenho
+        // (ex.: data de upload que ficou pronta na hora), a aba já foi marcada como carregada.
+        explorerLoadedTabs.clear();
         refreshExplorerPanels();
     }, delay);
 }
@@ -2671,8 +2674,11 @@ function applyViewerProfilePermissions(user) {
     setExplorerTabsAccess(permissions.explorerTabs);   
     quadroFeatureAllowed = Boolean(permissions.canGenerateQuadro);   // NOVO
     setWifiCoverageFeatureAccess(permissions.canUseCoverage);        // NOVO
-    if (modelReplaceAllowed !== Boolean(permissions.canReplaceModels)) {
-        modelReplaceAllowed = Boolean(permissions.canReplaceModels); // NOVO
+    // NOVO: substituir modelo. Se o viewer-permissions.js ainda for a versão antiga (sem canReplaceModels),
+    // vale a mesma regra da cobertura (admin e colaborador).
+    const canReplaceModels = Boolean(permissions.canReplaceModels ?? permissions.canUseCoverage);
+    if (modelReplaceAllowed !== canReplaceModels) {
+        modelReplaceAllowed = canReplaceModels;
         scheduleExplorerRefresh(0);
     }
     updateRestrictedFeatureHelp();

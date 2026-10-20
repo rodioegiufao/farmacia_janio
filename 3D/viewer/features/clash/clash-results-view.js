@@ -1,5 +1,5 @@
 /** Screen overlays for the active clash; Marker provides the world-to-canvas projection. */
-export function createClashResultsView({viewer, onNavigate, onShowAll, onIsolate, onExport}) {
+export function createClashResultsView({viewer, onNavigate, onShowAll, onIsolate, onExport, statusLabels = {}, onStatusChange}) {
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
     stylesheet.href = new URL('./clash-results-view.css', import.meta.url).href;
@@ -8,7 +8,7 @@ export function createClashResultsView({viewer, onNavigate, onShowAll, onIsolate
     footer.className = 'clash-results-footer';
     footer.setAttribute('aria-label', 'Navegação das interferências');
     footer.hidden = true;
-    footer.innerHTML = `<button data-step="-1" aria-label="Interferência anterior">‹ Anterior</button><span role="status" aria-live="polite"></span><button data-step="1" aria-label="Próxima interferência">Próxima ›</button><button data-isolate aria-pressed="false">Isolar</button><button data-all>Mostrar todas</button><button data-export>↓ Exportar BCF Viewpoint</button>`;
+    footer.innerHTML = `<button data-step="-1" aria-label="Interferência anterior">‹ Anterior</button><span role="status" aria-live="polite"></span><button data-step="1" aria-label="Próxima interferência">Próxima ›</button><button data-isolate aria-pressed="false">Isolar</button><label class="clash-footer-status">Status <select data-status>${Object.entries(statusLabels).map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}</select></label><button data-all>Mostrar todas</button><button data-export>↓ Exportar BCF Viewpoint</button>`;
     const annotation = document.createElement('div');
     annotation.className = 'clash-world-note';
     annotation.hidden = true;
@@ -17,6 +17,7 @@ export function createClashResultsView({viewer, onNavigate, onShowAll, onIsolate
     footer.querySelectorAll('[data-step]').forEach(button => button.onclick = () => onNavigate(Number(button.dataset.step)));
     footer.querySelector('[data-all]').onclick = onShowAll;
     footer.querySelector('[data-isolate]').onclick = () => onIsolate?.();
+    footer.querySelector('[data-status]').onchange = event => onStatusChange?.(event.target.value);
     footer.querySelector('[data-export]').onclick = onExport;
     const pin = annotation.querySelector('button');
     const card = annotation.querySelector('article');
@@ -52,6 +53,7 @@ export function createClashResultsView({viewer, onNavigate, onShowAll, onIsolate
             isolateButton.textContent = mode === 'isolate' ? 'Sair do isolamento' : 'Isolar';
             isolateButton.setAttribute('aria-pressed', String(mode === 'isolate'));
             isolateButton.classList.toggle('is-active', mode === 'isolate');
+            footer.querySelector('[data-status]').value = clash.status || 'new';
             footer.querySelector('span').textContent = `Interferência ${index + 1} de ${count}`;
             footer.querySelectorAll('[data-step]').forEach(button => button.disabled = count < 2);
             pin.textContent = String(index + 1);

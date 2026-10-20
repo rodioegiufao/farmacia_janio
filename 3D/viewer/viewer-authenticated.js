@@ -438,6 +438,8 @@ let materialsFeatureAllowed = false;
 let transformFeatureAllowed = false;
 let quadroFeatureAllowed = false;      // NOVO
 let wifiCoverageFeaturePromise = null; // NOVO
+let modelReplaceAllowed = false;        // NOVO: substituir modelo por arquivo local (só na sessão)
+let modelReplaceFeaturePromise = null;  // NOVO
 let activeMaterialFilter = null;
 let webBudgetPanel = null;
 let webBudgetRowsContainer = null;
@@ -1237,6 +1239,9 @@ async function fetchModelUploadDate(model) {
 }
 
 function getModelUploadDateText(model) {
+    if (model?.localReplacement) {
+        return `📌 Local: ${model.localReplacement.fileName} • só nesta sessão`;
+    }
     const cacheKey = getModelUploadDateCacheKey(model);
     if (!cacheKey) {
         return "Data de upload indisponível";
@@ -1250,7 +1255,106 @@ function getModelUploadDateText(model) {
     fetchModelUploadDate(model);
     return MODEL_UPLOAD_DATE_LOADING_TEXT;
 }
+// ---- Substituir modelo por arquivo local (XKT/IFC), só nesta sessão — NOVO
+function getModelReplaceFeature() {
+    if (!modelReplaceAllowed) {
+        return Promise.resolve(null);
+    }
+    modelReplaceFeaturePromise ||= import("./features/model-replace.js")
+        .then(({ createModelReplaceFeature }) => createModelReplaceFeature({
+            viewer,
+            xktLoader,
+            getModel: (id) => loadedModels.get(id),
+            getOriginalSource: (id) => currentModels.find((item) => item.id === id)?.src || null,
+            getLoadOptions: () => ({
+                edges: performanceModeEnabled ? false : defaultRenderProfile.edgesEnabled,
+                saoEnabled: performanceModeEnabled ? false : defaultRenderProfile.saoEnabled,
+                dtxEnabled: viewerCompatibility.enableDataTextures
+            }),
+            registerModel: (model) => {
+                applyModelRenderProfile(model);
+                registerModelTransform(model);
+                requestRenderFrame();
+            },
+            unregisterModel: (id) => {
+                loadedModels.delete(id);
+                objectModelIdLookup.clear();
+                normalizedSceneObjectIdLookup.clear();
+                invalidateExplorerCaches();
+                // a cobertura guarda a geometria das paredes por modelo
+                wifiCoverageFeaturePromise?.then((feature) => feature?.clearCache?.(id));
+            },
+            onChanged: () => scheduleExplorerRefresh(0)
+        }))
+        .catch((error) => {
+            modelReplaceFeaturePromise = null;
+            console.error("[substituir modelo] Falha ao carregar módulo:", error);
+            return null;
+        });
+    return modelReplaceFeaturePromise;
+}
+
+function ensureModelReplaceStyle() {
+    if (document.getElementById("explorerModelToolsStyle")) {
+        return;
+    }
+    const style = document.createElement("style");
+    style.id = "explorerModelToolsStyle";
+    style.textContent = `
+#treeViewContainer.explorer-enabled .explorer-list-item.has-model-tools{grid-template-columns:auto minmax(0,1fr) auto}
+.explorer-model-tools{display:flex;gap:6px;align-items:center}
+.explorer-model-tools button{width:32px;height:32px;border:1px solid rgba(255,255,255,.15);border-radius:8px;background:rgba(255,255,255,.06);color:#fff;cursor:pointer;font-size:15px;line-height:1}
+.explorer-model-tools button:hover{background:rgba(255,255,255,.16)}
+.explorer-model-tools button.is-local{border-color:#f59e0b;color:#fbbf24}
+.explorer-model-item.is-local-model{border-color:rgba(245,158,11,.55)!important}`;
+    document.head.appendChild(style);
+}
+
+function appendModelReplaceTools(item, model) {
+    ensureModelReplaceStyle();
+    const isLocal = Boolean(model.localReplacement);
+    const tools = document.createElement("div");
+    tools.className = "explorer-model-tools";
+
+    const replaceButton = document.createElement("button");
+    replaceButton.type = "button";
+    replaceButton.textContent = "🔄";
+    replaceButton.title = `Substituir ${model.id} por um XKT/IFC do seu computador (só nesta sessão, nada é enviado)`;
+    replaceButton.setAttribute("aria-label", replaceButton.title);
+    if (isLocal) replaceButton.classList.add("is-local");
+    replaceButton.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const feature = await getModelReplaceFeature();
+        feature?.pickAndReplace(model.id);
+    });
+    tools.appendChild(replaceButton);
+
+    if (isLocal) {
+        const restoreButton = document.createElement("button");
+        restoreButton.type = "button";
+        restoreButton.textContent = "↩";
+        restoreButton.title = `Voltar ${model.id} para o arquivo do projeto`;
+        restoreButton.setAttribute("aria-label", restoreButton.title);
+        restoreButton.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            const feature = await getModelReplaceFeature();
+            feature?.restoreModel(model.id).catch((error) => console.error("[substituir modelo]", error));
+        });
+        tools.appendChild(restoreButton);
+        item.classList.add("is-local-model");
+    }
+
+    item.classList.add("has-model-tools");
+    item.appendChild(tools);
+    return item;
+}
+
 function buildExplorerModelItem(model) {
+    const item = buildExplorerModelCard(model);
+    return modelReplaceAllowed ? appendModelReplaceTools(item, model) : item;
+}
+
+function buildExplorerModelCard(model) {
     const label = model.displayName || model.src || model.id;
     const isVisible = isModelVisible(model.id);
 
@@ -2567,6 +2671,10 @@ function applyViewerProfilePermissions(user) {
     setExplorerTabsAccess(permissions.explorerTabs);   
     quadroFeatureAllowed = Boolean(permissions.canGenerateQuadro);   // NOVO
     setWifiCoverageFeatureAccess(permissions.canUseCoverage);        // NOVO
+    if (modelReplaceAllowed !== Boolean(permissions.canReplaceModels)) {
+        modelReplaceAllowed = Boolean(permissions.canReplaceModels); // NOVO
+        scheduleExplorerRefresh(0);
+    }
     updateRestrictedFeatureHelp();
 }
 async function setupRestrictedViewerFeaturesAccessGate() {
@@ -2575,6 +2683,7 @@ async function setupRestrictedViewerFeaturesAccessGate() {
     setTransformFeatureAccess(false);
     setExplorerTabsAccess(RESTRICTED_EXPLORER_TABS); 
     quadroFeatureAllowed = false;                                     // NOVO
+    modelReplaceAllowed = false;                                      // NOVO
     const user = window.__VIEWER_AUTH_USER__ || await fetchViewerUser();
     applyViewerProfilePermissions(user);
 }

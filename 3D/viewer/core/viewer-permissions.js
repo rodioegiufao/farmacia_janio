@@ -21,6 +21,7 @@ export function getViewerPermissions(user) {
         canTransformModels: Boolean(permissions?.transform),
         canGenerateQuadro: profile === "admin" || profile === "colaborador",
         canUseCoverage: profile === "admin" || profile === "colaborador",
+        canReplaceModels: profile === "admin" || profile === "colaborador",
         explorerTabs: [...(PROFILE_EXPLORER_TABS[profile] || RESTRICTED_EXPLORER_TABS)]
     };
 }

@@ -1408,4 +1408,15 @@ if (!bridge) {
     setupIfcUploadInput();
     tryLoadSharedModelsFromUrl();
     document.body.classList.add("ifc-upload-active");
+
+    // NOVO: abrir uma pasta inteira e vigiar atualizações (ifc-folder-watch.js)
+    window.ifcUploadApi = {
+        processFiles: (files) => processSelectedFiles(files),
+        isBusy: () => isUploadInProgress,
+        removeFile: (file) => removeShareableFile(buildShareableFileKey(file)),
+        setStatus: (message, isError = false) => bridge.setUploadStatus(message, isError)
+    };
+    import("./ifc-folder-watch.js")
+        .then(({ setupFolderWatch }) => setupFolderWatch(window.ifcUploadApi))
+        .catch((error) => console.error("[pasta] Falha ao carregar o módulo de pasta:", error));
 }

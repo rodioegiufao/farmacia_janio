@@ -4204,8 +4204,10 @@ const ifcUploadBridge = {
         expectedModels += count;
         defaultModelChecksDone += count;
     },
-    addUploadedModelRecord: (modelId, fileName) => {
-        currentModels = [...currentModels, { id: modelId, src: fileName }];
+    addUploadedModelRecord: (modelId, fileName, file = null) => {
+        // file: o arquivo do computador (Blob). Sem ele, quem precisar reler a geometria
+        // tentaria baixar "fileName" do servidor e receberia 404.
+        currentModels = [...currentModels, { id: modelId, src: fileName, file }];
     },
     removeUploadedModelRecord: (modelId) => {
         if (!modelId) {

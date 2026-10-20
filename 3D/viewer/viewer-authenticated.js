@@ -368,6 +368,7 @@ function setupTransformPanelControls() {
         transformPanelToggleButton.setAttribute("aria-pressed", shouldOpen ? "true" : "false");
 
         if (shouldOpen && transformModelSelect) {
+            refreshTransformOptionLabels();
             const currentModelId = transformModelSelect.value || transformModelSelect.options[0]?.value;
             if (currentModelId) {
                 syncTransformInputs(currentModelId);
@@ -2397,18 +2398,37 @@ function resolveRotationTargetId() {
     return null;
 }
 
+// Nome para mostrar ao usuário: o mesmo do Explorer (nome do arquivo nos uploads), não o id interno
+function getModelDisplayLabel(modelOrId) {
+    const id = typeof modelOrId === "string" ? modelOrId : modelOrId?.id;
+    const model = typeof modelOrId === "string" ? (loadedModels.get(id) || viewer.scene.models?.[id]) : modelOrId;
+    return String(model?.displayName || id || "").trim() || String(id || "");
+}
+
 function ensureModelOption(modelId) {
     if (!transformModelSelect) {
         return;
     }
 
-    const alreadyExists = Array.from(transformModelSelect.options).some((option) => option.value === modelId);
-    if (!alreadyExists) {
-        const option = document.createElement("option");
-        option.value = modelId;
-        option.textContent = modelId;
-        transformModelSelect.appendChild(option);
+    const existing = Array.from(transformModelSelect.options).find((option) => option.value === modelId);
+    if (existing) {
+        existing.textContent = getModelDisplayLabel(modelId);
+        return;
     }
+    const option = document.createElement("option");
+    option.value = modelId;
+    option.textContent = getModelDisplayLabel(modelId);
+    transformModelSelect.appendChild(option);
+}
+
+/** Atualiza os nomes da lista do "Origem & Rotação" (modelos podem ganhar nome depois de carregar). */
+function refreshTransformOptionLabels() {
+    if (!transformModelSelect) {
+        return;
+    }
+    Array.from(transformModelSelect.options).forEach((option) => {
+        option.textContent = getModelDisplayLabel(option.value);
+    });
 }
 
 function removeModelOption(selectElement, modelId) {
@@ -2530,7 +2550,7 @@ function ensureCollisionOptions(modelId) {
     if (!exists) {
         const option = document.createElement("option");
         option.value = modelId;
-        option.textContent = modelId;
+        option.textContent = getModelDisplayLabel(modelId);
         collisionModelASelect.appendChild(option);
     }
 }

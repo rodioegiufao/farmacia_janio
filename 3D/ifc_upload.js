@@ -1414,7 +1414,8 @@ if (!bridge) {
         processFiles: (files) => processSelectedFiles(files),
         isBusy: () => isUploadInProgress,
         removeFile: (file) => removeShareableFile(buildShareableFileKey(file)),
-        setStatus: (message, isError = false) => bridge.setUploadStatus(message, isError)
+        setStatus: (message, isError = false) => bridge.setUploadStatus(message, isError),
+        viewer: bridge.viewer
     };
     import("./ifc-folder-watch.js")
         .then(({ setupFolderWatch }) => setupFolderWatch(window.ifcUploadApi))

@@ -31,6 +31,18 @@ const STYLE = `
 .folder-watch-dialog .buttons{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
 .folder-watch-dialog .buttons button{border:0;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;background:#2563eb;color:#fff}
 .folder-watch-dialog .buttons button.secondary{background:#e2e8f0;color:#0f172a}
+.folder-share-section{margin-top:10px;padding:10px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);display:grid;gap:6px}
+.folder-share-title{font-weight:700}
+.folder-share-title small{font-weight:400;opacity:.75}
+.folder-share-path{width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid #444;background:#111;color:#fff}
+.folder-share-generate{border:0;border-radius:6px;padding:8px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}
+.folder-share-generate:disabled{opacity:.5;cursor:default}
+.folder-share-note{margin:0;font-size:12px;opacity:.8}
+.folder-share-banner{margin:8px 0;padding:10px 12px;border-radius:8px;background:#eff6ff;color:#0f172a;border:1px solid #93c5fd;font-size:13px}
+.folder-share-banner p{margin:6px 0}
+.folder-share-path-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.folder-share-path-row code{flex:1;min-width:0;overflow-wrap:anywhere;background:#dbeafe;padding:4px 6px;border-radius:4px}
+.folder-share-path-row button{border:0;border-radius:6px;padding:6px 10px;background:#2563eb;color:#fff;cursor:pointer}
 `;
 
 const isModelFile = (name = "") => MODEL_EXTENSIONS.some((ext) => name.toLowerCase().endsWith(ext));
@@ -106,6 +118,42 @@ export function diffFolderState(previous, current) {
     return { changed, added, removed };
 }
 
+// ---------------------------------------------------------------------------
+// Link de pasta: a "receita" (pasta, caminho, arquivos, posição/rotação, câmera) vai no próprio link,
+// compactada. Nenhum arquivo é enviado; quem abre escolhe a mesma pasta do servidor.
+// ---------------------------------------------------------------------------
+const SHARE_HASH_KEY = "pasta";
+const PATH_STORAGE_PREFIX = "folderSharePath:";
+
+const toBase64Url = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const fromBase64Url = (text) => Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((text.length + 3) % 4)), (c) => c.charCodeAt(0));
+
+async function streamBytes(bytes, transform) {
+    const stream = new Blob([bytes]).stream().pipeThrough(transform);
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+/** Codifica a receita para o link. Usa compactação quando o navegador permite (prefixo "z."). */
+export async function encodeFolderShare(payload) {
+    const bytes = new TextEncoder().encode(JSON.stringify(payload));
+    if (typeof CompressionStream === "function") {
+        return `z.${toBase64Url(await streamBytes(bytes, new CompressionStream("deflate-raw")))}`;
+    }
+    return `j.${toBase64Url(bytes)}`;
+}
+
+export async function decodeFolderShare(text) {
+    const [kind, data] = [text.slice(0, 2), text.slice(2)];
+    let bytes = fromBase64Url(data);
+    if (kind === "z.") bytes = await streamBytes(bytes, new DecompressionStream("deflate-raw"));
+    else if (kind !== "j.") throw new Error("Link de pasta inválido.");
+    const payload = JSON.parse(new TextDecoder().decode(bytes));
+    if (payload?.v !== 1 || !Array.isArray(payload.models)) throw new Error("Link de pasta inválido.");
+    return payload;
+}
+
+const round = (value, digits = 4) => Math.round(Number(value || 0) * 10 ** digits) / 10 ** digits;
+
 export function setupFolderWatch(api) {
     const supportsPicker = typeof window.showDirectoryPicker === "function";
     let directoryHandle = null;
@@ -115,6 +163,7 @@ export function setupFolderWatch(api) {
     let paused = false;
     let checking = false;
     let dialogOpen = false;
+    let pendingShare = null;      // receita recebida pelo link, aguardando a pasta
 
     // -----------------------------------------------------------------------
     // Interface
@@ -154,6 +203,23 @@ export function setupFolderWatch(api) {
     shareOpenButton.textContent = "Abrir pasta";
     shareActions?.appendChild(shareOpenButton);
 
+    // Link da pasta, no painel "Compartilhar modelos"
+    const shareSection = document.createElement("div");
+    shareSection.className = "folder-share-section";
+    shareSection.innerHTML = `
+        <div class="folder-share-title">📁 Link da pasta <small>(sem enviar arquivos • não expira)</small></div>
+        <input type="text" class="folder-share-path" placeholder="Caminho na rede, ex.: \\\\Servidor\\...\\IFCs" aria-label="Caminho da pasta na rede">
+        <button type="button" class="folder-share-generate">Gerar link da pasta</button>
+        <p class="folder-share-note"></p>`;
+    const sharePathInput = shareSection.querySelector(".folder-share-path");
+    const shareGenerateButton = shareSection.querySelector(".folder-share-generate");
+    const shareNote = shareSection.querySelector(".folder-share-note");
+    shareActions?.after(shareSection);
+
+    // Aviso para quem recebeu um link de pasta
+    const shareBanner = document.createElement("div");
+    shareBanner.className = "folder-share-banner";
+
     const fallbackInput = document.createElement("input");
     fallbackInput.type = "file";
     fallbackInput.webkitdirectory = true;
@@ -187,7 +253,82 @@ export function setupFolderWatch(api) {
     dialog.setAttribute("aria-label", "Modelos atualizados na pasta");
     document.body.appendChild(dialog);
 
+    function renderShareSection() {
+        const hasFolder = Boolean(directoryHandle && tracked.size);
+        shareGenerateButton.disabled = !hasFolder;
+        if (hasFolder && !sharePathInput.value) {
+            sharePathInput.value = window.localStorage?.getItem(PATH_STORAGE_PREFIX + directoryHandle.name) || "";
+        }
+        shareNote.textContent = hasFolder
+            ? `Quem abrir o link escolhe a pasta “${directoryHandle.name}” e recebe os ${tracked.size} modelo(s) com a posição/rotação atuais e esta vista.`
+            : "Abra uma pasta (botão “Abrir pasta”) para gerar um link que usa os arquivos do servidor.";
+    }
+
+    async function generateFolderShareLink() {
+        if (!directoryHandle || !tracked.size) return;
+        const path = sharePathInput.value.trim();
+        try {
+            window.localStorage?.setItem(PATH_STORAGE_PREFIX + directoryHandle.name, path);
+        } catch (_error) {
+            // sem armazenamento: só não lembra o caminho
+        }
+        const camera = api.viewer?.camera;
+        const payload = {
+            v: 1,
+            folder: directoryHandle.name,
+            path,
+            createdAt: new Date().toISOString(),
+            camera: camera ? {
+                eye: Array.from(camera.eye).map((v) => round(v, 3)),
+                look: Array.from(camera.look).map((v) => round(v, 3)),
+                up: Array.from(camera.up).map((v) => round(v, 3))
+            } : null,
+            models: [...tracked.keys()].map((file) => ({ file, ...readTransform(findModelForFile(file)) }))
+        };
+        const encoded = await encodeFolderShare(payload);
+        const url = new URL(window.location.href);
+        url.search = "";
+        url.hash = `${SHARE_HASH_KEY}=${encoded}`;
+        const linkInput = document.getElementById("shareUploadLinkInput");
+        const codeElement = document.getElementById("shareUploadCode");
+        if (linkInput) linkInput.value = url.toString();
+        if (codeElement) codeElement.textContent = `Link da pasta “${directoryHandle.name}” • ${payload.models.length} modelo(s) • não expira • funciona para quem tem acesso à pasta.`;
+        api.setStatus("Link da pasta gerado. Use “Copiar” para enviar.");
+    }
+
+    async function showReceivedShare(share) {
+        pendingShare = share;
+        const pathText = share.path || share.folder;
+        shareBanner.innerHTML = "";
+        const title = document.createElement("strong");
+        title.textContent = `📁 Projeto compartilhado por link de pasta (${share.models.length} modelo(s))`;
+        const info = document.createElement("p");
+        info.textContent = `Clique em “Abrir pasta” e escolha a pasta “${share.folder}”. Na janela do Windows, cole o caminho abaixo na barra de endereço:`;
+        const pathRow = document.createElement("div");
+        pathRow.className = "folder-share-path-row";
+        const pathCode = document.createElement("code");
+        pathCode.textContent = pathText;
+        const copyButton = document.createElement("button");
+        copyButton.type = "button";
+        copyButton.textContent = "Copiar caminho";
+        copyButton.onclick = async () => {
+            try {
+                await navigator.clipboard.writeText(pathText);
+                copyButton.textContent = "Copiado ✓";
+            } catch (_error) {
+                copyButton.textContent = "Selecione e use Ctrl+C";
+            }
+        };
+        pathRow.append(pathCode, copyButton);
+        shareBanner.append(title, info, pathRow);
+        (actions.parentElement || uploadPanel)?.insertBefore(shareBanner, actions);
+        if (!supportsPicker) {
+            info.textContent = "Para abrir um link de pasta use o Chrome ou o Edge (este navegador não permite escolher a pasta).";
+        }
+    }
+
     function renderChip() {
+        renderShareSection();
         if (!directoryHandle) {
             chip.hidden = true;
             return;
@@ -196,6 +337,40 @@ export function setupFolderWatch(api) {
         chip.classList.toggle("is-paused", paused);
         chipText.textContent = `📁 ${directoryHandle.name} • ${tracked.size} modelo(s) • ${paused ? "pausado" : "vigiando"}`;
         chipPause.textContent = paused ? "Retomar" : "Pausar";
+    }
+
+    // -----------------------------------------------------------------------
+    // Modelos na cena (o upload nomeia cada modelo pelo nome do arquivo, sem extensão)
+    // -----------------------------------------------------------------------
+    const displayNameOf = (fileName) => fileName.replace(/\.[^/.]+$/, "").trim();
+
+    function findModelForFile(fileName) {
+        const models = api.viewer?.scene?.models || {};
+        const wanted = displayNameOf(fileName);
+        return Object.values(models).find((model) => model?.displayName === wanted && !model.destroyed) || null;
+    }
+
+    async function waitForModel(fileName, timeoutMs = 180000) {
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < timeoutMs) {
+            const model = findModelForFile(fileName);
+            if (model) return model;
+            await new Promise((resolve) => setTimeout(resolve, 300));
+        }
+        return null;
+    }
+
+    function readTransform(model) {
+        return {
+            position: Array.from(model?.position || [0, 0, 0]).map((v) => round(v)),
+            rotation: Array.from(model?.rotation || [0, 0, 0]).map((v) => round(v, 3))
+        };
+    }
+
+    function applyTransform(model, transform) {
+        if (!model || !transform) return;
+        if (transform.position) model.position = [...transform.position];
+        if (transform.rotation) model.rotation = [...transform.rotation];
     }
 
     // -----------------------------------------------------------------------
@@ -232,9 +407,19 @@ export function setupFolderWatch(api) {
         }
         stopWatching({ keepHandle: false });
         api.setStatus(`Lendo a pasta ${handle.name}...`);
-        const state = await readFolder(handle);
+        let state = await readFolder(handle);
+        const share = pendingShare;
+        let missing = [];
+        if (share) {
+            // Link de pasta: carrega só os arquivos do link (os que existirem nesta pasta)
+            const wanted = new Set(share.models.map((item) => item.file));
+            missing = [...wanted].filter((name) => !state.has(name));
+            state = new Map([...state].filter(([name]) => wanted.has(name)));
+        }
         if (!state.size) {
-            api.setStatus(`Nenhum arquivo .xkt, .ifc ou .glb encontrado em ${handle.name}.`, true);
+            api.setStatus(share
+                ? `Nenhum dos ${share.models.length} arquivo(s) do link está em “${handle.name}”. Confira se escolheu a pasta ${share.path || share.folder}.`
+                : `Nenhum arquivo .xkt, .ifc ou .glb encontrado em ${handle.name}.`, true);
             return;
         }
         directoryHandle = handle;
@@ -247,6 +432,32 @@ export function setupFolderWatch(api) {
         startWatching();
         renderChip();
         updateReopenButton();
+        if (share) {
+            pendingShare = null;
+            shareBanner.remove();
+            await applySharedLayout(share, missing);
+        }
+    }
+
+    async function applySharedLayout(share, missing) {
+        api.setStatus("Posicionando os modelos como no link...");
+        let applied = 0;
+        await Promise.all(share.models.filter((item) => tracked.has(item.file)).map(async (item) => {
+            const model = await waitForModel(item.file);
+            if (model) {
+                applyTransform(model, item);
+                applied++;
+            }
+        }));
+        const camera = api.viewer?.camera;
+        if (share.camera && camera) {
+            api.viewer.cameraFlight?.flyTo?.({ eye: share.camera.eye, look: share.camera.look, up: share.camera.up, duration: 0.6 });
+        }
+        api.setStatus(
+            `Link de pasta aplicado: ${applied} modelo(s) posicionado(s)` +
+            (missing.length ? ` • não encontrado(s) nesta pasta: ${missing.join(", ")}` : "."),
+            missing.length > 0
+        );
     }
 
     async function pickFolder() {
@@ -386,8 +597,12 @@ export function setupFolderWatch(api) {
     async function applyUpdates(names, current) {
         await waitUntilIdle();
         const files = [];
+        const keptTransforms = new Map();
         for (const name of names) {
             const previous = tracked.get(name);
+            // guarda a posição/rotação ajustadas para reaplicar na versão nova
+            const loaded = findModelForFile(name);
+            if (loaded) keptTransforms.set(name, readTransform(loaded));
             // Remove a versão antiga (modelo e item da lista) antes de carregar a nova
             if (previous?.file) api.removeFile(previous.file);
             const next = current.get(name);
@@ -398,6 +613,9 @@ export function setupFolderWatch(api) {
         api.setStatus(`Atualizando ${files.length} modelo(s) da pasta ${directoryHandle.name}...`);
         await api.processFiles(files);
         renderChip();
+        for (const [name, transform] of keptTransforms) {
+            waitForModel(name).then((model) => applyTransform(model, transform));
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -422,6 +640,12 @@ export function setupFolderWatch(api) {
         }
     });
 
+    shareGenerateButton.addEventListener("click", () => {
+        generateFolderShareLink().catch((error) => {
+            console.error("[pasta] Falha ao gerar link:", error);
+            api.setStatus(`Não foi possível gerar o link da pasta: ${error?.message || error}`, true);
+        });
+    });
     openButton.addEventListener("click", pickFolder);
     shareOpenButton.addEventListener("click", pickFolder);
     chipCheck.addEventListener("click", () => checkForUpdates({ manual: true }));
@@ -439,6 +663,15 @@ export function setupFolderWatch(api) {
     });
 
     updateReopenButton();
+    renderShareSection();
+
+    // Link de pasta recebido (…/ifc_upload#pasta=…)
+    const hashMatch = window.location.hash.match(new RegExp(`[#&]${SHARE_HASH_KEY}=([^&]+)`));
+    if (hashMatch) {
+        decodeFolderShare(hashMatch[1])
+            .then(showReceivedShare)
+            .catch((error) => api.setStatus(`Link de pasta inválido: ${error?.message || error}`, true));
+    }
 
     return { pickFolder, openFolder, checkForUpdates, stopWatching };
 }

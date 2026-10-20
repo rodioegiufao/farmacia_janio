@@ -123,6 +123,16 @@ export function createClashFeature({viewer,panel,models,transforms,getAllObjectI
      for(let i=0;i<positions.length;i+=3){positions[i]=o.positions[i]+delta[0];positions[i+1]=o.positions[i+1]+delta[1];positions[i+2]=o.positions[i+2]+delta[2];}
      shifted++;return {...o,positions,aabb:target};
  }),shifted};}
+ // De onde ler uma cópia do modelo para a análise: o arquivo do computador (upload/pasta)
+ // ou o endereço no servidor. Só o nome do arquivo não basta (o servidor responde 404).
+ function analysisSource(model){
+     const file=model.file;
+     if(typeof Blob!=="undefined"&&file instanceof Blob){
+         return /\.xkt$/i.test(file.name||model.src||"")?{src:URL.createObjectURL(file),revoke:true}:null;
+     }
+     const src=String(model.src||"");
+     return /^(blob:|https?:|data:)/i.test(src)||src.includes("/")?{src,revoke:false}:null;
+ }
  async function prepare(model,types=null){summary.textContent="Preparando objetos...";
      const metas=viewer.metaScene?.metaObjects||{};const typeOk=entity=>!types||types.has(metas[entity.id]?.type);
      const transform=liveTransform(model);
@@ -130,12 +140,16 @@ export function createClashFeature({viewer,panel,models,transforms,getAllObjectI
      const extract=entities=>entities.map(e=>extractEntityGeometry(e,{modelId:model.id,transform,metaObjects:viewer.metaScene?.metaObjects||{}})).filter(Boolean).map(o=>({...o,id:o.objectId}));
      const finish=objects=>{const {objects:aligned,shifted}=alignToLiveScene(objects,model.id);if(shifted&&location.search.includes("debugClash"))console.info(`[XKT Clash] ${model.id}: ${shifted} peça(s) reposicionada(s) pela posição na tela`);return aligned;};
      const loaded=Object.values(viewer.scene.objects).filter(e=>(e.model?.id===model.id||e.id.startsWith(`${model.id}#`))&&typeOk(e));if(types&&!loaded.length)return [];const available=extract(loaded);if(available.length)return finish(available);
-     const analysisId=`__clash_${model.id}_${Date.now()}`;let analysisModel=xktLoader.load({id:analysisId,src:model.src,globalizeObjectIds:true,readableGeometryEnabled:true,visible:false,edges:false,saoEnabled:false,dtxEnabled:false,...(types?{includeTypes:[...types]}:{})});
-     await new Promise((resolve,reject)=>{analysisModel.on("loaded",resolve);analysisModel.on("error",reject);});
+     const source=analysisSource(model);
+     if(!source)throw new Error(`não foi possível ler a geometria de “${model.label||model.id}”${model.file?" (a análise funciona com arquivos .xkt; converta o IFC/GLB para XKT)":" (arquivo local indisponível; carregue o modelo de novo)"}.`);
+     const analysisId=`__clash_${model.id}_${Date.now()}`;let analysisModel=xktLoader.load({id:analysisId,src:source.src,globalizeObjectIds:true,readableGeometryEnabled:true,visible:false,edges:false,saoEnabled:false,dtxEnabled:false,...(types?{includeTypes:[...types]}:{})});
+     try{await new Promise((resolve,reject)=>{analysisModel.on("loaded",resolve);analysisModel.on("error",error=>reject(error instanceof Error?error:new Error(String(error))));});}
+     catch(error){analysisModel.destroy?.();if(source.revoke)URL.revokeObjectURL(source.src);throw error;}
      analysisModel.position=[...(transform.position||[0,0,0])];analysisModel.rotation=[...(transform.rotation||[0,0,0])];
      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
      const data=extract(Object.values(viewer.scene.objects).filter(e=>(e.model?.id===analysisId||e.id.startsWith(`${analysisId}#`))&&typeOk(e)));
      analysisModel.destroy();
+     if(source.revoke)URL.revokeObjectURL(source.src);
      clearClashGeometryCache(model.id); // não deixa no cache a geometria da cópia temporária
      return finish(data);}
  $("#runCollisionCheck").onclick=async()=>{const a=selected(setA),b=selected(setB);if(!a||!b)return;restore({keepSnapshot:false});controller=new AbortController();$("#runCollisionCheck").disabled=true;$("#cancelCollisionCheck").hidden=false;try{const typesA=selectedTypes($("#clashTypesA")),typesB=selectedTypes($("#clashTypesB"));

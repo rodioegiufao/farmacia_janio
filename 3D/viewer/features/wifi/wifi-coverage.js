@@ -388,8 +388,20 @@ export function createWifiCoverageFeature({
 
         // 2) senão, abre uma cópia invisível só com paredes/portas/janelas/pilares/lajes, lê a geometria e descarta
         if (!geometries.length && liveEntities.length) {
-            const src = getModelSources().find((model) => model.id === archModelId)?.src;
-            if (!src) throw new Error(`Arquivo do modelo ${archModelId} não encontrado.`);
+            // Cópia temporária: do arquivo do computador (upload/pasta) ou do endereço no servidor
+            const record = getModelSources().find((model) => model.id === archModelId);
+            let src = null;
+            let revokeSrc = false;
+            if (typeof Blob !== "undefined" && record?.file instanceof Blob) {
+                if (!/\.xkt$/i.test(record.file.name || record.src || "")) {
+                    throw new Error("Para usar a arquitetura na cobertura, carregue-a como .xkt.");
+                }
+                src = URL.createObjectURL(record.file);
+                revokeSrc = true;
+            } else if (/^(blob:|https?:|data:)/i.test(String(record?.src || "")) || String(record?.src || "").includes("/")) {
+                src = record.src;
+            }
+            if (!src) throw new Error(`Arquivo do modelo ${archModelId} não encontrado (carregue-o de novo).`);
             setStatus("Lendo paredes e lajes da arquitetura…", 0);
             const tempId = `__wifi_${archModelId}_${Date.now()}`;
             const tempModel = xktLoader.load({
@@ -415,6 +427,7 @@ export function createWifiCoverageFeature({
                 geometries = extract(Object.values(scene.objects).filter((entity) => entity.model?.id === tempId));
             } finally {
                 tempModel.destroy();
+                if (revokeSrc) URL.revokeObjectURL(src);
             }
         }
 

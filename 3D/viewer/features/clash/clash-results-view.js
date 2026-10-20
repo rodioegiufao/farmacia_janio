@@ -62,7 +62,7 @@ export function createClashResultsView({viewer, onNavigate, onShowAll, onIsolate
             card.querySelector('strong').textContent = `Interferência ${index + 1} • ${clash.mode === 'clearance' ? 'Proximidade / Folga' : 'Colisão física'}`;
             for (const [key, label] of [['A', 'a'], ['B', 'b']]) {
                 const object = clash[`object${key}`];
-                card.querySelector(`.clash-note-${label}`).textContent = `${key}: ${object.name || object.objectId} • ${object.type} | ${object.modelId} | ID: ${object.originalSystemId || object.objectId}`;
+                card.querySelector(`.clash-note-${label}`).textContent = `${key}: ${object.name || object.objectId} • ${object.type} | ${object.modelLabel || object.modelId} | ID: ${object.originalSystemId || object.objectId}`;
             }
             card.querySelector('small').textContent = `${clash.mode === 'clearance' ? 'Elementos dentro da distância mínima' : 'Elementos em colisão'} • Posição (m): ${clash.position.map(n => Number(n).toFixed(3)).join(', ')}`;
             position();

@@ -933,6 +933,7 @@ if (!bridge) {
 
     function finalizeUploadedModelLoad(model, uploadContext = {}) {
         const {
+            file = null,
             modelId,
             fileName,
             formatLabel,
@@ -962,7 +963,8 @@ if (!bridge) {
                 model.displayName = displayName;
                 model.src = displayName;
             }
-            bridge.addUploadedModelRecord(modelId, fileName);
+            // guarda o arquivo: a compatibilização e a cobertura leem a geometria a partir dele
+            bridge.addUploadedModelRecord(modelId, fileName, file);
             bridge.applyModelRenderProfile(model);
             bridge.registerModelTransform(model);
             bridge.adjustCameraOnLoad();
@@ -1105,6 +1107,7 @@ if (!bridge) {
             }
 
             finalizeUploadedModelLoad(model, {
+            file,
                 ...uploadContext,
                 modelId,
                 fileName: file.name,
@@ -1172,6 +1175,7 @@ if (!bridge) {
         });
 
         finalizeUploadedModelLoad(model, {
+            file,
             ...uploadContext,
             modelId,
             fileName: file.name,
@@ -1218,6 +1222,7 @@ if (!bridge) {
         });
 
         finalizeUploadedModelLoad(model, {
+            file,
             ...uploadContext,
             modelId,
             fileName: file.name,

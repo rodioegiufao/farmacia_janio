@@ -1,66 +1,10 @@
 (function () {
   'use strict';
 
-  const SUPABASE_BUCKET = 'ifc-conversions';
-  const MAX_IFC_UPLOAD_SIZE_BYTES = 250 * 1024 * 1024;
+  // Conversão IFC → XKT feita no próprio navegador (Web Worker).
+  // Nada é enviado ao servidor: sem Supabase, sem limite de upload da Vercel e sem tempo máximo de função.
 
-  let supabaseClient = null;
-  let supabaseBucket = SUPABASE_BUCKET;
-  let supabaseConfigPromise = null;
-
-  function isValidHttpUrl(value) {
-    try {
-      const url = new URL(String(value || ''));
-      return url.protocol === 'http:' || url.protocol === 'https:';
-    } catch (error) {
-      return false;
-    }
-  }
-
-  async function readErrorMessage(response) {
-    try {
-      const payload = await response.json();
-      return payload?.error || payload?.message || response.statusText;
-    } catch (error) {
-      return response.statusText || 'Erro desconhecido.';
-    }
-  }
-
-  async function carregarSupabaseConfig() {
-    if (supabaseClient) {
-      return supabaseClient;
-    }
-
-    if (!supabaseConfigPromise) {
-      supabaseConfigPromise = fetch('/api/supabase-public-config')
-        .then(async (response) => {
-          if (!response.ok) {
-            throw new Error(await readErrorMessage(response));
-          }
-
-          const config = await response.json();
-          const supabaseUrl = String(config?.supabaseUrl || '').trim();
-          const supabaseAnonKey = String(config?.supabaseAnonKey || '').trim();
-          const bucket = String(config?.bucket || SUPABASE_BUCKET).trim();
-
-          if (!isValidHttpUrl(supabaseUrl) || !supabaseAnonKey || !bucket) {
-            throw new Error(
-              'Supabase Storage não configurado. Arquivos grandes não podem ser enviados diretamente para a Vercel. Configure SUPABASE_URL, SUPABASE_ANON_KEY e o bucket ifc-conversions.'
-            );
-          }
-
-          supabaseBucket = bucket;
-          supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
-          return supabaseClient;
-        })
-        .catch((error) => {
-          supabaseConfigPromise = null;
-          throw error;
-        });
-    }
-
-    return supabaseConfigPromise;
-  }
+  const WORKER_URL = '/ifc-tools/ifc-to-xkt-worker.js';
 
   const ifcFileInput = document.getElementById('ifcFileInput');
   const dropzone = document.getElementById('xktDropzone');
@@ -70,6 +14,7 @@
   const progressFill = document.getElementById('progressFill');
 
   let selectedFile = null;
+  let lastDownloadUrl = null;
 
   function setStatus(message, type = '') {
     statusElement.textContent = message;
@@ -98,85 +43,50 @@
       return;
     }
 
-    selectedFileName.textContent = `Arquivo: ${file.name}`;
+    selectedFileName.textContent = `Arquivo: ${file.name} (${formatFileSize(file.size)})`;
     convertButton.disabled = false;
   }
 
-  function sanitizeStorageFileName(fileName) {
-    const base = String(fileName || 'modelo.ifc').split(/[\\/]/).pop();
-    return base
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z0-9._-]/g, '_')
-      .replace(/_+/g, '_')
-      .replace(/^_+|_+$/g, '');
+  function downloadArrayBuffer(arrayBuffer, fileName) {
+    if (lastDownloadUrl) URL.revokeObjectURL(lastDownloadUrl);
+    lastDownloadUrl = URL.createObjectURL(new Blob([arrayBuffer], { type: 'application/octet-stream' }));
+    const link = document.createElement('a');
+    link.href = lastDownloadUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   }
 
-  async function prepararUrlAssinadaUpload(file) {
-    const response = await fetch('/api/ifc-storage-upload-url', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileName: sanitizeStorageFileName(file.name), fileSize: file.size })
-    });
-
-    if (!response.ok) {
-      throw new Error(await readErrorMessage(response));
-    }
-
-    const uploadConfig = await response.json();
-
-    if (!uploadConfig?.ok || !uploadConfig.path || !uploadConfig.token) {
-      throw new Error(uploadConfig?.error || 'A API não retornou uma URL assinada de upload válida.');
-    }
-
-    supabaseBucket = uploadConfig.bucket || supabaseBucket;
-    return uploadConfig;
-  }
-
-  async function uploadIfcToSupabaseStorage(file) {
-    const client = await carregarSupabaseConfig();
-
-    setProgress(15);
-    setStatus('Preparando URL assinada e enviando IFC para o Supabase Storage...', '');
-
-    const uploadConfig = await prepararUrlAssinadaUpload(file);
-
-    const { data, error } = await client.storage
-      .from(supabaseBucket)
-      .uploadToSignedUrl(uploadConfig.path, uploadConfig.token, file, {
-        contentType: file.type || 'application/octet-stream'
-      });
-
-    if (error) {
-      throw new Error(
-        `Falha no upload para o Supabase Storage via URL assinada. Detalhes: ${error.message}`
-      );
-    }
-
-    return data.path || uploadConfig.path;
-  }
-
-  async function convertUploadedIfc(storagePath, originalName) {
-    setProgress(60);
-    setStatus('Convertendo IFC no servidor com convert2xkt...', '');
-
-    const response = await fetch('/api/ifc-to-xkt', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ storagePath, originalName })
-    });
-
-    if (!response.ok) {
-      if (response.status === 413) {
-        throw new Error('O arquivo é grande demais para envio direto à Vercel. Use o fluxo de upload direto para o armazenamento.');
+  function convertInWorker(arrayBuffer) {
+    return new Promise((resolve, reject) => {
+      let worker;
+      try {
+        worker = new Worker(WORKER_URL, { type: 'module' });
+      } catch (error) {
+        reject(new Error('Este navegador não suporta a conversão local. Use uma versão atual do Chrome, Edge ou Firefox.'));
+        return;
       }
-      if (response.status === 504) {
-        throw new Error('A conversão excedeu o tempo limite do servidor. Tente um IFC menor/otimizado ou aumente o maxDuration/plan da Vercel para conversões longas.');
-      }
-      throw new Error(await readErrorMessage(response));
-    }
 
-    return response.json();
+      worker.onmessage = ({ data }) => {
+        if (data?.type === 'progress') {
+          setProgress(data.percent);
+          setStatus(data.message);
+        } else if (data?.type === 'done') {
+          worker.terminate();
+          resolve(data);
+        } else if (data?.type === 'error') {
+          worker.terminate();
+          reject(new Error(data.message));
+        }
+      };
+      worker.onerror = (event) => {
+        worker.terminate();
+        reject(new Error(event?.message || 'Falha ao iniciar o conversor.'));
+      };
+
+      worker.postMessage({ type: 'convert', buffer: arrayBuffer }, [arrayBuffer]);
+    });
   }
 
   async function convertIfcToXkt() {
@@ -189,42 +99,32 @@
       return;
     }
 
-    if (selectedFile.size > MAX_IFC_UPLOAD_SIZE_BYTES) {
-      setStatus(`O arquivo tem ${formatFileSize(selectedFile.size)} e excede o limite de ${formatFileSize(MAX_IFC_UPLOAD_SIZE_BYTES)} para upload.`, 'error');
-      return;
-    }
-
     convertButton.disabled = true;
     setProgress(5);
-    setStatus('Iniciando fluxo de upload direto para evitar limite 413 da Vercel...', '');
+    setStatus('Lendo o arquivo...');
 
     try {
-      const storagePath = await uploadIfcToSupabaseStorage(selectedFile);
-      const result = await convertUploadedIfc(storagePath, selectedFile.name);
-
-      if (!result?.ok || !result.downloadUrl) {
-        throw new Error(result?.error || 'A conversão não retornou uma URL de download.');
-      }
-
-      setProgress(90);
-      setStatus('XKT gerado. Abrindo URL assinada de download...', '');
-      window.location.href = result.downloadUrl;
-      if (result.shouldRevokeUrl) {
-        setTimeout(() => URL.revokeObjectURL(result.downloadUrl), 60 * 1000);
-      }
+      const arrayBuffer = await selectedFile.arrayBuffer();
+      const result = await convertInWorker(arrayBuffer);
+      const fileName = `${baseNameWithoutExtension(selectedFile.name) || 'modelo'}.xkt`;
 
       setProgress(100);
-      setStatus(`Conversão concluída! Arquivo disponível: ${result.fileName || `${baseNameWithoutExtension(selectedFile.name) || 'modelo'}.xkt`}`, 'ok');
+      downloadArrayBuffer(result.xkt, fileName);
+
+      const seconds = result.stats.seconds.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+      setStatus(
+        `Conversão concluída em ${seconds} s! ${fileName} (${formatFileSize(result.xkt.byteLength)}) • ` +
+        `${result.stats.objects} objetos. O download começou automaticamente.`,
+        'ok'
+      );
     } catch (error) {
       console.error('Falha na conversão IFC → XKT', error);
       setProgress(0);
       const message = String(error?.message || error || 'Erro desconhecido.');
-      const friendlyMessage = message.includes('413')
-        ? 'O arquivo é grande demais para envio direto à Vercel. Use o fluxo de upload direto para o armazenamento.'
-        : message.includes('maximum allowed size') || message.includes('file size limit')
-          ? `O Supabase Storage recusou o upload por limite do bucket. O arquivo tem ${formatFileSize(selectedFile.size)} e o sistema permite até ${formatFileSize(MAX_IFC_UPLOAD_SIZE_BYTES)}; confirme no painel do Supabase se o bucket ifc-conversions está com limite igual ou superior a esse valor.`
-          : message;
-      setStatus(`Erro ao converter: ${friendlyMessage}`, 'error');
+      const friendly = /memory|Out of bounds|allocation/i.test(message)
+        ? 'O navegador ficou sem memória para este IFC. Feche outras abas e tente novamente, ou divida o modelo por disciplina/pavimento.'
+        : message;
+      setStatus(`Erro ao converter: ${friendly}`, 'error');
     } finally {
       convertButton.disabled = !selectedFile;
     }

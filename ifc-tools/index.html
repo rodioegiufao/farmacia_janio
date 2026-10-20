@@ -85,7 +85,7 @@
       <section class="card converter-card" aria-labelledby="converterTitle">
         <h2 id="converterTitle">Conversor IFC → XKT</h2>
         <p class="muted">
-          Selecione um arquivo <code>.ifc</code>; a conversão principal será feita no backend com <code>convert2xkt</code>, seguindo o fluxo oficial da xeokit.
+          Selecione um arquivo <code>.ifc</code>. A conversão é feita <strong>no seu navegador</strong>, com os mesmos módulos do <code>convert2xkt</code> oficial da xeokit — o arquivo não é enviado para nenhum servidor.
         </p>
 
         <label id="xktDropzone" class="dropzone" for="ifcFileInput">
@@ -109,7 +109,6 @@
       </section>
     </section>
   </main>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/ifc-tools/script.js"></script>
   <script src="/ifc-tools/ifc-to-xkt.js"></script>
 </body>

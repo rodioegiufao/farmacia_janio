@@ -1,6 +1,6 @@
 // Monta a rede de caminhos fora da tela principal (pode levar alguns segundos em modelos grandes)
 // e responde aos rastreios de circuito. A rede de cada modelo fica guardada.
-import { buildRouteGraph, traceCircuit } from "./circuit-trace-core.js";
+import { buildRouteGraph, traceCircuit, traceCircuits } from "./circuit-trace-core.js";
 
 const graphs = new Map();   // modelKey -> { graph, indexById }
 
@@ -28,10 +28,10 @@ self.onmessage = ({ data }) => {
             const entry = graphs.get(data.modelKey);
             if (!entry) throw new Error("Rede do modelo ainda não montada.");
             const { graph, indexById } = entry;
-            const panelIndex = indexById.get(data.panelId);
-            if (panelIndex === undefined) throw new Error("Quadro não encontrado na rede.");
+            const panelIndices = (data.panelIds || [data.panelId]).map((id) => indexById.get(id)).filter((index) => index !== undefined);
+            if (!panelIndices.length) throw new Error("Quadro não encontrado na rede.");
             const pointIndices = data.pointIds.map((id) => indexById.get(id)).filter((index) => index !== undefined);
-            const result = traceCircuit(graph, panelIndex, pointIndices);
+            const result = traceCircuit(graph, panelIndices, pointIndices);
             const idOf = (index) => graph.elements[index].id;
             self.postMessage({
                 type: "traced",
@@ -42,6 +42,18 @@ self.onmessage = ({ data }) => {
                 length: result.length,
                 gaps: result.gaps
             });
+        } else if (data.type === "traceMany") {
+            // comprimento de vários circuitos do mesmo quadro/rack (ex.: verificação de 90 m)
+            const entry = graphs.get(data.modelKey);
+            if (!entry) throw new Error("Rede do modelo ainda não montada.");
+            const { graph, indexById } = entry;
+            const panelIndices = data.panelIds.map((id) => indexById.get(id)).filter((index) => index !== undefined);
+            if (!panelIndices.length) throw new Error("Quadro não encontrado na rede.");
+            const circuits = {};
+            for (const [key, ids] of Object.entries(data.circuits)) {
+                circuits[key] = ids.map((id) => indexById.get(id)).filter((index) => index !== undefined);
+            }
+            self.postMessage({ type: "tracedMany", requestId: data.requestId, results: traceCircuits(graph, panelIndices, circuits) });
         } else if (data.type === "forget") {
             graphs.delete(data.modelKey);
         }

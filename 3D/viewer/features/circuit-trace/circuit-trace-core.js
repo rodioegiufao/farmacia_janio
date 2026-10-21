@@ -5,7 +5,6 @@
 // Então: 1) descobrimos quais peças se encostam; 2) montamos uma rede; 3) o caminho do circuito é o
 // trajeto mais curto do quadro até cada ponto (é como a fiação é lançada no projeto).
 // Sem dependência do xeokit: recebe arrays e devolve ids.
-// Eng Rodrigo Damasceno Nascimento
 
 const DEFAULT_TOLERANCE = 0.03;   // 3 cm: peças "encostadas" (ligação real)
 const DEFAULT_GAP_TOLERANCE = 0.15; // até 15 cm: folga de modelagem (eletroduto que para antes da caixa)
@@ -248,12 +247,13 @@ function shortestPaths(graph, sources) {
         }
         return top;
     };
+    const sourceSet = new Set(sources);
     for (const s of sources) { dist[s] = 0; push(s, 0); }
     while (heap.length) {
         const [d, node] = pop();
         if (d > dist[node]) continue;
         // não atravessa outro quadro
-        if (elements[node].kind === "panel" && !sources.includes(node)) continue;
+        if (elements[node].kind === "panel" && !sourceSet.has(node)) continue;
         for (const next of neighbors[node]) {
             const element = elements[next];
             const gap = graph.links?.[node]?.get(next) === "gap";
@@ -265,16 +265,9 @@ function shortestPaths(graph, sources) {
     return { dist, prev };
 }
 
-/**
- * Caminho do circuito: union dos trajetos mais curtos do quadro até cada ponto.
- * panelIndex: índice do quadro; pointIndices: índices dos pontos do circuito.
- * Retorna { route: Set(índices), reached: [índices], unreached: [índices], length }.
- */
-export function traceCircuit(graph, panelIndex, pointIndices) {
-    const { dist, prev } = shortestPaths(graph, [panelIndex]);
-    const route = new Set([panelIndex]);
+function collectRoute(graph, prev, pointIndices, dist) {
+    const route = new Set();
     const reached = [], unreached = [];
-    let gaps = 0;
     const gapLinks = new Set();
     for (const point of pointIndices) {
         if (!Number.isFinite(dist[point])) { unreached.push(point); continue; }
@@ -285,11 +278,41 @@ export function traceCircuit(graph, panelIndex, pointIndices) {
             if (from !== -1 && graph.links?.[from]?.get(node) === "gap") gapLinks.add(from < node ? `${from}-${node}` : `${node}-${from}`);
         }
     }
-    gaps = gapLinks.size;
     let length = 0;
     for (const node of route) if (graph.elements[node].kind === "route") length += elementLength(graph.elements[node]);
     // gaps: quantas folgas de modelagem (3–15 cm) o caminho precisou "pular"
-    return { route, reached, unreached, length, gaps };
+    return { route, reached, unreached, length, gaps: gapLinks.size };
+}
+
+const asArray = (value) => (Array.isArray(value) ? value : [value]);
+
+/**
+ * Caminho do circuito: união dos trajetos mais curtos do quadro até cada ponto.
+ * panels: índice do quadro, ou lista de índices (vários quadros/racks com o mesmo nome:
+ * cada ponto liga-se ao mais próximo pela infraestrutura).
+ * Retorna { route: Set(índices), reached, unreached, length, gaps }.
+ */
+export function traceCircuit(graph, panels, pointIndices) {
+    const sources = asArray(panels);
+    const { dist, prev } = shortestPaths(graph, sources);
+    const result = collectRoute(graph, prev, pointIndices, dist);
+    if (!result.route.size && sources.length) result.route.add(sources[0]);
+    return result;
+}
+
+/**
+ * Vários circuitos do mesmo quadro de uma vez (um só cálculo de caminhos).
+ * circuits: Map/objeto chave -> [índices dos pontos]. Retorna objeto chave -> { length, reached, unreached, gaps }.
+ */
+export function traceCircuits(graph, panels, circuits) {
+    const sources = asArray(panels);
+    const { dist, prev } = shortestPaths(graph, sources);
+    const result = {};
+    for (const [key, pointIndices] of (circuits instanceof Map ? circuits : Object.entries(circuits))) {
+        const { reached, unreached, length, gaps } = collectRoute(graph, prev, pointIndices, dist);
+        result[key] = { length, reached: reached.length, unreached: unreached.length, gaps };
+    }
+    return result;
 }
 
 /** Grupos de peças ligadas entre si (para diagnóstico). */

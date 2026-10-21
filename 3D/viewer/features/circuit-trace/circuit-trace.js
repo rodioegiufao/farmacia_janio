@@ -309,6 +309,45 @@ export function createCircuitTraceFeature({
     // -----------------------------------------------------------------------
     // Rastrear
     // -----------------------------------------------------------------------
+    /** Todos os quadros/racks do modelo com o mesmo nome do clicado (ex.: dois "FD1" em pavimentos diferentes). */
+    function panelIdsFor(panelId) {
+        const metas = metaObjects();
+        const modelId = scene.objects[panelId]?.model?.id;
+        const name = normalize(metas[panelId]?.name);
+        const ids = Object.values(scene.objects)
+            .filter((entity) => entity.model?.id === modelId && entity.id !== panelId)
+            .filter((entity) => normalize(metas[entity.id]?.name) === name && classify(metas[entity.id], null) === "panel")
+            .map((entity) => entity.id);
+        return [panelId, ...ids];
+    }
+
+    /** Pontos de cada circuito do quadro/rack, no mesmo modelo: { circuito: [ids] }. */
+    function circuitsOfPanel(quadro, modelId) {
+        const wantedQuadro = normalize(quadro);
+        const result = {};
+        for (const metaObject of Object.values(metaObjects())) {
+            if (scene.objects[metaObject.id]?.model?.id !== modelId) continue;
+            for (const entry of circuitsOf(metaObject)) {
+                if (normalize(entry.quadro) !== wantedQuadro) continue;
+                const key = normalizeCircuit(entry.circuito);
+                (result[key] ||= []).includes(metaObject.id) || result[key].push(metaObject.id);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Comprimento estimado de todos os circuitos de um quadro/rack (ex.: verificação de 90 m do cabeamento).
+     * Retorna { circuitoNormalizado: { length, reached, unreached, gaps } }.
+     */
+    async function traceLengths({ quadro, panelId }) {
+        const modelId = scene.objects[panelId]?.model?.id || String(panelId).split("#")[0];
+        const { modelKey } = await ensureGraph(modelId, panelId);
+        const circuits = circuitsOfPanel(quadro, modelId);
+        const { results } = await ask({ type: "traceMany", modelKey, panelIds: panelIdsFor(panelId), circuits });
+        if (!current) bar.hidden = true;
+        return results;
+    }
     /**
      * quadro: nome do quadro (ex.: "QDL-1"); circuito: texto do circuito (ex.: "7 - ILU - Reatores");
      * panelId: id do objeto do quadro na cena.
@@ -336,20 +375,26 @@ export function createCircuitTraceFeature({
         try {
             const { modelKey } = await ensureGraph(modelId, panelId);
             const sameModelPoints = pointIds.filter((id) => scene.objects[id]?.model?.id === modelId);
-            const result = await ask({ type: "trace", modelKey, panelId, pointIds: sameModelPoints });
+            const panelIds = panelIdsFor(panelId);
+            const result = await ask({ type: "trace", modelKey, panelIds, pointIds: sameModelPoints });
 
             restoreColors();
             current = {
                 quadro, circuito,
-                ids: { route: result.route.filter((id) => id !== panelId && !pointIds.includes(id)), points: pointIds, panel: panelId },
+                ids: {
+                    route: result.route.filter((id) => !panelIds.includes(id) && !pointIds.includes(id)),
+                    points: pointIds,
+                    // o rack/quadro de onde o circuito sai de fato (com nomes repetidos, o mais próximo)
+                    panel: panelIds.find((id) => result.route.includes(id)) || panelId
+                },
                 mode: "context"
             };
             colorize(current.ids.route, COLORS.route);
             colorize(current.ids.points, COLORS.point);
-            colorize([panelId], COLORS.panel);
+            colorize([current.ids.panel], COLORS.panel);
             applyMode("context");
 
-            const aabb = scene.getAABB([...current.ids.route, ...pointIds, panelId]);
+            const aabb = scene.getAABB([...current.ids.route, ...pointIds, current.ids.panel]);
             viewer.cameraFlight.flyTo({ aabb, duration: 0.6 });
 
             const notReached = result.unreached.length + (pointIds.length - sameModelPoints.length);
@@ -370,6 +415,8 @@ export function createCircuitTraceFeature({
 
     return {
         trace,
+        traceLengths,
+        normalizeCircuit,
         clear,
         forgetModel(modelId) {
             for (const key of [...builtModels.keys()]) {

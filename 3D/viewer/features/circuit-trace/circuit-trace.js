@@ -140,8 +140,10 @@ export function createCircuitTraceFeature({
         if (metaObject.id === panelId) return "panel";
         const application = applicationOf(metaObject);
         if (PANEL_APPLICATIONS.has(application)) return "panel";
+        // eletrocalha/eletroduto/perfilado/conexão são caminho, mesmo com o circuito nas propriedades
+        if (ROUTE_APPLICATIONS.has(application) && application !== "caixa") return "route";
         if (circuitsOf(metaObject).length) return "point";
-        if (ROUTE_APPLICATIONS.has(application)) return "route";
+        if (application === "caixa") return "route";
         return null;
     }
 
@@ -340,10 +342,11 @@ export function createCircuitTraceFeature({
      * Comprimento estimado de todos os circuitos de um quadro/rack (ex.: verificação de 90 m do cabeamento).
      * Retorna { circuitoNormalizado: { length, reached, unreached, gaps } }.
      */
-    async function traceLengths({ quadro, panelId }) {
+    async function traceLengths({ quadro, panelId, circuits: explicitCircuits = null }) {
         const modelId = scene.objects[panelId]?.model?.id || String(panelId).split("#")[0];
         const { modelKey } = await ensureGraph(modelId, panelId);
-        const circuits = circuitsOfPanel(quadro, modelId);
+        // circuits: { chave: [ids dos pontos] } já filtrados (ex.: só o pavimento do rack)
+        const circuits = explicitCircuits || circuitsOfPanel(quadro, modelId);
         const { results } = await ask({ type: "traceMany", modelKey, panelIds: panelIdsFor(panelId), circuits });
         if (!current) bar.hidden = true;
         return results;
@@ -352,15 +355,15 @@ export function createCircuitTraceFeature({
      * quadro: nome do quadro (ex.: "QDL-1"); circuito: texto do circuito (ex.: "7 - ILU - Reatores");
      * panelId: id do objeto do quadro na cena.
      */
-    async function trace({ quadro, circuito, panelId }) {
+    async function trace({ quadro, circuito, panelId, pointIds: explicitPointIds = null }) {
         const panelEntity = scene.objects[panelId];
         const modelId = panelEntity?.model?.id || String(panelId).split("#")[0];
         const wantedQuadro = normalize(quadro);
         const wantedCircuit = normalizeCircuit(circuito);
 
-        // pontos do circuito (qualquer modelo carregado)
-        const pointIds = [];
-        for (const metaObject of Object.values(metaObjects())) {
+        // pontos do circuito (qualquer modelo carregado), ou os informados pela tabela
+        const pointIds = explicitPointIds ? explicitPointIds.filter((id) => scene.objects[id]) : [];
+        if (!explicitPointIds) for (const metaObject of Object.values(metaObjects())) {
             if (!scene.objects[metaObject.id]) continue;
             if (circuitsOf(metaObject).some((entry) =>
                 normalize(entry.quadro) === wantedQuadro && normalizeCircuit(entry.circuito) === wantedCircuit)) {

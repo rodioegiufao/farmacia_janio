@@ -7968,6 +7968,125 @@ function getQuadroElectricalConfig(metaObject) {
     };
 }
 
+// ---- Racks de cabeamento estruturado — NOVO
+const RACK_LENGTH_LIMIT_M = 90;   // NBR 14565 / TIA-568: enlace permanente até 90 m
+
+function normalizeRackText(value) {
+    return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+function isRackMetaObject(metaObject) {
+    const identification = getMetaObjectPropertySetByName(metaObject, "Identificação_Elemento");
+    return normalizeRackText(getPropertyValueFromSet(identification, "Aplicação")) === "rack";
+}
+
+/** Lista de pontos do rack: um item por circuito (PT-TE-31, CFTV-1…), a partir de Quadro_N/Circuito_N. */
+function generateRackSchedule(rackName) {
+    const wantedRack = normalizeRackText(rackName);
+    const rows = new Map();
+    for (const metaObject of Object.values(viewer.metaScene?.metaObjects || {})) {
+        const circuitSet = getMetaObjectPropertySetByName(metaObject, "Circuito");
+        if (!circuitSet) continue;
+        const identification = getMetaObjectPropertySetByName(metaObject, "Identificação_Elemento");
+        const network = String(getPropertyValueFromSet(identification, "Rede") || "");
+        const type = network.replace(/^.*\(([^)]*)\).*$/, "$1").trim() || network || "-";
+        for (let i = 1; i <= 40; i++) {
+            const circuito = getPropertyValueFromSet(circuitSet, `Circuito_${i}`);
+            if (!circuito) continue;
+            if (normalizeRackText(getPropertyValueFromSet(circuitSet, `Quadro_${i}`)) !== wantedRack) continue;
+            const label = String(circuito).replace(/[\s-]+$/, "").trim();
+            const key = normalizeRackText(label);
+            const row = rows.get(key) || {
+                rack: rackName,
+                pavimento: getPropertyValueFromSet(circuitSet, `Pavimento_do_circuito_${i}`) || "-",
+                circuito: label,
+                tipo: type,
+                descricao: getPropertyValueFromSet(identification, "Descrição") || "",
+                pontos: 0,
+                comprimento: null
+            };
+            row.pontos++;
+            rows.set(key, row);
+        }
+    }
+    const sorted = [...rows.values()].sort((a, b) =>
+        String(a.pavimento).localeCompare(String(b.pavimento), "pt-BR") ||
+        String(a.tipo).localeCompare(String(b.tipo), "pt-BR") ||
+        a.circuito.localeCompare(b.circuito, "pt-BR", { numeric: true }));
+    return { rack: rackName, rows: sorted };
+}
+
+function formatRackLength(row) {
+    if (row.comprimento === null || row.comprimento === undefined) return "—";
+    if (row.semCaminho) return "sem caminho";
+    return `~${Math.round(row.comprimento).toLocaleString("pt-BR")} m`;
+}
+
+function createRackSummaryHtml(result) {
+    if (!result?.rows?.length) {
+        return `<div class="property-panel-empty">Nenhum ponto vinculado ao rack ${result?.rack || ""} foi encontrado.</div>`;
+    }
+    const byType = result.rows.reduce((acc, row) => ((acc[row.tipo] = (acc[row.tipo] || 0) + 1), acc), {});
+    const typeText = Object.entries(byType).map(([type, count]) => `${count} ${type}`).join(" • ");
+    const measured = result.rows.some((row) => row.comprimento !== null && row.comprimento !== undefined);
+    const over = result.rows.filter((row) => row.comprimento > RACK_LENGTH_LIMIT_M).length;
+    const lengthSummary = measured
+        ? `<div class="quadro-summary-total" style="color:${over ? "#fca5a5" : "#86efac"}">${over
+            ? `⚠ ${over} ponto(s) acima de ${RACK_LENGTH_LIMIT_M} m`
+            : `✓ Todos os pontos até ${RACK_LENGTH_LIMIT_M} m`} (comprimento estimado pela infraestrutura)</div>`
+        : "";
+    return `
+        <div class="property-panel-section">
+            <div class="property-panel-section-title">Pontos do rack ${result.rack}</div>
+            <div class="quadro-summary-total">${result.rows.length} ponto(s) • ${typeText}</div>
+            ${lengthSummary}
+            <div class="quadro-summary-hint">Clique em um ponto para ver o caminho dele no 3D.</div>
+            <table class="property-panel-table quadro-summary-table">
+                <thead>
+                    <tr><th>Pavimento</th><th>Ponto</th><th>Tipo</th><th>Comprimento</th></tr>
+                </thead>
+                <tbody>
+                    ${result.rows.map((row, index) => `
+                        <tr data-circuit-index="${index}" title="Ver o caminho do ponto no 3D">
+                            <td>${row.pavimento}</td>
+                            <td>${row.circuito}</td>
+                            <td>${row.tipo}</td>
+                            <td style="${row.comprimento > RACK_LENGTH_LIMIT_M ? "color:#fca5a5;font-weight:bold" : ""}">${formatRackLength(row)}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function downloadRackScheduleAsExcel(result) {
+    if (!result?.rows?.length) return;
+    const cell = (value, type = "String") => `<Cell><Data ss:Type="${type}">${escapeQuadroXml(value)}</Data></Cell>`;
+    const rowsXml = result.rows.map((row) => `
+            <Row>${cell(row.rack)}${cell(row.pavimento)}${cell(row.circuito)}${cell(row.tipo)}${cell(row.descricao)}${
+                Number.isFinite(row.comprimento) && !row.semCaminho ? cell(Math.round(row.comprimento), "Number") : cell("-")}${
+                cell(row.comprimento > RACK_LENGTH_LIMIT_M ? `ACIMA DE ${RACK_LENGTH_LIMIT_M} m` : (Number.isFinite(row.comprimento) ? "OK" : "-"))}</Row>`).join("");
+    const xml = `<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+    <Styles><Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#D9E1F2" ss:Pattern="Solid"/></Style></Styles>
+    <Worksheet ss:Name="Pontos do rack">
+        <Table>
+            <Row>${["Rack", "Pavimento", "Ponto", "Tipo", "Descrição", "Comprimento estimado (m)", `Limite ${RACK_LENGTH_LIMIT_M} m`]
+                .map((title) => `<Cell ss:StyleID="Header"><Data ss:Type="String">${title}</Data></Cell>`).join("")}</Row>${rowsXml}
+        </Table>
+    </Worksheet>
+</Workbook>`;
+    const url = URL.createObjectURL(new Blob([xml], { type: "application/vnd.ms-excel" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `rack_${String(result.rack || "rack").replace(/[^\w-]+/g, "_")}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
 function createQuadroSummaryHtml(result) {
     if (!result?.rows?.length) {
         return `<div class="property-panel-empty">Nenhum ponto vinculado ao quadro ${result?.quadro || ""} foi encontrado.</div>`;
@@ -8113,6 +8232,18 @@ function showMaterialProperties(entity) {
     // --- Cria bloco de ação do quadro logo abaixo das coordenadas ---
     const quadroName = metaObject?.name || "";
     const showGenerateQuadroButton = quadroFeatureAllowed && isQuadroName(quadroName);
+    // NOVO: rack de cabeamento estruturado (BD1, FD1, CD1…)
+    const showRackButton = quadroFeatureAllowed && !showGenerateQuadroButton && isRackMetaObject(metaObject);
+    if (showRackButton) {
+        propriedades += `
+            <div class="property-panel-actions">
+                <button id="generateRackSummaryButton" class="property-panel-generate-button" type="button">
+                    Gerar lista de pontos
+                </button>
+            </div>
+            <div id="rackSummaryContainer"></div>
+        `;
+    }
     if (showGenerateQuadroButton) {
         propriedades += `
             <div class="property-panel-actions">
@@ -8185,6 +8316,63 @@ function showMaterialProperties(entity) {
 
     // 🟢 Evento do botão X
     document.getElementById("closePropertyPanel").onclick = closePropertyPanel;
+
+    if (showRackButton) {
+        const rackButton = document.getElementById("generateRackSummaryButton");
+        const rackContainer = document.getElementById("rackSummaryContainer");
+        if (rackButton && rackContainer) {
+            rackButton.onclick = () => {
+                const result = generateRackSchedule(quadroName);
+
+                const render = () => {
+                    rackContainer.innerHTML = createRackSummaryHtml(result);
+                    rackContainer.querySelectorAll("tr[data-circuit-index]").forEach((rowElement) => {
+                        rowElement.addEventListener("click", async () => {
+                            const row = result.rows[Number(rowElement.dataset.circuitIndex)];
+                            if (!row) return;
+                            rackContainer.querySelectorAll("tr.is-traced").forEach((other) => other.classList.remove("is-traced"));
+                            rowElement.classList.add("is-traced");
+                            const feature = await getCircuitTraceFeature();
+                            feature?.trace({ quadro: quadroName, circuito: row.circuito, panelId: entity.id });
+                        });
+                    });
+                    if (!result.rows.length) return;
+
+                    const actions = document.createElement("div");
+                    actions.className = "property-panel-actions";
+                    const lengthButton = document.createElement("button");
+                    lengthButton.type = "button";
+                    lengthButton.className = "property-panel-generate-button";
+                    lengthButton.textContent = `Calcular comprimentos (${RACK_LENGTH_LIMIT_M} m)`;
+                    lengthButton.onclick = async () => {
+                        lengthButton.disabled = true;
+                        lengthButton.textContent = "Calculando…";
+                        try {
+                            const feature = await getCircuitTraceFeature();
+                            const lengths = await feature?.traceLengths({ quadro: quadroName, panelId: entity.id });
+                            result.rows.forEach((row) => {
+                                const measured = lengths?.[feature.normalizeCircuit(row.circuito)];
+                                row.comprimento = measured ? measured.length : null;
+                                row.semCaminho = Boolean(measured && !measured.reached);
+                            });
+                            render();
+                        } catch (error) {
+                            console.error("[rack]", error);
+                            lengthButton.textContent = "Não foi possível calcular";
+                        }
+                    };
+                    const downloadButton = document.createElement("button");
+                    downloadButton.type = "button";
+                    downloadButton.className = "property-panel-generate-button";
+                    downloadButton.textContent = "Baixar Excel";
+                    downloadButton.onclick = () => downloadRackScheduleAsExcel(result);
+                    actions.append(lengthButton, downloadButton);
+                    rackContainer.appendChild(actions);
+                };
+                render();
+            };
+        }
+    }
 
     if (showGenerateQuadroButton) {
         const generateButton = document.getElementById("generateQuadroSummaryButton");

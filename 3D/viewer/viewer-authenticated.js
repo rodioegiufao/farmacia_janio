@@ -7980,14 +7980,41 @@ function isRackMetaObject(metaObject) {
     return normalizeRackText(getPropertyValueFromSet(identification, "Aplicação")) === "rack";
 }
 
-/** Lista de pontos do rack: um item por circuito (PT-TE-31, CFTV-1…), a partir de Quadro_N/Circuito_N. */
-function generateRackSchedule(rackName) {
+// Peças de infraestrutura: mesmo quando levam o circuito nas propriedades, não são pontos
+const RACK_ROUTE_APPLICATIONS = new Set(["circular", "retangular aberto", "retangular", "conexao"]);
+
+/** Nome do pavimento (IfcBuildingStorey) onde o objeto está no IFC. */
+function getStoreyNameOf(metaObject) {
+    for (let current = metaObject?.parent; current; current = current.parent) {
+        if (current.type === "IfcBuildingStorey") return current.name || "";
+    }
+    return "";
+}
+
+/** "PAV. TÉRREO", "Pav Terreo" e "TERREO" são o mesmo pavimento. */
+function normalizeStoreyLabel(value) {
+    return normalizeRackText(value).replace(/\bpav(imento)?\b\.?/g, "").replace(/[^a-z0-9]+/g, "");
+}
+
+function sameStorey(a, b) {
+    const x = normalizeStoreyLabel(a), y = normalizeStoreyLabel(b);
+    return Boolean(x && y) && (x === y || x.includes(y) || y.includes(x));
+}
+
+/**
+ * Lista de pontos do rack: um item por circuito (PT-TE-31, CFTV-1…), a partir de Quadro_N/Circuito_N.
+ * Quando há vários racks com o mesmo nome (ex.: um "FD1" por pavimento), mostra só os pontos
+ * do pavimento do rack clicado.
+ */
+function generateRackSchedule(rackName, rackMetaObject = null) {
     const wantedRack = normalizeRackText(rackName);
+    const allMetaObjects = Object.values(viewer.metaScene?.metaObjects || {});
     const rows = new Map();
-    for (const metaObject of Object.values(viewer.metaScene?.metaObjects || {})) {
+    for (const metaObject of allMetaObjects) {
         const circuitSet = getMetaObjectPropertySetByName(metaObject, "Circuito");
         if (!circuitSet) continue;
         const identification = getMetaObjectPropertySetByName(metaObject, "Identificação_Elemento");
+        if (RACK_ROUTE_APPLICATIONS.has(normalizeRackText(getPropertyValueFromSet(identification, "Aplicação")))) continue;
         const network = String(getPropertyValueFromSet(identification, "Rede") || "");
         const type = network.replace(/^.*\(([^)]*)\).*$/, "$1").trim() || network || "-";
         for (let i = 1; i <= 40; i++) {
@@ -7995,25 +8022,48 @@ function generateRackSchedule(rackName) {
             if (!circuito) continue;
             if (normalizeRackText(getPropertyValueFromSet(circuitSet, `Quadro_${i}`)) !== wantedRack) continue;
             const label = String(circuito).replace(/[\s-]+$/, "").trim();
-            const key = normalizeRackText(label);
+            const pavimento = getPropertyValueFromSet(circuitSet, `Pavimento_do_circuito_${i}`) || "-";
+            // o mesmo rótulo pode existir em pavimentos diferentes (um FD1 por andar)
+            const key = `${normalizeRackText(pavimento)}|${normalizeRackText(label)}`;
             const row = rows.get(key) || {
                 rack: rackName,
-                pavimento: getPropertyValueFromSet(circuitSet, `Pavimento_do_circuito_${i}`) || "-",
+                pavimento,
                 circuito: label,
                 tipo: type,
                 descricao: getPropertyValueFromSet(identification, "Descrição") || "",
                 pontos: 0,
+                pointIds: [],
+                pointStoreys: new Set(),
                 comprimento: null
             };
             row.pontos++;
+            if (!row.pointIds.includes(metaObject.id)) row.pointIds.push(metaObject.id);
+            row.pointStoreys.add(getStoreyNameOf(metaObject));
             rows.set(key, row);
         }
     }
-    const sorted = [...rows.values()].sort((a, b) =>
+
+    // Vários racks com o mesmo nome: fica só o pavimento do rack clicado
+    let allRows = [...rows.values()];
+    let filterNote = "";
+    const sameNameRacks = allMetaObjects.filter((metaObject) =>
+        normalizeRackText(metaObject.name) === wantedRack && isRackMetaObject(metaObject));
+    const rackStorey = getStoreyNameOf(rackMetaObject);
+    if (sameNameRacks.length > 1 && rackStorey) {
+        let filtered = allRows.filter((row) => sameStorey(row.pavimento, rackStorey));
+        if (!filtered.length) filtered = allRows.filter((row) => [...row.pointStoreys].some((storey) => sameStorey(storey, rackStorey)));
+        if (filtered.length) {
+            filterNote = `Há ${sameNameRacks.length} racks “${rackName}”: mostrando só o pavimento ${rackStorey}.`;
+            allRows = filtered;
+        } else {
+            filterNote = `Há ${sameNameRacks.length} racks “${rackName}”, mas não foi possível separar por pavimento: mostrando todos.`;
+        }
+    }
+    const sorted = allRows.sort((a, b) =>
         String(a.pavimento).localeCompare(String(b.pavimento), "pt-BR") ||
         String(a.tipo).localeCompare(String(b.tipo), "pt-BR") ||
         a.circuito.localeCompare(b.circuito, "pt-BR", { numeric: true }));
-    return { rack: rackName, rows: sorted };
+    return { rack: rackName, rows: sorted, filterNote, storey: rackStorey };
 }
 
 function formatRackLength(row) {
@@ -8039,6 +8089,7 @@ function createRackSummaryHtml(result) {
         <div class="property-panel-section">
             <div class="property-panel-section-title">Pontos do rack ${result.rack}</div>
             <div class="quadro-summary-total">${result.rows.length} ponto(s) • ${typeText}</div>
+            ${result.filterNote ? `<div class="quadro-summary-hint">${result.filterNote}</div>` : ""}
             ${lengthSummary}
             <div class="quadro-summary-hint">Clique em um ponto para ver o caminho dele no 3D.</div>
             <table class="property-panel-table quadro-summary-table">
@@ -8322,7 +8373,7 @@ function showMaterialProperties(entity) {
         const rackContainer = document.getElementById("rackSummaryContainer");
         if (rackButton && rackContainer) {
             rackButton.onclick = () => {
-                const result = generateRackSchedule(quadroName);
+                const result = generateRackSchedule(quadroName, metaObject);
 
                 const render = () => {
                     rackContainer.innerHTML = createRackSummaryHtml(result);
@@ -8333,7 +8384,7 @@ function showMaterialProperties(entity) {
                             rackContainer.querySelectorAll("tr.is-traced").forEach((other) => other.classList.remove("is-traced"));
                             rowElement.classList.add("is-traced");
                             const feature = await getCircuitTraceFeature();
-                            feature?.trace({ quadro: quadroName, circuito: row.circuito, panelId: entity.id });
+                            feature?.trace({ quadro: quadroName, circuito: row.circuito, panelId: entity.id, pointIds: row.pointIds });
                         });
                     });
                     if (!result.rows.length) return;
@@ -8349,9 +8400,10 @@ function showMaterialProperties(entity) {
                         lengthButton.textContent = "Calculando…";
                         try {
                             const feature = await getCircuitTraceFeature();
-                            const lengths = await feature?.traceLengths({ quadro: quadroName, panelId: entity.id });
-                            result.rows.forEach((row) => {
-                                const measured = lengths?.[feature.normalizeCircuit(row.circuito)];
+                            const circuits = Object.fromEntries(result.rows.map((row, index) => [String(index), row.pointIds]));
+                            const lengths = await feature?.traceLengths({ quadro: quadroName, panelId: entity.id, circuits });
+                            result.rows.forEach((row, index) => {
+                                const measured = lengths?.[String(index)];
                                 row.comprimento = measured ? measured.length : null;
                                 row.semCaminho = Boolean(measured && !measured.reached);
                             });

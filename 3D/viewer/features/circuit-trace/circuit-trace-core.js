@@ -5,6 +5,7 @@
 // Então: 1) descobrimos quais peças se encostam; 2) montamos uma rede; 3) o caminho do circuito é o
 // trajeto mais curto do quadro até cada ponto (é como a fiação é lançada no projeto).
 // Sem dependência do xeokit: recebe arrays e devolve ids.
+// Eng Rodrigo Damasceno Nascimento
 
 const DEFAULT_TOLERANCE = 0.03;   // 3 cm: peças "encostadas" (ligação real)
 const DEFAULT_GAP_TOLERANCE = 0.15; // até 15 cm: folga de modelagem (eletroduto que para antes da caixa)

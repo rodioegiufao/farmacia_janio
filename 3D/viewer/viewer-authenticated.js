@@ -1259,6 +1259,25 @@ function getModelUploadDateText(model) {
     fetchModelUploadDate(model);
     return MODEL_UPLOAD_DATE_LOADING_TEXT;
 }
+// ---- Rastrear circuito (caminho deduzido pela infraestrutura) — NOVO
+let circuitTraceFeaturePromise = null;
+function getCircuitTraceFeature() {
+    circuitTraceFeaturePromise ||= import("./features/circuit-trace/circuit-trace.js")
+        .then(({ createCircuitTraceFeature }) => createCircuitTraceFeature({
+            viewer,
+            xktLoader,
+            getModelRecord: (id) => currentModels.find((item) => item.id === id) || null,
+            requestRenderFrame,
+            onVisibilityChange: () => scheduleExplorerRefresh(0)
+        }))
+        .catch((error) => {
+            circuitTraceFeaturePromise = null;
+            console.error("[circuito] Falha ao carregar módulo:", error);
+            return null;
+        });
+    return circuitTraceFeaturePromise;
+}
+
 // ---- Substituir modelo por arquivo local (XKT/IFC), só nesta sessão — NOVO
 function getModelReplaceFeature() {
     if (!modelReplaceAllowed) {
@@ -1287,6 +1306,8 @@ function getModelReplaceFeature() {
                 invalidateExplorerCaches();
                 // a cobertura guarda a geometria das paredes por modelo
                 wifiCoverageFeaturePromise?.then((feature) => feature?.clearCache?.(id));
+                // o rastreio de circuitos guarda a rede de caminhos por modelo
+                circuitTraceFeaturePromise?.then((feature) => feature?.forgetModel?.(id));
             },
             onChanged: () => scheduleExplorerRefresh(0)
         }))
@@ -4242,6 +4263,7 @@ const ifcUploadBridge = {
         loadedModels.delete(modelId);
         originalTransforms.delete(modelId);
         currentModels = currentModels.filter((currentModel) => currentModel.id !== modelId);
+        circuitTraceFeaturePromise?.then((feature) => feature?.forgetModel?.(modelId));
         objectModelIdLookup.clear();
         normalizedSceneObjectIdLookup.clear();
         invalidateExplorerCaches();
@@ -7963,6 +7985,7 @@ function createQuadroSummaryHtml(result) {
         <div class="property-panel-section">
             <div class="property-panel-section-title">Resumo do quadro ${result.quadro}</div>
             <div class="quadro-summary-total">${result.rows.length} circuito(s) • ${formatPowerWatts(totalGeral)}${subtitleCurrent}</div>
+            <div class="quadro-summary-hint">Clique em um circuito para ver o caminho dele no 3D.</div>
             <table class="property-panel-table quadro-summary-table">
                  <thead>
                     <tr>
@@ -7973,8 +7996,8 @@ function createQuadroSummaryHtml(result) {
                     </tr>
                 </thead>
                 <tbody>
-                    ${result.rows.map((row) => `
-                        <tr>
+                    ${result.rows.map((row, index) => `
+                        <tr data-circuit-index="${index}" title="Ver o caminho do circuito no 3D">
                             <td>${row.quadro}</td>
                             <td>${row.pavimento || "-"}</td>
                             <td>${row.circuito}</td>
@@ -8171,6 +8194,18 @@ function showMaterialProperties(entity) {
                 const electricalConfig = getQuadroElectricalConfig(metaObject);
                 const result = generatePanelScheduleForQuadro(quadroName, electricalConfig);
                 summaryContainer.innerHTML = createQuadroSummaryHtml(result);
+
+                // NOVO: clicar em um circuito mostra o caminho dele (quadro → infraestrutura → pontos)
+                summaryContainer.querySelectorAll("tr[data-circuit-index]").forEach((rowElement) => {
+                    rowElement.addEventListener("click", async () => {
+                        const row = result.rows[Number(rowElement.dataset.circuitIndex)];
+                        if (!row) return;
+                        summaryContainer.querySelectorAll("tr.is-traced").forEach((other) => other.classList.remove("is-traced"));
+                        rowElement.classList.add("is-traced");
+                        const feature = await getCircuitTraceFeature();
+                        feature?.trace({ quadro: row.quadro || quadroName, circuito: row.circuito, panelId: entity.id });
+                    });
+                });
 
                 if (result.rows.length) {
                     const downloadButton = document.createElement("button");

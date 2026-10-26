@@ -5833,14 +5833,63 @@ function normalizeMaterialToken(value) {
     return "";
 }
 
+// ---- Lista de materiais com corte ativo — NOVO
+/** Planos de corte ativos (o xeokit esconde o ponto P quando dot(−dir, P − pos) > 0). */
+function getActiveSectionPlanes() {
+    if (!sectionPlaneEnabled) {
+        return [];
+    }
+    return Object.values(viewer.scene?.sectionPlanes || {})
+        .filter((plane) => plane && typeof plane === "object" && plane.active && plane.pos && plane.dir);
+}
+
+/**
+ * Quanto do objeto fica à vista com os cortes ativos, pela caixa envolvente:
+ * 0 = cortado por inteiro, 1 = inteiro à vista, entre 0 e 1 = atravessado pelo plano.
+ */
+function getSectionVisibleFraction(objectId, planes = getActiveSectionPlanes()) {
+    if (!planes.length) {
+        return 1;
+    }
+    const entity = viewer.scene.objects?.[objectId] || viewer.scene.objects?.[resolveSceneObjectId(objectId)];
+    if (!entity?.aabb || entity.clippable === false) {
+        return 1;
+    }
+    const a = entity.aabb;
+    let fraction = 1;
+    for (const plane of planes) {
+        const pos = plane.pos, dir = plane.dir;
+        let min = Infinity, max = -Infinity;
+        for (const x of [a[0], a[3]]) {
+            for (const y of [a[1], a[4]]) {
+                for (const z of [a[2], a[5]]) {
+                    // > 0: lado escondido pelo corte
+                    const d = -(dir[0] * (x - pos[0]) + dir[1] * (y - pos[1]) + dir[2] * (z - pos[2]));
+                    if (d < min) min = d;
+                    if (d > max) max = d;
+                }
+            }
+        }
+        if (min > 0) {
+            return 0;               // todo do lado cortado
+        }
+        if (max > 0) {
+            fraction *= max - min > 1e-9 ? -min / (max - min) : 1;   // atravessado: parte à vista
+        }
+    }
+    return Math.max(0, Math.min(1, fraction));
+}
+
 function getActiveObjectIdSet() {
     const scene = viewer?.scene;
     const visibleIds = toArraySafe(scene?.visibleObjectIds);
-    if (visibleIds.length) {
-        return new Set(visibleIds);
+    const ids = visibleIds.length ? visibleIds : getAllObjectIds();
+    // NOVO: com o corte ativo, tira o que ficou inteiro do lado cortado
+    const planes = getActiveSectionPlanes();
+    if (!planes.length) {
+        return new Set(ids);
     }
-
-    return new Set(getAllObjectIds());
+    return new Set(ids.filter((id) => getSectionVisibleFraction(id, planes) > 0));
 }
 
 function findMaterialObjectIds(materialName, { activeOnly = true } = {}) {
@@ -6083,6 +6132,7 @@ function collectQuantitativeMaterials() {
     const totals = new Map();
     const allMetaObjects = viewer.metaScene?.metaObjects || {};
     const activeIds = getActiveObjectIdSet();
+    const sectionPlanes = getActiveSectionPlanes();
 
     for (const metaObject of Object.values(allMetaObjects)) {
         if (metaObject?.id && !activeIds.has(metaObject.id)) {
@@ -6118,6 +6168,15 @@ function collectQuantitativeMaterials() {
 
                 if (normalized.quantity <= 0) {
                     continue;
+                }
+
+                // NOVO: peça atravessada pelo corte — comprimentos entram só pela parte à vista
+                if (sectionPlanes.length && normalized.unitLabel === "metro(s)") {
+                    const fraction = getSectionVisibleFraction(metaObject.id, sectionPlanes);
+                    if (fraction <= 0) {
+                        continue;
+                    }
+                    normalized.quantity *= fraction;
                 }
 
                 const aggregationKey = `${name}__${normalized.unitLabel}`;
@@ -6169,7 +6228,7 @@ function renderMaterialsResults(items, options = {}) {
     const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
     const allInMeters = items.length > 0 && items.every((item) => item.unitLabel === "metro(s)");
     const totalUnit = allInMeters ? "metro(s)" : "item(ns)";
-    const baseSummary = `${items.length} material(is) consolidado(s)`;
+    const baseSummary = `${items.length} material(is) consolidado(s)${getActiveSectionPlanes().length ? " (só o que está à vista no corte)" : ""}`;
     const filterHint = query && totalCount !== items.length ? ` de ${totalCount} (filtro: "${query}")` : "";
     materialsSummary.textContent = `${baseSummary}${filterHint}. Clique em um material para isolar no modelo (clique novamente para limpar).`;
     lastMaterialsResults = items;

@@ -82,6 +82,18 @@ export const PROJECT_CONFIGS = {
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
+            IFC_EXA: {
+                src: "/3D/TCE/XKT-EXA-TCE.xkt",
+                label: "Exaustão",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_EMT_FUND: {
+                src: "/3D/TCE/XKT-EMT-TCE-FUNDAÇÃO.xkt",
+                label: "Estrutura Metálica - Fundação",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
             IFC_INC: {
                 src: "/3D/TCE/XKT-INC-TCE.xkt",
                 label: "Prevenção e combate a incêndio",
@@ -98,7 +110,7 @@ export const PROJECT_CONFIGS = {
             IFC_EST_PP: {
                 src: "/3D/TCE/XKT-EST-TCE-PP.xkt",
                 label: "Estrutura do prédio principal",
-                transform: { position: [0, 0.7, 0] },
+                transform: { position: [0, 0, 0] },
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },

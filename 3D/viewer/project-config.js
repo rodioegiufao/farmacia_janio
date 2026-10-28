@@ -120,6 +120,18 @@ export const PROJECT_CONFIGS = {
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
+            IFC_ALI_220: {
+                src: "/3D/TCE/XKT-ALI-220-TCE.xkt",
+                label: "Alimentador 220V",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_ALI_380: {
+                src: "/3D/TCE/XKT-ALI-380-TCE.xkt",
+                label: "Alimentador 380V",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
             IFC_IRRI: {
                 src: "/3D/TCE/XKT-IRRI-TCE.xkt",
                 label: "Irrigação",

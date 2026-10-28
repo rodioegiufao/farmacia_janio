@@ -110,7 +110,7 @@ export const PROJECT_CONFIGS = {
             IFC_EST_PP: {
                 src: "/3D/TCE/XKT-EST-TCE-PP.xkt",
                 label: "Estrutura do prédio principal",
-                transform: { position: [0, 0, 0] },
+                transform: { position: [0, 0.7, 0] },
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },

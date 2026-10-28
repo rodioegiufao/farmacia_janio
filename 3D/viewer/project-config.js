@@ -85,8 +85,8 @@ export const PROJECT_CONFIGS = {
             IFC_EXA: {
                 src: "/3D/TCE/XKT-EXA-TCE.xkt",
                 label: "Exaustão",
-                public: { enabled: true },
-                authenticated: { enabled: true }
+                public: { enabled: false },
+                authenticated: { enabled: false }
             },
             IFC_EMT_FUND: {
                 src: "/3D/TCE/XKT-EMT-TCE-FUNDAÇÃO.xkt",
@@ -129,8 +129,8 @@ export const PROJECT_CONFIGS = {
             IFC_ALI_380: {
                 src: "/3D/TCE/XKT-ALI-380-TCE.xkt",
                 label: "Alimentador 380V",
-                public: { enabled: true },
-                authenticated: { enabled: true }
+                public: { enabled: false },
+                authenticated: { enabled: false }
             },
             IFC_IRRI: {
                 src: "/3D/TCE/XKT-IRRI-TCE.xkt",

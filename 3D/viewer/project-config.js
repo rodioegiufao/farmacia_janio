@@ -110,13 +110,25 @@ export const PROJECT_CONFIGS = {
             IFC_EST_PP: {
                 src: "/3D/TCE/XKT-EST-TCE-PP.xkt",
                 label: "Estrutura do prédio principal",
-                transform: { position: [0, 0.7, 0] },
+                transform: { position: [0, 0, 0] },
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
             IFC_FOT: {
                 src: "/3D/TCE/XKT-FOT-TCE.xkt",
                 label: "Sistema fotovoltaico",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_IRRI: {
+                src: "/3D/TCE/XKT-IRRI-TCE.xkt",
+                label: "Irrigação",
+                public: { enabled: true },
+                authenticated: { enabled: true }
+            },
+            IFC_SDAI: {
+                src: "/3D/TCE/XKT-SDAI-TCE.xkt",
+                label: "Sistema de Alarme",
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },

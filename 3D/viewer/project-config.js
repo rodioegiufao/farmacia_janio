@@ -91,7 +91,7 @@ export const PROJECT_CONFIGS = {
             IFC_EMT_ESTAC: {
                 src: "/3D/TCE/XKT-EMT-TCE-ESTAC.xkt",
                 label: "EMT — estacionamento",
-                transform: { position: [0, 0.3, 0] },
+                transform: { position: [0, 0, 0] },
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
@@ -165,56 +165,56 @@ export const PROJECT_CONFIGS = {
             IFC_EMT_A: {
                 src: "/3D/TCE/XKT-EMT-TCE-A.xkt",
                 label: "EMT — A",
-                transform: { position: [0, 31.85, 0] },
+                transform: { position: [0, 0, 0] },
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
             IFC_EMT_B: {
                 src: "/3D/TCE/XKT-EMT-TCE-B.xkt",
                 label: "EMT — B",
-                transform: { position: [0, 27.7, 0] },
+                transform: { position: [0, 0, 0] },
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
             IFC_EMT_C: {
                 src: "/3D/TCE/XKT-EMT-TCE-C.xkt",
                 label: "EMT — C",
-                transform: { position: [0, 27.7, 0] },
+                transform: { position: [0, 0, 0] },
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
             IFC_EMT_D: {
                 src: "/3D/TCE/XKT-EMT-TCE-D.xkt",
                 label: "EMT — D",
-                transform: { position: [0, 4.0, 0] },
+                transform: { position: [0, 0, 0] },
                 public: { enabled: false },
                 authenticated: { enabled: false }
             },
             IFC_EMT_E: {
                 src: "/3D/TCE/XKT-EMT-TCE-E.xkt",
                 label: "EMT — E",
-                transform: { position: [0, 3.44, 0] },
+                transform: { position: [0, 0, 0] },
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
             IFC_EMT_F: {
                 src: "/3D/TCE/XKT-EMT-TCE-F.xkt",
                 label: "EMT — F",
-                transform: { position: [0, 5.2, 0] },
+                transform: { position: [0, 0, 0] },
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
             IFC_EMT_G: {
                 src: "/3D/TCE/XKT-EMT-TCE-G.xkt",
                 label: "EMT — G",
-                transform: { position: [0, 5.2, 0] },
+                transform: { position: [0, 0, 0] },
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },
             IFC_EMT_H: {
                 src: "/3D/TCE/XKT-EMT-TCE-H.xkt",
                 label: "EMT — H",
-                transform: { position: [0, 4.9, 0] },
+                transform: { position: [0, 0, 0] },
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },

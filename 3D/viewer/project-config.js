@@ -129,8 +129,8 @@ export const PROJECT_CONFIGS = {
             IFC_ALI_380: {
                 src: "/3D/TCE/XKT-ALI-380-TCE.xkt",
                 label: "Alimentador 380V",
-                public: { enabled: false },
-                authenticated: { enabled: false }
+                public: { enabled: true },
+                authenticated: { enabled: true }
             },
             IFC_IRRI: {
                 src: "/3D/TCE/XKT-IRRI-TCE.xkt",

@@ -347,7 +347,7 @@ export const PROJECT_CONFIGS = {
             IFC_SAN: {
                 src: "/3D/iper/modelo-08.xkt",
                 label: "Instalações sanitárias",
-                transform: {"position":[0.16,0,-0.19],"rotation":[0,90,0]},
+                transform: {"position":[0.16,0,13.92],"rotation":[0,90,0]},
                 public: { enabled: true },
                 authenticated: { enabled: true }
             },

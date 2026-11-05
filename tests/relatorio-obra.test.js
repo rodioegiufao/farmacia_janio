@@ -24,6 +24,9 @@ assert.ok(!analise.pendencias.some((p) => p.tipo === "disciplina_sem_atividade")
 const duplicada = analisarObra({ obra, projetosFicha: [{ projeto: "SPDA", projeto_chave: "spda" }], atividades: [atividade("dup", "SPDA", "2026-09-01")], planner: [{ projeto: "SPDA" }], entregas: [], projetosEntrega: [] });
 assert.equal(duplicada.disciplinasRelatorio.length, 1, "fontes distintas devem consolidar uma única disciplina");
 assert.equal(duplicada.disciplinasRelatorio[0].horas, 4);
+const porCodigo = analisarObra({ obra, projetosFicha: [{ projeto: "Alimentador", projeto_chave: "ele-ali-01", codigo_projeto: "ELE-ALI-01" }, { projeto: "Alimentador", projeto_chave: "alimentador" }], atividades: [atividade("ali", "Alimentador", "2026-09-01")], planner: [{ projeto: "Alimentador", codigo_projeto: "ELE-ALI-01" }], entregas: [], projetosEntrega: [] });
+assert.equal(porCodigo.disciplinas.length, 1, "ficha por código e atividade por nome devem ser a mesma disciplina");
+assert.equal(porCodigo.disciplinas[0].situacao, "Entregue"); assert.equal(porCodigo.disciplinas[0].horas, 4);
 
 // 3 e 4 — período integral e incremento estritamente REV + dígitos.
 assert.deepEqual(obterPeriodo(base.atividades), { inicio: "2026-03-03", fim: "2026-09-28", texto: "03/03/2026 a 28/09/2026", competencia: "MARÇO/2026 — SETEMBRO/2026" });
@@ -75,11 +78,12 @@ assert.deepEqual(blocosGantt([], { inicio: "2025-01-01", fim: "2026-08-01" }).ma
 
 // 11 e 12 — pendência altera a conclusão factual.
 const comPendente = analisarObra({ ...base, atividades: [atividade("6", "Elétrico", "2026-09-01", "2026-09-01", "Em progresso")] }); assert.ok(comPendente.pendencias.some((p) => p.tipo === "status"));
-const zipPendente = new PizZip(fs.readFileSync(templatePath)); prepararTemplate(zipPendente); const xmlPendente = montarXmlRelatorio({ analise: comPendente, entrega, zip: zipPendente }); assert.match(xmlPendente.MMMM, /pendências registradas no item 9/); assert.doesNotMatch(xmlPendente.MMMM, /concluída definitivamente/);
+const zipPendente = new PizZip(fs.readFileSync(templatePath)); prepararTemplate(zipPendente); const xmlPendente = montarXmlRelatorio({ analise: comPendente, entrega, zip: zipPendente }); assert.match(xmlPendente.MMMM, /com ressalva para Elétrico/); assert.match(xmlPendente.MMMM, /contempla 1 disciplina, desenvolvida de/); assert.match(xmlPendente.MMMM, /nova emissão \(REV01\)/); assert.match(xmlPendente.JJJJ, /Elétrico: 1 atividade ainda em andamento \(Rodrigo\)/); assert.doesNotMatch(xmlPendente.JJJJ, /não cadastrado na ficha/); assert.doesNotMatch(xmlPendente.MMMM, /concluída definitivamente/);
 const docPendente = new Docxtemplater(zipPendente, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true }); docPendente.render(xmlPendente);
 const finalPendente = docPendente.getZip().file("word/document.xml").asText();
-assert.equal((finalPendente.match(/atividade\(s\) ainda está\(ão\) Em progresso\./g) || []).length, 1, "pendências não podem ser duplicadas na conclusão");
-assert.match(finalPendente, /A presente emissão da obra/); assert.doesNotMatch(finalPendente, /\[MMMM\]/);
+assert.equal((finalPendente.match(/Elétrico: 1 atividade ainda em andamento/g) || []).length, 1, "ressalvas não podem ser duplicadas na conclusão");
+assert.doesNotMatch(finalPendente, /\((?:s|es)\)/, "o Word não pode ter plurais do tipo (s)/(es)");
+assert.match(finalPendente, /A emissão REV00 da obra/); assert.doesNotMatch(finalPendente, /\[MMMM\]/);
 
 // 13 — renderização elimina todos os marcadores e mantém tabelas OpenXML.
 const doc = new Docxtemplater(zip, { delimiters: { start: "[", end: "]" }, paragraphLoop: true, linebreaks: true }); doc.render(valores); assert.equal(validarDocumento(doc.getZip()), true);

@@ -1660,8 +1660,7 @@ function atualizarDashboard() {
   renderizarGraficosDashboard(listaDashboard);
 }
 
-function filtrarRegistrosDashboard() {
-  const periodo = obterIntervaloDashboard();
+function filtrarRegistrosDashboard(periodo = obterIntervaloDashboard()) {
 
   return atividades.filter((atividade) => {
     const dataReferencia = obterDataReferenciaAtividade(atividade);
@@ -1718,6 +1717,17 @@ function obterIntervaloDashboard() {
   }
 
   return { inicio: new Date(hoje.getFullYear(), hoje.getMonth(), 1), fim: new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0, 23, 59, 59, 999) };
+}
+
+// Resumo do período imediatamente anterior, com os mesmos filtros do Dashboard,
+// para que a conclusão do relatório possa comparar a evolução do esforço.
+function obterResumoPeriodoAnteriorRelatorio(periodoRelatorio) {
+  if (typeof CONCLUSAO_RELATORIO === "undefined") return null;
+  const anterior = CONCLUSAO_RELATORIO.calcularPeriodoAnterior(periodoRelatorio);
+  if (!anterior) return null;
+  const intervalo = { inicio: new Date(`${anterior.dataInicio}T00:00:00`), fim: new Date(`${anterior.dataFim}T23:59:59.999`) };
+  const registros = aplicarFiltrosConsolidadosDashboard(consolidarAtividades(filtrarRegistrosDashboard(intervalo))).flatMap((atividade) => atividade.registros || []);
+  return CONCLUSAO_RELATORIO.resumirPeriodo(registros, anterior);
 }
 
 function obterPeriodoRelatorioWord() {
@@ -2138,6 +2148,7 @@ async function gerarRelatorioWord() {
       atividades: registrosOficiaisRelatorio,
       atividadesSemanais: atividadesSemanaisRelatorio,
       periodoRelatorio,
+      periodoAnterior: obterResumoPeriodoAnteriorRelatorio(periodoRelatorio),
       tituloRelatorio: obterTituloRelatorioWord(),
       filtros: obterFiltrosDashboardRelatorio(),
       modoRelatorio,

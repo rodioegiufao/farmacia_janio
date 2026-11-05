@@ -38,9 +38,11 @@ function calcularCoberturaPlanner(atividades = [], idsEstruturados = new Set()) 
 }
 function classificarCoberturaPlanner(valor) { return valor === null ? "nao_aplicavel" : valor >= COBERTURA_PLANNER_BOA ? "boa" : valor >= COBERTURA_PLANNER_ATENCAO ? "atencao" : "baixa"; }
 function compararProjetosDetectadosCadastrados(detectados = [], cadastrados = []) {
+  const apelidos = (p) => (typeof p === "string" ? [p] : [p.projeto_chave, p.codigo_projeto, p.projeto]).map(chaveProjeto).filter(Boolean);
   const cadastradas = new Set(cadastrados.map((p) => chaveProjeto(p.projeto_chave || p.codigo_projeto || p.projeto || p)));
+  const apelidosCadastrados = new Set(cadastrados.flatMap(apelidos));
   const mapa = new Map();
-  detectados.forEach((p) => { const chave = chaveProjeto(p.projeto_chave || p.codigo_projeto || p.projeto || p); if (chave && !cadastradas.has(chave)) mapa.set(chave, typeof p === "string" ? p : p.projeto); });
+  detectados.forEach((p) => { const chave = chaveProjeto(p.projeto_chave || p.codigo_projeto || p.projeto || p); if (chave && !apelidos(p).some((a) => apelidosCadastrados.has(a))) mapa.set(chave, typeof p === "string" ? p : p.projeto); });
   return { detectados: new Set(detectados.map((p) => chaveProjeto(p.codigo_projeto || p.projeto || p)).filter(Boolean)).size, cadastrados: cadastradas.size, pendentes: [...mapa].map(([chave, projeto]) => ({ chave, projeto })) };
 }
 function construirAlertasGestao(obra) {

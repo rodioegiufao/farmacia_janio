@@ -23,11 +23,32 @@ function proximaRevisao(revisoes = []) { const ultima = revisoes.map((r) => text
 function validarUrl(url, obrigatoria = false) { const valor = texto(url); if (!valor && !obrigatoria) return ""; try { const parsed = new URL(valor); if (!["http:", "https:"].includes(parsed.protocol)) throw new Error(); return parsed.href; } catch (_) { throw Object.assign(new Error("Informe um link válido iniciado por http:// ou https://."), { statusCode: 422 }); } }
 function mapearAtividade(r) { return { ...r, obraId: r.obra_id || r.obraId, dataInicio: r.data_inicio || r.dataInicio, horaInicio: r.hora_inicio || r.horaInicio, dataTermino: r.data_termino || r.dataTermino, horaTermino: r.hora_termino || r.horaTermino, dataPrevista: r.data_prevista || r.dataPrevista, criadoEm: r.criado_em || r.criadoEm, classificacoes: r.classificacoes || [] }; }
 
-function unirDisciplinas({ projetosFicha = [], atividades = [], planner = [] } = {}) {
+// Uma disciplina pode chegar com chaves diferentes conforme a origem: a ficha grava
+// projeto_chave a partir do código do projeto (ex.: "ele-ali-01"), o planner traz
+// codigo_projeto e as atividades só trazem o nome ("Alimentador"). Todas essas
+// variações são tratadas como apelidos da mesma disciplina.
+function aliasesProjeto(item = {}) {
+  if (typeof item === "string") item = { projeto: item };
+  return [...new Set([item.projeto_chave, item.projetoChave, item.codigo_projeto, item.codigoProjeto, item.projeto].map(chaveProjeto).filter(Boolean))];
+}
+function criarResolvedorProjetos() {
+  const apelidos = new Map();
+  const resolver = (item) => { for (const a of aliasesProjeto(item)) if (apelidos.has(a)) return apelidos.get(a); return ""; };
+  const registrar = (item, chave) => aliasesProjeto(item).forEach((a) => { if (!apelidos.has(a)) apelidos.set(a, chave); });
+  return { resolver, registrar };
+}
+function unirDisciplinas({ projetosFicha = [], atividades = [], planner = [] } = {}, resolvedor = criarResolvedorProjetos()) {
   const mapa = new Map();
-  const adicionar = (nome, dados = {}) => { const chave = chaveProjeto(dados.projeto_chave || nome); if (!chave) return; const anterior = mapa.get(chave); mapa.set(chave, { projeto: anterior?.projeto || texto(nome), projetoChave: chave, codigoProjeto: anterior?.codigoProjeto || dados.codigo_projeto || dados.codigoProjeto || "", naFicha: Boolean(anterior?.naFicha || dados.naFicha), noPlanner: Boolean(anterior?.noPlanner || dados.noPlanner) }); };
+  const adicionar = (nome, dados = {}) => {
+    const item = { ...dados, projeto: nome };
+    const aliases = aliasesProjeto(item); if (!aliases.length) return;
+    const chave = resolvedor.resolver(item) || chaveProjeto(dados.projeto_chave || dados.projetoChave || nome) || aliases[0];
+    resolvedor.registrar(item, chave);
+    const anterior = mapa.get(chave);
+    mapa.set(chave, { projeto: anterior?.projeto || texto(nome), projetoChave: chave, codigoProjeto: anterior?.codigoProjeto || dados.codigo_projeto || dados.codigoProjeto || "", naFicha: Boolean(anterior?.naFicha || dados.naFicha), noPlanner: Boolean(anterior?.noPlanner || dados.noPlanner) });
+  };
   projetosFicha.forEach((p) => adicionar(p.projeto, { ...p, naFicha: true }));
-  atividades.forEach((a) => adicionar(a.projeto));
+  atividades.forEach((a) => adicionar(a.projeto, { codigo_projeto: a.codigo_projeto || a.codigoProjeto }));
   planner.forEach((p) => adicionar(p.projeto, { ...p, noPlanner: true }));
   return [...mapa.values()];
 }
@@ -50,11 +71,13 @@ function analisarObra({ obra, projetosFicha = [], atividades: registros = [], pl
     periodo.competencia = periodo.inicio && periodo.fim ? `${competencia(periodo.inicio, true)} — ${competencia(periodo.fim, true)}` : "SEM PERÍODO REGISTRADO";
   }
   const consolidadas = consolidarAtividades(atividades);
-  const disciplinasBase = unirDisciplinas({ projetosFicha, atividades: historico, planner });
+  const resolvedor = criarResolvedorProjetos();
+  const disciplinasBase = unirDisciplinas({ projetosFicha, atividades: historico, planner }, resolvedor);
+  const chaveDe = (a) => resolvedor.resolver(a) || chaveProjeto(a?.projeto);
   const porChave = new Map(disciplinasBase.map((d) => [d.projetoChave, { ...d, registros: [] }]));
-  atividades.forEach((a) => porChave.get(chaveProjeto(a.projeto))?.registros.push(a));
-  const configPorChave = new Map(projetosEntrega.map((p) => [p.projeto_chave || chaveProjeto(p.projeto), p]));
-  const disciplinas = [...porChave.values()].map((d) => { const cs = consolidadas.filter((a) => chaveProjeto(a.projeto) === d.projetoChave); const horas = d.registros.reduce((s, a) => s + horasAtividade(a), 0); const responsaveis = [...new Set(d.registros.map((a) => a.colaborador).filter(Boolean))]; const pendente = d.registros.some((a) => STATUS_PENDENTES.has(normal(a.status))); const cfg = configPorChave.get(d.projetoChave) || {}; return { ...d, horas, atividades: cs.length, lancamentos: d.registros.length, responsaveis, periodo: obterPeriodo(d.registros), situacao: !d.registros.length ? "Sem atividade registrada" : pendente ? "Com pendências" : "Entregue", revisao: cfg.revisao || "", tipoEmissao: cfg.tipo_emissao || "", linkProjeto: cfg.link_projeto || "" }; });
+  atividades.forEach((a) => porChave.get(chaveDe(a))?.registros.push(a));
+  const configPorChave = new Map(projetosEntrega.map((p) => [chaveDe(p), p]));
+  const disciplinas = [...porChave.values()].map((d) => { const cs = consolidadas.filter((a) => chaveDe(a) === d.projetoChave); const horas = d.registros.reduce((s, a) => s + horasAtividade(a), 0); const responsaveis = [...new Set(d.registros.map((a) => a.colaborador).filter(Boolean))]; const pendente = d.registros.some((a) => STATUS_PENDENTES.has(normal(a.status))); const cfg = configPorChave.get(d.projetoChave) || {}; return { ...d, horas, atividades: cs.length, lancamentos: d.registros.length, responsaveis, periodo: obterPeriodo(d.registros), situacao: !d.registros.length ? "Sem atividade registrada" : pendente ? "Com pendências" : "Entregue", revisao: cfg.revisao || "", tipoEmissao: cfg.tipo_emissao || "", linkProjeto: cfg.link_projeto || "" }; });
   // Única fonte formal do Word: já consolidada pela chave oficial e sem disciplinas vazias.
   const disciplinasRelatorio = disciplinas.filter((d) => Number(d.horas || 0) > 0)
     .sort((a, b) => b.horas - a.horas || a.projeto.localeCompare(b.projeto, "pt-BR"));
@@ -68,8 +91,8 @@ function analisarObra({ obra, projetosFicha = [], atividades: registros = [], pl
   if (problemas.classificacao.length) pendencias.push({ tipo: "classificacao", mensagem: `${problemas.classificacao.length} atividade(s) com classificação Fase/Item incompleta.`, quantidade: problemas.classificacao.length, atividadeIds: problemas.classificacao });
   if (problemas.rateio.length) pendencias.push({ tipo: "rateio", mensagem: `${problemas.rateio.length} atividade(s) com rateio divergente da duração.`, quantidade: problemas.rateio.length, atividadeIds: problemas.rateio });
   disciplinas.filter((d) => !d.naFicha).forEach((d) => pendencias.push({ tipo: "projeto_nao_cadastrado", mensagem: `${d.projeto}: projeto detectado ainda não cadastrado na ficha.`, projeto: d.projeto }));
-  const competencias = mesesEntre(periodo.inicio, periodo.fim).map((mes) => { const lista = atividades.filter((a) => dataIso(a.dataInicio).startsWith(mes) && horasAtividade(a) > 0); const ativas = new Map(); lista.forEach((a) => { const chave = chaveProjeto(a.projeto); if (chave && disciplinasRelatorio.some((d) => d.projetoChave === chave)) ativas.set(chave, disciplinasRelatorio.find((d) => d.projetoChave === chave).projeto); }); return { mes, label: competencia(`${mes}-01`), disciplinas: [...ativas.values()], atividades: consolidarAtividades(lista).length, horas: lista.reduce((s, a) => s + horasAtividade(a), 0) }; }).filter((c) => c.horas > 0);
-  disciplinas.forEach((d) => { if (!d.registros.length) { const teveHistorico = historico.some((a) => chaveProjeto(a.projeto) === d.projetoChave); d.situacao = teveHistorico ? "Sem atividade no período" : "Sem atividade registrada"; } });
+  const competencias = mesesEntre(periodo.inicio, periodo.fim).map((mes) => { const lista = atividades.filter((a) => dataIso(a.dataInicio).startsWith(mes) && horasAtividade(a) > 0); const ativas = new Map(); lista.forEach((a) => { const chave = chaveDe(a); if (chave && disciplinasRelatorio.some((d) => d.projetoChave === chave)) ativas.set(chave, disciplinasRelatorio.find((d) => d.projetoChave === chave).projeto); }); return { mes, label: competencia(`${mes}-01`), disciplinas: [...ativas.values()], atividades: consolidarAtividades(lista).length, horas: lista.reduce((s, a) => s + horasAtividade(a), 0) }; }).filter((c) => c.horas > 0);
+  disciplinas.forEach((d) => { if (!d.registros.length) { const teveHistorico = historico.some((a) => chaveDe(a) === d.projetoChave); d.situacao = teveHistorico ? "Sem atividade no período" : "Sem atividade registrada"; } });
   return { obra, atividades, consolidadas, disciplinas, disciplinasRelatorio, periodo, periodoEntrega: periodo, periodoHistorico, competencias, entregas, horasTotais, colaboradores, pendencias, resumo: { horasTotais, atividades: consolidadas.length, lancamentos: atividades.length, disciplinas: disciplinasRelatorio.length, colaboradores: colaboradores.length, pendencias: pendencias.length } };
 }
 

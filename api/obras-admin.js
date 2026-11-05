@@ -19,12 +19,22 @@ function montarObra(obra, dados) {
   const tipologias = dados.tipologias.filter((item) => item.obra_id === obra.id);
   const intervencoes = dados.intervencoes.filter((item) => item.obra_id === obra.id);
   const projetos = dados.projetos.filter((item) => item.obra_id === obra.id);
-  const detectados = new Map();
+  // Um mesmo projeto pode ser identificado pelo código (planner/ficha) ou só pelo nome
+  // (atividades). Todos esses apelidos apontam para o mesmo projeto, evitando que
+  // "Alimentador" seja detectado de novo quando a ficha o guarda pelo código.
+  const apelidos = (item) => [item.projeto_chave, item.projetoChave, item.codigo_projeto, item.codigoProjeto, item.projeto].map(chaveProjeto).filter(Boolean);
+  const cadastrados = new Set(projetos.flatMap(apelidos));
+  const detectados = new Map(), apelidoDetectado = new Map();
   [...dados.atividades, ...dados.planner].filter((item) => item.obra_id === obra.id && item.projeto).forEach((item) => {
-    const chave = chaveProjeto(item.codigo_projeto || item.projeto); detectados.set(chave, { projeto: item.projeto, projetoChave: chave, codigoProjeto: item.codigo_projeto || null });
+    const lista = apelidos(item); if (lista.some((a) => cadastrados.has(a))) return;
+    const existente = lista.map((a) => apelidoDetectado.get(a)).find(Boolean);
+    const chave = existente || chaveProjeto(item.codigo_projeto || item.projeto);
+    const anterior = detectados.get(chave);
+    detectados.set(chave, { projeto: anterior?.projeto || item.projeto, projetoChave: chave, codigoProjeto: anterior?.codigoProjeto || item.codigo_projeto || null });
+    lista.forEach((a) => apelidoDetectado.set(a, chave));
   });
   const todosProjetos = new Set([...projetos.map((item) => item.projeto_chave), ...detectados.keys()]);
-  return { ...obra, caracteristica, tipologias, intervencoes: intervencoes.map((item) => item.intervencao), projetos, projetosDetectados: [...detectados.values()].filter((item) => !projetos.some((projeto) => projeto.projeto_chave === item.projetoChave)), quantidadeProjetos: todosProjetos.size, statusFicha: statusFicha(caracteristica, tipologias, intervencoes), completude: completudeFicha(caracteristica, tipologias, intervencoes, projetos), pendenciasFicha: obterPendenciasFicha(caracteristica, tipologias, intervencoes, projetos) };
+  return { ...obra, caracteristica, tipologias, intervencoes: intervencoes.map((item) => item.intervencao), projetos, projetosDetectados: [...detectados.values()], quantidadeProjetos: todosProjetos.size, statusFicha: statusFicha(caracteristica, tipologias, intervencoes), completude: completudeFicha(caracteristica, tipologias, intervencoes, projetos), pendenciasFicha: obterPendenciasFicha(caracteristica, tipologias, intervencoes, projetos) };
 }
 async function substituir(table, obraId, rows) {
   await supabaseRequest(table, `?obra_id=eq.${encodeURIComponent(obraId)}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });

@@ -78,6 +78,7 @@
                         <li><i class="fas fa-check-circle"></i> Termo de Responsabilidade (.docx)</li>
                         <li><i class="fas fa-check-circle"></i> Carta de Viabilidade (.docx)</li>
                         <li><i class="fas fa-check-circle"></i> Termo de Não Geração (.docx)</li>
+                        <li><i class="fas fa-check-circle"></i> Memorial Solar FV (.docx)</li>
                     </ul>
                 </div>
 
@@ -127,6 +128,7 @@
                             <button type="button" class="preset-btn" data-preset="procuracao">Só Procuração</button>
                             <button type="button" class="preset-btn" data-preset="cliente">Procuração + Termos</button>
                             <button type="button" class="preset-btn" data-preset="tecnico">Memorial + Carta</button>
+                            <button type="button" class="preset-btn" data-preset="solar">Usina Solar</button>
                         </div>
 
                         <div class="options-grid">
@@ -149,6 +151,10 @@
                             <div class="option-item">
                                 <input type="checkbox" id="gerar_termo_nao_geracao" checked>
                                 <label for="gerar_termo_nao_geracao"><i class="fas fa-ban"></i> Termo de Não Geração</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="checkbox" id="gerar_memorial_solar">
+                                <label for="gerar_memorial_solar"><i class="fas fa-solar-panel"></i> Memorial Solar (FV)</label>
                             </div>
                         </div>
 
@@ -334,6 +340,14 @@
                                 <small>Substituirá [ZXXZ] (placeholder solicitado).</small>
                             </div>
                             <div class="form-group">
+                                <label for="revisao">
+                                    <i class="fas fa-code-branch"></i> Revisão do documento *
+                                </label>
+                                <input type="text" id="revisao" value="REV00" placeholder="Ex: REV00">
+                                <small>Aparece na capa dos memoriais</small>
+                            </div>
+
+                            <div class="form-group">
                                 <label for="tipo_pessoa_juridica">
                                     <i class="fas fa-gavel"></i> Tipo de Pessoa Jurídica *
                                 </label>
@@ -395,6 +409,45 @@
                         </div>
                     </section>
                     
+
+                    <section class="form-section fv-section">
+                        <h2><i class="fas fa-solar-panel"></i> Sistema Fotovoltaico</h2>
+                        <div class="fv-toolbar">
+                            <button type="button" id="fv-exemplo-btn" class="btn-small"><i class="fas fa-wand-magic-sparkles"></i> Preencher com exemplo (IPER)</button>
+                        </div>
+
+                        <h3 class="fv-sub">Módulo fotovoltaico</h3>
+                        <div class="form-grid-3"><div class="form-group"><label for="fv_mod_marca">Marca do módulo *</label><input type="text" id="fv_mod_marca" placeholder="Ex: OSDA"></div><div class="form-group"><label for="fv_mod_modelo">Modelo do módulo *</label><input type="text" id="fv_mod_modelo" placeholder="Ex: ODA570M-36V-MH"></div><div class="form-group"><label for="fv_mod_tec">Tecnologia do módulo *</label><input type="text" id="fv_mod_tec" placeholder="Ex: Monocristalino tipo P"></div><div class="form-group"><label for="fv_mod_pot">Potência (Wp) *</label><input type="text" id="fv_mod_pot" placeholder="570" inputmode="decimal"></div><div class="form-group"><label for="fv_mod_voc">Voc (V) *</label><input type="text" id="fv_mod_voc" placeholder="50,74" inputmode="decimal"></div><div class="form-group"><label for="fv_mod_vmp">Vmp (V) *</label><input type="text" id="fv_mod_vmp" placeholder="42,07" inputmode="decimal"></div><div class="form-group"><label for="fv_mod_isc">Isc (A) *</label><input type="text" id="fv_mod_isc" placeholder="14,31" inputmode="decimal"></div><div class="form-group"><label for="fv_mod_imp">Imp (A) *</label><input type="text" id="fv_mod_imp" placeholder="13,55" inputmode="decimal"></div><div class="form-group"><label for="fv_mod_efic">Eficiência do módulo (%) *</label><input type="text" id="fv_mod_efic" placeholder="22,07" inputmode="decimal"></div><div class="form-group"><label for="fv_mod_coef_p">Coef. temp. Pmáx (%/°C) *</label><input type="text" id="fv_mod_coef_p" placeholder="-0,30" inputmode="decimal"></div><div class="form-group"><label for="fv_mod_coef_voc">Coef. temp. Voc (%/°C) *</label><input type="text" id="fv_mod_coef_voc" placeholder="-0,25" inputmode="decimal"><small>Usado para Voc no frio e Vmp no calor</small></div><div class="form-group"><label for="fv_mod_coef_isc">Coef. temp. Isc (%/°C) *</label><input type="text" id="fv_mod_coef_isc" placeholder="0,046" inputmode="decimal"></div><div class="form-group"><label for="fv_mod_noct">NOCT (°C) *</label><input type="text" id="fv_mod_noct" placeholder="45" inputmode="decimal"></div><div class="form-group"><label for="fv_mod_comp">Comprimento (mm) *</label><input type="text" id="fv_mod_comp" placeholder="2278" inputmode="decimal"></div><div class="form-group"><label for="fv_mod_larg">Largura (mm) *</label><input type="text" id="fv_mod_larg" placeholder="1134" inputmode="decimal"></div><div class="form-group"><label for="fv_mod_alt">Espessura (mm) *</label><input type="text" id="fv_mod_alt" placeholder="35" inputmode="decimal"></div><div class="form-group"><label for="fv_mod_peso">Peso (kg) *</label><input type="text" id="fv_mod_peso" placeholder="28" inputmode="decimal"></div></div>
+
+                        <h3 class="fv-sub">Inversor</h3>
+                        <div class="form-grid-3"><div class="form-group"><label for="fv_inv_marca">Marca do inversor *</label><input type="text" id="fv_inv_marca" placeholder="Ex: GROWATT"></div><div class="form-group"><label for="fv_inv_modelo">Modelo do inversor *</label><input type="text" id="fv_inv_modelo" placeholder="Ex: MAC 60KTL3-X LV"></div><div class="form-group"><label for="fv_inv_qtd">Quantidade *</label><input type="text" id="fv_inv_qtd" placeholder="2" inputmode="numeric"></div><div class="form-group"><label for="fv_inv_pot">Potência nominal CA (kW) *</label><input type="text" id="fv_inv_pot" placeholder="60" inputmode="decimal"></div><div class="form-group"><label for="fv_inv_pot_max">Potência máxima CA (kW) *</label><input type="text" id="fv_inv_pot_max" placeholder="66,6" inputmode="decimal"><small>Base da corrente CA</small></div><div class="form-group"><label for="fv_inv_vmax">Tensão máx. CC (V) *</label><input type="text" id="fv_inv_vmax" placeholder="1100" inputmode="decimal"></div><div class="form-group"><label for="fv_inv_vmppt_min">MPPT mín. (V) *</label><input type="text" id="fv_inv_vmppt_min" placeholder="250" inputmode="decimal"></div><div class="form-group"><label for="fv_inv_vmppt_max">MPPT máx. (V) *</label><input type="text" id="fv_inv_vmppt_max" placeholder="1000" inputmode="decimal"></div><div class="form-group"><label for="fv_inv_nmppt">Nº de MPPTs *</label><input type="text" id="fv_inv_nmppt" placeholder="4" inputmode="numeric"></div><div class="form-group"><label for="fv_inv_imppt">Corrente máx. por MPPT (A) *</label><input type="text" id="fv_inv_imppt" placeholder="50" inputmode="decimal"></div><div class="form-group"><label for="fv_inv_isc_mppt">Isc máx. por MPPT (A) *</label><input type="text" id="fv_inv_isc_mppt" placeholder="50" inputmode="decimal"></div><div class="form-group"><label for="fv_inv_iac">Corrente máx. CA (A) *</label><input type="text" id="fv_inv_iac" placeholder="96,6" inputmode="decimal"><small>Do datasheet; é comparada com a calculada</small></div><div class="form-group"><label for="fv_inv_efic">Eficiência do inversor (%) *</label><input type="text" id="fv_inv_efic" placeholder="98,8" inputmode="decimal"></div><div class="form-group"><label for="fv_inv_ip">Grau de proteção *</label><input type="text" id="fv_inv_ip" placeholder="IP66"></div></div>
+
+                        <h3 class="fv-sub">Arranjo (séries / strings)</h3>
+                        <div class="form-group fv-strings-group">
+                            <label for="fv_strings_json"><i class="fas fa-diagram-project"></i> Séries do arranjo *</label>
+                            <input type="hidden" id="fv_strings_json">
+                            <div class="fv-strings-wrap">
+                                <table class="fv-strings-table">
+                                    <thead><tr><th>Série</th><th>Inversor</th><th>MPPT</th><th>Módulos em série</th><th>Cabo CC (m)</th><th></th></tr></thead>
+                                    <tbody id="fv-strings-body"></tbody>
+                                </table>
+                            </div>
+                            <p id="fv-strings-vazio" class="fv-strings-vazio">Nenhuma série cadastrada.</p>
+                            <button type="button" id="fv-add-string" class="btn-small"><i class="fas fa-plus"></i> Adicionar série</button>
+                            <small>A quantidade total de módulos e a potência (kWp) são calculadas a partir das séries.</small>
+                        </div>
+
+                        <h3 class="fv-sub">Premissas de geração</h3>
+                        <div class="form-grid-3"><div class="form-group"><label for="fv_inclinacao">Inclinação (°) *</label><input type="text" id="fv_inclinacao" placeholder="10" inputmode="decimal"></div><div class="form-group"><label for="fv_azimute">Azimute (°) *</label><input type="text" id="fv_azimute" placeholder="8" inputmode="decimal"><small>Desvio em relação ao Norte</small></div><div class="form-group"><label for="fv_pr">Performance Ratio (%) *</label><input type="text" id="fv_pr" placeholder="75" inputmode="decimal" value="75"><small>Perdas além do inversor (temperatura, sujeira, cabos)</small></div><div class="form-group"><label for="fv_tmin">Temp. mínima da célula (°C) *</label><input type="text" id="fv_tmin" placeholder="10" inputmode="decimal" value="10"></div><div class="form-group"><label for="fv_tmax">Temp. máxima da célula (°C) *</label><input type="text" id="fv_tmax" placeholder="70" inputmode="decimal" value="70"></div><div class="form-group"><label for="fv_cosphi">Fator de potência *</label><input type="text" id="fv_cosphi" placeholder="1" inputmode="decimal" value="1"></div><div class="form-group"><label for="fv_consumo">Consumo de referência (kWh/mês) *</label><input type="text" id="fv_consumo" placeholder="100" inputmode="decimal" value="100"><small>100 = custo de disponibilidade trifásico</small></div></div>
+
+                        <h3 class="fv-sub">Irradiação diária média (kWh/m².dia) <button type="button" id="fv-irr-padrao-btn" class="btn-link">Restaurar Boa Vista/RR (CRESESB)</button></h3>
+                        <div class="form-grid-6 fv-irr-grid"><div class="form-group"><label for="fv_irr_1">Jan *</label><input type="text" id="fv_irr_1" inputmode="decimal" value="4,60"></div><div class="form-group"><label for="fv_irr_2">Fev *</label><input type="text" id="fv_irr_2" inputmode="decimal" value="4,73"></div><div class="form-group"><label for="fv_irr_3">Mar *</label><input type="text" id="fv_irr_3" inputmode="decimal" value="5,02"></div><div class="form-group"><label for="fv_irr_4">Abr *</label><input type="text" id="fv_irr_4" inputmode="decimal" value="4,84"></div><div class="form-group"><label for="fv_irr_5">Mai *</label><input type="text" id="fv_irr_5" inputmode="decimal" value="4,45"></div><div class="form-group"><label for="fv_irr_6">Jun *</label><input type="text" id="fv_irr_6" inputmode="decimal" value="4,59"></div><div class="form-group"><label for="fv_irr_7">Jul *</label><input type="text" id="fv_irr_7" inputmode="decimal" value="4,71"></div><div class="form-group"><label for="fv_irr_8">Ago *</label><input type="text" id="fv_irr_8" inputmode="decimal" value="5,15"></div><div class="form-group"><label for="fv_irr_9">Set *</label><input type="text" id="fv_irr_9" inputmode="decimal" value="5,53"></div><div class="form-group"><label for="fv_irr_10">Out *</label><input type="text" id="fv_irr_10" inputmode="decimal" value="5,44"></div><div class="form-group"><label for="fv_irr_11">Nov *</label><input type="text" id="fv_irr_11" inputmode="decimal" value="5,15"></div><div class="form-group"><label for="fv_irr_12">Dez *</label><input type="text" id="fv_irr_12" inputmode="decimal" value="4,68"></div></div>
+
+                        <h3 class="fv-sub">Conexão e circuitos</h3>
+                        <div class="form-grid-3"><div class="form-group"><label for="fv_tensao"><i class="fas fa-plug"></i> Tensão de conexão *</label><select id="fv_tensao"><option value="220/127V">220/127V</option><option value="380/220V">380/220V</option></select></div><div class="form-group"><label for="fv_ligacao"><i class="fas fa-bolt"></i> Ligação da UC *</label><select id="fv_ligacao"><option value="mt">Média tensão (subestação própria)</option><option value="bt">Baixa tensão</option></select></div><div class="form-group"><label for="fv_cabo_cc">Seção do cabo CC (mm²) *</label><input type="text" id="fv_cabo_cc" placeholder="6" inputmode="decimal" value="6"></div><div class="form-group"><label for="fv_cabo_ca">Seção do cabo CA (mm²)</label><input type="text" id="fv_cabo_ca" placeholder="automático" inputmode="decimal"><small>Deixe vazio para dimensionar automaticamente (Iz ≥ In e queda ≤ 2%)</small></div><div class="form-group"><label for="fv_comp_ca">Comprimento do circuito CA (m) *</label><input type="text" id="fv_comp_ca" placeholder="12" inputmode="decimal"><small>Do inversor até o ponto de conexão</small></div><div class="form-group"><label for="fv_localizacao"><i class="fas fa-image"></i> Imagem de localização</label><input type="file" id="fv_localizacao" accept="image/png,image/jpeg" data-no-persist><small>Opcional. Print do mapa (PNG/JPG). Não fica salva no projeto.</small></div></div>
+
+                        <div id="fv-resumo" class="fv-resumo" aria-live="polite"></div>
+                    </section>
                     <section class="form-section">
                         <h2><i class="fas fa-users"></i> Seleção de Profissionais e Clientes</h2>
                         
@@ -525,11 +578,12 @@
         </div>
         
         <footer class="footer">
-            <p><i class="fas fa-copyright"></i> Sistema de Geração de Documentos Word - Versão 2.1</p>
+            <p><i class="fas fa-copyright"></i> Sistema de Geração de Documentos Word - Versão 2.3</p>
             <p class="footer-info">Documentos gerados com formatação completa do Microsoft Word</p>
         </footer>
     </div>
 
+    <script src="viabilidade/solar.js"></script>
     <script src="viabilidade/script.js"></script>
 </body>
 </html>

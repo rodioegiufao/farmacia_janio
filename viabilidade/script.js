@@ -145,7 +145,8 @@ const TEMPLATES = {
     "procuração": "viabilidade/templates/procuração.docx",
     "termo_responsabilidade": "viabilidade/templates/termo-responsabilidade.docx",
     "carta_viabilidade": "viabilidade/templates/carta-viabilidade.docx",
-    "termo_nao_geração": "viabilidade/templates/termo-nao-geração.docx"
+    "termo_nao_geração": "viabilidade/templates/termo-nao-geração.docx",
+    "memorial_solar": "viabilidade/templates/memorial-solar.docx"
 };
 
 // =====================================================================
@@ -160,26 +161,29 @@ const DOCUMENTOS = [
     { tipo: 'procuração',             checkbox: 'gerar_procuracao',        nome: 'Procuração',                curto: 'Procuração' },
     { tipo: 'termo_responsabilidade', checkbox: 'gerar_termo',             nome: 'Termo de Responsabilidade', curto: 'T. Responsabilidade' },
     { tipo: 'carta_viabilidade',      checkbox: 'gerar_carta',             nome: 'Carta de Viabilidade',      curto: 'Carta' },
-    { tipo: 'termo_nao_geração',      checkbox: 'gerar_termo_nao_geracao', nome: 'Termo de Não Geração',      curto: 'T. Não Geração' }
+    { tipo: 'termo_nao_geração',      checkbox: 'gerar_termo_nao_geracao', nome: 'Termo de Não Geração',      curto: 'T. Não Geração' },
+    { tipo: 'memorial_solar',         checkbox: 'gerar_memorial_solar',    nome: 'Memorial Descritivo Solar', curto: 'Memorial Solar' }
 ];
 
 const PRESETS = {
-    completo:   DOCUMENTOS.map(d => d.tipo),
+    completo:   ['memorial', 'procuração', 'termo_responsabilidade', 'carta_viabilidade', 'termo_nao_geração'],
     procuracao: ['procuração'],
     cliente:    ['procuração', 'termo_responsabilidade', 'termo_nao_geração'],
-    tecnico:    ['memorial', 'carta_viabilidade']
+    tecnico:    ['memorial', 'carta_viabilidade'],
+    solar:      ['memorial_solar']
 };
 
 // Placeholders de cada template (fallback). Ao abrir a página, os templates
 // são lidos e esta lista é substituída pelo que realmente existe nos .docx,
 // então editar um template no Word já ajusta o formulário sozinho.
 const PLACEHOLDERS_PADRAO = {
-    memorial: ['AAAA','ANO_ATUAL','BBBB','CABX1','CABX2','CCCC','DDDD','EEEE','FFFF','GGGG','IAJU1','IAJU2','IBXX1','IBXX2','INXX1','INXX2','IZXX1','IZXX2','IZXY1','IZXY2','MES_ATUAL','MMMM','PTF1','PTF2','QTD11','QTD12','QTDY1','QTDY2','TIPO_TRAFO','TTF1','TTF2','XXXX','XXXY','XXYY','YYYY','ZXXZ','ZXZX'],
-    memorial_aerea: ['AAAA','ANO_ATUAL','BBBB','CABX1','CCCC','DDDD','EEEE','FFFF','GGGG','IAJU1','IBXX1','INXX1','IZXX1','IZXY1','MES_ATUAL','MMMM','PTF1','QTD11','QTDY1','XXXX','XXXY','XXYY','YYYY','ZXXZ','ZXZX'],
+    memorial: ['AUTOR','REVISAO','AAAA','ANO_ATUAL','BBBB','CABX1','CABX2','CCCC','DDDD','EEEE','FFFF','GGGG','IAJU1','IAJU2','IBXX1','IBXX2','INXX1','INXX2','IZXX1','IZXX2','IZXY1','IZXY2','MES_ATUAL','MMMM','PTF1','PTF2','QTD11','QTD12','QTDY1','QTDY2','TIPO_TRAFO','TTF1','TTF2','XXXX','XXXY','XXYY','YYYY','ZXXZ','ZXZX'],
+    memorial_aerea: ['AUTOR','REVISAO','AAAA','ANO_ATUAL','BBBB','CABX1','CCCC','DDDD','EEEE','FFFF','GGGG','IAJU1','IBXX1','INXX1','IZXX1','IZXY1','MES_ATUAL','MMMM','PTF1','QTD11','QTDY1','XXXX','XXXY','XXYY','YYYY','ZXXZ','ZXZX'],
     'procuração': ['14 / 07 / 2026','14 de julho de 2025','AAAA','GGGG','IIII','JJJJ','KKKK','LLLL','MMMM','NNNN','OOOO','PJDP','PPPP','QQQQ','RRRR','SSSS','TTTT','UUUU','XXXY','XXYY'],
     termo_responsabilidade: ['14 de julho de 2025','GGGG','LLLL','MMMM','PPPP','TTTT','UUUU','XXXY'],
     carta_viabilidade: ['BBBB','CCCC','DDDD','DTFI','DTIN','GGGG','HHHH','MMMM','NNNN','OOOO','VVVV','XXXX','XXXY','XXYY','ZXZX'],
-    'termo_nao_geração': ['14 de julho de 2025','AAAA','GGGG','JJJJ','NNNN','PPPP','TTTT','VVVV','XXXY','XXYY']
+    'termo_nao_geração': ['14 de julho de 2025','AAAA','GGGG','JJJJ','NNNN','PPPP','TTTT','VVVV','XXXY','XXYY'],
+    memorial_solar: ['AUTOR','REVISAO','AAAA','ANO_ATUAL','BBBB','CCCC','DATA_EXTENSO','GGGG','HHHH','LLLL','MES_ATUAL','MMMM','PJDP','VVVV','XXXY','XXYY','YYYY','ZZZZ']
 };
 
 const derivadosTrafo = n => ['IBXX','INXX','IZXX','CABX','QTDY','IZXY','IAJU','IZ14','QTD1'].map(p => p + n);
@@ -203,6 +207,7 @@ const CAMPOS = {
     demanda:                 { placeholders: ['ZXZX'] },
     carga_instalada:         { placeholders: ['ZXXZ'] },
     tipo_pessoa_juridica:    { placeholders: ['PJDP'] },
+    revisao:                 { placeholders: ['REVISAO'] },
     endereco_empreendimento: { placeholders: ['XXXY', 'ZZZZ'] },
     localizacao_projeto:     { placeholders: ['HHHH'] },
     data_inicio:             { placeholders: ['DTIN'] },
@@ -210,6 +215,27 @@ const CAMPOS = {
     engenheiro:              { placeholders: ['XXYY','AAAA','BBBB','CCCC','IIII','JJJJ','KKKK'] },
     cliente:                 { placeholders: ['MMMM','NNNN','OOOO','PPPP','QQQQ','RRRR','SSSS','TTTT','UUUU'] }
 };
+
+// Campos do memorial solar: dependem só do documento (docs), não de placeholders
+// do template, porque passam por cálculo antes de virar texto.
+(function registrarCamposSolares() {
+    const solar = (extra = {}) => ({ placeholders: [], docs: ['memorial_solar'], ...extra });
+    const texto = ['fv_mod_marca', 'fv_mod_modelo', 'fv_mod_tec', 'fv_inv_marca', 'fv_inv_modelo', 'fv_inv_ip', 'fv_tensao', 'fv_ligacao'];
+    const numeros = [
+        'fv_mod_pot', 'fv_mod_voc', 'fv_mod_vmp', 'fv_mod_isc', 'fv_mod_imp', 'fv_mod_efic', 'fv_mod_coef_p',
+        'fv_mod_coef_voc', 'fv_mod_coef_isc', 'fv_mod_noct', 'fv_mod_comp', 'fv_mod_larg', 'fv_mod_alt', 'fv_mod_peso',
+        'fv_inv_qtd', 'fv_inv_pot', 'fv_inv_pot_max', 'fv_inv_vmax', 'fv_inv_vmppt_min', 'fv_inv_vmppt_max',
+        'fv_inv_nmppt', 'fv_inv_imppt', 'fv_inv_isc_mppt', 'fv_inv_iac', 'fv_inv_efic',
+        'fv_inclinacao', 'fv_azimute', 'fv_pr', 'fv_tmin', 'fv_tmax', 'fv_cosphi', 'fv_consumo',
+        'fv_cabo_cc', 'fv_comp_ca',
+        ...Array.from({ length: 12 }, (_, i) => `fv_irr_${i + 1}`)
+    ];
+    texto.forEach(id => { CAMPOS[id] = solar(); });
+    numeros.forEach(id => { CAMPOS[id] = solar({ numero: true }); });
+    CAMPOS.fv_cabo_ca = solar({ numero: true, opcional: true });
+    CAMPOS.fv_localizacao = solar({ opcional: true });
+    CAMPOS.fv_strings_json = solar({ validar: () => fvValidarStrings() });
+})();
 
 // Placeholders literais de data presentes nos templates.
 // A data da procuração ("14 / 07 / 2026") é a validade: hoje + 1 ano.
@@ -238,6 +264,7 @@ async function initApp() {
     populateTrafoPotenciasAndTensoes();
     criarIndicadoresDeUso();
     setupEventListeners();
+    if (typeof fvSetupStringsEditor === 'function') { fvSetupStringsEditor(); fvRenderStrings(); }
 
     restaurarRascunho();
     popularProjetosSalvos();
@@ -414,11 +441,12 @@ function atualizarFormulario() {
         if (!campo || !grupo) return;
 
         const necessario = campoNecessario(id, tipos);
+        const opcional = Boolean(CAMPOS[id].opcional);
         grupo.classList.toggle('hidden', !necessario);
-        campo.required = necessario;
+        campo.required = necessario && !opcional;
         if (!necessario) grupo.classList.remove('field-error');
 
-        if (necessario) {
+        if (necessario && !opcional) {
             totalNecessarios++;
             if (valor(id)) totalPreenchidos++;
         }
@@ -488,6 +516,8 @@ function atualizarFormulario() {
 
     const btn = document.getElementById('generate-btn');
     if (btn && !btn.disabled) btn.innerHTML = textoBotaoGerar(tipos.length);
+
+    if (tipos.includes('memorial_solar') && typeof fvAtualizarResumo === 'function') fvAtualizarResumo();
 }
 
 function textoBotaoGerar(qtd) {
@@ -560,6 +590,9 @@ function limparFormulario() {
     const form = document.getElementById('document-form');
     if (form) form.reset();
     try { localStorage.removeItem(STORAGE_RASCUNHO); } catch (e) { /* sem storage */ }
+    const strings = document.getElementById('fv_strings_json');
+    if (strings) strings.value = '';      // input hidden não volta com form.reset()
+    if (typeof fvRenderStrings === 'function') fvRenderStrings();
     setupDefaultDates();
     document.querySelectorAll('.field-error').forEach(g => g.classList.remove('field-error'));
     esconderFeedback();
@@ -601,6 +634,7 @@ function aplicarEstado(estado) {
             el.value = estado[id] ?? '';
         }
     });
+    if (typeof fvRenderStrings === 'function') fvRenderStrings();
     atualizarFormulario();
 }
 
@@ -726,7 +760,8 @@ function validarFormulario() {
         return false;
     }
 
-    const faltando = Object.keys(CAMPOS).filter(id => campoNecessario(id, tipos) && !valor(id));
+    const faltando = Object.keys(CAMPOS).filter(id =>
+        campoNecessario(id, tipos) && !CAMPOS[id].opcional && !CAMPOS[id].validar && !valor(id));
     if (campoNecessario('cliente', tipos) && valor('cliente') === CLIENTE_MANUAL_VALUE) {
         faltando.push(...CLIENTE_MANUAL_FIELD_IDS.filter(id => !valor(id)));
     }
@@ -739,6 +774,24 @@ function validarFormulario() {
             'erro'
         );
         document.getElementById(faltando[0])?.focus({ preventScroll: true });
+        return false;
+    }
+
+    // Números inválidos e validações específicas (ex.: séries do arranjo FV)
+    const invalidos = [];
+    Object.keys(CAMPOS).forEach(id => {
+        const def = CAMPOS[id];
+        if (!campoNecessario(id, tipos)) return;
+        let msg = null;
+        if (def.numero && valor(id) && !isFinite(fvNum(valor(id)))) msg = 'número inválido';
+        if (!msg && def.validar) msg = def.validar();
+        if (msg) {
+            invalidos.push(`<strong>${escapeHtml(rotuloDoCampo(id))}</strong>: ${escapeHtml(msg)}`);
+            document.getElementById(id)?.closest('.form-group')?.classList.add('field-error');
+        }
+    });
+    if (invalidos.length) {
+        mostrarFeedback(`<i class="fas fa-exclamation-triangle"></i> Corrija: ${invalidos.join('; ')}`, 'erro');
         return false;
     }
 
@@ -771,6 +824,13 @@ function extrairMunicipio(enderecoCompleto) {
 
 async function processarFormulario() {
     if (!validarFormulario()) return;
+
+    if (getTiposSelecionados().includes('memorial_solar')) {
+        const avisos = fvCalcular().avisos;
+        if (avisos.length && !confirm(`O dimensionamento FV tem ${avisos.length} ponto(s) de atenção:\n\n• ${avisos.join('\n• ')}\n\nGerar o memorial mesmo assim?`)) {
+            return;
+        }
+    }
     showLoading(true);
 
     try {
@@ -860,8 +920,11 @@ function coletarDadosFormulario() {
         'PJDP': valor('tipo_pessoa_juridica').toLowerCase()
     };
 
+    dados['REVISAO'] = valor('revisao').toUpperCase() || 'REV00';
+
     // Engenheiro
     const engenheiroNome = valor('engenheiro');
+    dados['AUTOR'] = nomeProprio(engenheiroNome);
     const engData = ENGENHEIROS[engenheiroNome] || {};
     Object.assign(dados, {
         'XXYY': engenheiroNome,
@@ -907,11 +970,20 @@ function coletarDadosFormulario() {
     const mesPortugues = MESES_PT_BR[hoje.toLocaleString('en-US', { month: 'long' })];
     dados[PH_DATA_VALIDADE] = `${dia} / ${mes} / ${hoje.getFullYear() + 1}`;
     dados[PH_DATA_EXTENSO] = `${dia} de ${mesPortugues} de ${hoje.getFullYear()}`;
+    dados['DATA_EXTENSO'] = dados[PH_DATA_EXTENSO];
     dados['MES_ATUAL'] = mesPortugues.toUpperCase();
     dados['ANO_ATUAL'] = hoje.getFullYear().toString();
 
     dadosProcessados = { ...dados, tipo_subestacao: valor('tipo_subestacao') };
     return dados;
+}
+
+// "SALOMÃO JOSE COHEN" → "Salomão Jose Cohen" (preposições em minúsculas), como na capa do modelo
+function nomeProprio(texto) {
+    const minusculas = ['da', 'das', 'de', 'do', 'dos', 'e'];
+    return String(texto || '').toLowerCase().split(/\s+/).filter(Boolean)
+        .map((p, i) => (i > 0 && minusculas.includes(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+        .join(' ');
 }
 
 function formatarData(dataString) {
@@ -943,7 +1015,16 @@ async function gerarDocumentosWord(dados, documentosParaGerar) {
     for (const docInfo of documentosParaGerar) {
         const chave = templatesDoDocumento(docInfo.tipo)[0];
         const arrayBuffer = await carregarTemplate(chave);
-        const docxContent = processarTemplateWord(arrayBuffer, dados, docInfo.nome);
+
+        let dadosDoc = dados;
+        let posProcessar = null;
+        if (docInfo.tipo === 'memorial_solar') {
+            const resultado = fvCalcular();
+            const imagens = await fvGerarImagens(resultado, dados['ZZZZ'] ? `${dados['ZZZZ']} – CRESESB/SunData` : 'CRESESB/SunData');
+            dadosDoc = { ...dados, ...fvDadosTemplate(resultado, { temLocalizacao: Boolean(imagens.IMG_LOCALIZACAO) }) };
+            posProcessar = zip => fvInserirImagensDocx(zip, imagens);
+        }
+        const docxContent = processarTemplateWord(arrayBuffer, dadosDoc, docInfo.nome, posProcessar);
 
         documentosGerados.push({
             nome: docInfo.nome,
@@ -954,7 +1035,7 @@ async function gerarDocumentosWord(dados, documentosParaGerar) {
     }
 }
 
-function processarTemplateWord(arrayBuffer, dados, nomeDocumento = '') {
+function processarTemplateWord(arrayBuffer, dados, nomeDocumento = '', posProcessar = null) {
     const naoPreenchidos = new Set();
     try {
         // PizZip recebe uma cópia para o cache do template continuar intacto
@@ -974,6 +1055,7 @@ function processarTemplateWord(arrayBuffer, dados, nomeDocumento = '') {
         if (naoPreenchidos.size) {
             console.warn(`[${nomeDocumento}] placeholders sem valor:`, [...naoPreenchidos]);
         }
+        if (posProcessar) posProcessar(doc.getZip());
 
         return doc.getZip().generate({
             type: "arraybuffer",

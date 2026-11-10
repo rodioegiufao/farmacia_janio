@@ -88,10 +88,12 @@ const CLIENTE_MANUAL_FIELD_IDS = [
     'cliente_manual_cpf', 'cliente_manual_domicilio'
 ];
 // Dados para os Transformadores
-const PT_TRAFO = [112.5, 150, 225, 500, 750, 1000, 1250, 1500];
-const TENSOES_TRAFO = ["220/127V", "380V/220V"]; 
+// 5 a 75 kVA: dimensionamento calculado (subestacao.js); 112,5 kVA em diante: tabelas abaixo
+const PT_TRAFO = [5, 10, 15, 25, 30, 35, 37.5, 45, 75, 112.5, 150, 225, 500, 750, 1000, 1250, 1500];
+const TENSOES_TRAFO = ["220/127V", "380V/220V", "240/120V"]; // 240/120V: só monofásico
 
-// --- DADOS DE PROTEÇÃO 220/127V ---
+// --- DADOS DE PROTEÇÃO 220/127V (112,5 kVA em diante) ---
+// IB_* ficam só como referência: Ib agora é calculado (S/√3·V), igual à NDEE-01.
 const IB_220 = [296.05, 394.74, 592.11, 1315.79, 1973.68, 2631.58, 3289.47, 3947.36];
 const IN_220 = [300, 400, 630, 1600, 2000, 3200, 3500, 4000];
 const IZ_220 = [444, 624, 716, 1924, 2405, 3367, 4424, 4424];
@@ -177,8 +179,8 @@ const PRESETS = {
 // são lidos e esta lista é substituída pelo que realmente existe nos .docx,
 // então editar um template no Word já ajusta o formulário sozinho.
 const PLACEHOLDERS_PADRAO = {
-    memorial: ['AUTOR','REVISAO','AAAA','ANO_ATUAL','BBBB','CABX1','CABX2','CCCC','DDDD','EEEE','FFFF','GGGG','IAJU1','IAJU2','IBXX1','IBXX2','INXX1','INXX2','IZXX1','IZXX2','IZXY1','IZXY2','MES_ATUAL','MMMM','PTF1','PTF2','QTD11','QTD12','QTDY1','QTDY2','TIPO_TRAFO','TTF1','TTF2','XXXX','XXXY','XXYY','YYYY','ZXXZ','ZXZX'],
-    memorial_aerea: ['AUTOR','REVISAO','AAAA','ANO_ATUAL','BBBB','CABX1','CCCC','DDDD','EEEE','FFFF','GGGG','IAJU1','IBXX1','INXX1','IZXX1','IZXY1','MES_ATUAL','MMMM','PTF1','QTD11','QTDY1','XXXX','XXXY','XXYY','YYYY','ZXXZ','ZXZX'],
+    memorial: ['AUTOR','REVISAO','FASES_SUB','FASES_SUB_MAIUSC','TIPO_TRAFO_TXT','NFASES1','NCARREG1','DISJ_DESC1','AAAA','ANO_ATUAL','BBBB','CABX1','CABX2','CCCC','DDDD','EEEE','FFFF','GGGG','IAJU1','IAJU2','IBXX1','IBXX2','INXX1','INXX2','IZXX1','IZXX2','IZXY1','IZXY2','MES_ATUAL','MMMM','PTF1','PTF2','QTD11','QTD12','QTDY1','QTDY2','TIPO_TRAFO','TTF1','TTF2','XXXX','XXXY','XXYY','YYYY','ZXXZ','ZXZX'],
+    memorial_aerea: ['AUTOR','REVISAO','FASES_SUB','FASES_SUB_MAIUSC','TIPO_TRAFO_TXT','NFASES1','NCARREG1','DISJ_DESC1','AAAA','ANO_ATUAL','BBBB','CABX1','CCCC','DDDD','EEEE','FFFF','GGGG','IAJU1','IBXX1','INXX1','IZXX1','IZXY1','MES_ATUAL','MMMM','PTF1','QTD11','QTDY1','XXXX','XXXY','XXYY','YYYY','ZXXZ','ZXZX'],
     'procuração': ['14 / 07 / 2026','14 de julho de 2025','AAAA','GGGG','IIII','JJJJ','KKKK','LLLL','MMMM','NNNN','OOOO','PJDP','PPPP','QQQQ','RRRR','SSSS','TTTT','UUUU','XXXY','XXYY'],
     termo_responsabilidade: ['14 de julho de 2025','GGGG','LLLL','MMMM','PPPP','TTTT','UUUU','XXXY'],
     carta_viabilidade: ['BBBB','CCCC','DDDD','DTFI','DTIN','GGGG','HHHH','MMMM','NNNN','OOOO','VVVV','XXXX','XXXY','XXYY','ZXZX'],
@@ -186,7 +188,7 @@ const PLACEHOLDERS_PADRAO = {
     memorial_solar: ['AUTOR','REVISAO','AAAA','ANO_ATUAL','BBBB','CCCC','DATA_EXTENSO','GGGG','HHHH','LLLL','MES_ATUAL','MMMM','PJDP','VVVV','XXXY','XXYY','YYYY','ZZZZ']
 };
 
-const derivadosTrafo = n => ['IBXX','INXX','IZXX','CABX','QTDY','IZXY','IAJU','IZ14','QTD1'].map(p => p + n);
+const derivadosTrafo = n => ['IBXX','INXX','IZXX','CABX','QTDY','IZXY','IAJU','IZ14','QTD1','NFASES','NCARREG','DISJ_DESC','FASES_TRAFO'].map(p => p + n);
 
 const CAMPOS = {
     potencia:                { placeholders: ['XXXX'] },
@@ -196,7 +198,8 @@ const CAMPOS = {
     ramal_cabo:              { placeholders: ['FFFF'] },
     tipo_subestacao:         { placeholders: [], docs: ['memorial'] },
     quantidade_trafos:       { placeholders: ['PTF2', 'TTF2', ...derivadosTrafo(2)] },
-    tipo_trafo:              { placeholders: ['TIPO_TRAFO'] },
+    tipo_trafo:              { placeholders: ['TIPO_TRAFO', 'TIPO_TRAFO_TXT'] },
+    fases_sub:               { placeholders: ['FASES_SUB', 'FASES_SUB_MAIUSC', 'NFASES1', 'NCARREG1', 'DISJ_DESC1'] },
     potencia_trafo_1:        { placeholders: ['PTF1', ...derivadosTrafo(1)] },
     tensao_trafo_1:          { placeholders: ['TTF1', ...derivadosTrafo(1)] },
     potencia_trafo_2:        { placeholders: ['PTF2', ...derivadosTrafo(2)], quando: () => valor('quantidade_trafos') === '2' },
@@ -518,6 +521,7 @@ function atualizarFormulario() {
     if (btn && !btn.disabled) btn.innerHTML = textoBotaoGerar(tipos.length);
 
     if (tipos.includes('memorial_solar') && typeof fvAtualizarResumo === 'function') fvAtualizarResumo();
+    if (typeof subAtualizarPainel === 'function') subAtualizarPainel();
 }
 
 function textoBotaoGerar(qtd) {
@@ -550,6 +554,9 @@ function setupEventListeners() {
         });
         form.addEventListener('change', e => {
             if (e.target.id === 'projeto_salvo') return;
+            if (/^(potencia_trafo_\d|quantidade_trafos|fases_sub)$/.test(e.target.id) && typeof subAtualizarFases === 'function') {
+                subAtualizarFases();
+            }
             if (e.target.id === 'quantidade_trafos' && e.target.value !== '2') {
                 ['potencia_trafo_2', 'tensao_trafo_2'].forEach(id => {
                     const f = document.getElementById(id);
@@ -635,6 +642,7 @@ function aplicarEstado(estado) {
         }
     });
     if (typeof fvRenderStrings === 'function') fvRenderStrings();
+    if (typeof subAtualizarFases === 'function') subAtualizarFases();
     atualizarFormulario();
 }
 
@@ -825,6 +833,19 @@ function extrairMunicipio(enderecoCompleto) {
 async function processarFormulario() {
     if (!validarFormulario()) return;
 
+    const coerencia = typeof subVerificarCoerencia === 'function' ? subVerificarCoerencia() : [];
+    if (coerencia.length) {
+        const erros = coerencia.filter(a => a.nivel === 'erro');
+        const texto = coerencia.map(a => `${a.nivel === 'erro' ? '✖' : '⚠'} ${a.msg}`).join('\n\n');
+        const titulo = erros.length
+            ? `Encontrei ${erros.length} inconsistência(s) nos dados que iriam para os documentos:`
+            : 'Pontos de atenção nos dados:';
+        if (!confirm(`${titulo}\n\n${texto}\n\nGerar mesmo assim?`)) {
+            document.getElementById('painel-coerencia')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+    }
+
     if (getTiposSelecionados().includes('memorial_solar')) {
         const avisos = fvCalcular().avisos;
         if (avisos.length && !confirm(`O dimensionamento FV tem ${avisos.length} ponto(s) de atenção:\n\n• ${avisos.join('\n• ')}\n\nGerar o memorial mesmo assim?`)) {
@@ -852,40 +873,11 @@ async function processarFormulario() {
 }
 
 /**
- * Calcula os dados de proteção (IB, IN, IZ, CAB, QTD_CAB, I_CAB, I_AJUSTE, IZ x 1,45)
- * para um transformador específico.
+ * Dados de proteção (IB, IN, IZ, cabos, disjuntor) de um transformador.
+ * O cálculo (mono/trifásico, NDEE-01 Tabela 1B, EPR/XLPE) está em subestacao.js.
  */
 function getTrafoData(potencia, tensao, trafoNumber) {
-    const vazio = () => Object.fromEntries(derivadosTrafo(trafoNumber).map(k => [k, 'N/A']));
-    if (!potencia || !tensao) return vazio();
-
-    const index = PT_TRAFO.indexOf(parseFloat(potencia));
-    if (index === -1) {
-        console.error(`Potência ${potencia} não encontrada em PT_TRAFO.`);
-        return vazio();
-    }
-
-    let t;
-    if (tensao === "220/127V") {
-        t = { IB: IB_220, IN: IN_220, IZ: IZ_220, CAB: CAB_220, QTD_CAB: QTD_CAB_220, I_CAB: I_CAB_220, AJ: I_AJUSTE_220, QTD: QTD_220 };
-    } else if (tensao === "380V/220V") {
-        t = { IB: IB_380, IN: IN_380, IZ: IZ_380, CAB: CAB_380, QTD_CAB: QTD_CAB_380, I_CAB: I_CAB_380, AJ: I_AJUSTE_380, QTD: QTD_380 };
-    } else {
-        return vazio();
-    }
-
-    const izValue = parseFloat(t.IZ[index]);
-    return {
-        [`IBXX${trafoNumber}`]: t.IB[index],
-        [`INXX${trafoNumber}`]: t.IN[index],
-        [`IZXX${trafoNumber}`]: t.IZ[index],
-        [`CABX${trafoNumber}`]: t.CAB[index],
-        [`QTDY${trafoNumber}`]: t.QTD_CAB[index],
-        [`IZXY${trafoNumber}`]: t.I_CAB[index],
-        [`IAJU${trafoNumber}`]: t.AJ[index],
-        [`IZ14${trafoNumber}`]: isNaN(izValue) ? 'N/A' : (izValue * 1.45).toFixed(2),
-        [`QTD1${trafoNumber}`]: t.QTD[index]
-    };
+    return calcularTrafo(potencia, tensao, trafoNumber, valor('fases_sub') || 'tri');
 }
 
 function coletarDadosFormulario() {
@@ -906,6 +898,9 @@ function coletarDadosFormulario() {
         'PTF2': potencia2 || 'N/A',
         'TTF2': tensao2 || 'N/A',
         'TIPO_TRAFO': valor('tipo_trafo') || 'N/A',
+        'TIPO_TRAFO_TXT': valor('tipo_trafo') === 'SECO' ? 'a seco' : 'a óleo',
+        'FASES_SUB': SUB_FASES_TXT[valor('fases_sub') || 'tri'].nome,
+        'FASES_SUB_MAIUSC': SUB_FASES_TXT[valor('fases_sub') || 'tri'].nome.toUpperCase(),
         'ZXXZ': valor('carga_instalada'),
         ...getTrafoData(potencia1, tensao1, 1),
         ...getTrafoData(potencia2, tensao2, 2),

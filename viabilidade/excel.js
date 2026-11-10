@@ -52,6 +52,7 @@ const PLANILHA_ABAS = [
         aba: 'Inf Sub',
         linhas: [
             { rotulo: 'Quantidade de Transformadores', id: 'quantidade_trafos', tipo: 'lista', exemplo: '1 Transformador' },
+            { rotulo: 'Tipo de ligação', id: 'fases_sub', tipo: 'lista', alias: ['Fases', 'Tipo de ligação do transformador'], exemplo: 'Trifásica' },
             { rotulo: 'Tipo de Transformador', id: 'tipo_trafo', tipo: 'lista', exemplo: 'ÓLEO' },
             { rotulo: 'Potência do Trafo 1 (kVA)', id: 'potencia_trafo_1', tipo: 'lista', exemplo: '225 kVA' },
             { rotulo: 'Tensão do Trafo 1', id: 'tensao_trafo_1', tipo: 'lista', exemplo: '380V/220V' },
@@ -243,6 +244,10 @@ function xlResolverOpcao(id, bruto) {
         achou = opcoes.find(o => parseFloat(o.valor.replace(',', '.')) === num || parseFloat(o.texto.replace(',', '.')) === num);
         if (achou) return achou.valor;
     }
+    // gênero/plural ("Monofásico" = "Monofásica", "Transformadores" = "Transformador")
+    const semFlexao = t => xlNormalizar(t).replace(/(es|as|os|a|o|s)$/, '');
+    achou = opcoes.find(o => semFlexao(o.texto) === semFlexao(bruto) || semFlexao(o.valor) === semFlexao(bruto));
+    if (achou) return achou.valor;
     // início do texto ("Média tensão" → "Média tensão (subestação própria)")
     if (alvo.length >= 4) {
         achou = opcoes.find(o => xlNormalizar(o.texto).startsWith(alvo) || alvo.startsWith(xlNormalizar(o.texto)));

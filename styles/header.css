@@ -1,0 +1,364 @@
+/* =========================================================
+   Cabeçalho novo (fixo no topo)
+   Classes com prefixo tb- para não conflitar com main.css
+   ========================================================= */
+.topbar {
+    --tb-bg: rgba(16, 26, 35, 0.88);
+    --tb-surface: #172430;
+    --tb-surface-2: #1d2d3b;
+    --tb-line: #2b3d4c;
+    --tb-ink: #e8edf1;
+    --tb-muted: #9aabb9;
+    --tb-accent: #f2c230;
+    --tb-on-accent: #101a23;
+    --tb-shadow: 0 24px 60px rgba(4, 10, 16, 0.55);
+    --tb-h: 68px;
+}
+
+[data-theme="light"] .topbar {
+    --tb-bg: rgba(255, 255, 255, 0.9);
+    --tb-surface: #ffffff;
+    --tb-surface-2: #eef1f3;
+    --tb-line: #dee2e6;
+    --tb-ink: #13202b;
+    --tb-muted: #55677a;
+    --tb-on-accent: #13202b;
+    --tb-shadow: 0 24px 60px rgba(19, 32, 43, 0.14);
+}
+
+html { scroll-padding-top: 84px; }
+
+.topbar [hidden] { display: none !important; }
+
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: var(--tb-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--tb-line);
+    color: var(--tb-ink);
+    font-family: "Barlow", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 1.0625rem;
+    line-height: 1.4;
+}
+
+.topbar :focus-visible {
+    outline: 2px solid var(--tb-accent);
+    outline-offset: 3px;
+}
+
+.topbar-inner {
+    max-width: 1200px;
+    height: var(--tb-h);
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+/* Marca */
+.tb-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    color: var(--tb-ink);
+    text-decoration: none;
+    flex-shrink: 0;
+}
+.tb-brand-mark {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--tb-accent);
+    border-radius: 4px;
+    font: 700 0.95rem/1 "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+    letter-spacing: 0.02em;
+}
+.tb-brand-name { font: 600 1.15rem/1 "Barlow Semi Condensed", "Arial Narrow", sans-serif; }
+
+/* Navegação */
+#masthead .main-navigation { margin: 0 0 0 auto; }
+
+.tb-menu {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.tb-menu > li { position: relative; }
+.tb-menu > li > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: 6px;
+    color: var(--tb-muted);
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+.tb-menu > li > a:hover,
+.tb-menu .menu-item-has-children.active > a {
+    color: var(--tb-ink);
+    background: var(--tb-surface-2);
+}
+.tb-menu .fa-chevron-down { font-size: 0.7rem; transition: transform 0.2s ease; }
+.tb-menu .menu-item-has-children.active .fa-chevron-down { transform: rotate(180deg); }
+
+.tb-sub {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    min-width: 280px;
+    margin: 0;
+    padding: 0.4rem;
+    list-style: none;
+    background: var(--tb-surface);
+    border: 1px solid var(--tb-line);
+    border-radius: 10px;
+    box-shadow: var(--tb-shadow);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+}
+.menu-item-has-children.active .tb-sub {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+.tb-sub a {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 6px;
+    color: var(--tb-ink);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.tb-sub a i { width: 1.1rem; color: var(--tb-muted); text-align: center; }
+.tb-sub a:hover { background: var(--tb-surface-2); }
+.tb-sub a:hover i { color: var(--tb-accent); }
+
+/* Ações à direita */
+.tb-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Alternador de tema */
+.tb-theme { position: relative; display: inline-flex; cursor: pointer; }
+.tb-theme input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.tb-track {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 58px;
+    height: 30px;
+    padding: 0 7px;
+    border: 1px solid var(--tb-line);
+    border-radius: 999px;
+    background: var(--tb-surface);
+}
+.tb-track::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--tb-accent);
+    transition: transform 0.25s ease;
+}
+.tb-theme input:checked + .tb-track::before { transform: translateX(28px); }
+.tb-theme input:focus-visible + .tb-track { outline: 2px solid var(--tb-accent); outline-offset: 3px; }
+
+.tb-icon {
+    position: relative;
+    z-index: 1;
+    width: 14px;
+    height: 14px;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+.tb-moon { fill: var(--tb-on-accent); stroke: none; }
+.tb-sun { fill: none; stroke: var(--tb-muted); }
+.tb-theme input:checked + .tb-track .tb-moon { fill: var(--tb-muted); }
+.tb-theme input:checked + .tb-track .tb-sun { stroke: var(--tb-on-accent); }
+.tb-theme input:checked + .tb-track .tb-sun circle { fill: var(--tb-on-accent); }
+
+/* Área interna (login) */
+.tb-auth { position: relative; display: flex; align-items: center; }
+
+.tb-login-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 36px;
+    padding: 0 0.85rem;
+    border: 1px solid var(--tb-line);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--tb-ink);
+    font: 500 0.95rem/1 "Barlow", "Segoe UI", sans-serif;
+    cursor: pointer;
+}
+.tb-login-trigger i { font-size: 0.8rem; color: var(--tb-muted); }
+.tb-login-trigger:hover,
+.tb-login-trigger[aria-expanded="true"] { border-color: var(--tb-ink); }
+
+.tb-login {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    z-index: 1100;
+    width: min(320px, calc(100vw - 2rem));
+    display: grid;
+    gap: 0.9rem;
+    padding: 1.25rem;
+    background: var(--tb-surface);
+    border: 1px solid var(--tb-line);
+    border-radius: 10px;
+    box-shadow: var(--tb-shadow);
+}
+.tb-login-title { margin: 0; font: 600 1.2rem/1.2 "Barlow Semi Condensed", "Arial Narrow", sans-serif; }
+.tb-login-message {
+    margin: 0;
+    padding: 0.6rem 0.75rem;
+    border-left: 3px solid var(--tb-accent);
+    background: var(--tb-surface-2);
+    font-size: 0.92rem;
+}
+.tb-field { display: grid; gap: 0.35rem; }
+.tb-field > span:first-child { font-size: 0.9rem; color: var(--tb-muted); }
+.tb-field input {
+    width: 100%;
+    height: 42px;
+    padding: 0 0.75rem;
+    border: 1px solid var(--tb-line);
+    border-radius: 6px;
+    background: var(--tb-surface-2);
+    color: var(--tb-ink);
+    font: 400 1rem "Barlow", "Segoe UI", sans-serif;
+}
+.tb-field input:focus { outline: none; border-color: var(--tb-accent); }
+
+.tb-pass { position: relative; display: block; }
+.tb-pass input { padding-right: 2.75rem; }
+.tb-pass-toggle {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    width: 34px;
+    height: 34px;
+    transform: translateY(-50%);
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--tb-muted);
+    cursor: pointer;
+}
+.tb-pass-toggle:hover { color: var(--tb-ink); }
+
+.tb-submit {
+    height: 44px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--tb-accent);
+    color: var(--tb-on-accent);
+    font: 600 1rem/1 "Barlow", "Segoe UI", sans-serif;
+    cursor: pointer;
+}
+.tb-submit:hover { background: #ffd451; }
+
+/* Avatar do usuário logado no mesmo acento */
+#masthead .user-avatar { background: var(--tb-accent); color: var(--tb-on-accent); }
+#masthead .user-menu-trigger { border-color: var(--tb-line); background: transparent; }
+
+/* Botão do menu no celular */
+.tb-nav-toggle {
+    display: none;
+    position: relative;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid var(--tb-line);
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+}
+.tb-nav-toggle span {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    height: 2px;
+    background: var(--tb-ink);
+    transition: transform 0.2s ease;
+}
+.tb-nav-toggle span:first-child { top: 15px; }
+.tb-nav-toggle span:last-child { top: 23px; }
+.tb-nav-toggle[aria-expanded="true"] span:first-child { transform: translateY(4px) rotate(45deg); }
+.tb-nav-toggle[aria-expanded="true"] span:last-child { transform: translateY(-4px) rotate(-45deg); }
+
+/* Responsivo */
+@media (max-width: 1080px) {
+    .topbar-inner { gap: 1rem; }
+    .tb-menu > li > a { padding: 0.55rem 0.6rem; }
+}
+
+@media (max-width: 960px) {
+    .tb-nav-toggle { display: inline-block; }
+    .tb-brand-name { display: none; }
+    .tb-actions { margin-left: auto; }
+
+    #masthead .main-navigation {
+        position: absolute;
+        top: var(--tb-h);
+        left: 0;
+        right: 0;
+        margin: 0;
+        padding: 0.5rem 20px 1.25rem;
+        background: var(--tb-surface);
+        border-bottom: 1px solid var(--tb-line);
+        display: none;
+    }
+    #masthead .main-navigation.open { display: block; }
+
+    .tb-menu { flex-direction: column; align-items: stretch; }
+    .tb-menu > li > a { width: 100%; padding: 0.85rem 0.5rem; }
+
+    .tb-sub {
+        position: static;
+        min-width: 0;
+        margin: 0.25rem 0 0.5rem;
+        box-shadow: none;
+        display: none;
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+    }
+    .menu-item-has-children.active .tb-sub { display: block; }
+}
+
+@media (max-width: 620px) {
+    .tb-login-trigger span { display: none; }
+    .tb-login-trigger { width: 36px; padding: 0; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .topbar *, .topbar *::before { transition-duration: 0.01ms !important; }
+}
+
+/* Respiro abaixo do cabeçalho e âncoras visíveis com o cabeçalho fixo */
+.topbar + .site-content { padding-top: 2.5rem; }
+.site-content [id] { scroll-margin-top: 90px; }

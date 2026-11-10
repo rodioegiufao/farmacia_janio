@@ -821,3 +821,166 @@ body {
         margin-bottom: 15px;
     }
 }
+
+/* ===== v2.1 — Seleção de documentos e campos dinâmicos ===== */
+.step-docs {
+    background: rgba(49, 130, 206, 0.06);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 25px;
+}
+
+.saved-projects {
+    margin-bottom: 22px;
+}
+
+.saved-projects > label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-light);
+}
+
+.saved-projects > label i { color: var(--accent-blue); }
+
+.saved-projects-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.saved-projects-row select {
+    flex: 1;
+    min-width: 220px;
+    padding: 11px 14px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--primary-medium);
+    color: var(--text-light);
+    font-size: 0.95rem;
+}
+
+.saved-projects small {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.82rem;
+    opacity: 0.7;
+}
+
+.btn-small {
+    padding: 10px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--primary-medium);
+    color: var(--text-light);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.btn-small:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+.btn-small-danger:hover { border-color: var(--error); color: var(--error); }
+
+.presets {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.presets-label {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-right: 4px;
+}
+
+.preset-btn {
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-light);
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.preset-btn:hover { border-color: var(--accent-blue); }
+
+.preset-btn.active {
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: #fff;
+}
+
+.fields-counter {
+    margin-top: 15px;
+    font-size: 0.92rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.9;
+}
+
+.fields-counter i { color: var(--accent-blue); }
+.fields-counter.complete i { color: var(--success); }
+
+.field-docs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 7px;
+}
+
+.doc-chip {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    opacity: 0.5;
+}
+
+.doc-chip.active {
+    opacity: 1;
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+}
+
+.trafo-2-fields {
+    margin-top: 25px;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 25px;
+}
+
+.form-group.field-error input,
+.form-group.field-error select {
+    border-color: var(--error);
+    box-shadow: 0 0 0 3px rgba(245, 101, 101, 0.18);
+}
+
+.form-group.field-error label { color: var(--error); }
+
+.form-feedback {
+    margin-top: 25px;
+    padding: 14px 18px;
+    border-radius: 8px;
+    border-left: 4px solid var(--error);
+    background: rgba(245, 101, 101, 0.1);
+    line-height: 1.7;
+}
+
+.form-feedback.sucesso {
+    border-left-color: var(--success);
+    background: rgba(72, 187, 120, 0.1);
+}
+
+@media (max-width: 768px) {
+    .saved-projects-row select { min-width: 100%; }
+}

@@ -148,118 +148,134 @@ const TEMPLATES = {
     "termo_nao_geração": "viabilidade/templates/termo-nao-geração.docx"
 };
 
+// =====================================================================
+// MAPA DE DOCUMENTOS E CAMPOS
+// Cada campo do formulário declara quais placeholders alimenta. Um campo
+// só aparece (e só é obrigatório) se algum documento selecionado usar
+// pelo menos um desses placeholders.
+// =====================================================================
+
+const DOCUMENTOS = [
+    { tipo: 'memorial',               checkbox: 'gerar_memorial',          nome: 'Memorial Descritivo',       curto: 'Memorial' },
+    { tipo: 'procuração',             checkbox: 'gerar_procuracao',        nome: 'Procuração',                curto: 'Procuração' },
+    { tipo: 'termo_responsabilidade', checkbox: 'gerar_termo',             nome: 'Termo de Responsabilidade', curto: 'T. Responsabilidade' },
+    { tipo: 'carta_viabilidade',      checkbox: 'gerar_carta',             nome: 'Carta de Viabilidade',      curto: 'Carta' },
+    { tipo: 'termo_nao_geração',      checkbox: 'gerar_termo_nao_geracao', nome: 'Termo de Não Geração',      curto: 'T. Não Geração' }
+];
+
+const PRESETS = {
+    completo:   DOCUMENTOS.map(d => d.tipo),
+    procuracao: ['procuração'],
+    cliente:    ['procuração', 'termo_responsabilidade', 'termo_nao_geração'],
+    tecnico:    ['memorial', 'carta_viabilidade']
+};
+
+// Placeholders de cada template (fallback). Ao abrir a página, os templates
+// são lidos e esta lista é substituída pelo que realmente existe nos .docx,
+// então editar um template no Word já ajusta o formulário sozinho.
+const PLACEHOLDERS_PADRAO = {
+    memorial: ['AAAA','ANO_ATUAL','BBBB','CABX1','CABX2','CCCC','DDDD','EEEE','FFFF','GGGG','IAJU1','IAJU2','IBXX1','IBXX2','INXX1','INXX2','IZXX1','IZXX2','IZXY1','IZXY2','MES_ATUAL','MMMM','PTF1','PTF2','QTD11','QTD12','QTDY1','QTDY2','TIPO_TRAFO','TTF1','TTF2','XXXX','XXXY','XXYY','YYYY','ZXXZ','ZXZX'],
+    memorial_aerea: ['AAAA','ANO_ATUAL','BBBB','CABX1','CCCC','DDDD','EEEE','FFFF','GGGG','IAJU1','IBXX1','INXX1','IZXX1','IZXY1','MES_ATUAL','MMMM','PTF1','QTD11','QTDY1','XXXX','XXXY','XXYY','YYYY','ZXXZ','ZXZX'],
+    'procuração': ['14 / 07 / 2026','14 de julho de 2025','AAAA','GGGG','IIII','JJJJ','KKKK','LLLL','MMMM','NNNN','OOOO','PJDP','PPPP','QQQQ','RRRR','SSSS','TTTT','UUUU','XXXY','XXYY'],
+    termo_responsabilidade: ['14 de julho de 2025','GGGG','LLLL','MMMM','PPPP','TTTT','UUUU','XXXY'],
+    carta_viabilidade: ['BBBB','CCCC','DDDD','DTFI','DTIN','GGGG','HHHH','MMMM','NNNN','OOOO','VVVV','XXXX','XXXY','XXYY','ZXZX'],
+    'termo_nao_geração': ['14 de julho de 2025','AAAA','GGGG','JJJJ','NNNN','PPPP','TTTT','VVVV','XXXY','XXYY']
+};
+
+const derivadosTrafo = n => ['IBXX','INXX','IZXX','CABX','QTDY','IZXY','IAJU','IZ14','QTD1'].map(p => p + n);
+
+const CAMPOS = {
+    potencia:                { placeholders: ['XXXX'] },
+    art:                     { placeholders: ['YYYY'] },
+    tensao:                  { placeholders: ['DDDD'] },
+    ramal_tamanho:           { placeholders: ['EEEE'] },
+    ramal_cabo:              { placeholders: ['FFFF'] },
+    tipo_subestacao:         { placeholders: [], docs: ['memorial'] },
+    quantidade_trafos:       { placeholders: ['PTF2', 'TTF2', ...derivadosTrafo(2)] },
+    tipo_trafo:              { placeholders: ['TIPO_TRAFO'] },
+    potencia_trafo_1:        { placeholders: ['PTF1', ...derivadosTrafo(1)] },
+    tensao_trafo_1:          { placeholders: ['TTF1', ...derivadosTrafo(1)] },
+    potencia_trafo_2:        { placeholders: ['PTF2', ...derivadosTrafo(2)], quando: () => valor('quantidade_trafos') === '2' },
+    tensao_trafo_2:          { placeholders: ['TTF2', ...derivadosTrafo(2)], quando: () => valor('quantidade_trafos') === '2' },
+    nome_projeto:            { placeholders: ['GGGG'] },
+    concessionaria:          { placeholders: ['LLLL'] },
+    numero_uc:               { placeholders: ['VVVV'] },
+    demanda:                 { placeholders: ['ZXZX'] },
+    carga_instalada:         { placeholders: ['ZXXZ'] },
+    tipo_pessoa_juridica:    { placeholders: ['PJDP'] },
+    endereco_empreendimento: { placeholders: ['XXXY', 'ZZZZ'] },
+    localizacao_projeto:     { placeholders: ['HHHH'] },
+    data_inicio:             { placeholders: ['DTIN'] },
+    data_fim:                { placeholders: ['DTFI'] },
+    engenheiro:              { placeholders: ['XXYY','AAAA','BBBB','CCCC','IIII','JJJJ','KKKK'] },
+    cliente:                 { placeholders: ['MMMM','NNNN','OOOO','PPPP','QQQQ','RRRR','SSSS','TTTT','UUUU'] }
+};
+
+// Placeholders literais de data presentes nos templates.
+// A data da procuração ("14 / 07 / 2026") é a validade: hoje + 1 ano.
+const PH_DATA_VALIDADE = '14 / 07 / 2026';
+const PH_DATA_EXTENSO = '14 de julho de 2025';
+
+const STORAGE_RASCUNHO = 'viabilidade:rascunho';
+const STORAGE_PROJETOS = 'viabilidade:projetos';
+
 // Variáveis globais
 let documentosGerados = [];
 let dadosProcessados = {};
+let placeholdersTemplate = JSON.parse(JSON.stringify(PLACEHOLDERS_PADRAO));
+const templateCache = {};
+let timerRascunho = null;
 
-// Inicialização
-document.addEventListener('DOMContentLoaded', function() {
-    initApp();
-});
+// =====================================================================
+// INICIALIZAÇÃO
+// =====================================================================
+
+document.addEventListener('DOMContentLoaded', initApp);
 
 async function initApp() {
-    // Configurar datas padrão
     setupDefaultDates();
-    
-    // Preencher seletores
     populateSelectors();
-    
-    // NOVO: Função que preenche Potências E Tensões dos Trafos
     populateTrafoPotenciasAndTensoes();
-    setupTrafoQuantityListener();
-    
-    // Verificar templates
-    await checkTemplates();
-    
-    // Configurar eventos
+    criarIndicadoresDeUso();
     setupEventListeners();
+
+    restaurarRascunho();
+    popularProjetosSalvos();
+    atualizarFormulario();
+
+    await checkTemplates();
+    atualizarFormulario(); // reavalia com os placeholders lidos dos templates
 }
 
-/**
- * NOVO: Função para popular Potências e TENSÕES para os transformadores.
- * Incluído para compatibilidade com o HTML da interação anterior.
- */
+function valor(id) {
+    const el = document.getElementById(id);
+    return el ? String(el.value || '').trim() : '';
+}
+
 function populateTrafoPotenciasAndTensoes() {
-    const select1 = document.getElementById('potencia_trafo_1');
-    const select2 = document.getElementById('potencia_trafo_2');
-    const tensao1 = document.getElementById('tensao_trafo_1');
-    const tensao2 = document.getElementById('tensao_trafo_2');
-
-    // 1. Potências
-    function addPotenciaOptions(selectElement) {
-        if (!selectElement) return;
-        selectElement.innerHTML = '<option value="" disabled selected>Selecione a Potência (kVA)</option>';
-        PT_TRAFO.forEach(potencia => {
+    const addOptions = (id, placeholder, itens, rotulo) => {
+        const select = document.getElementById(id);
+        if (!select) return;
+        select.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
+        itens.forEach(item => {
             const option = document.createElement('option');
-            option.value = potencia;
-            option.textContent = `${potencia} kVA`;
-            selectElement.appendChild(option);
+            option.value = item;
+            option.textContent = rotulo(item);
+            select.appendChild(option);
         });
-    }
-    
-    // 2. Tensões
-    function addTensaoOptions(selectElement) {
-        if (!selectElement) return;
-        selectElement.innerHTML = '<option value="" disabled selected>Selecione a Tensão</option>';
-        TENSOES_TRAFO.forEach(tensao => {
-            const option = document.createElement('option');
-            option.value = tensao;
-            option.textContent = tensao;
-            selectElement.appendChild(option);
-        });
-    }
-
-    addPotenciaOptions(select1);
-    addPotenciaOptions(select2);
-    addTensaoOptions(tensao1);
-    addTensaoOptions(tensao2);
+    };
+    ['potencia_trafo_1', 'potencia_trafo_2'].forEach(id =>
+        addOptions(id, 'Selecione a Potência (kVA)', PT_TRAFO, p => `${p} kVA`));
+    ['tensao_trafo_1', 'tensao_trafo_2'].forEach(id =>
+        addOptions(id, 'Selecione a Tensão', TENSOES_TRAFO, t => t));
 }
-
-/**
- * NOVO: Função para controlar a visibilidade dos campos do Trafo 2.
- * Incluído para compatibilidade com o HTML da interação anterior.
- */
-function setupTrafoQuantityListener() {
-    const quantitySelect = document.getElementById('quantidade_trafos');
-    const trafo2Fields = document.getElementById('trafo_2_fields');
-    
-    if (!quantitySelect || !trafo2Fields) return;
-    
-    const potencia2 = document.getElementById('potencia_trafo_2');
-    const tensao2 = document.getElementById('tensao_trafo_2');
-
-    function toggleTrafo2(show) {
-        trafo2Fields.style.display = show ? 'grid' : 'none';
-        
-        // Define/remove a obrigatoriedade dos campos
-        if (potencia2) potencia2.required = show;
-        if (tensao2) tensao2.required = show;
-        
-        // Limpa os valores se for desativado
-        if (!show) {
-            if (potencia2) potencia2.value = '';
-            if (tensao2) tensao2.value = ''; 
-        }
-    }
-
-    // Inicialização 
-    toggleTrafo2(quantitySelect.value === '2');
-
-    quantitySelect.addEventListener('change', (event) => {
-        toggleTrafo2(event.target.value === '2');
-    });
-}
-
 
 function setupDefaultDates() {
     const hoje = new Date();
     const umAno = new Date();
     umAno.setFullYear(hoje.getFullYear() + 1);
-    
-    // Formatando para input type="date"
     const dataInicio = document.getElementById('data_inicio');
     const dataFim = document.getElementById('data_fim');
-    
     if (dataInicio) dataInicio.valueAsDate = hoje;
     if (dataFim) dataFim.valueAsDate = umAno;
 }
@@ -267,736 +283,832 @@ function setupDefaultDates() {
 function populateSelectors() {
     const engenheiroSelect = document.getElementById('engenheiro');
     const clienteSelect = document.getElementById('cliente');
-    
-    // Adicionar opções de engenheiros
+
     if (engenheiroSelect) {
         Object.keys(ENGENHEIROS).forEach(eng => {
-            const option = document.createElement('option');
-            option.value = eng;
-            option.textContent = eng;
-            engenheiroSelect.appendChild(option);
+            engenheiroSelect.appendChild(new Option(eng, eng));
         });
     }
-    
-    // Adicionar opções de clientes
     if (clienteSelect) {
         Object.keys(CLIENTES).forEach(cliente => {
-            const option = document.createElement('option');
-            option.value = cliente;
-            option.textContent = cliente;
-            clienteSelect.appendChild(option);
+            clienteSelect.appendChild(new Option(cliente, cliente));
         });
-        const manualOption = document.createElement('option');
-        manualOption.value = CLIENTE_MANUAL_VALUE;
-        manualOption.textContent = 'Inserir cliente manualmente';
-        clienteSelect.appendChild(manualOption);
+        clienteSelect.appendChild(new Option('Inserir cliente manualmente', CLIENTE_MANUAL_VALUE));
     }
 }
-function toggleClienteManualFields() {
-    const clienteSelect = document.getElementById('cliente');
-    const manualFields = document.getElementById('cliente-manual-fields');
-    if (!clienteSelect || !manualFields) return;
 
-    const show = clienteSelect.value === CLIENTE_MANUAL_VALUE;
-    manualFields.classList.toggle('hidden', !show);
-    manualFields.setAttribute('aria-hidden', String(!show));
+// =====================================================================
+// LEITURA DOS TEMPLATES (verificação + detecção de placeholders)
+// =====================================================================
 
-    CLIENTE_MANUAL_FIELD_IDS.forEach(fieldId => {
-        const field = document.getElementById(fieldId);
-        if (field) field.required = show;
-    });
-
-    if (show) document.getElementById('cliente_manual_nome')?.focus();
+function extrairPlaceholders(arrayBuffer) {
+    const zip = new PizZip(arrayBuffer);
+    const encontrados = new Set();
+    Object.keys(zip.files)
+        .filter(nome => /^word\/.*\.xml$/.test(nome))
+        .forEach(nome => {
+            const xml = zip.file(nome).asText();
+            // Junta o texto de cada parágrafo (o Word costuma quebrar [XXXX] em vários "runs")
+            const paragrafos = xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || [];
+            paragrafos.forEach(p => {
+                const texto = (p.match(/<w:t[^>]*>[^<]*<\/w:t>/g) || [])
+                    .map(t => t.replace(/<[^>]+>/g, ''))
+                    .join('');
+                (texto.match(/\[([^\[\]]{1,40})\]/g) || [])
+                    .forEach(tag => encontrados.add(tag.slice(1, -1)));
+            });
+        });
+    return [...encontrados];
 }
+
+async function carregarTemplate(chave) {
+    if (templateCache[chave]) return templateCache[chave];
+    const response = await fetch(TEMPLATES[chave]);
+    if (!response.ok) throw new Error(`Template não encontrado: ${TEMPLATES[chave]}`);
+    templateCache[chave] = await response.arrayBuffer();
+    return templateCache[chave];
+}
+
 async function checkTemplates() {
     const statusElement = document.getElementById('template-status');
-    
-    try {
-        const templates = await Promise.all(
-            Object.values(TEMPLATES).map(template => fetch(template).then(res => res.ok))
-        );
-        
-        const allExist = templates.every(exists => exists);
-        
-        if (allExist) {
-            statusElement.innerHTML = `
-                <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> 
-                Todos os templates encontrados!</p>
-                <small>Pronto para gerar documentos Word</small>
-            `;
-        } else {
-            statusElement.innerHTML = `
-                <p><i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i> 
-                Alguns templates não foram encontrados</p>
-                <small>Verifique a pasta /templates/</small>
-            `;
+    const faltando = [];
+
+    await Promise.all(Object.keys(TEMPLATES).map(async chave => {
+        try {
+            const buffer = await carregarTemplate(chave);
+            const tags = extrairPlaceholders(buffer);
+            if (tags.length) placeholdersTemplate[chave] = tags;
+        } catch (error) {
+            console.error(`Erro ao ler template ${chave}:`, error);
+            faltando.push(chave);
         }
-    } catch (error) {
+    }));
+
+    if (!statusElement) return;
+    if (faltando.length === 0) {
         statusElement.innerHTML = `
-            <p><i class="fas fa-times-circle" style="color: #e74c3c;"></i> 
-            Erro ao verificar templates</p>
-            <small>Verifique o console para detalhes</small>
-        `;
-        console.error('Erro ao verificar templates:', error);
+            <p><i class="fas fa-check-circle" style="color: var(--success);"></i> Todos os templates encontrados!</p>
+            <small>Campos ajustados automaticamente a cada template</small>`;
+    } else {
+        statusElement.innerHTML = `
+            <p><i class="fas fa-exclamation-triangle" style="color: var(--warning);"></i> Templates não encontrados:</p>
+            <small>${faltando.map(f => TEMPLATES[f].split('/').pop()).join('<br>')}</small>`;
     }
 }
+
+// =====================================================================
+// CAMPOS DINÂMICOS (mostra só o necessário para os documentos marcados)
+// =====================================================================
+
+function getTiposSelecionados() {
+    return DOCUMENTOS
+        .filter(d => document.getElementById(d.checkbox)?.checked)
+        .map(d => d.tipo);
+}
+
+function templatesDoDocumento(tipo) {
+    if (tipo !== 'memorial') return [tipo];
+    const sub = valor('tipo_subestacao');
+    if (sub === 'aerea') return ['memorial_aerea'];
+    if (sub === 'abrigada') return ['memorial'];
+    return ['memorial', 'memorial_aerea'];
+}
+
+function placeholdersDoDocumento(tipo) {
+    const set = new Set();
+    templatesDoDocumento(tipo).forEach(t => (placeholdersTemplate[t] || []).forEach(p => set.add(p)));
+    return set;
+}
+
+function documentoUsaCampo(tipo, campoId) {
+    const def = CAMPOS[campoId];
+    if (def.docs && def.docs.includes(tipo)) return true;
+    const phs = placeholdersDoDocumento(tipo);
+    return def.placeholders.some(p => phs.has(p));
+}
+
+function campoNecessario(campoId, tipos) {
+    const def = CAMPOS[campoId];
+    if (def.quando && !def.quando()) return false;
+    return tipos.some(tipo => documentoUsaCampo(tipo, campoId));
+}
+
+function criarIndicadoresDeUso() {
+    Object.keys(CAMPOS).forEach(id => {
+        const grupo = document.getElementById(id)?.closest('.form-group');
+        if (!grupo || grupo.querySelector('.field-docs')) return;
+        const div = document.createElement('div');
+        div.className = 'field-docs';
+        grupo.appendChild(div);
+    });
+}
+
+function atualizarFormulario() {
+    const tipos = getTiposSelecionados();
+    let totalNecessarios = 0;
+    let totalPreenchidos = 0;
+
+    Object.keys(CAMPOS).forEach(id => {
+        const campo = document.getElementById(id);
+        const grupo = campo?.closest('.form-group');
+        if (!campo || !grupo) return;
+
+        const necessario = campoNecessario(id, tipos);
+        grupo.classList.toggle('hidden', !necessario);
+        campo.required = necessario;
+        if (!necessario) grupo.classList.remove('field-error');
+
+        if (necessario) {
+            totalNecessarios++;
+            if (valor(id)) totalPreenchidos++;
+        }
+
+        // Etiquetas "usado em"
+        const indicador = grupo.querySelector('.field-docs');
+        if (indicador) {
+            indicador.innerHTML = DOCUMENTOS
+                .filter(d => documentoUsaCampo(d.tipo, id))
+                .map(d => `<span class="doc-chip${tipos.includes(d.tipo) ? ' active' : ''}">${d.curto}</span>`)
+                .join('');
+        }
+    });
+
+    // Bloco do Trafo 2
+    const trafo2 = document.getElementById('trafo_2_fields');
+    if (trafo2) trafo2.classList.toggle('hidden', !campoNecessario('potencia_trafo_2', tipos));
+
+    // Painel de cliente manual
+    const clienteNecessario = campoNecessario('cliente', tipos);
+    const manual = clienteNecessario && valor('cliente') === CLIENTE_MANUAL_VALUE;
+    const painel = document.getElementById('cliente-manual-fields');
+    if (painel) {
+        painel.classList.toggle('hidden', !manual);
+        painel.setAttribute('aria-hidden', String(!manual));
+    }
+    CLIENTE_MANUAL_FIELD_IDS.forEach(fid => {
+        const f = document.getElementById(fid);
+        if (!f) return;
+        f.required = manual;
+        if (manual) {
+            totalNecessarios++;
+            if (valor(fid)) totalPreenchidos++;
+        } else {
+            f.closest('.form-group')?.classList.remove('field-error');
+        }
+    });
+
+    // Seções sem nenhum campo visível somem
+    document.querySelectorAll('#document-form .form-section:not([data-always-visible])').forEach(secao => {
+        secao.classList.remove('hidden'); // reavalia do zero (senão a própria seção conta como "escondida")
+        const visivel = [...secao.querySelectorAll('.form-group')]
+            .some(g => !g.classList.contains('hidden') && !g.closest('.hidden'));
+        secao.classList.toggle('hidden', !visivel);
+    });
+
+    // Preset ativo
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        const preset = PRESETS[btn.dataset.preset] || [];
+        const igual = preset.length === tipos.length && preset.every(t => tipos.includes(t));
+        btn.classList.toggle('active', igual);
+    });
+
+    // Contador
+    const contador = document.getElementById('fields-counter');
+    if (contador) {
+        if (tipos.length === 0) {
+            contador.innerHTML = '<i class="fas fa-info-circle"></i> Selecione pelo menos um documento.';
+        } else {
+            const faltam = totalNecessarios - totalPreenchidos;
+            contador.innerHTML = faltam === 0
+                ? `<i class="fas fa-check-circle"></i> ${totalNecessarios} campos necessários — tudo preenchido.`
+                : `<i class="fas fa-list-check"></i> ${totalNecessarios} campos necessários para ${tipos.length} documento(s) — faltam <strong>${faltam}</strong>.`;
+            contador.classList.toggle('complete', faltam === 0);
+        }
+    }
+
+    const btn = document.getElementById('generate-btn');
+    if (btn && !btn.disabled) btn.innerHTML = textoBotaoGerar(tipos.length);
+}
+
+function textoBotaoGerar(qtd) {
+    return qtd === 1
+        ? '<i class="fas fa-file-word"></i> Gerar Documento Word'
+        : `<i class="fas fa-file-word"></i> Gerar ${qtd || ''} Documentos Word`;
+}
+
+function aplicarPreset(nome) {
+    const tipos = PRESETS[nome];
+    if (!tipos) return;
+    DOCUMENTOS.forEach(d => {
+        const cb = document.getElementById(d.checkbox);
+        if (cb) cb.checked = tipos.includes(d.tipo);
+    });
+    atualizarFormulario();
+    agendarRascunho();
+}
+
+// =====================================================================
+// EVENTOS
+// =====================================================================
 
 function setupEventListeners() {
     const form = document.getElementById('document-form');
     if (form) {
-        form.addEventListener('submit', function(e) {
+        form.addEventListener('submit', e => {
             e.preventDefault();
             processarFormulario();
         });
-    }
-    
-    const resetBtn = document.getElementById('reset-btn');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', function() {
-            if (form) form.reset();
-            setupDefaultDates();
-            // Recarrega as opções de potência e tensão e listener
-            populateTrafoPotenciasAndTensoes();
-            setupTrafoQuantityListener();
-            toggleClienteManualFields();
-            const resultsSection = document.getElementById('results-section');
-            if (resultsSection) resultsSection.classList.add('hidden');
+        form.addEventListener('change', e => {
+            if (e.target.id === 'projeto_salvo') return;
+            if (e.target.id === 'quantidade_trafos' && e.target.value !== '2') {
+                ['potencia_trafo_2', 'tensao_trafo_2'].forEach(id => {
+                    const f = document.getElementById(id);
+                    if (f) f.value = '';
+                });
+            }
+            if (e.target.id === 'cliente' && e.target.value === CLIENTE_MANUAL_VALUE) {
+                setTimeout(() => document.getElementById('cliente_manual_nome')?.focus(), 0);
+            }
+            atualizarFormulario();
+            agendarRascunho();
+        });
+        form.addEventListener('input', e => {
+            e.target.closest('.form-group')?.classList.remove('field-error');
+            agendarRascunho();
+            clearTimeout(form._contadorTimer);
+            form._contadorTimer = setTimeout(atualizarFormulario, 250);
         });
     }
-    const clienteSelect = document.getElementById('cliente');
-    if (clienteSelect) {
-        clienteSelect.addEventListener('change', toggleClienteManualFields);
-        toggleClienteManualFields();
-    }
-    
-    // Botão copiar dados
-    const copyBtn = document.getElementById('copy-data-btn');
-    if (copyBtn) copyBtn.addEventListener('click', copiarDados);
-    
-    // Botão download individual
-    const downloadIndividualBtn = document.getElementById('download-individual-btn');
-    if (downloadIndividualBtn) {
-        downloadIndividualBtn.addEventListener('click', () => {
-            alert('Para abrir a pasta de downloads, verifique sua pasta padrão de downloads.');
-        });
+
+    document.querySelectorAll('.preset-btn').forEach(btn =>
+        btn.addEventListener('click', () => aplicarPreset(btn.dataset.preset)));
+
+    document.getElementById('reset-btn')?.addEventListener('click', limparFormulario);
+    document.getElementById('copy-data-btn')?.addEventListener('click', copiarDados);
+    document.getElementById('download-all-btn')?.addEventListener('click', baixarTodosDocumentos);
+
+    document.getElementById('btn-carregar-projeto')?.addEventListener('click', carregarProjetoSelecionado);
+    document.getElementById('btn-salvar-projeto')?.addEventListener('click', () => {
+        const nome = salvarProjetoAtual();
+        if (nome) mostrarFeedback(`<i class="fas fa-save"></i> Projeto <strong>${escapeHtml(nome)}</strong> salvo.`, 'sucesso');
+        else mostrarFeedback('<i class="fas fa-info-circle"></i> Preencha o <strong>Nome do projeto</strong> para salvar.', 'erro');
+    });
+    document.getElementById('btn-excluir-projeto')?.addEventListener('click', excluirProjetoSelecionado);
+}
+
+function limparFormulario() {
+    const form = document.getElementById('document-form');
+    if (form) form.reset();
+    try { localStorage.removeItem(STORAGE_RASCUNHO); } catch (e) { /* sem storage */ }
+    setupDefaultDates();
+    document.querySelectorAll('.field-error').forEach(g => g.classList.remove('field-error'));
+    esconderFeedback();
+    atualizarFormulario();
+    document.getElementById('results-section')?.classList.add('hidden');
+}
+
+// =====================================================================
+// RASCUNHO AUTOMÁTICO E PROJETOS SALVOS
+// =====================================================================
+
+function camposPersistiveis() {
+    return [...document.querySelectorAll('#document-form input[id], #document-form select[id]')]
+        .filter(el => !el.hasAttribute('data-no-persist'));
+}
+
+function lerEstado({ incluirSelecaoDocs = true } = {}) {
+    const estado = {};
+    camposPersistiveis().forEach(el => {
+        if (!incluirSelecaoDocs && el.id.startsWith('gerar_')) return;
+        estado[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+    return estado;
+}
+
+function aplicarEstado(estado) {
+    if (!estado) return;
+    // quantidade_trafos primeiro, para o Trafo 2 aparecer antes de receber valor
+    const ids = Object.keys(estado).sort((a, b) => (a === 'quantidade_trafos' ? -1 : b === 'quantidade_trafos' ? 1 : 0));
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || el.hasAttribute('data-no-persist')) return;
+        if (el.type === 'checkbox') {
+            el.checked = Boolean(estado[id]);
+        } else if (el.tagName === 'SELECT') {
+            const existe = [...el.options].some(o => o.value === String(estado[id]));
+            if (existe) el.value = estado[id];
+        } else {
+            el.value = estado[id] ?? '';
+        }
+    });
+    atualizarFormulario();
+}
+
+function lerStorage(chave, padrao) {
+    try {
+        const bruto = localStorage.getItem(chave);
+        return bruto ? JSON.parse(bruto) : padrao;
+    } catch (e) {
+        return padrao;
     }
 }
 
-// Função para extrair município
+function gravarStorage(chave, valorObj) {
+    try {
+        localStorage.setItem(chave, JSON.stringify(valorObj));
+        return true;
+    } catch (e) {
+        console.warn('Não foi possível salvar no navegador:', e);
+        return false;
+    }
+}
+
+function agendarRascunho() {
+    clearTimeout(timerRascunho);
+    timerRascunho = setTimeout(() => gravarStorage(STORAGE_RASCUNHO, lerEstado()), 400);
+}
+
+function restaurarRascunho() {
+    const rascunho = lerStorage(STORAGE_RASCUNHO, null);
+    if (rascunho) aplicarEstado(rascunho);
+}
+
+function popularProjetosSalvos(selecionar = '') {
+    const select = document.getElementById('projeto_salvo');
+    if (!select) return;
+    const projetos = lerStorage(STORAGE_PROJETOS, {});
+    const nomes = Object.keys(projetos).sort((a, b) =>
+        String(projetos[b].salvoEm).localeCompare(String(projetos[a].salvoEm)));
+
+    select.innerHTML = nomes.length
+        ? '<option value="">Selecione um projeto…</option>'
+        : '<option value="">Nenhum projeto salvo ainda</option>';
+    nomes.forEach(nome => {
+        const data = projetos[nome].salvoEm ? new Date(projetos[nome].salvoEm).toLocaleDateString('pt-BR') : '';
+        select.appendChild(new Option(data ? `${nome} — ${data}` : nome, nome));
+    });
+    if (selecionar) select.value = selecionar;
+}
+
+function salvarProjetoAtual() {
+    const nome = valor('nome_projeto');
+    if (!nome) return null;
+    const projetos = lerStorage(STORAGE_PROJETOS, {});
+    // Mescla com o que já existia: gerar só a procuração não apaga dados técnicos salvos antes
+    const anterior = projetos[nome]?.estado || {};
+    const atual = lerEstado({ incluirSelecaoDocs: false });
+    const mesclado = { ...anterior };
+    Object.keys(atual).forEach(id => {
+        if (atual[id] !== '' && atual[id] !== null) mesclado[id] = atual[id];
+    });
+    projetos[nome] = { estado: mesclado, salvoEm: new Date().toISOString() };
+    gravarStorage(STORAGE_PROJETOS, projetos);
+    popularProjetosSalvos(nome);
+    return nome;
+}
+
+function carregarProjetoSelecionado() {
+    const nome = valor('projeto_salvo');
+    if (!nome) {
+        mostrarFeedback('<i class="fas fa-info-circle"></i> Escolha um projeto na lista para carregar.', 'erro');
+        return;
+    }
+    const projeto = lerStorage(STORAGE_PROJETOS, {})[nome];
+    if (!projeto) return;
+    aplicarEstado(projeto.estado);
+    document.querySelectorAll('.field-error').forEach(g => g.classList.remove('field-error'));
+    agendarRascunho();
+    mostrarFeedback(`<i class="fas fa-check-circle"></i> Dados de <strong>${escapeHtml(nome)}</strong> carregados. Marque os documentos desejados e gere.`, 'sucesso');
+}
+
+function excluirProjetoSelecionado() {
+    const nome = valor('projeto_salvo');
+    if (!nome) return;
+    if (!confirm(`Excluir o projeto salvo "${nome}"?`)) return;
+    const projetos = lerStorage(STORAGE_PROJETOS, {});
+    delete projetos[nome];
+    gravarStorage(STORAGE_PROJETOS, projetos);
+    popularProjetosSalvos();
+}
+
+// =====================================================================
+// FEEDBACK E VALIDAÇÃO
+// =====================================================================
+
+function escapeHtml(texto) {
+    return String(texto).replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function mostrarFeedback(html, tipo = 'erro') {
+    const box = document.getElementById('form-feedback');
+    if (!box) { alert(html.replace(/<[^>]+>/g, '')); return; }
+    box.innerHTML = html;
+    box.className = `form-feedback ${tipo}`;
+    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function esconderFeedback() {
+    document.getElementById('form-feedback')?.classList.add('hidden');
+}
+
+function rotuloDoCampo(id) {
+    const label = document.querySelector(`label[for="${id}"]`);
+    return label ? label.textContent.replace('*', '').replace(/:\s*$/, '').trim() : id;
+}
+
+function validarFormulario() {
+    const tipos = getTiposSelecionados();
+    document.querySelectorAll('.field-error').forEach(g => g.classList.remove('field-error'));
+
+    if (tipos.length === 0) {
+        mostrarFeedback('<i class="fas fa-info-circle"></i> Selecione pelo menos um documento para gerar.', 'erro');
+        return false;
+    }
+
+    const faltando = Object.keys(CAMPOS).filter(id => campoNecessario(id, tipos) && !valor(id));
+    if (campoNecessario('cliente', tipos) && valor('cliente') === CLIENTE_MANUAL_VALUE) {
+        faltando.push(...CLIENTE_MANUAL_FIELD_IDS.filter(id => !valor(id)));
+    }
+
+    if (faltando.length) {
+        faltando.forEach(id => document.getElementById(id)?.closest('.form-group')?.classList.add('field-error'));
+        mostrarFeedback(
+            `<i class="fas fa-exclamation-triangle"></i> Preencha ${faltando.length === 1 ? 'o campo' : 'os campos'}: ` +
+            faltando.map(id => `<strong>${escapeHtml(rotuloDoCampo(id))}</strong>`).join(', '),
+            'erro'
+        );
+        document.getElementById(faltando[0])?.focus({ preventScroll: true });
+        return false;
+    }
+
+    if (campoNecessario('data_fim', tipos) && campoNecessario('data_inicio', tipos)
+        && valor('data_fim') < valor('data_inicio')) {
+        document.getElementById('data_fim')?.closest('.form-group')?.classList.add('field-error');
+        mostrarFeedback('<i class="fas fa-exclamation-triangle"></i> O <strong>Fim da Obra</strong> está antes do início.', 'erro');
+        return false;
+    }
+
+    esconderFeedback();
+    return true;
+}
+
+// =====================================================================
+// PROCESSAMENTO
+// =====================================================================
+
 function extrairMunicipio(enderecoCompleto) {
     if (!enderecoCompleto) return "Boa Vista";
-    
     const partes = enderecoCompleto.split(',');
     if (partes.length >= 3) {
         let cidadeUf = partes[partes.length - 1].trim();
         cidadeUf = cidadeUf.split('CEP')[0].trim();
-        if (cidadeUf.includes('-')) {
-            return cidadeUf.split('-')[0].trim();
-        }
+        if (cidadeUf.includes('-')) return cidadeUf.split('-')[0].trim();
         return cidadeUf;
     }
     return "Boa Vista";
 }
 
-// Função principal para processar formulário
 async function processarFormulario() {
-    // Validar campos obrigatórios
     if (!validarFormulario()) return;
-    
-    // Mostrar loading
     showLoading(true);
-    
+
     try {
-        // Coletar e processar dados
         const dados = coletarDadosFormulario();
-        
-        // Verificar quais documentos gerar
         const documentosParaGerar = getDocumentosSelecionados();
-        
-        if (documentosParaGerar.length === 0) {
-            alert('Selecione pelo menos um documento para gerar.');
-            showLoading(false);
-            return;
-        }
-        
-        // Gerar documentos
         await gerarDocumentosWord(dados, documentosParaGerar);
-        
-        // Exibir resultados
+
+        salvarProjetoAtual();
         exibirResultados();
-        
+
+        // Um único documento (ex.: só a procuração): baixa direto
+        if (documentosGerados.length === 1) baixarDocumentoWord(0);
     } catch (error) {
         console.error('Erro ao processar:', error);
-        alert('Erro ao gerar documentos. Verifique o console para detalhes.');
+        mostrarFeedback(`<i class="fas fa-times-circle"></i> Erro ao gerar documentos: ${escapeHtml(error.message)}`, 'erro');
     } finally {
         showLoading(false);
     }
 }
 
-function validarFormulario() {
-    const camposObrigatorios = [
-        'potencia', 'art', 'tensao', 'ramal_tamanho', 'ramal_cabo', 'tipo_subestacao',
-        'potencia_trafo_1', 'tensao_trafo_1', 'tipo_trafo', // Novos campos de Trafo 1 e Tipo
-        'carga_instalada', // Campo movido/novo
-        'nome_projeto', 'concessionaria', 'endereco_empreendimento',
-        'localizacao_projeto', 'numero_uc', 'demanda', 'data_inicio', 'data_fim',
-        'engenheiro', 'cliente', 'tipo_pessoa_juridica'
-    ];
-    
-    // Adiciona Trafo 2 condicionalmente
-    const qtdTrafosElement = document.getElementById('quantidade_trafos');
-    if (qtdTrafosElement && qtdTrafosElement.value === '2') {
-        camposObrigatorios.push('potencia_trafo_2', 'tensao_trafo_2');
-    }
-    
-    for (const campoId of camposObrigatorios) {
-        const campo = document.getElementById(campoId);
-        if (!campo || !campo.value.trim()) {
-            const labelText = campo ? (campo.previousElementSibling ? campo.previousElementSibling.textContent.replace('*', '').trim() : campoId) : campoId;
-            alert(`Por favor, preencha o campo obrigatório: ${labelText}`);
-            if (campo) campo.focus();
-            return false;
-        }
-    }
-    
-    return true;
-}
-
 /**
- * FUNÇÃO DE AJUDA: Calcula os dados de proteção (IB, IN, IZ, CAB, QTD_CAB, I_CAB, I_AJUSTE, IZ_X_145)
+ * Calcula os dados de proteção (IB, IN, IZ, CAB, QTD_CAB, I_CAB, I_AJUSTE, IZ x 1,45)
  * para um transformador específico.
  */
 function getTrafoData(potencia, tensao, trafoNumber) {
-    // Retorna N/A se a potência ou tensão estiverem faltando
-    if (!potencia || !tensao) {
-        return {
-            [`IBXX${trafoNumber}`]: 'N/A',
-            [`INXX${trafoNumber}`]: 'N/A',
-            [`IZXX${trafoNumber}`]: 'N/A',
-            [`CABX${trafoNumber}`]: 'N/A',
-            [`QTDY${trafoNumber}`]: 'N/A',
-            [`IZXY${trafoNumber}`]: 'N/A', 
-            [`IAJU${trafoNumber}`]: 'N/A',
-            // NOVO
-            [`IZ14${trafoNumber}`]: 'N/A',
-            [`QTD1${trafoNumber}`]: 'N/A'
-        };
-    }
+    const vazio = () => Object.fromEntries(derivadosTrafo(trafoNumber).map(k => [k, 'N/A']));
+    if (!potencia || !tensao) return vazio();
 
-    // Busca o índice da potência no array PT_TRAFO
     const index = PT_TRAFO.indexOf(parseFloat(potencia));
-
     if (index === -1) {
         console.error(`Potência ${potencia} não encontrada em PT_TRAFO.`);
-        return getTrafoData('', '', trafoNumber); // Fallback para N/A
+        return vazio();
     }
 
-    let IB_ARR, IN_ARR, IZ_ARR, CAB_ARR, QTD_CAB_ARR;
-    let I_CAB_ARR, I_AJUSTE_ARR; 
-    let IZ_TO_CALCULATE_ARR; // Array base para o cálculo de 1,45
-    let QTD_ARR;
-    
-    // Seleciona o conjunto de arrays de proteção com base na tensão
+    let t;
     if (tensao === "220/127V") {
-        IB_ARR = IB_220;
-        IN_ARR = IN_220;
-        IZ_ARR = IZ_220;
-        CAB_ARR = CAB_220;
-        QTD_CAB_ARR = QTD_CAB_220;
-        
-        I_CAB_ARR = I_CAB_220;
-        I_AJUSTE_ARR = I_AJUSTE_220;
-        
-        IZ_TO_CALCULATE_ARR = IZ_220; // Usar IZ_220 para cálculo
-        QTD_ARR = QTD_220
-        
+        t = { IB: IB_220, IN: IN_220, IZ: IZ_220, CAB: CAB_220, QTD_CAB: QTD_CAB_220, I_CAB: I_CAB_220, AJ: I_AJUSTE_220, QTD: QTD_220 };
     } else if (tensao === "380V/220V") {
-        IB_ARR = IB_380;
-        IN_ARR = IN_380;
-        IZ_ARR = IZ_380;
-        CAB_ARR = CAB_380;
-        QTD_CAB_ARR = QTD_CAB_380;
-        
-        I_CAB_ARR = I_CAB_380;
-        I_AJUSTE_ARR = I_AJUSTE_380;
-        
-        IZ_TO_CALCULATE_ARR = IZ_380; // Usar IZ_380 para cálculo
-        QTD_ARR = QTD_380;
+        t = { IB: IB_380, IN: IN_380, IZ: IZ_380, CAB: CAB_380, QTD_CAB: QTD_CAB_380, I_CAB: I_CAB_380, AJ: I_AJUSTE_380, QTD: QTD_380 };
     } else {
-        return getTrafoData('', '', trafoNumber); // Tensão desconhecida
+        return vazio();
     }
 
-    // NOVO CÁLCULO: IZ_X_145
-    // Pega o valor de IZ do array correspondente e multiplica por 1.45
-    const izValue = parseFloat(IZ_TO_CALCULATE_ARR[index]);
-    let iz145Result = 'N/A';
-    if (!isNaN(izValue)) {
-        iz145Result = (izValue * 1.45).toFixed(2); // Duas casas decimais
-    }
-
-
-    // Retorna o objeto com os placeholders e seus valores
+    const izValue = parseFloat(t.IZ[index]);
     return {
-        [`IBXX${trafoNumber}`]: IB_ARR[index],
-        [`INXX${trafoNumber}`]: IN_ARR[index],
-        [`IZXX${trafoNumber}`]: IZ_ARR[index],
-        [`CABX${trafoNumber}`]: CAB_ARR[index],
-        [`QTDY${trafoNumber}`]: QTD_CAB_ARR[index],
-        
-        // Novos Placeholders da iteração anterior
-        [`IZXY${trafoNumber}`]: I_CAB_ARR[index], 
-        [`IAJU${trafoNumber}`]: I_AJUSTE_ARR[index],
-        
-        // NOVO PLACEHOLDER DE CÁLCULO
-        [`IZ14${trafoNumber}`]: iz145Result,
-        [`QTD1${trafoNumber}`]: QTD_ARR[index]
+        [`IBXX${trafoNumber}`]: t.IB[index],
+        [`INXX${trafoNumber}`]: t.IN[index],
+        [`IZXX${trafoNumber}`]: t.IZ[index],
+        [`CABX${trafoNumber}`]: t.CAB[index],
+        [`QTDY${trafoNumber}`]: t.QTD_CAB[index],
+        [`IZXY${trafoNumber}`]: t.I_CAB[index],
+        [`IAJU${trafoNumber}`]: t.AJ[index],
+        [`IZ14${trafoNumber}`]: isNaN(izValue) ? 'N/A' : (izValue * 1.45).toFixed(2),
+        [`QTD1${trafoNumber}`]: t.QTD[index]
     };
 }
 
-
 function coletarDadosFormulario() {
-    // Novos campos de Trafo 
-    const potencia1 = document.getElementById('potencia_trafo_1')?.value || '';
-    const tensao1 = document.getElementById('tensao_trafo_1')?.value || '';
-    const tipoTrafo = document.getElementById('tipo_trafo')?.value || 'N/A';
-    const tipoSubestacao = document.getElementById('tipo_subestacao')?.value || 'abrigada';
-    const cargaInstalada = document.getElementById('carga_instalada')?.value || 'N/A';
-
-    const qtdTrafos = document.getElementById('quantidade_trafos')?.value || '1';
-
-    let potencia2 = '';
-    let tensao2 = '';
-
-    if (qtdTrafos === '2') {
-        potencia2 = document.getElementById('potencia_trafo_2')?.value || '';
-        tensao2 = document.getElementById('tensao_trafo_2')?.value || '';
-    }
-    
-    // **CALCULA DADOS DE PROTEÇÃO**
-    const dadosTrafo1 = getTrafoData(potencia1, tensao1, 1);
-    const dadosTrafo2 = getTrafoData(potencia2, tensao2, 2);
-
+    const potencia1 = valor('potencia_trafo_1');
+    const tensao1 = valor('tensao_trafo_1');
+    const qtdTrafos = valor('quantidade_trafos') || '1';
+    const potencia2 = qtdTrafos === '2' ? valor('potencia_trafo_2') : '';
+    const tensao2 = qtdTrafos === '2' ? valor('tensao_trafo_2') : '';
 
     const dados = {
-        // PLACEHOLDERS ORIGINAIS (Dados do Projeto)
-        'XXXX': document.getElementById('potencia').value, // POTÊNCIA DA SUBESTAÇÃO EM KVA
-        'YYYY': document.getElementById('art').value,       // ART
-        'DDDD': document.getElementById('tensao').value,    // TENSÃO GERAL
-        'EEEE': document.getElementById('ramal_tamanho').value, // Tamanho do ramal
-        'FFFF': document.getElementById('ramal_cabo').value,    // Cabo do ramal
-        
-        // PLACEHOLDERS DA SUBESTAÇÃO (Detalhes) 
-        'PTF1': potencia1, // Potência do Trafo 1
-        'TTF1': tensao1,   // Tensão do Trafo 1
-        'PTF2': potencia2 || 'N/A', // Potência do Trafo 2 (ou N/A)
-        'TTF2': tensao2 || 'N/A',   // Tensão do Trafo 2 (ou N/A)
-        'TIPO_TRAFO': tipoTrafo, // Tipo do Trafo
-        'ZXXZ': cargaInstalada, // Carga Instalada (Novo/Movido)
-        
-        // Dados de Proteção (Trafo 1)
-        ...dadosTrafo1,
-        
-        // Dados de Proteção (Trafo 2)
-        ...dadosTrafo2,
-        
-        // PLACEHOLDERS EXISTENTES (Outros)
-        'GGGG': document.getElementById('nome_projeto').value,
-        'LLLL': document.getElementById('concessionaria').value,
-        'XXXY': document.getElementById('endereco_empreendimento').value,
-        'HHHH': document.getElementById('localizacao_projeto').value,
-        'VVVV': document.getElementById('numero_uc').value,
-        'ZXZX': document.getElementById('demanda').value, // Demanda
-        'DTIN': formatarData(document.getElementById('data_inicio').value),
-        'DTFI': formatarData(document.getElementById('data_fim').value),
-        'PJDP': document.getElementById('tipo_pessoa_juridica').value.toLowerCase()
+        'XXXX': valor('potencia'),
+        'YYYY': valor('art'),
+        'DDDD': valor('tensao'),
+        'EEEE': valor('ramal_tamanho'),
+        'FFFF': valor('ramal_cabo'),
+        'PTF1': potencia1,
+        'TTF1': tensao1,
+        'PTF2': potencia2 || 'N/A',
+        'TTF2': tensao2 || 'N/A',
+        'TIPO_TRAFO': valor('tipo_trafo') || 'N/A',
+        'ZXXZ': valor('carga_instalada'),
+        ...getTrafoData(potencia1, tensao1, 1),
+        ...getTrafoData(potencia2, tensao2, 2),
+        'GGGG': valor('nome_projeto'),
+        'LLLL': valor('concessionaria'),
+        'XXXY': valor('endereco_empreendimento'),
+        'HHHH': valor('localizacao_projeto'),
+        'VVVV': valor('numero_uc'),
+        'ZXZX': valor('demanda'),
+        'DTIN': formatarData(valor('data_inicio')),
+        'DTFI': formatarData(valor('data_fim')),
+        'PJDP': valor('tipo_pessoa_juridica').toLowerCase()
     };
-    
-    // Dados do engenheiro
-    const engenheiroNome = document.getElementById('engenheiro').value;
-    const engData = ENGENHEIROS[engenheiroNome];
-    dados['XXYY'] = engenheiroNome;
-    dados['AAAA'] = engData.CREA;
-    dados['BBBB'] = engData.EMAIL;
-    dados['CCCC'] = engData.FONE;
-    dados['IIII'] = engData.RG;
-    dados['JJJJ'] = engData.CPF;
-    dados['KKKK'] = engData.ENDERECO;
-    
-    // Dados do cliente
-    const clienteNome = document.getElementById('cliente').value;
+
+    // Engenheiro
+    const engenheiroNome = valor('engenheiro');
+    const engData = ENGENHEIROS[engenheiroNome] || {};
+    Object.assign(dados, {
+        'XXYY': engenheiroNome,
+        'AAAA': engData.CREA || '',
+        'BBBB': engData.EMAIL || '',
+        'CCCC': engData.FONE || '',
+        'IIII': engData.RG || '',
+        'JJJJ': engData.CPF || '',
+        'KKKK': engData.ENDERECO || ''
+    });
+
+    // Cliente
+    const clienteNome = valor('cliente');
     const clienteManual = clienteNome === CLIENTE_MANUAL_VALUE;
     const cliData = clienteManual ? {
-        CNPJ: document.getElementById('cliente_manual_cnpj').value.trim(),
-        END_SEDE: document.getElementById('cliente_manual_endereco').value.trim(),
-        RESPONSAVEL: document.getElementById('cliente_manual_responsavel').value.trim(),
-        NACIONALIDADE: document.getElementById('cliente_manual_nacionalidade').value.trim(),
-        ESTADO_CIVIL: document.getElementById('cliente_manual_estado_civil').value.trim(),
-        IDENTIDADE: document.getElementById('cliente_manual_identidade').value.trim(),
-        CPF: document.getElementById('cliente_manual_cpf').value.trim(),
-        DOMICILIO: document.getElementById('cliente_manual_domicilio').value.trim()
-    } : CLIENTES[clienteNome];
-    dados['MMMM'] = clienteManual
-        ? document.getElementById('cliente_manual_nome').value.trim()
-        : clienteNome;
-    dados['NNNN'] = cliData.CNPJ;
-    dados['OOOO'] = cliData.END_SEDE;
-    dados['PPPP'] = cliData.RESPONSAVEL;
-    dados['QQQQ'] = cliData.NACIONALIDADE;
-    dados['RRRR'] = cliData.ESTADO_CIVIL;
-    dados['SSSS'] = cliData.IDENTIDADE;
-    dados['TTTT'] = cliData.CPF;
-    dados['UUUU'] = cliData.DOMICILIO;
-    
-    // Extrair município
-    dados['ZZZZ'] = extrairMunicipio(dados['XXXY']);
-    
-    // Adicionar datas formatadas
-    const hoje = new Date();
-    
-    // 1. Obter e formatar o dia (com zero à esquerda)
-    const diaFormatado = hoje.getDate().toString().padStart(2, '0');
-    
-    // 2. Obter e formatar o mês (com zero à esquerda)
-    const mesFormatado = (hoje.getMonth() + 1).toString().padStart(2, '0');
-    
-    // 3. Obter o nome do mês em português
-    const mesIngles = hoje.toLocaleString('en-US', { month: 'long' });
-    const mesPortugues = MESES_PT_BR[mesIngles] || mesIngles;
-    
-    // 4. Aplicar nos dados
-    dados['14 / 07 / 2026'] = `${diaFormatado} / ${mesFormatado} / ${hoje.getFullYear() + 1}`;
-    dados['14 de julho de 2025'] = `${diaFormatado} de ${mesPortugues} de ${hoje.getFullYear()}`;
+        CNPJ: valor('cliente_manual_cnpj'),
+        END_SEDE: valor('cliente_manual_endereco'),
+        RESPONSAVEL: valor('cliente_manual_responsavel'),
+        NACIONALIDADE: valor('cliente_manual_nacionalidade'),
+        ESTADO_CIVIL: valor('cliente_manual_estado_civil'),
+        IDENTIDADE: valor('cliente_manual_identidade'),
+        CPF: valor('cliente_manual_cpf'),
+        DOMICILIO: valor('cliente_manual_domicilio')
+    } : (CLIENTES[clienteNome] || {});
+    Object.assign(dados, {
+        'MMMM': clienteManual ? valor('cliente_manual_nome') : clienteNome,
+        'NNNN': cliData.CNPJ || '',
+        'OOOO': cliData.END_SEDE || '',
+        'PPPP': cliData.RESPONSAVEL || '',
+        'QQQQ': cliData.NACIONALIDADE || '',
+        'RRRR': cliData.ESTADO_CIVIL || '',
+        'SSSS': cliData.IDENTIDADE || '',
+        'TTTT': cliData.CPF || '',
+        'UUUU': cliData.DOMICILIO || ''
+    });
 
-     // Adicionar placeholders de data para templates
+    dados['ZZZZ'] = extrairMunicipio(dados['XXXY']);
+
+    // Datas automáticas
+    const hoje = new Date();
+    const dia = hoje.getDate().toString().padStart(2, '0');
+    const mes = (hoje.getMonth() + 1).toString().padStart(2, '0');
+    const mesPortugues = MESES_PT_BR[hoje.toLocaleString('en-US', { month: 'long' })];
+    dados[PH_DATA_VALIDADE] = `${dia} / ${mes} / ${hoje.getFullYear() + 1}`;
+    dados[PH_DATA_EXTENSO] = `${dia} de ${mesPortugues} de ${hoje.getFullYear()}`;
     dados['MES_ATUAL'] = mesPortugues.toUpperCase();
     dados['ANO_ATUAL'] = hoje.getFullYear().toString();
-    // Salvar dados para uso posterior
-    dadosProcessados = { ...dados, tipo_subestacao: tipoSubestacao };
-    
+
+    dadosProcessados = { ...dados, tipo_subestacao: valor('tipo_subestacao') };
     return dados;
 }
 
 function formatarData(dataString) {
-    // dataString é "YYYY-MM-DD" do input. Ao usar new Date(dataString) ele assume UTC,
-    // o que pode resultar no dia anterior no fuso horário local.
-    
-    // Solução: Analisar os componentes e criar a data no fuso local.
-    const partes = dataString.split('-');
-    const ano = parseInt(partes[0]);
-    // Mês em JavaScript é 0-indexado (Janeiro = 0, Dezembro = 11), por isso subtraímos 1.
-    const mes = parseInt(partes[1]) - 1; 
-    const dia = parseInt(partes[2]);
-    
-    // Cria a data no fuso horário local (00:00:00 do dia escolhido)
-    const data = new Date(ano, mes, dia);
-    
-    return data.toLocaleDateString('pt-BR');
+    if (!dataString) return '';
+    // Monta a data no fuso local para não "voltar" um dia (new Date('YYYY-MM-DD') é UTC)
+    const [ano, mes, dia] = dataString.split('-').map(Number);
+    return new Date(ano, mes - 1, dia).toLocaleDateString('pt-BR');
 }
 
 function getDocumentosSelecionados() {
-    const documentos = [];
-    
-    if (document.getElementById('gerar_memorial').checked) {
-        documentos.push({ 
-            tipo: 'memorial', 
-            nome: 'Memorial Descritivo',
-            nomeArquivo: 'Memorial Descritivo' 
-        });
-    }
-    
-    if (document.getElementById('gerar_procuracao').checked) {
-        documentos.push({ 
-            tipo: 'procuração', 
-            nome: 'Procuração',
-            nomeArquivo: 'Procuração' 
-        });
-    }
-    
-    if (document.getElementById('gerar_termo').checked) {
-        documentos.push({ 
-            tipo: 'termo_responsabilidade', 
-            nome: 'Termo de Responsabilidade',
-            nomeArquivo: 'Termo de Responsabilidade' 
-        });
-    }
-    
-    if (document.getElementById('gerar_carta').checked) {
-        documentos.push({ 
-            tipo: 'carta_viabilidade', 
-            nome: 'Carta de Viabilidade',
-            nomeArquivo: 'Carta de Viabilidade' 
-        });
-    }
-    
-    if (document.getElementById('gerar_termo_nao_geracao').checked) {
-        documentos.push({ 
-            tipo: 'termo_nao_geração', 
-            nome: 'Termo de Não Geração',
-            nomeArquivo: 'Termo de Não Geração' 
-        });
-    }
-    
-    return documentos;
+    const tipos = getTiposSelecionados();
+    return DOCUMENTOS
+        .filter(d => tipos.includes(d.tipo))
+        .map(d => ({ tipo: d.tipo, nome: d.nome, nomeArquivo: d.nome }));
+}
+
+function nomeSeguroArquivo(texto) {
+    return String(texto || 'projeto')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/gi, '_')
+        .replace(/^_+|_+$/g, '')
+        .toLowerCase() || 'projeto';
 }
 
 async function gerarDocumentosWord(dados, documentosParaGerar) {
     documentosGerados = [];
-    
+    const nomeProjeto = nomeSeguroArquivo(dados['GGGG']);
+
     for (const docInfo of documentosParaGerar) {
-        try {
-            const templateUrl = docInfo.tipo === 'memorial'
-                ? (dadosProcessados.tipo_subestacao === 'aerea' ? TEMPLATES.memorial_aerea : TEMPLATES.memorial)
-                : TEMPLATES[docInfo.tipo];
-            const response = await fetch(templateUrl);
-            
-            if (!response.ok) {
-                throw new Error(`Template não encontrado: ${templateUrl}`);
-            }
-            
-            const arrayBuffer = await response.arrayBuffer();
-            
-            // Criar documento com dados substituídos
-            const docxContent = await processarTemplateWord(arrayBuffer, dados);
-            
-            // Nome do arquivo final
-            const nomeProjeto = dados['GGGG'].replace(/[^a-z0-9]/gi, '_').toLowerCase();
-            const nomeArquivo = `${docInfo.nomeArquivo} - ${nomeProjeto}.docx`;
-            
-            documentosGerados.push({
-                nome: docInfo.nome,
-                nomeArquivo: nomeArquivo,
-                conteudo: docxContent,
-                tipo: docInfo.tipo
-            });
-            
-        } catch (error) {
-            console.error(`Erro ao processar ${docInfo.nome}:`, error);
-            throw error;
-        }
+        const chave = templatesDoDocumento(docInfo.tipo)[0];
+        const arrayBuffer = await carregarTemplate(chave);
+        const docxContent = processarTemplateWord(arrayBuffer, dados, docInfo.nome);
+
+        documentosGerados.push({
+            nome: docInfo.nome,
+            nomeArquivo: `${docInfo.nomeArquivo} - ${nomeProjeto}.docx`,
+            conteudo: docxContent,
+            tipo: docInfo.tipo
+        });
     }
 }
 
-async function processarTemplateWord(arrayBuffer, dados) {
+function processarTemplateWord(arrayBuffer, dados, nomeDocumento = '') {
+    const naoPreenchidos = new Set();
     try {
-        // 1. Carregar o ArrayBuffer com Pizzip
-        const zip = new PizZip(arrayBuffer);
-
+        // PizZip recebe uma cópia para o cache do template continuar intacto
+        const zip = new PizZip(arrayBuffer.slice(0));
         const doc = new docxtemplater(zip, {
             paragraphLoop: true,
             linebreaks: true,
-            delimiters: {
-                start: '[',
-                end: ']'
+            delimiters: { start: '[', end: ']' },
+            nullGetter(part) {
+                naoPreenchidos.add(part.value);
+                return '';
             }
         });
 
-        // 3. Definir os dados para substituição
-        doc.setData(dados);
+        doc.render(dados);
 
-        // 4. Executar a substituição
-        doc.render();
+        if (naoPreenchidos.size) {
+            console.warn(`[${nomeDocumento}] placeholders sem valor:`, [...naoPreenchidos]);
+        }
 
-        // 5. Gerar o novo arquivo binário (.docx)
-        const content = doc.getZip().generate({
+        return doc.getZip().generate({
             type: "arraybuffer",
             mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            compression: "DEFLATE",
+            compression: "DEFLATE"
         });
-
-        return content;
     } catch (error) {
         console.error('Erro ao processar template Word:', error);
-        // Exibir detalhes de erro do Docxtemplater, se possível
         if (error.properties) {
             console.log('Descrição do erro:', error.properties.explanation);
             console.log('Erro na tag:', error.properties.xtag);
         }
-        throw new Error('Falha ao gerar o documento Word com Docxtemplater.');
+        throw new Error(`Falha ao gerar "${nomeDocumento}".`);
     }
 }
+
+// =====================================================================
+// RESULTADOS E DOWNLOAD
+// =====================================================================
+
 function exibirResultados() {
     const resultsSection = document.getElementById('results-section');
     const documentsContainer = document.getElementById('documents-container');
     const dataSummaryContent = document.getElementById('data-summary-content');
-    
-    // Limpar conteúdo anterior
+
     documentsContainer.innerHTML = '';
-    dataSummaryContent.innerHTML = '';
-    
-    // Exibir documentos gerados
     documentosGerados.forEach((doc, index) => {
-        const docElement = document.createElement('div');
-        docElement.className = 'document-card';
-        docElement.innerHTML = `
-            <h4><i class="fas fa-file-word"></i> ${doc.nome}</h4>
-            <p>Arquivo: <strong>${doc.nomeArquivo}</strong></p>
-            <p>Formato: Microsoft Word (.docx)</p>
+        const card = document.createElement('div');
+        card.className = 'document-card';
+        card.innerHTML = `
+            <h4><i class="fas fa-file-word"></i> ${escapeHtml(doc.nome)}</h4>
+            <p>Arquivo: <strong>${escapeHtml(doc.nomeArquivo)}</strong></p>
             <div class="document-buttons">
-                <button class="btn-download" onclick="baixarDocumentoWord(${index})">
-                    <i class="fas fa-download"></i> Baixar Word
-                </button>
-                <button class="btn-preview" onclick="visualizarDocumento(${index})">
-                    <i class="fas fa-eye"></i> Visualizar
-                </button>
-            </div>
-        `;
-        documentsContainer.appendChild(docElement);
+                <button type="button" class="btn-download"><i class="fas fa-download"></i> Baixar Word</button>
+            </div>`;
+        card.querySelector('.btn-download').addEventListener('click', () => baixarDocumentoWord(index));
+        documentsContainer.appendChild(card);
     });
-    
-    // Configurar botão para baixar todos
-    const downloadAllBtn = document.getElementById('download-all-btn');
-    downloadAllBtn.onclick = baixarTodosDocumentos;
-    
-    // Exibir resumo dos dados
-    const dadosFormatados = {};
-    Object.keys(dadosProcessados).forEach(key => {
-        if (!key.startsWith('14') && !key.includes('de ') && !key.includes('/202')) {
-            dadosFormatados[key] = dadosProcessados[key];
-        }
-    });
-    
-    dataSummaryContent.innerHTML = JSON.stringify(dadosFormatados, null, 2);
-    
-    // Mostrar seção de resultados
+
+    // Lote só faz sentido com mais de um documento
+    document.querySelector('.download-options')?.classList.toggle('hidden', documentosGerados.length < 2);
+
+    // Resumo: só os placeholders usados nos documentos gerados
+    const usados = new Set();
+    documentosGerados.forEach(d => placeholdersDoDocumento(d.tipo).forEach(p => usados.add(p)));
+    const resumo = {};
+    Object.keys(dadosProcessados)
+        .filter(k => usados.has(k) && k !== PH_DATA_VALIDADE && k !== PH_DATA_EXTENSO)
+        .sort()
+        .forEach(k => { resumo[k] = dadosProcessados[k]; });
+    dataSummaryContent.textContent = JSON.stringify(resumo, null, 2);
+
     resultsSection.classList.remove('hidden');
-    
-    // Rolagem suave para resultados
     resultsSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+function baixarBlob(blob, nomeArquivo) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nomeArquivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function baixarDocumentoWord(index) {
     const doc = documentosGerados[index];
-    
-    // Criar blob do documento Word
-    const blob = new Blob([doc.conteudo], { 
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
-    });
-    
-    // Criar link para download
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = doc.nomeArquivo;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    
-    // Liberar URL
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-    
-    // Feedback visual
+    if (!doc) return;
+    baixarBlob(new Blob([doc.conteudo], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    }), doc.nomeArquivo);
     showDownloadFeedback(doc.nome);
 }
 
 function baixarTodosDocumentos() {
     if (documentosGerados.length === 0) {
-        alert('Nenhum documento para baixar.');
+        mostrarFeedback('Nenhum documento para baixar.', 'erro');
         return;
     }
-    
-    // Criar um arquivo ZIP com todos os documentos
     const zip = new JSZip();
-    
-    documentosGerados.forEach(doc => {
-        zip.file(doc.nomeArquivo, doc.conteudo);
-    });
-    
-    // Gerar o ZIP
+    documentosGerados.forEach(doc => zip.file(doc.nomeArquivo, doc.conteudo));
     zip.generateAsync({ type: 'blob' })
-        .then(function(content) {
-            // Criar link para download do ZIP
-            const url = URL.createObjectURL(content);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Documentos_${dadosProcessados['GGGG'].replace(/[^a-z0-9]/gi, '_')}.zip`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            
-            // Liberar URL
-            setTimeout(() => URL.revokeObjectURL(url), 100);
-            
-            // Feedback
+        .then(content => {
+            baixarBlob(content, `Documentos_${nomeSeguroArquivo(dadosProcessados['GGGG'])}.zip`);
             showDownloadFeedback('todos os documentos');
         })
-        .catch(function(error) {
+        .catch(error => {
             console.error('Erro ao criar ZIP:', error);
-            alert('Erro ao criar arquivo ZIP.');
+            mostrarFeedback('Erro ao criar arquivo ZIP.', 'erro');
         });
-}
-
-function visualizarDocumento(index) {
-    const doc = documentosGerados[index];
-    
-    // Em um ambiente real, você poderia abrir em uma nova janela
-    // ou usar um visualizador de documentos
-    alert(`Para visualizar o documento "${doc.nome}", faça o download e abra no Microsoft Word.\n\nArquivo: ${doc.nomeArquivo}`);
 }
 
 function copiarDados() {
-    const dadosFormatados = document.getElementById('data-summary-content').textContent;
-    
-    navigator.clipboard.writeText(dadosFormatados)
+    const texto = document.getElementById('data-summary-content').textContent;
+    navigator.clipboard.writeText(texto)
         .then(() => {
             const btn = document.getElementById('copy-data-btn');
-            const originalText = btn.innerHTML;
+            const original = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
-            btn.style.background = '#27ae60';
-            
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.style.background = '';
-            }, 2000);
+            setTimeout(() => { btn.innerHTML = original; }, 2000);
         })
-        .catch(err => {
-            console.error('Erro ao copiar:', err);
-            alert('Erro ao copiar dados para a área de transferência.');
-        });
+        .catch(err => console.error('Erro ao copiar:', err));
 }
 
 function showLoading(show) {
     const loading = document.getElementById('loading');
     const generateBtn = document.getElementById('generate-btn');
-    
-    if (show) {
-        loading.classList.remove('hidden');
-        generateBtn.disabled = true;
-        generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando...';
-    } else {
-        loading.classList.add('hidden');
-        generateBtn.disabled = false;
-        generateBtn.innerHTML = '<i class="fas fa-file-word"></i> Gerar Documentos Word';
-    }
+    loading?.classList.toggle('hidden', !show);
+    if (!generateBtn) return;
+    generateBtn.disabled = show;
+    generateBtn.innerHTML = show
+        ? '<i class="fas fa-spinner fa-spin"></i> Processando...'
+        : textoBotaoGerar(getTiposSelecionados().length);
 }
 
 function showDownloadFeedback(nomeDocumento) {
-    // Feedback visual simples
     const originalTitle = document.title;
     document.title = `✓ ${nomeDocumento} baixado! - Gerador de Documentos`;
-    
-    setTimeout(() => {
-        document.title = originalTitle;
-    }, 1500);
+    setTimeout(() => { document.title = originalTitle; }, 1500);
 }
 
-// Funções auxiliares para o navegador
-function formatDateToDMY(date) {
-    const d = new Date(date);
-    return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
-}
+// =====================================================================
+// TEMA
+// =====================================================================
 
 function initThemeSelector() {
     const themeToggle = document.getElementById('theme-toggle');
-    if (!themeToggle) {
-        return;
-    }
-
+    if (!themeToggle) return;
     const html = document.documentElement;
     const savedTheme = localStorage.getItem('theme') || 'dark';
     html.setAttribute('data-theme', savedTheme);
     themeToggle.checked = savedTheme === 'light';
-
-    themeToggle.addEventListener('change', function() {
+    themeToggle.addEventListener('change', function () {
         const theme = this.checked ? 'light' : 'dark';
         html.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);

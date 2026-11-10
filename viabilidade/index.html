@@ -104,7 +104,57 @@
             </aside>
 
             <main class="content">
-                <form id="document-form">
+                <form id="document-form" novalidate>
+                    <section class="form-section step-docs" data-always-visible>
+                        <h2><i class="fas fa-file-contract"></i> 1. O que você vai gerar?</h2>
+
+                        <div class="saved-projects">
+                            <label for="projeto_salvo"><i class="fas fa-folder-open"></i> Reaproveitar dados de um projeto salvo</label>
+                            <div class="saved-projects-row">
+                                <select id="projeto_salvo" data-no-persist>
+                                    <option value="">Nenhum projeto salvo</option>
+                                </select>
+                                <button type="button" id="btn-carregar-projeto" class="btn-small"><i class="fas fa-upload"></i> Carregar</button>
+                                <button type="button" id="btn-salvar-projeto" class="btn-small"><i class="fas fa-save"></i> Salvar atual</button>
+                                <button type="button" id="btn-excluir-projeto" class="btn-small btn-small-danger" title="Excluir projeto salvo"><i class="fas fa-trash"></i></button>
+                            </div>
+                            <small>Os dados são salvos automaticamente ao gerar documentos. Assim, para emitir só a procuração depois, basta carregar o projeto.</small>
+                        </div>
+
+                        <div class="presets" role="group" aria-label="Seleção rápida">
+                            <span class="presets-label">Seleção rápida:</span>
+                            <button type="button" class="preset-btn" data-preset="completo">Pacote completo</button>
+                            <button type="button" class="preset-btn" data-preset="procuracao">Só Procuração</button>
+                            <button type="button" class="preset-btn" data-preset="cliente">Procuração + Termos</button>
+                            <button type="button" class="preset-btn" data-preset="tecnico">Memorial + Carta</button>
+                        </div>
+
+                        <div class="options-grid">
+                            <div class="option-item">
+                                <input type="checkbox" id="gerar_memorial" checked>
+                                <label for="gerar_memorial"><i class="fas fa-file-alt"></i> Memorial Descritivo</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="checkbox" id="gerar_procuracao" checked>
+                                <label for="gerar_procuracao"><i class="fas fa-file-signature"></i> Procuração</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="checkbox" id="gerar_termo" checked>
+                                <label for="gerar_termo"><i class="fas fa-file-contract"></i> Termo de Responsabilidade</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="checkbox" id="gerar_carta" checked>
+                                <label for="gerar_carta"><i class="fas fa-envelope"></i> Carta de Viabilidade</label>
+                            </div>
+                            <div class="option-item">
+                                <input type="checkbox" id="gerar_termo_nao_geracao" checked>
+                                <label for="gerar_termo_nao_geracao"><i class="fas fa-ban"></i> Termo de Não Geração</label>
+                            </div>
+                        </div>
+
+                        <div class="fields-counter" id="fields-counter" aria-live="polite"></div>
+                    </section>
+
                     
                     <section class="form-section">
                         <h2><i class="fas fa-pencil-alt"></i> Dados do Projeto</h2>
@@ -216,7 +266,7 @@
                             </div>
                         </div>
                         
-                        <div id="trafo_2_fields" class="form-grid" style="display: none; margin-top: 25px; border-top: 1px dashed #ddd; padding-top: 25px;">
+                        <div id="trafo_2_fields" class="form-grid trafo-2-fields hidden">
                             <div class="form-group">
                                 <label for="potencia_trafo_2">
                                     <i class="fas fa-industry"></i> Potência do Trafo 2 (kVA):
@@ -294,7 +344,7 @@
                                 </select>
                                 <small>Substituirá [PJDP] nos documentos</small>
                             </div>
-                            <div class="form-group"></div> </div>
+                            </div>
                     </section>
                     
                     <section class="form-section">
@@ -419,47 +469,10 @@
                         </div>
                     </section>
                     
-                    <section class="form-section">
-                        <h2><i class="fas fa-file-contract"></i> Opções de Geração</h2>
-                        
-                        <div class="options-grid">
-                            <div class="option-item">
-                                <input type="checkbox" id="gerar_memorial" checked>
-                                <label for="gerar_memorial">
-                                    <i class="fas fa-file-alt"></i> Memorial Descritivo
-                                </label>
-                            </div>
-                            
-                            <div class="option-item">
-                                <input type="checkbox" id="gerar_procuracao" checked>
-                                <label for="gerar_procuracao">
-                                    <i class="fas fa-file-signature"></i> Procuração
-                                </label>
-                            </div>
-                            
-                            <div class="option-item">
-                                <input type="checkbox" id="gerar_termo" checked>
-                                <label for="gerar_termo">
-                                    <i class="fas fa-file-contract"></i> Termo de Responsabilidade
-                                </label>
-                            </div>
-                            
-                            <div class="option-item">
-                                <input type="checkbox" id="gerar_carta" checked>
-                                <label for="gerar_carta">
-                                    <i class="fas fa-envelope"></i> Carta de Viabilidade
-                                </label>
-                            </div>
-                            
-                            <div class="option-item">
-                                <input type="checkbox" id="gerar_termo_nao_geracao" checked>
-                                <label for="gerar_termo_nao_geracao">
-                                    <i class="fas fa-ban"></i> Termo de Não Geração
-                                </label>
-                            </div>
-                        </div>
-                    </section>
                     
+                    
+                    <div class="form-feedback hidden" id="form-feedback" role="alert"></div>
+
                     <div class="form-actions">
                         <button type="submit" class="btn-generate" id="generate-btn">
                             <i class="fas fa-file-word"></i> Gerar Documentos Word
@@ -494,9 +507,6 @@
                             <button id="download-all-btn" class="btn-download-all">
                                 <i class="fas fa-file-archive"></i> Baixar Todos (.ZIP)
                             </button>
-                            <button id="download-individual-btn" class="btn-download-individual">
-                                <i class="fas fa-folder-open"></i> Abrir Pasta de Downloads
-                            </button>
                         </div>
                         
                         <div class="data-summary">
@@ -515,7 +525,7 @@
         </div>
         
         <footer class="footer">
-            <p><i class="fas fa-copyright"></i> Sistema de Geração de Documentos Word - Versão 2.0</p>
+            <p><i class="fas fa-copyright"></i> Sistema de Geração de Documentos Word - Versão 2.1</p>
             <p class="footer-info">Documentos gerados com formatação completa do Microsoft Word</p>
         </footer>
     </div>

@@ -122,6 +122,17 @@
                             <small>Os dados são salvos automaticamente ao gerar documentos. Assim, para emitir só a procuração depois, basta carregar o projeto.</small>
                         </div>
 
+                        <div class="excel-zona" id="excel-zona">
+                            <label for="excel_import" class="excel-titulo"><i class="fas fa-file-excel"></i> Preencher por planilha Excel</label>
+                            <div class="saved-projects-row">
+                                <button type="button" id="btn-excel-modelo" class="btn-small"><i class="fas fa-download"></i> Baixar modelo</button>
+                                <button type="button" id="btn-excel-exportar" class="btn-small"><i class="fas fa-file-export"></i> Exportar dados atuais</button>
+                                <label for="excel_import" class="btn-small btn-excel-importar"><i class="fas fa-upload"></i> Importar planilha preenchida</label>
+                                <input type="file" id="excel_import" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" data-no-persist class="visually-hidden">
+                            </div>
+                            <small>Baixe o modelo, preencha no Excel e importe aqui (ou arraste o arquivo para este quadro). Os campos continuam editáveis depois.</small>
+                        </div>
+
                         <div class="presets" role="group" aria-label="Seleção rápida">
                             <span class="presets-label">Seleção rápida:</span>
                             <button type="button" class="preset-btn" data-preset="completo">Pacote completo</button>
@@ -578,12 +589,13 @@
         </div>
         
         <footer class="footer">
-            <p><i class="fas fa-copyright"></i> Sistema de Geração de Documentos Word - Versão 2.3</p>
+            <p><i class="fas fa-copyright"></i> Sistema de Geração de Documentos Word - Versão 2.4</p>
             <p class="footer-info">Documentos gerados com formatação completa do Microsoft Word</p>
         </footer>
     </div>
 
     <script src="viabilidade/solar.js"></script>
     <script src="viabilidade/script.js"></script>
+    <script src="viabilidade/excel.js"></script>
 </body>
 </html>

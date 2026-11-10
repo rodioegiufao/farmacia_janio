@@ -1120,3 +1120,60 @@ body {
     .form-grid-3 { grid-template-columns: 1fr; }
     .form-grid-6 { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ===== v2.4 — Preenchimento por Excel ===== */
+.excel-zona {
+    margin-bottom: 22px;
+    padding: 16px;
+    border: 2px dashed var(--border-color);
+    border-radius: 10px;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.excel-zona.arrastando {
+    border-color: var(--success);
+    background: rgba(72, 187, 120, 0.08);
+}
+
+.excel-zona.carregando { opacity: 0.6; pointer-events: none; }
+
+.excel-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text-light);
+    cursor: pointer;
+}
+
+.excel-titulo i { color: #1d6f42; }
+
+.excel-zona small {
+    display: block;
+    margin-top: 8px;
+    font-size: 0.82rem;
+    opacity: 0.7;
+}
+
+.btn-excel-importar {
+    background: #1d6f42;
+    border-color: #1d6f42;
+    color: #fff;
+}
+
+.btn-excel-importar:hover { background: #185c37; color: #fff; border-color: #185c37; }
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.excel-avisos {
+    margin: 6px 0 0 20px;
+    font-size: 0.88rem;
+}

@@ -275,6 +275,7 @@ async function initApp() {
 
     await checkTemplates();
     atualizarFormulario(); // reavalia com os placeholders lidos dos templates
+    if (typeof lyRecolherCompletas === 'function') lyRecolherCompletas();
 }
 
 function valor(id) {
@@ -522,6 +523,7 @@ function atualizarFormulario() {
 
     if (tipos.includes('memorial_solar') && typeof fvAtualizarResumo === 'function') fvAtualizarResumo();
     if (typeof subAtualizarPainel === 'function') subAtualizarPainel();
+    if (typeof lyAtualizar === 'function') lyAtualizar();
 }
 
 function textoBotaoGerar(qtd) {
@@ -644,6 +646,7 @@ function aplicarEstado(estado) {
     if (typeof fvRenderStrings === 'function') fvRenderStrings();
     if (typeof subAtualizarFases === 'function') subAtualizarFases();
     atualizarFormulario();
+    if (typeof lyRecolherCompletas === 'function') lyRecolherCompletas();
 }
 
 function lerStorage(chave, padrao) {
@@ -667,7 +670,9 @@ function gravarStorage(chave, valorObj) {
 
 function agendarRascunho() {
     clearTimeout(timerRascunho);
-    timerRascunho = setTimeout(() => gravarStorage(STORAGE_RASCUNHO, lerEstado()), 400);
+    timerRascunho = setTimeout(() => {
+        if (gravarStorage(STORAGE_RASCUNHO, lerEstado()) && typeof lyRascunhoSalvo === 'function') lyRascunhoSalvo();
+    }, 400);
 }
 
 function restaurarRascunho() {

@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+
+# Áreas internas: sem valor para busca e exigem login
+Disallow: /admin
+Disallow: /atividades
+Disallow: /viabilidade
+Disallow: /Memorial
+Disallow: /alimentador
+Disallow: /carimbo
+Disallow: /iluminancia
+Disallow: /memo
+Disallow: /api/
+
+Sitemap: https://www.engrodrigodamasceno.com.br/sitemap.xml

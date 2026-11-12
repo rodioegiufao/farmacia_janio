@@ -101,8 +101,7 @@ document.addEventListener('DOMContentLoaded', function () {
             loginSenha.type = mostrarSenha ? 'text' : 'password';
             passwordToggle.setAttribute('aria-label', mostrarSenha ? 'Ocultar senha' : 'Mostrar senha');
             passwordToggle.setAttribute('aria-pressed', String(mostrarSenha));
-            passwordToggle.querySelector('i')?.classList.toggle('fa-eye', !mostrarSenha);
-            passwordToggle.querySelector('i')?.classList.toggle('fa-eye-slash', mostrarSenha);
+            passwordToggle.querySelector('use')?.setAttribute('href', mostrarSenha ? '#i-eye-off' : '#i-eye');
         });
 
         function redirectAfterLogin() {

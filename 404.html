@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Página não encontrada | Rodrigo Damasceno Nascimento</title>
+    <meta name="robots" content="noindex, follow">
+    <link rel="icon" href="/images/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
+    <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
+    <link rel="stylesheet" href="/styles/main.css">
+    <link rel="stylesheet" href="/styles/user-menu.css">
+    <link rel="stylesheet" href="/styles/header.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Barlow:wght@500;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        .erro-404 {
+            color: #e8edf1;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: clamp(3.5rem, 10vw, 7rem) 20px;
+            text-align: center;
+        }
+        .erro-404 .codigo {
+            display: inline-block;
+            margin-bottom: 1.25rem;
+            padding: 0.35rem 0.9rem;
+            border: 1px solid currentColor;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            opacity: 0.7;
+        }
+        .erro-404 h1 { margin: 0 0 1rem; font-size: clamp(1.9rem, 5vw, 2.8rem); line-height: 1.15; }
+        .erro-404 p { margin: 0 auto 2rem; max-width: 48ch; opacity: 0.78; }
+        .erro-404 .acoes { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; }
+        [data-theme="light"] .erro-404 { color: #13202b; }
+        .erro-404 .acoes a {
+            color: inherit;
+            display: inline-flex;
+            align-items: center;
+            min-height: 46px;
+            padding: 0 1.25rem;
+            border: 1px solid currentColor;
+            border-radius: 6px;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .erro-404 .acoes a:hover { opacity: 0.8; }
+        .erro-404 .acoes a.principal {
+            background: #f2c230;
+            border-color: #f2c230;
+            color: #101a23;
+        }
+    </style>
+</head>
+<body class="home">
+    <svg class="tb-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg"><defs>
+        <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+        <symbol id="i-file-lines" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+        <symbol id="i-file-pen" viewBox="0 0 24 24"><path d="M19 12V8l-5-5H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="M14 3v5h5"/><path d="M20.4 14.6a1.9 1.9 0 0 1 2.7 2.7L18 22.4l-3 .7.7-3 4.7-5.5Z"/></symbol>
+        <symbol id="i-ruler" viewBox="0 0 24 24"><path d="M3.8 13.1 13.1 3.8a1.5 1.5 0 0 1 2.1 0l5 5a1.5 1.5 0 0 1 0 2.1l-9.3 9.3a1.5 1.5 0 0 1-2.1 0l-5-5a1.5 1.5 0 0 1 0-2.1Z"/><path d="m8.5 8.5 2 2M11.5 5.5l2 2M5.5 11.5l2 2"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+        <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.5.4.8 1 .8 1.6v.5h5.4v-.5c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3Z"/></symbol>
+        <symbol id="i-list-check" viewBox="0 0 24 24"><path d="M10 6h11M10 12h11M10 18h11"/><path d="m3 6 1.5 1.5L7.5 4.5M3 17l1.5 1.5L7.5 15.5"/></symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></symbol>
+        <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+        <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 6.2A9.9 9.9 0 0 1 12 6c6.4 0 10 6 10 6a17 17 0 0 1-3.3 4"/><path d="M6.3 7.9A17 17 0 0 0 2 12s3.6 6 10 6a9.6 9.6 0 0 0 4-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+        <symbol id="i-user-shield" viewBox="0 0 24 24"><path d="M11 20H4v-1a6 6 0 0 1 7-5.9"/><circle cx="10" cy="7" r="3.5"/><path d="m18 12.5 3.5 1.4v2.6c0 2-1.4 3.7-3.5 4.5-2.1-.8-3.5-2.5-3.5-4.5v-2.6L18 12.5Z"/></symbol>
+        <symbol id="i-user-pen" viewBox="0 0 24 24"><path d="M11 20H4v-1a6 6 0 0 1 7.5-5.8"/><circle cx="10" cy="7" r="3.5"/><path d="M19.3 13.3a1.6 1.6 0 0 1 2.3 2.3L17.4 20l-2.6.6.6-2.6 3.9-4.7Z"/></symbol>
+        <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 16 6 12l4-4M6 12h10"/></symbol>
+    </defs></svg>
+
+    <!-- Cabeçalho -->
+    <header id="masthead" class="topbar">
+        <div class="topbar-inner">
+            <a class="tb-brand" href="/" rel="home" aria-label="Rodrigo Damasceno Nascimento, página inicial">
+                <span class="tb-brand-mark" aria-hidden="true">RD</span>
+                <span class="tb-brand-name">Rodrigo Damasceno</span>
+            </a>
+
+            <nav class="main-navigation" id="mainNav" aria-label="Navegação principal">
+                <ul class="tb-menu">
+                    <li><a href="/#projetos">Projetos</a></li>
+                    <li><a href="/#atuacao">Atuação</a></li>
+                    <li><a href="/#sobre">Sobre</a></li>
+                    <li><a href="/#contato">Contato</a></li>
+                    <li><a href="/3D">Modelos 3D</a></li>
+                    <li class="menu-item-has-children" id="ferramentasMenu" hidden>
+                        <a href="#ferramentas" aria-haspopup="true">Ferramentas <svg class="tb-i" aria-hidden="true" focusable="false"><use href="#i-chevron-down"></use></svg></a>
+                        <ul class="tb-sub">
+                            <li><a href="/viabilidade" data-auth-required="true"><svg class="tb-i" aria-hidden="true" focusable="false"><use href="#i-file-lines"></use></svg>Viabilidades</a></li>
+                            <li><a href="/Memorial" data-auth-required="true"><svg class="tb-i" aria-hidden="true" focusable="false"><use href="#i-file-pen"></use></svg>Memorial descritivo elétrico</a></li>
+                            <li><a href="/alimentador" data-auth-required="true"><svg class="tb-i" aria-hidden="true" focusable="false"><use href="#i-ruler"></use></svg>Dimensionamento do alimentador</a></li>
+                            <li><a href="/carimbo" data-auth-required="true"><svg class="tb-i" aria-hidden="true" focusable="false"><use href="#i-search"></use></svg>Analisador de carimbos PDF</a></li>
+                            <li><a href="/iluminancia" data-auth-required="true"><svg class="tb-i" aria-hidden="true" focusable="false"><use href="#i-bulb"></use></svg>Pontos de iluminância</a></li>
+                            <li><a href="/atividades" data-auth-required="true"><svg class="tb-i" aria-hidden="true" focusable="false"><use href="#i-list-check"></use></svg>Atividades</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="tb-actions">
+                <label class="tb-theme" title="Alternar tema claro/escuro">
+                    <input type="checkbox" id="theme-toggle" aria-label="Usar tema claro">
+                    <span class="tb-track" aria-hidden="true">
+                        <svg class="tb-icon tb-moon" viewBox="0 0 24 24"><path d="M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1Z"/></svg>
+                        <svg class="tb-icon tb-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 1.8v2.6M12 19.6v2.6M4.8 4.8l1.8 1.8M17.4 17.4l1.8 1.8M1.8 12h2.6M19.6 12h2.6M4.8 19.2l1.8-1.8M17.4 6.6l1.8-1.8"/></svg>
+                    </span>
+                </label>
+
+                <div class="tb-auth" id="homeAuth">
+                    <button type="button" class="tb-login-trigger" id="homeLoginTrigger" aria-expanded="false" aria-controls="homeLoginForm">
+                        <svg class="tb-i" aria-hidden="true" focusable="false"><use href="#i-lock"></use></svg>
+                        <span>Área interna</span>
+                    </button>
+                    <form class="tb-login" id="homeLoginForm" hidden>
+                        <p class="tb-login-title">Acesso da equipe</p>
+                        <p class="tb-login-message" id="homeLoginMensagem" role="alert" hidden></p>
+                        <label class="tb-field">
+                            <span>Usuário</span>
+                            <input type="text" id="homeLoginUsuario" autocomplete="username" required>
+                        </label>
+                        <label class="tb-field">
+                            <span>Senha</span>
+                            <span class="tb-pass">
+                                <input type="password" id="homeLoginSenha" autocomplete="current-password" required>
+                                <button type="button" class="tb-pass-toggle" id="homePasswordToggle" aria-label="Mostrar senha" aria-pressed="false">
+                                    <svg class="tb-i" aria-hidden="true" focusable="false"><use href="#i-eye"></use></svg>
+                                </button>
+                            </span>
+                        </label>
+                        <button type="submit" class="tb-submit">Entrar</button>
+                    </form>
+
+                    <div class="user-menu" id="userMenu" hidden>
+                        <button type="button" class="user-menu-trigger" id="userMenuTrigger" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu do usuário">
+                            <span id="usuarioIniciais" class="user-avatar" aria-hidden="true"></span>
+                        </button>
+                        <div class="user-menu-panel" id="userMenuPanel" role="menu" hidden>
+                            <div class="user-menu-profile">
+                                <span id="usuarioIniciaisMenu" class="user-avatar user-avatar-large" aria-hidden="true"></span>
+                                <div>
+                                    <strong id="usuarioLogado" class="logged-user"></strong>
+                                    <small id="usuarioPerfil"></small>
+                                </div>
+                            </div>
+                            <a href="/admin/" class="user-menu-item" id="adminLink" role="menuitem" hidden>
+                                <svg class="tb-i" aria-hidden="true" focusable="false"><use href="#i-user-shield"></use></svg>
+                                Administração
+                            </a>
+                            <button type="button" class="user-menu-item" id="btnPerfil" role="menuitem">
+                                <svg class="tb-i" aria-hidden="true" focusable="false"><use href="#i-user-pen"></use></svg>
+                                Perfil
+                            </button>
+                            <button type="button" class="user-menu-item" id="btnLogout" role="menuitem">
+                                <svg class="tb-i" aria-hidden="true" focusable="false"><use href="#i-logout"></use></svg>
+                                Sair
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="tb-nav-toggle" id="navToggle" aria-expanded="false" aria-controls="mainNav" aria-label="Abrir menu">
+                    <span></span><span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div id="content" class="site-content">
+        <main id="main" class="site-main">
+            <div class="erro-404">
+                <span class="codigo">Erro 404</span>
+                <h1>Esta página não existe</h1>
+                <p>O endereço pode ter mudado ou o link que você seguiu está incorreto. Use o menu acima ou volte para a página inicial.</p>
+                <div class="acoes">
+                    <a class="principal" href="/">Ir para o início</a>
+                    <a href="/3D">Ver modelos 3D</a>
+                    <a href="/#contato">Falar comigo</a>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer id="colophon" class="site-footer">
+        <div class="site-info">
+            <a class="site-name" href="/" rel="home">Rodrigo Damasceno Nascimento</a> - 
+            <a href="https://verificar-carimbo-site.vercel.app/analisador_carimbo.html" target="_blank">Analisador de PDF</a> - 
+            <a href="http://www.linkedin.com/in/eng-rodrigo-damasceno" target="_blank">LinkedIn</a>
+        </div>
+        <div class="site-copyright">
+            &copy; <span id="anoAtual">2024</span> Rodrigo Damasceno Nascimento. Engenheiro Eletricista CREA/RR 092019291-2. Todos os direitos reservados.
+        </div>
+    </footer>
+
+    <script src="/js/auth-guard.js"></script>
+    <script src="/js/main.js"></script>
+</body>
+</html>

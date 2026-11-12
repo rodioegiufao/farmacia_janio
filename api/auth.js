@@ -21,8 +21,16 @@ function buildPublicUser(user) {
 module.exports = async function authHandler(req, res) {
   try {
     if (req.method === "GET") {
-      const user = await requireUser(req);
-      sendJson(res, 200, { user });
+      // Visitante sem sessão não é erro: responde 200 com user nulo.
+      // O 401 fica reservado para chamadas que de fato exigem login, o que
+      // evita um erro vermelho no console a cada visita anônima.
+      try {
+        const user = await requireUser(req);
+        sendJson(res, 200, { user });
+      } catch (error) {
+        if (error?.statusCode !== 401) throw error;
+        sendJson(res, 200, { user: null }, { "Set-Cookie": clearSessionCookie() });
+      }
       return;
     }
 

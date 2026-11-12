@@ -108,8 +108,8 @@ html { scroll-padding-top: 84px; }
     color: var(--tb-ink);
     background: var(--tb-surface-2);
 }
-.tb-menu .fa-chevron-down { font-size: 0.7rem; transition: transform 0.2s ease; }
-.tb-menu .menu-item-has-children.active .fa-chevron-down { transform: rotate(180deg); }
+.tb-menu .tb-i { width: 0.8rem; height: 0.8rem; transition: transform 0.2s ease; }
+.tb-menu .menu-item-has-children.active .tb-i { transform: rotate(180deg); }
 
 .tb-sub {
     position: absolute;
@@ -143,9 +143,43 @@ html { scroll-padding-top: 84px; }
     text-decoration: none;
     white-space: nowrap;
 }
-.tb-sub a i { width: 1.1rem; color: var(--tb-muted); text-align: center; }
+.tb-sub a .tb-i { width: 1.15rem; height: 1.15rem; color: var(--tb-muted); }
 .tb-sub a:hover { background: var(--tb-surface-2); }
-.tb-sub a:hover i { color: var(--tb-accent); }
+.tb-sub a:hover .tb-i { color: var(--tb-accent); }
+
+/* Ícones SVG inline (substituem o Font Awesome) */
+.tb-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.tb-i {
+    width: 1.05rem;
+    height: 1.05rem;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+#masthead .user-menu-item .tb-i { width: 20px; height: 20px; color: var(--tb-muted); }
+
+/* Título principal da página (h1) */
+.page-h1 {
+    max-width: 1200px;
+    margin: 0 auto 2.5rem;
+    padding: 0 20px;
+    text-align: center;
+    font-size: clamp(1.6rem, 3.4vw, 2.3rem);
+    line-height: 1.2;
+    font-weight: 700;
+}
+.page-h1 span {
+    display: block;
+    margin-top: 0.6rem;
+    font-size: clamp(0.95rem, 1.6vw, 1.05rem);
+    font-weight: 400;
+    opacity: 0.72;
+}
 
 /* Ações à direita */
 .tb-actions {
@@ -213,7 +247,7 @@ html { scroll-padding-top: 84px; }
     font: 500 0.95rem/1 "Barlow", "Segoe UI", sans-serif;
     cursor: pointer;
 }
-.tb-login-trigger i { font-size: 0.8rem; color: var(--tb-muted); }
+.tb-login-trigger .tb-i { width: 0.95rem; height: 0.95rem; color: var(--tb-muted); }
 .tb-login-trigger:hover,
 .tb-login-trigger[aria-expanded="true"] { border-color: var(--tb-ink); }
 

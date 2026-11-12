@@ -10,75 +10,29 @@
     <link rel="icon" type="image/png" href="./images/favicon-16x16.png" sizes="16x16">
     <link rel="stylesheet" href="./styles/main.css">
     <link rel="stylesheet" href="./styles/user-menu.css">
-    <link rel="stylesheet" href="./styles/header.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Barlow:wght@500;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="home">
-    <!-- Cabeçalho -->
-    <header id="masthead" class="topbar">
-        <div class="topbar-inner">
-            <a class="tb-brand" href="/" rel="home" aria-label="Rodrigo Damasceno Nascimento, página inicial">
-                <span class="tb-brand-mark" aria-hidden="true">RD</span>
-                <span class="tb-brand-name">Rodrigo Damasceno</span>
-            </a>
-
-            <nav class="main-navigation" id="mainNav" aria-label="Navegação principal">
-                <ul class="tb-menu">
-                    <li><a href="#projetos">Projetos</a></li>
-                    <li><a href="#atuacao">Atuação</a></li>
-                    <li><a href="#sobre">Sobre</a></li>
-                    <li><a href="#contato">Contato</a></li>
-                    <li><a href="/3D">Modelos 3D</a></li>
-                    <li class="menu-item-has-children" id="ferramentasMenu" hidden>
-                        <a href="#ferramentas" aria-haspopup="true">Ferramentas <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></a>
-                        <ul class="tb-sub">
-                            <li><a href="/viabilidade" data-auth-required="true"><i class="fa-solid fa-file-lines" aria-hidden="true"></i>Viabilidades</a></li>
-                            <li><a href="/Memorial" data-auth-required="true"><i class="fa-solid fa-file-pen" aria-hidden="true"></i>Memorial descritivo elétrico</a></li>
-                            <li><a href="/alimentador" data-auth-required="true"><i class="fa-solid fa-ruler" aria-hidden="true"></i>Dimensionamento do alimentador</a></li>
-                            <li><a href="/carimbo" data-auth-required="true"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>Analisador de carimbos PDF</a></li>
-                            <li><a href="/iluminancia" data-auth-required="true"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i>Pontos de iluminância</a></li>
-                            <li><a href="/atividades" data-auth-required="true"><i class="fa-solid fa-list-check" aria-hidden="true"></i>Atividades</a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </nav>
-
-            <div class="tb-actions">
-                <label class="tb-theme" title="Alternar tema claro/escuro">
-                    <input type="checkbox" id="theme-toggle" aria-label="Usar tema claro">
-                    <span class="tb-track" aria-hidden="true">
-                        <svg class="tb-icon tb-moon" viewBox="0 0 24 24"><path d="M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1Z"/></svg>
-                        <svg class="tb-icon tb-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 1.8v2.6M12 19.6v2.6M4.8 4.8l1.8 1.8M17.4 17.4l1.8 1.8M1.8 12h2.6M19.6 12h2.6M4.8 19.2l1.8-1.8M17.4 6.6l1.8-1.8"/></svg>
-                    </span>
-                </label>
-
-                <div class="tb-auth" id="homeAuth">
-                    <button type="button" class="tb-login-trigger" id="homeLoginTrigger" aria-expanded="false" aria-controls="homeLoginForm">
-                        <i class="fa-solid fa-lock" aria-hidden="true"></i>
-                        <span>Área interna</span>
-                    </button>
-                    <form class="tb-login" id="homeLoginForm" hidden>
-                        <p class="tb-login-title">Acesso da equipe</p>
-                        <p class="tb-login-message" id="homeLoginMensagem" role="alert" hidden></p>
-                        <label class="tb-field">
-                            <span>Usuário</span>
-                            <input type="text" id="homeLoginUsuario" autocomplete="username" required>
-                        </label>
-                        <label class="tb-field">
-                            <span>Senha</span>
-                            <span class="tb-pass">
-                                <input type="password" id="homeLoginSenha" autocomplete="current-password" required>
-                                <button type="button" class="tb-pass-toggle" id="homePasswordToggle" aria-label="Mostrar senha" aria-pressed="false">
-                                    <i class="fa-solid fa-eye" aria-hidden="true"></i>
-                                </button>
-                            </span>
-                        </label>
-                        <button type="submit" class="tb-submit">Entrar</button>
+    <!-- Admin Bar (simulada) -->
+    <!-- Tema Selector -->
+    <div id="theme-selector" class="theme-selector">
+        <div class="theme-selector-content">
+            <div class="theme-logo">Rodrigo Damasceno</div>
+            <div class="theme-controls">
+                <div class="home-auth" id="homeAuth">
+                    <form class="home-login-form" id="homeLoginForm" hidden>
+                        <input type="text" id="homeLoginUsuario" placeholder="Usuário" autocomplete="username" required>
+                        <span class="home-password-field">
+                            <input type="password" id="homeLoginSenha" placeholder="Senha" autocomplete="current-password" required>
+                            <button type="button" class="home-password-toggle" id="homePasswordToggle" aria-label="Mostrar senha" aria-pressed="false">
+                                <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                        <button type="submit">Entrar</button>
                     </form>
-
                     <div class="user-menu" id="userMenu" hidden>
                         <button type="button" class="user-menu-trigger" id="userMenuTrigger" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu do usuário">
                             <span id="usuarioIniciais" class="user-avatar" aria-hidden="true"></span>
@@ -106,12 +60,45 @@
                         </div>
                     </div>
                 </div>
-
-                <button type="button" class="tb-nav-toggle" id="navToggle" aria-expanded="false" aria-controls="mainNav" aria-label="Abrir menu">
-                    <span></span><span></span>
-                </button>
+                <label class="theme-switch">
+                    <input type="checkbox" id="theme-toggle">
+                    <span class="theme-slider">
+                        <span class="theme-icon sun">☀️</span>
+                        <span class="theme-icon moon">🌙</span>
+                    </span>
+                </label>
             </div>
         </div>
+    </div>
+
+    <!-- Header -->
+    <header id="masthead" class="site-header">
+        <div class="site-branding">
+            <p class="site-title">
+                <a href="./index.html" rel="home">Rodrigo Damasceno Nascimento</a>
+            </p>
+        </div>
+        
+       <!-- Menu Principal -->
+        <nav class="main-navigation">
+            <ul class="main-menu">
+                <li><a href="./index.html">Início</a></li>
+                <li class="menu-item-has-children" id="ferramentasMenu" hidden>
+                    <a href="#ferramentas">Ferramentas ▾</a>
+                    <ul class="sub-menu">
+                        <li><a href="/viabilidade" data-auth-required="true">📄 Viabilidades</a></li>
+                        <li><a href="/Memorial" data-auth-required="true">📝 Memorial Descritivo Elétrico</a></li>
+                        <li><a href="/alimentador" data-auth-required="true">📏 Dimensionamento do Alimentador</a></li>
+                        <li><a href="/carimbo" data-auth-required="true">🔍 Analisador de Carimbos PDF</a></li>
+                        <li><a href="/iluminancia" data-auth-required="true">💡 Calculadora de Pontos de Iluminância</a></li>
+                        <li><a href="/atividades" data-auth-required="true">✅ Atividades</a></li>
+                    </ul>
+                </li>
+                <li><a href="/3D">Modelos 3D</a></li>
+                <li><a href="#sobre">Sobre</a></li>
+                <li><a href="#contato">Contato</a></li>
+            </ul>
+        </nav>
     </header>
 
     <!-- Main Content -->
@@ -122,7 +109,7 @@
                     <div class="entry-content">
                         
                         <!-- Hero Section -->
-                        <h2 id="projetos" class="section-title center reveal">Trabalhos destacados</h2>
+                        <h2 class="section-title center reveal">Trabalhos destacados</h2>
                         
                         <div class="carousel-container reveal">
                             <div class="carousel-track">
@@ -177,7 +164,7 @@
                         <hr class="section-separator">
 
                         <!-- Meu Trabalho Section -->
-                        <h2 id="atuacao" class="section-title center reveal">Meu trabalho</h2>
+                        <h2 class="section-title center reveal">Meu trabalho</h2>
                         
                         <div class="columns-container reveal">
                             <div class="column">

@@ -290,6 +290,70 @@ body {
     background: var(--accent-light);
 }
 
+/* Botões de seleção: arquivos ou pasta inteira */
+.upload-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.browse-button-alt {
+    background: transparent;
+    color: var(--text-light);
+    border: 1px solid var(--border-color);
+}
+
+.browse-button-alt:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--accent-blue);
+}
+
+.upload-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    opacity: 0.8;
+    cursor: pointer;
+}
+
+.upload-option input {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--accent-blue);
+    cursor: pointer;
+}
+
+/* Resumo do que entrou e do que foi ignorado */
+.upload-summary {
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border-left: 3px solid var(--accent-blue);
+    border-radius: 4px;
+    background: rgba(49, 130, 206, 0.12);
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.upload-summary-erro {
+    border-left-color: var(--error);
+    background: rgba(245, 101, 101, 0.12);
+}
+
+/* Caminho da subpasta, abaixo do nome do arquivo */
+.file-path {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.75rem;
+    opacity: 0.6;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* File List */
 .file-list {
     max-height: 200px;
@@ -343,6 +407,7 @@ body {
 }
 
 .file-name {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

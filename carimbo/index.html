@@ -78,13 +78,24 @@
                         <label>Selecione os arquivos PDF</label>
                         <div class="file-upload-area" id="fileUploadArea">
                             <div class="upload-icon">📎</div>
-                            <p>Arraste e solte arquivos aqui</p>
-                            <p class="upload-subtext">Limite: 200MB por arquivo • PDF</p>
-                            <button type="button" class="browse-button" onclick="document.getElementById('pdfUpload').click()">
-                                Procurar arquivos
-                            </button>
-                            <input type="file" id="pdfUpload" accept=".pdf" multiple class="hidden">
+                            <p>Arraste e solte arquivos ou uma pasta aqui</p>
+                            <p class="upload-subtext">Limite: 200MB por arquivo • Só PDF: DWG, Word, Excel e outros são ignorados</p>
+                            <div class="upload-buttons">
+                                <button type="button" class="browse-button" id="browseFilesButton">
+                                    Procurar arquivos
+                                </button>
+                                <button type="button" class="browse-button browse-button-alt" id="browseFolderButton">
+                                    📁 Selecionar pasta
+                                </button>
+                            </div>
+                            <label class="upload-option" for="incluirSubpastas">
+                                <input type="checkbox" id="incluirSubpastas" checked>
+                                <span>Incluir subpastas</span>
+                            </label>
+                            <input type="file" id="pdfUpload" accept=".pdf,application/pdf" multiple class="hidden">
+                            <input type="file" id="folderUpload" webkitdirectory directory multiple class="hidden">
                         </div>
+                        <div id="uploadSummary" class="upload-summary" hidden></div>
                         <div id="fileList" class="file-list"></div>
                     </div>
             

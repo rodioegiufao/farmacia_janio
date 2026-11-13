@@ -104,14 +104,21 @@ class PDFAnalyzerApp {
 
     setupFileUploadHandlers() {
         const fileInput = document.getElementById('pdfUpload');
+        const folderInput = document.getElementById('folderUpload');
         const uploadArea = document.getElementById('fileUploadArea');
+        const browseFilesButton = document.getElementById('browseFilesButton');
+        const browseFolderButton = document.getElementById('browseFolderButton');
         
         if (!fileInput || !uploadArea) {
             console.error('❌ Elementos de upload não encontrados');
             return;
         }
         
+        browseFilesButton?.addEventListener('click', () => fileInput.click());
+        browseFolderButton?.addEventListener('click', () => folderInput?.click());
+
         fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
+        folderInput?.addEventListener('change', (e) => this.handleFolderSelect(e));
         
         // Drag and drop functionality
         uploadArea.addEventListener('dragover', (e) => {
@@ -129,56 +136,175 @@ class PDFAnalyzerApp {
             this.handleFileDrop(e);
         });
         
-        console.log('✅ Upload de arquivos configurado');
+        console.log('✅ Upload de arquivos e pastas configurado');
+    }
+
+    incluirSubpastas() {
+        const checkbox = document.getElementById('incluirSubpastas');
+        return checkbox ? checkbox.checked : true;
     }
 
     handleFileSelect(event) {
-        console.log('📁 Arquivos selecionados:', event.target.files);
-        this.handleFiles(event.target.files);
+        const arquivos = Array.from(event.target.files || []);
+        console.log('📁 Arquivos selecionados:', arquivos.length);
+        this.handleFiles(arquivos);
+        event.target.value = '';
     }
 
-    handleFileDrop(event) {
-        const files = event.dataTransfer.files;
-        console.log('📁 Arquivos arrastados:', files);
-        this.handleFiles(files);
+    handleFolderSelect(event) {
+        const todos = Array.from(event.target.files || []);
+        // webkitRelativePath = "pasta/sub/arquivo.pdf". Sem subpastas, só o nível raiz.
+        const arquivos = this.incluirSubpastas()
+            ? todos
+            : todos.filter(file => String(file.webkitRelativePath || '').split('/').length <= 2);
+
+        console.log(`📁 Pasta selecionada: ${todos.length} arquivos, ${arquivos.length} no escopo escolhido`);
+        this.handleFiles(arquivos, { origem: 'pasta', totalBruto: todos.length });
+        event.target.value = '';
     }
 
-    handleFiles(files) {
+    async handleFileDrop(event) {
+        const itens = Array.from(event.dataTransfer?.items || []);
+        const temPasta = itens.some(item => typeof item.webkitGetAsEntry === 'function' && item.webkitGetAsEntry()?.isDirectory);
+
+        if (!temPasta) {
+            const arquivos = Array.from(event.dataTransfer?.files || []);
+            console.log('📁 Arquivos arrastados:', arquivos.length);
+            this.handleFiles(arquivos);
+            return;
+        }
+
+        // Pasta arrastada: percorre a árvore com a File System API do navegador
+        const entradas = itens
+            .map(item => (typeof item.webkitGetAsEntry === 'function' ? item.webkitGetAsEntry() : null))
+            .filter(Boolean);
+
+        this.mostrarResumoUpload('Lendo a pasta...', 'info');
+
+        try {
+            const arquivos = [];
+            for (const entrada of entradas) {
+                await this.coletarArquivosDaEntrada(entrada, '', arquivos);
+            }
+            console.log(`📁 Pasta arrastada: ${arquivos.length} arquivos encontrados`);
+            this.handleFiles(arquivos, { origem: 'pasta', totalBruto: arquivos.length });
+        } catch (erro) {
+            console.error('❌ Falha ao ler a pasta arrastada:', erro);
+            this.showError('Não foi possível ler a pasta. Use o botão "Selecionar pasta".');
+        }
+    }
+
+    // Percorre recursivamente uma entrada de diretório arrastada para a página.
+    async coletarArquivosDaEntrada(entrada, caminhoBase, destino) {
+        if (!entrada) return;
+
+        if (entrada.isFile) {
+            const file = await new Promise((resolve, reject) => entrada.file(resolve, reject));
+            // Guarda o caminho relativo, que o File do drag and drop não traz.
+            if (caminhoBase && !file.caminhoRelativo) {
+                try {
+                    Object.defineProperty(file, 'caminhoRelativo', { value: `${caminhoBase}${file.name}`, enumerable: false });
+                } catch (_e) { /* alguns navegadores não permitem; o nome ainda funciona */ }
+            }
+            destino.push(file);
+            return;
+        }
+
+        if (entrada.isDirectory) {
+            const profundidade = caminhoBase ? caminhoBase.split('/').filter(Boolean).length : 0;
+            if (profundidade >= 1 && !this.incluirSubpastas()) return;
+
+            const reader = entrada.createReader();
+            let lote = [];
+            do {
+                lote = await new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+                for (const filho of lote) {
+                    await this.coletarArquivosDaEntrada(filho, `${caminhoBase}${entrada.name}/`, destino);
+                }
+            } while (lote.length > 0);
+        }
+    }
+
+    // Caminho relativo do arquivo, quando veio de uma pasta.
+    caminhoDoArquivo(file) {
+        return file.caminhoRelativo || file.webkitRelativePath || file.name;
+    }
+
+    mostrarResumoUpload(mensagem, tipo = 'info') {
+        const resumo = document.getElementById('uploadSummary');
+        if (!resumo) return;
+        resumo.textContent = mensagem;
+        resumo.className = `upload-summary upload-summary-${tipo}`;
+        resumo.hidden = !mensagem;
+    }
+
+    handleFiles(files, contexto = {}) {
         const fileList = document.getElementById('fileList');
         if (!fileList) {
             console.error('❌ fileList não encontrado');
             return;
         }
-        
-        const novosArquivos = Array.from(files).filter(file => {
+
+        const recebidos = Array.from(files || []);
+        const ignorados = [];
+
+        const novosArquivos = recebidos.filter(file => {
             const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-            if (!isPDF) {
-                console.warn(`⚠️ Arquivo ignorado (não é PDF): ${file.name}`);
-            }
+            if (!isPDF) ignorados.push(file.name);
             return isPDF;
         });
 
-        // Mantém os arquivos já adicionados e evita duplicatas
-        const arquivosExistentes = new Set(
-            this.uploadedFiles.map(file => `${file.name}-${file.size}-${file.lastModified}`)
-        );
+        if (ignorados.length) {
+            console.warn(`⚠️ ${ignorados.length} arquivo(s) ignorado(s) por não serem PDF:`, ignorados);
+        }
+
+        // Mantém os arquivos já adicionados e evita duplicatas.
+        // O caminho entra na chave porque a mesma prancha pode existir em subpastas diferentes.
+        const chaveDe = (file) => `${this.caminhoDoArquivo(file)}-${file.size}-${file.lastModified}`;
+        const arquivosExistentes = new Set(this.uploadedFiles.map(chaveDe));
+
+        let adicionados = 0;
+        let duplicados = 0;
 
         novosArquivos.forEach(file => {
-            const fileId = `${file.name}-${file.size}-${file.lastModified}`;
-            if (!arquivosExistentes.has(fileId)) {
-                this.uploadedFiles.push(file);
-                arquivosExistentes.add(fileId);
+            const fileId = chaveDe(file);
+            if (arquivosExistentes.has(fileId)) {
+                duplicados++;
+                return;
             }
+            this.uploadedFiles.push(file);
+            arquivosExistentes.add(fileId);
+            adicionados++;
         });
-        
-        console.log(`✅ ${this.uploadedFiles.length} arquivos PDF carregados`);
 
-        if (novosArquivos.length === 0 && files.length > 0) {
-            this.showError('Por favor, selecione arquivos PDF válidos.');
+        console.log(`✅ ${this.uploadedFiles.length} arquivos PDF na fila (${adicionados} novos)`);
+
+        if (novosArquivos.length === 0 && recebidos.length > 0) {
+            const mensagem = contexto.origem === 'pasta'
+                ? `Nenhum PDF encontrado nessa pasta. ${recebidos.length} arquivo(s) de outros formatos foram ignorados.`
+                : 'Por favor, selecione arquivos PDF válidos.';
+            this.mostrarResumoUpload(mensagem, 'erro');
+            this.showError(mensagem);
             return;
         }
 
+        this.mostrarResumoUpload(this.montarResumoUpload({ adicionados, duplicados, ignorados: ignorados.length, contexto }), 'ok');
         this.renderFileList();
+    }
+
+    montarResumoUpload({ adicionados, duplicados, ignorados, contexto }) {
+        const partes = [];
+        partes.push(`${adicionados} PDF${adicionados === 1 ? '' : 's'} adicionado${adicionados === 1 ? '' : 's'}`);
+        if (ignorados > 0) {
+            partes.push(`${ignorados} arquivo${ignorados === 1 ? '' : 's'} de outro formato ignorado${ignorados === 1 ? '' : 's'}`);
+        }
+        if (duplicados > 0) {
+            partes.push(`${duplicados} já estava${duplicados === 1 ? '' : 'm'} na lista`);
+        }
+        if (contexto.origem === 'pasta' && !this.incluirSubpastas()) {
+            partes.push('subpastas não incluídas');
+        }
+        return `${partes.join(' · ')}. Total na fila: ${this.uploadedFiles.length}.`;
     }
 
     renderFileList() {
@@ -192,9 +318,14 @@ class PDFAnalyzerApp {
         this.uploadedFiles.forEach((file, index) => {
             const fileItem = document.createElement('div');
             fileItem.className = 'file-item';
+            const caminho = this.caminhoDoArquivo(file);
+            const pasta = caminho.includes('/') ? caminho.slice(0, caminho.lastIndexOf('/')) : '';
             fileItem.innerHTML = `
                 <div class="file-info">
-                    <span class="file-name" title="${file.name}">${file.name}</span>
+                    <span class="file-name" title="${caminho}">
+                        ${file.name}
+                        ${pasta ? `<small class="file-path">${pasta}</small>` : ''}
+                    </span>
                     <span class="file-size">${this.formatFileSize(file.size)}</span>
                 </div>
                 <button type="button" class="delete-file-button" data-file-index="${index}" title="Excluir PDF" aria-label="Excluir PDF ${file.name}">
@@ -216,6 +347,10 @@ class PDFAnalyzerApp {
 
         const [removedFile] = this.uploadedFiles.splice(index, 1);
         console.log(`🗑️ Arquivo removido: ${removedFile.name}`);
+        this.mostrarResumoUpload(
+            this.uploadedFiles.length ? `Total na fila: ${this.uploadedFiles.length} PDF${this.uploadedFiles.length === 1 ? '' : 's'}.` : '',
+            'ok'
+        );
         this.renderFileList();
     }
 
